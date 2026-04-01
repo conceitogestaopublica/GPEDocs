@@ -141,31 +141,8 @@ class GedSeeder extends Seeder
             }
         }
 
-        // Pastas iniciais
-        $raizAdm = DB::table('ged_pastas')->insertGetId([
-            'nome' => 'Administrativo', 'descricao' => 'Documentos administrativos', 'parent_id' => null, 'path' => '/1', 'criado_por' => 1,
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        $raizFin = DB::table('ged_pastas')->insertGetId([
-            'nome' => 'Financeiro', 'descricao' => 'Documentos financeiros', 'parent_id' => null, 'path' => '/2', 'criado_por' => 1,
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('ged_pastas')->insert([
-            ['nome' => 'Juridico', 'descricao' => 'Documentos juridicos', 'parent_id' => null, 'path' => '/3', 'criado_por' => 1, 'created_at' => now(), 'updated_at' => now()],
-            ['nome' => 'Recursos Humanos', 'descricao' => 'Documentos de RH', 'parent_id' => null, 'path' => '/4', 'criado_por' => 1, 'created_at' => now(), 'updated_at' => now()],
-            ['nome' => 'Licitacoes', 'descricao' => 'Processos licitatorios', 'parent_id' => null, 'path' => '/5', 'criado_por' => 1, 'created_at' => now(), 'updated_at' => now()],
-        ]);
-
-        // Subpastas
-        DB::table('ged_pastas')->insert([
-            ['nome' => 'Oficios', 'descricao' => null, 'parent_id' => $raizAdm, 'path' => "/1/{$raizAdm}", 'criado_por' => 1, 'created_at' => now(), 'updated_at' => now()],
-            ['nome' => 'Portarias', 'descricao' => null, 'parent_id' => $raizAdm, 'path' => "/1/{$raizAdm}", 'criado_por' => 1, 'created_at' => now(), 'updated_at' => now()],
-            ['nome' => 'Contratos', 'descricao' => null, 'parent_id' => $raizFin, 'path' => "/2/{$raizFin}", 'criado_por' => 1, 'created_at' => now(), 'updated_at' => now()],
-            ['nome' => 'Notas Fiscais', 'descricao' => null, 'parent_id' => $raizFin, 'path' => "/2/{$raizFin}", 'criado_por' => 1, 'created_at' => now(), 'updated_at' => now()],
-        ]);
-
-        // Usuario admin
-        DB::table('users')->insert([
+        // Usuario admin (antes das pastas por causa da FK criado_por)
+        $adminUserId = DB::table('users')->insertGetId([
             'name' => 'Administrador',
             'email' => 'admin@ged.local',
             'password' => Hash::make('admin123'),
@@ -173,10 +150,33 @@ class GedSeeder extends Seeder
             'updated_at' => now(),
         ]);
 
+        // Pastas iniciais
+        $raizAdm = DB::table('ged_pastas')->insertGetId([
+            'nome' => 'Administrativo', 'descricao' => 'Documentos administrativos', 'parent_id' => null, 'path' => '/1', 'criado_por' => $adminUserId,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $raizFin = DB::table('ged_pastas')->insertGetId([
+            'nome' => 'Financeiro', 'descricao' => 'Documentos financeiros', 'parent_id' => null, 'path' => '/2', 'criado_por' => $adminUserId,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('ged_pastas')->insert([
+            ['nome' => 'Juridico', 'descricao' => 'Documentos juridicos', 'parent_id' => null, 'path' => '/3', 'criado_por' => $adminUserId, 'created_at' => now(), 'updated_at' => now()],
+            ['nome' => 'Recursos Humanos', 'descricao' => 'Documentos de RH', 'parent_id' => null, 'path' => '/4', 'criado_por' => $adminUserId, 'created_at' => now(), 'updated_at' => now()],
+            ['nome' => 'Licitacoes', 'descricao' => 'Processos licitatorios', 'parent_id' => null, 'path' => '/5', 'criado_por' => $adminUserId, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        // Subpastas
+        DB::table('ged_pastas')->insert([
+            ['nome' => 'Oficios', 'descricao' => null, 'parent_id' => $raizAdm, 'path' => "/1/{$raizAdm}", 'criado_por' => $adminUserId, 'created_at' => now(), 'updated_at' => now()],
+            ['nome' => 'Portarias', 'descricao' => null, 'parent_id' => $raizAdm, 'path' => "/1/{$raizAdm}", 'criado_por' => $adminUserId, 'created_at' => now(), 'updated_at' => now()],
+            ['nome' => 'Contratos', 'descricao' => null, 'parent_id' => $raizFin, 'path' => "/2/{$raizFin}", 'criado_por' => $adminUserId, 'created_at' => now(), 'updated_at' => now()],
+            ['nome' => 'Notas Fiscais', 'descricao' => null, 'parent_id' => $raizFin, 'path' => "/2/{$raizFin}", 'criado_por' => $adminUserId, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
         // Atribuir role admin ao usuario
         $adminRoleId = DB::table('ged_roles')->where('nome', 'Administrador')->value('id');
         DB::table('ged_user_roles')->insert([
-            'user_id' => 1,
+            'user_id' => $adminUserId,
             'role_id' => $adminRoleId,
         ]);
 
