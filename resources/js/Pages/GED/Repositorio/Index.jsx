@@ -1,11 +1,8 @@
 /**
  * Repositorio / Gerenciador de Arquivos — GED
- *
- * Layout 3 paineis: arvore de pastas (esquerda), grid/lista de documentos (centro),
- * preview rapido (direita, colapsavel).
  */
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
@@ -13,10 +10,15 @@ import Modal from '../../../Components/Modal';
 import Card from '../../../Components/Card';
 
 export default function Repositorio({ pastas, documentos, pasta_atual, breadcrumb }) {
-    const [viewMode, setViewMode] = useState('grid'); // grid | list
+    const [viewMode, setViewMode] = useState('grid');
     const [selectedDoc, setSelectedDoc] = useState(null);
     const [showNewFolder, setShowNewFolder] = useState(false);
     const [search, setSearch] = useState('');
+
+    // Modais de acao em pasta
+    const [renamePasta, setRenamePasta] = useState(null);
+    const [deletePasta, setDeletePasta] = useState(null);
+    const [inativarPasta, setInativarPasta] = useState(null);
 
     const docs = documentos?.data || documentos || [];
     const folders = pastas || [];
@@ -36,7 +38,7 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
             </PageHeader>
 
             <div className="flex gap-5">
-                {/* Arvore de pastas (sidebar esquerda) */}
+                {/* Arvore de pastas */}
                 <div className="hidden lg:block w-64 shrink-0">
                     <Card title="Pastas" padding={false}>
                         <div className="p-3 max-h-[calc(100vh-250px)] overflow-y-auto">
@@ -44,6 +46,9 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                                 folder={{ id: null, nome: 'Raiz', children: buildTree(folders) }}
                                 currentPastaId={pasta_atual?.id}
                                 level={0}
+                                onRename={setRenamePasta}
+                                onDelete={setDeletePasta}
+                                onInativar={setInativarPasta}
                             />
                         </div>
                     </Card>
@@ -54,7 +59,6 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                     {/* Toolbar */}
                     <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 mb-4 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
-                            {/* Breadcrumb */}
                             <div className="flex items-center gap-1 text-sm">
                                 <Link href="/repositorio" className="text-blue-600 hover:underline">
                                     <i className="fas fa-home text-xs" />
@@ -73,7 +77,6 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                         </div>
 
                         <div className="flex items-center gap-2">
-                            {/* Busca local */}
                             <div className="relative">
                                 <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                                 <input
@@ -85,7 +88,6 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                                 />
                             </div>
 
-                            {/* Toggle view */}
                             <div className="flex border border-gray-200 rounded-lg overflow-hidden">
                                 <button onClick={() => setViewMode('grid')}
                                     className={`px-3 py-1.5 text-xs ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
@@ -103,16 +105,13 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                     {folders.filter(f => f.parent_id === (pasta_atual?.id || null)).length > 0 && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
                             {folders.filter(f => f.parent_id === (pasta_atual?.id || null)).map(folder => (
-                                <Link key={folder.id} href={`/repositorio?pasta_id=${folder.id}`}
-                                    className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md hover:border-amber-200 transition-all">
-                                    <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-                                        <i className="fas fa-folder text-amber-500" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-medium text-gray-700 truncate">{folder.nome}</p>
-                                        <p className="text-xs text-gray-400">{folder.doc_count || 0} docs</p>
-                                    </div>
-                                </Link>
+                                <FolderCard
+                                    key={folder.id}
+                                    folder={folder}
+                                    onRename={setRenamePasta}
+                                    onDelete={setDeletePasta}
+                                    onInativar={setInativarPasta}
+                                />
                             ))}
                         </div>
                     )}
@@ -190,50 +189,169 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                         </div>
                     )}
                 </div>
-
-                {/* Preview Panel */}
-                {selectedDoc && (
-                    <div className="hidden xl:block w-72 shrink-0">
-                        <Card title="Pre-visualizacao">
-                            <p className="text-sm text-gray-600">{selectedDoc.nome}</p>
-                        </Card>
-                    </div>
-                )}
             </div>
 
-            {/* Modal Nova Pasta */}
+            {/* Modais */}
             <NewFolderModal show={showNewFolder} onClose={() => setShowNewFolder(false)} pastaAtualId={pasta_atual?.id} />
+            <RenameFolderModal pasta={renamePasta} onClose={() => setRenamePasta(null)} />
+            <DeleteFolderModal pasta={deletePasta} onClose={() => setDeletePasta(null)} />
+            <InativarFolderModal pasta={inativarPasta} onClose={() => setInativarPasta(null)} />
         </AdminLayout>
     );
 }
 
-function FolderItem({ folder, currentPastaId, level }) {
+/* ── Folder Card (grid de subpastas) ── */
+function FolderCard({ folder, onRename, onDelete, onInativar }) {
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menuRef = useRef(null);
+
+    useEffect(() => {
+        const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const hasData = (folder.documentos_count || 0) > 0 || (folder.children_count || 0) > 0;
+
+    return (
+        <div className="relative flex items-center gap-3 bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md hover:border-amber-200 transition-all group">
+            <Link href={`/repositorio?pasta_id=${folder.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
+                    <i className="fas fa-folder text-amber-500" />
+                </div>
+                <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-700 truncate">{folder.nome}</p>
+                    <p className="text-xs text-gray-400">{folder.documentos_count || 0} docs</p>
+                </div>
+            </Link>
+
+            {/* Menu 3 pontinhos */}
+            <div className="relative" ref={menuRef}>
+                <button
+                    onClick={(e) => { e.preventDefault(); setMenuOpen(!menuOpen); }}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-all"
+                >
+                    <i className="fas fa-ellipsis-v text-xs" />
+                </button>
+
+                {menuOpen && (
+                    <div className="absolute right-0 top-8 w-44 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 animate-fadeIn">
+                        <button
+                            onClick={() => { setMenuOpen(false); onRename(folder); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                            <i className="fas fa-pen text-xs text-blue-500 w-4" />
+                            Renomear
+                        </button>
+                        {!hasData ? (
+                            <button
+                                onClick={() => { setMenuOpen(false); onDelete(folder); }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                            >
+                                <i className="fas fa-trash text-xs w-4" />
+                                Excluir
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => { setMenuOpen(false); onInativar(folder); }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-amber-600 hover:bg-amber-50"
+                            >
+                                <i className="fas fa-eye-slash text-xs w-4" />
+                                Inativar
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/* ── Folder Tree Item ── */
+function FolderItem({ folder, currentPastaId, level, onRename, onDelete, onInativar }) {
     const [expanded, setExpanded] = useState(level === 0);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menuRef = useRef(null);
     const hasChildren = folder.children && folder.children.length > 0;
     const isActive = folder.id === currentPastaId;
+    const isRoot = folder.id === null;
+
+    useEffect(() => {
+        const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
 
     return (
         <div>
-            <div className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors text-sm
-                ${isActive ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-                style={{ paddingLeft: level * 16 + 8 }}>
+            <div
+                className={`group flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors text-sm
+                    ${isActive ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
+                style={{ paddingLeft: level * 16 + 8 }}
+                onContextMenu={(e) => {
+                    if (!isRoot) {
+                        e.preventDefault();
+                        setMenuOpen(true);
+                    }
+                }}
+            >
                 {hasChildren ? (
                     <button onClick={() => setExpanded(!expanded)} className="w-4 text-gray-400">
                         <i className={`fas fa-chevron-right text-[8px] transition-transform ${expanded ? 'rotate-90' : ''}`} />
                     </button>
                 ) : <span className="w-4" />}
-                <Link href={folder.id ? `/repositorio?pasta_id=${folder.id}` : '/repositorio'} className="flex items-center gap-2 flex-1">
+                <Link href={folder.id ? `/repositorio?pasta_id=${folder.id}` : '/repositorio'} className="flex items-center gap-2 flex-1 min-w-0">
                     <i className={`fas fa-folder text-xs ${isActive ? 'text-blue-500' : 'text-amber-400'}`} />
                     <span className="truncate">{folder.nome}</span>
                 </Link>
+
+                {/* Menu de contexto na arvore */}
+                {!isRoot && (
+                    <div className="relative" ref={menuRef}>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+                            className="w-5 h-5 rounded flex items-center justify-center text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                            <i className="fas fa-ellipsis-v text-[9px]" />
+                        </button>
+
+                        {menuOpen && (
+                            <div className="absolute right-0 top-6 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 animate-fadeIn">
+                                <button
+                                    onClick={() => { setMenuOpen(false); onRename(folder); }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                                >
+                                    <i className="fas fa-pen text-blue-500 w-3" />
+                                    Renomear
+                                </button>
+                                <button
+                                    onClick={() => { setMenuOpen(false); onDelete(folder); }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+                                >
+                                    <i className="fas fa-trash w-3" />
+                                    Excluir
+                                </button>
+                                <button
+                                    onClick={() => { setMenuOpen(false); onInativar(folder); }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-amber-600 hover:bg-amber-50"
+                                >
+                                    <i className="fas fa-eye-slash w-3" />
+                                    Inativar
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
             {expanded && hasChildren && folder.children.map(child => (
-                <FolderItem key={child.id} folder={child} currentPastaId={currentPastaId} level={level + 1} />
+                <FolderItem key={child.id} folder={child} currentPastaId={currentPastaId} level={level + 1}
+                    onRename={onRename} onDelete={onDelete} onInativar={onInativar} />
             ))}
         </div>
     );
 }
 
+/* ── Modal: Nova Pasta ── */
 function NewFolderModal({ show, onClose, pastaAtualId }) {
     const { data, setData, post, processing, errors, reset } = useForm({ nome: '', parent_id: pastaAtualId || '' });
 
@@ -259,6 +377,121 @@ function NewFolderModal({ show, onClose, pastaAtualId }) {
         </Modal>
     );
 }
+
+/* ── Modal: Renomear Pasta ── */
+function RenameFolderModal({ pasta, onClose }) {
+    const { data, setData, put, processing, errors } = useForm({ nome: pasta?.nome || '', descricao: pasta?.descricao || '' });
+
+    useEffect(() => {
+        if (pasta) {
+            setData({ nome: pasta.nome, descricao: pasta.descricao || '' });
+        }
+    }, [pasta]);
+
+    const submit = (e) => {
+        e.preventDefault();
+        put(`/pastas/${pasta.id}`, { onSuccess: onClose });
+    };
+
+    if (!pasta) return null;
+
+    return (
+        <Modal show={!!pasta} onClose={onClose} title="Renomear Pasta">
+            <form onSubmit={submit} className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                    <input type="text" value={data.nome} onChange={(e) => setData('nome', e.target.value)}
+                        className="ds-input" autoFocus />
+                    {errors.nome && <p className="mt-1 text-xs text-red-600">{errors.nome}</p>}
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>
+                    <input type="text" value={data.descricao} onChange={(e) => setData('descricao', e.target.value)}
+                        className="ds-input" placeholder="Opcional" />
+                </div>
+                <div className="flex justify-end gap-2">
+                    <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
+                    <Button type="submit" loading={processing} icon="fas fa-pen">Renomear</Button>
+                </div>
+            </form>
+        </Modal>
+    );
+}
+
+/* ── Modal: Excluir Pasta ── */
+function DeleteFolderModal({ pasta, onClose }) {
+    const [processing, setProcessing] = useState(false);
+
+    const submit = () => {
+        setProcessing(true);
+        router.delete(`/pastas/${pasta.id}`, {
+            onSuccess: onClose,
+            onFinish: () => setProcessing(false),
+        });
+    };
+
+    if (!pasta) return null;
+
+    return (
+        <Modal show={!!pasta} onClose={onClose} title="Excluir Pasta">
+            <div className="space-y-4">
+                <div className="flex items-start gap-3 p-4 bg-red-50 rounded-xl">
+                    <i className="fas fa-exclamation-triangle text-red-500 mt-0.5" />
+                    <div>
+                        <p className="text-sm font-medium text-red-800">Tem certeza que deseja excluir?</p>
+                        <p className="text-sm text-red-600 mt-1">
+                            A pasta <strong>"{pasta.nome}"</strong> sera excluida permanentemente.
+                            Esta acao nao pode ser desfeita.
+                        </p>
+                    </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                    <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
+                    <Button variant="danger" onClick={submit} loading={processing} icon="fas fa-trash">Excluir</Button>
+                </div>
+            </div>
+        </Modal>
+    );
+}
+
+/* ── Modal: Inativar Pasta ── */
+function InativarFolderModal({ pasta, onClose }) {
+    const [processing, setProcessing] = useState(false);
+
+    const submit = () => {
+        setProcessing(true);
+        router.post(`/pastas/${pasta.id}/inativar`, {}, {
+            onSuccess: onClose,
+            onFinish: () => setProcessing(false),
+        });
+    };
+
+    if (!pasta) return null;
+
+    return (
+        <Modal show={!!pasta} onClose={onClose} title="Inativar Pasta">
+            <div className="space-y-4">
+                <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-xl">
+                    <i className="fas fa-eye-slash text-amber-500 mt-0.5" />
+                    <div>
+                        <p className="text-sm font-medium text-amber-800">Inativar pasta</p>
+                        <p className="text-sm text-amber-600 mt-1">
+                            A pasta <strong>"{pasta.nome}"</strong> e suas subpastas serao ocultadas
+                            do sistema. Os documentos serao preservados e a pasta podera ser reativada
+                            posteriormente.
+                        </p>
+                    </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                    <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
+                    <Button variant="accent" onClick={submit} loading={processing} icon="fas fa-eye-slash">Inativar</Button>
+                </div>
+            </div>
+        </Modal>
+    );
+}
+
+/* ── Helpers ── */
 
 function StatusBadge({ status }) {
     const map = {

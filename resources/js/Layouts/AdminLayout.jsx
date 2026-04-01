@@ -11,12 +11,18 @@ import FlashMessage from '../Components/FlashMessage';
 
 const MENU_ITEMS = [
     { title: 'Dashboard', icon: 'fas fa-tachometer-alt', href: '/dashboard', color: 'text-blue-600 bg-blue-100' },
+    { section: 'label', label: 'Documentos' },
     { title: 'Meus Documentos', icon: 'fas fa-file-alt', href: '/documentos', color: 'text-emerald-600 bg-emerald-100' },
-    { title: 'Repositorio', icon: 'fas fa-folder-open', href: '/repositorio', color: 'text-amber-600 bg-amber-100' },
-    { title: 'Capturar', icon: 'fas fa-upload', href: '/capturar', color: 'text-purple-600 bg-purple-100' },
-    { title: 'Fluxos de Trabalho', icon: 'fas fa-project-diagram', href: '/fluxos', color: 'text-teal-600 bg-teal-100' },
+    { title: 'Favoritos', icon: 'fas fa-star', href: '/documentos?filtro=favoritos', color: 'text-yellow-600 bg-yellow-100' },
+    { title: 'Ultimos Acessados', icon: 'fas fa-clock', href: '/documentos?filtro=recentes', color: 'text-cyan-600 bg-cyan-100' },
+    { title: 'Mais Acessados', icon: 'fas fa-fire', href: '/documentos?filtro=populares', color: 'text-orange-600 bg-orange-100' },
+    { title: 'Arquivados', icon: 'fas fa-archive', href: '/documentos?filtro=arquivados', color: 'text-gray-600 bg-gray-200' },
+    { section: 'label', label: 'Gestao' },
+    { title: 'Capturar', icon: 'fas fa-camera', href: '/capturar', color: 'text-purple-600 bg-purple-100' },
     { title: 'Busca Avancada', icon: 'fas fa-search', href: '/busca', color: 'text-indigo-600 bg-indigo-100' },
-    { section: 'separator' },
+    { section: 'label', label: 'Administracao' },
+    { title: 'Acervo', icon: 'fas fa-sitemap', href: '/repositorio', color: 'text-amber-600 bg-amber-100' },
+    { title: 'Tipos Documentais', icon: 'fas fa-file-signature', href: '/admin/tipos-documentais', color: 'text-violet-600 bg-violet-100' },
     { title: 'Usuarios', icon: 'fas fa-users', href: '/admin/usuarios', color: 'text-red-600 bg-red-100' },
     { title: 'Perfis e Permissoes', icon: 'fas fa-shield-alt', href: '/admin/roles', color: 'text-slate-600 bg-slate-100' },
 ];
@@ -160,10 +166,17 @@ function GedSidebar({ collapsed, isMobile, sidebarOpen, onClose }) {
                         if (item.section === 'separator') {
                             return <div key={i} className="my-3 mx-2 border-t border-gray-100" />;
                         }
+                        if (item.section === 'label') {
+                            return !collapsed
+                                ? <p key={i} className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 pt-4 pb-1">{item.label}</p>
+                                : <div key={i} className="my-3 mx-2 border-t border-gray-100" />;
+                        }
 
-                        const isActive = url === item.href
-                            || url.startsWith(item.href + '/')
-                            || url.startsWith(item.href + '?');
+                        // Itens com query string: match exato. Itens sem: match por prefixo (mas não se outro item com query bate exato).
+                        const hasQuery = item.href.includes('?');
+                        const exactMatch = url === item.href;
+                        const prefixMatch = !hasQuery && (url.startsWith(item.href + '/') || url.startsWith(item.href + '?'));
+                        const isActive = exactMatch || (prefixMatch && !MENU_ITEMS.some(m => m.href?.includes('?') && url === m.href));
 
                         const [iconColor, iconBg] = (item.color || 'text-gray-500 bg-gray-100').split(' ');
 

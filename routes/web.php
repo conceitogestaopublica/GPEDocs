@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\TipoDocumentalController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BuscaController;
@@ -29,11 +30,15 @@ Route::middleware('auth')->group(function () {
     Route::resource('documentos', DocumentoController::class)->except(['create', 'edit']);
     Route::get('documentos/{id}/download', [DocumentoController::class, 'download'])->name('documentos.download');
     Route::get('documentos/{id}/preview', [DocumentoController::class, 'preview'])->name('documentos.preview');
+    Route::post('documentos/{id}/favorito', [DocumentoController::class, 'toggleFavorito'])->name('documentos.favorito');
+    Route::post('documentos/{id}/status', [DocumentoController::class, 'alterarStatus'])->name('documentos.status');
 
     // Pastas / Repositorio
     Route::get('repositorio', [PastaController::class, 'index'])->name('repositorio');
     Route::get('pastas/tree', [PastaController::class, 'tree'])->name('pastas.tree');
     Route::resource('pastas', PastaController::class)->except(['index', 'show']);
+    Route::post('pastas/{id}/inativar', [PastaController::class, 'inativar'])->name('pastas.inativar');
+    Route::post('pastas/{id}/reativar', [PastaController::class, 'reativar'])->name('pastas.reativar');
 
     // Captura
     Route::get('capturar', [CapturaController::class, 'index'])->name('capturar');
@@ -51,6 +56,8 @@ Route::middleware('auth')->group(function () {
     Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('usuarios', UsuarioController::class)->except(['create', 'edit', 'show']);
         Route::resource('roles', RoleController::class)->except(['create', 'edit', 'show']);
+        Route::resource('tipos-documentais', TipoDocumentalController::class)->except(['create', 'edit', 'show']);
+        Route::post('tipos-documentais/{id}/toggle-ativo', [TipoDocumentalController::class, 'toggleAtivo'])->name('tipos-documentais.toggle-ativo');
     });
 
     // Notificacoes

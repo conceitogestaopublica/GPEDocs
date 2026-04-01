@@ -18,8 +18,9 @@ const TABS = [
     { key: 'fluxos', label: 'Fluxos', icon: 'fas fa-project-diagram' },
 ];
 
-export default function Show({ documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags }) {
+export default function Show({ documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito }) {
     const [activeTab, setActiveTab] = useState('visualizar');
+    const [statusOpen, setStatusOpen] = useState(false);
     const doc = documento || {};
 
     const statusMap = {
@@ -71,6 +72,54 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
                     </div>
 
                     <div className="flex items-center gap-2">
+                        {/* Favorito */}
+                        <button
+                            onClick={() => router.post(`/documentos/${doc.id}/favorito`)}
+                            className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all
+                                ${is_favorito
+                                    ? 'bg-yellow-50 border-yellow-300 text-yellow-500 hover:bg-yellow-100'
+                                    : 'border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-yellow-500'}`}
+                            title={is_favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                        >
+                            <i className={`${is_favorito ? 'fas' : 'far'} fa-star`} />
+                        </button>
+
+                        {/* Status */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setStatusOpen(!statusOpen)}
+                                className="ds-btn ds-btn-outline flex items-center gap-2"
+                            >
+                                <i className="fas fa-exchange-alt text-xs" />
+                                Status
+                                <i className={`fas fa-chevron-down text-[10px] transition-transform ${statusOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {statusOpen && (
+                                <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 animate-fadeIn">
+                                    {[
+                                        { value: 'rascunho', label: 'Rascunho', icon: 'fas fa-pen', color: 'text-yellow-600' },
+                                        { value: 'revisao', label: 'Em Revisao', icon: 'fas fa-search', color: 'text-blue-600' },
+                                        { value: 'publicado', label: 'Publicado', icon: 'fas fa-check-circle', color: 'text-green-600' },
+                                        { value: 'arquivado', label: 'Arquivado', icon: 'fas fa-archive', color: 'text-gray-600' },
+                                    ].map(s => (
+                                        <button
+                                            key={s.value}
+                                            onClick={() => {
+                                                setStatusOpen(false);
+                                                router.post(`/documentos/${doc.id}/status`, { status: s.value });
+                                            }}
+                                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-gray-50 transition-colors
+                                                ${doc.status === s.value ? 'bg-gray-50 font-semibold' : ''}`}
+                                        >
+                                            <i className={`${s.icon} text-xs ${s.color} w-4`} />
+                                            <span className={doc.status === s.value ? s.color : 'text-gray-700'}>{s.label}</span>
+                                            {doc.status === s.value && <i className="fas fa-check text-[10px] text-green-500 ml-auto" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                         <Button variant="secondary" icon="fas fa-share-alt">Compartilhar</Button>
                         <a href={`/documentos/${doc.id}/download`} className="ds-btn ds-btn-primary">
                             <i className="fas fa-download mr-1" /> Download

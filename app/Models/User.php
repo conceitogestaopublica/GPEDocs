@@ -48,4 +48,10 @@ class User extends Authenticatable
     {
         return $this->hasMany(Notificacao::class, 'usuario_id');
     }
+
+    public function favoritos(): BelongsToMany
+    {
+        return $this->belongsToMany(Documento::class, 'ged_favoritos', 'user_id', 'documento_id')
+            ->withPivot('created_at');
+    }
 }

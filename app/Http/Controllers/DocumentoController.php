@@ -18,8 +18,20 @@ class DocumentoController extends Controller
 {
     public function index(Request $request): Response
     {
-        $query = Documento::with(['tipoDocumental', 'autor', 'pasta'])
+        $query = Documento::with(['tipoDocumental', 'autor', 'pasta', 'metadados'])
             ->whereNull('deleted_at');
+
+        // Filtro por favoritos, recentes, populares
+        $filtro = $request->input('filtro');
+        if ($filtro === 'favoritos') {
+            $query->whereIn('id', Auth::user()->favoritos()->pluck('documento_id'));
+        } elseif ($filtro === 'recentes') {
+            $query->where('autor_id', Auth::id())->orderByDesc('updated_at');
+        } elseif ($filtro === 'populares') {
+            $query->where('autor_id', Auth::id())->orderByDesc('updated_at');
+        } elseif ($filtro === 'arquivados') {
+            $query->where('status', 'arquivado');
+        }
 
         if ($request->filled('search')) {
             $search = $request->input('search');
@@ -43,9 +55,13 @@ class DocumentoController extends Controller
 
         $documentos = $query->orderByDesc('updated_at')->paginate(20)->withQueryString();
 
+        // Marcar favoritos do usuario
+        $favoritoIds = Auth::user()->favoritos()->pluck('documento_id')->toArray();
+
         return Inertia::render('GED/Documentos/Index', [
-            'documentos' => $documentos,
-            'filters'    => $request->only(['search', 'tipo', 'status', 'pasta_id']),
+            'documentos'   => $documentos,
+            'filters'      => $request->only(['search', 'tipo', 'status', 'pasta_id', 'filtro']),
+            'favorito_ids' => $favoritoIds,
         ]);
     }
 
@@ -63,8 +79,11 @@ class DocumentoController extends Controller
             'pasta',
         ])->findOrFail($id);
 
+        $isFavorito = Auth::user()->favoritos()->where('documento_id', $id)->exists();
+
         return Inertia::render('GED/Documentos/Show', [
-            'documento' => $documento,
+            'documento'   => $documento,
+            'is_favorito' => $isFavorito,
         ]);
     }
 
@@ -82,7 +101,7 @@ class DocumentoController extends Controller
             DB::beginTransaction();
 
             $file = $request->file('arquivo');
-            $path = $file->store('documentos', 'ged');
+            $path = $file->store('documentos', 'local');
 
             $documento = Documento::create([
                 'nome'              => $request->input('nome'),
@@ -103,7 +122,7 @@ class DocumentoController extends Controller
                 'tamanho'      => $file->getSize(),
                 'hash_sha256'  => hash_file('sha256', $file->getRealPath()),
                 'autor_id'     => Auth::id(),
-                'comentario'   => 'Versão inicial',
+                'comentario'   => 'Versao inicial',
             ]);
 
             AuditLog::create([
@@ -172,7 +191,7 @@ class DocumentoController extends Controller
                 'user_agent'   => request()->userAgent(),
             ]);
 
-            return redirect()->back()->with('success', 'Documento excluído com sucesso.');
+            return redirect('/documentos')->with('success', 'Documento excluido com sucesso.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Erro ao excluir documento: ' . $e->getMessage());
         }
@@ -183,8 +202,8 @@ class DocumentoController extends Controller
         $documento = Documento::with('versaoAtual')->findOrFail($id);
         $versao = $documento->versaoAtual;
 
-        if (!$versao || !Storage::disk('ged')->exists($versao->arquivo_path)) {
-            return redirect()->back()->with('error', 'Arquivo não encontrado.');
+        if (!$versao || !Storage::disk('local')->exists($versao->arquivo_path)) {
+            return redirect()->back()->with('error', 'Arquivo nao encontrado.');
         }
 
         AuditLog::create([
@@ -196,7 +215,7 @@ class DocumentoController extends Controller
             'user_agent'   => request()->userAgent(),
         ]);
 
-        return Storage::disk('ged')->download($versao->arquivo_path, $documento->nome);
+        return Storage::disk('local')->download($versao->arquivo_path, $documento->nome);
     }
 
     public function preview($id)
@@ -204,12 +223,50 @@ class DocumentoController extends Controller
         $documento = Documento::with('versaoAtual')->findOrFail($id);
         $versao = $documento->versaoAtual;
 
-        if (!$versao || !Storage::disk('ged')->exists($versao->arquivo_path)) {
-            return redirect()->back()->with('error', 'Arquivo não encontrado.');
+        if (!$versao || !Storage::disk('local')->exists($versao->arquivo_path)) {
+            return redirect()->back()->with('error', 'Arquivo nao encontrado.');
         }
 
-        return Storage::disk('ged')->response($versao->arquivo_path, $documento->nome, [
+        return Storage::disk('local')->response($versao->arquivo_path, $documento->nome, [
             'Content-Type' => $documento->mime_type,
         ]);
+    }
+
+    public function toggleFavorito($id)
+    {
+        $user = Auth::user();
+        $exists = $user->favoritos()->where('documento_id', $id)->exists();
+
+        if ($exists) {
+            $user->favoritos()->detach($id);
+            $msg = 'Documento removido dos favoritos.';
+        } else {
+            $user->favoritos()->attach($id, ['created_at' => now()]);
+            $msg = 'Documento adicionado aos favoritos.';
+        }
+
+        return redirect()->back()->with('success', $msg);
+    }
+
+    public function alterarStatus(Request $request, $id)
+    {
+        $request->validate([
+            'status' => ['required', 'string', 'in:rascunho,publicado,revisao,arquivado'],
+        ]);
+
+        $documento = Documento::findOrFail($id);
+        $statusAnterior = $documento->status;
+        $documento->update(['status' => $request->input('status')]);
+
+        AuditLog::create([
+            'documento_id' => $documento->id,
+            'usuario_id'   => Auth::id(),
+            'acao'         => 'alteracao_status',
+            'detalhes'     => ['de' => $statusAnterior, 'para' => $request->input('status')],
+            'ip'           => $request->ip(),
+            'user_agent'   => $request->userAgent(),
+        ]);
+
+        return redirect()->back()->with('success', 'Status alterado com sucesso.');
     }
 }

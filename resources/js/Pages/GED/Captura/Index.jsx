@@ -30,11 +30,24 @@ export default function Captura({ tipos_documentais, pastas }) {
         pasta_id: '',
         classificacao: 'publico',
         descricao: '',
+        metadados: {},
         files: [],
     });
 
     const tipos = tipos_documentais || [];
     const pastaList = pastas || [];
+
+    // Schema do tipo selecionado
+    const tipoSelecionado = tipos.find(t => String(t.id) === String(data.tipo_documental_id));
+    const schemaCampos = tipoSelecionado?.schema_metadados || [];
+
+    const handleTipoChange = (tipoId) => {
+        setData(prev => ({ ...prev, tipo_documental_id: tipoId, metadados: {} }));
+    };
+
+    const setMetadado = (campo, valor) => {
+        setData('metadados', { ...data.metadados, [campo]: valor });
+    };
 
     // ── Upload handlers ──
     const handleDrop = useCallback((e) => {
@@ -199,6 +212,10 @@ export default function Captura({ tipos_documentais, pastas }) {
         formData.append('pasta_id', data.pasta_id);
         formData.append('classificacao', data.classificacao);
         formData.append('descricao', data.descricao);
+        // Metadados dinamicos
+        Object.entries(data.metadados).forEach(([chave, valor]) => {
+            if (valor) formData.append(`metadados[${chave}]`, valor);
+        });
         files.forEach((file, i) => formData.append(`files[${i}]`, file));
 
         post('/capturar/upload', {
@@ -499,7 +516,7 @@ export default function Captura({ tipos_documentais, pastas }) {
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Tipo Documental</label>
                                     <select
                                         value={data.tipo_documental_id}
-                                        onChange={(e) => setData('tipo_documental_id', e.target.value)}
+                                        onChange={(e) => handleTipoChange(e.target.value)}
                                         className="ds-input"
                                     >
                                         <option value="">Selecionar tipo...</option>
@@ -509,6 +526,62 @@ export default function Captura({ tipos_documentais, pastas }) {
                                     </select>
                                     {errors.tipo_documental_id && <p className="mt-1 text-xs text-red-600">{errors.tipo_documental_id}</p>}
                                 </div>
+
+                                {/* Campos dinamicos do tipo documental */}
+                                {schemaCampos.length > 0 && (
+                                    <div className="border-t border-gray-100 pt-3 space-y-3">
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                            Campos de {tipoSelecionado.nome}
+                                        </p>
+                                        {schemaCampos.map((campo) => (
+                                            <div key={campo.campo}>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    {campo.label}
+                                                    {campo.obrigatorio && <span className="text-red-500 ml-0.5">*</span>}
+                                                </label>
+                                                {campo.tipo === 'text' && (
+                                                    <input
+                                                        type="text"
+                                                        value={data.metadados[campo.campo] || ''}
+                                                        onChange={(e) => setMetadado(campo.campo, e.target.value)}
+                                                        className="ds-input"
+                                                        placeholder={campo.label}
+                                                    />
+                                                )}
+                                                {campo.tipo === 'number' && (
+                                                    <input
+                                                        type="number"
+                                                        value={data.metadados[campo.campo] || ''}
+                                                        onChange={(e) => setMetadado(campo.campo, e.target.value)}
+                                                        className="ds-input"
+                                                        placeholder={campo.label}
+                                                        step="any"
+                                                    />
+                                                )}
+                                                {campo.tipo === 'date' && (
+                                                    <input
+                                                        type="date"
+                                                        value={data.metadados[campo.campo] || ''}
+                                                        onChange={(e) => setMetadado(campo.campo, e.target.value)}
+                                                        className="ds-input"
+                                                    />
+                                                )}
+                                                {campo.tipo === 'select' && (
+                                                    <select
+                                                        value={data.metadados[campo.campo] || ''}
+                                                        onChange={(e) => setMetadado(campo.campo, e.target.value)}
+                                                        className="ds-input"
+                                                    >
+                                                        <option value="">Selecionar...</option>
+                                                        {(campo.opcoes || '').split(',').filter(Boolean).map(op => (
+                                                            <option key={op.trim()} value={op.trim()}>{op.trim()}</option>
+                                                        ))}
+                                                    </select>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Pasta de Destino</label>

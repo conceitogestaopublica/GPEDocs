@@ -18,6 +18,7 @@ class Pasta extends Model
         'parent_id',
         'path',
         'criado_por',
+        'ativo',
     ];
 
     public function parent(): BelongsTo

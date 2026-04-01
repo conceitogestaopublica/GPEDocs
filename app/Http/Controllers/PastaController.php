@@ -16,8 +16,8 @@ class PastaController extends Controller
 {
     public function index(): Response
     {
-        $pastas = Pasta::with('children')
-            ->whereNull('parent_id')
+        $pastas = Pasta::where('ativo', true)
+            ->withCount(['documentos' => fn ($q) => $q->whereNull('deleted_at')])
             ->orderBy('nome')
             ->get();
 
@@ -27,14 +27,15 @@ class PastaController extends Controller
             ->get();
 
         return Inertia::render('GED/Repositorio/Index', [
-            'pastas'             => $pastas,
+            'pastas'               => $pastas,
             'documentos_sem_pasta' => $documentosSemPasta,
         ]);
     }
 
     public function tree()
     {
-        $pastas = Pasta::with('children')
+        $pastas = Pasta::where('ativo', true)
+            ->with('children')
             ->whereNull('parent_id')
             ->orderBy('nome')
             ->get();
@@ -82,14 +83,12 @@ class PastaController extends Controller
 
         try {
             $pasta = Pasta::findOrFail($id);
-            $oldName = $pasta->nome;
 
             $pasta->update([
                 'nome'      => $request->input('nome'),
                 'descricao' => $request->input('descricao'),
             ]);
 
-            // Update path for this folder and all descendants
             $oldPath = $pasta->path;
             $newPath = $pasta->parent_id
                 ? Pasta::find($pasta->parent_id)->path . '/' . $request->input('nome')
@@ -97,7 +96,6 @@ class PastaController extends Controller
 
             $pasta->update(['path' => $newPath]);
 
-            // Update descendant paths
             DB::table('ged_pastas')
                 ->where('path', 'like', $oldPath . '/%')
                 ->update([
@@ -119,14 +117,41 @@ class PastaController extends Controller
             $hasDocumentos = Documento::where('pasta_id', $id)->whereNull('deleted_at')->exists();
 
             if ($hasChildren || $hasDocumentos) {
-                return redirect()->back()->with('error', 'Não é possível excluir uma pasta que contém subpastas ou documentos.');
+                return redirect()->back()->with('error', 'Nao e possivel excluir pasta com subpastas ou documentos. Use a opcao Inativar.');
             }
 
             $pasta->delete();
 
-            return redirect()->back()->with('success', 'Pasta excluída com sucesso.');
+            return redirect()->back()->with('success', 'Pasta excluida com sucesso.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Erro ao excluir pasta: ' . $e->getMessage());
+        }
+    }
+
+    public function inativar($id)
+    {
+        try {
+            $pasta = Pasta::findOrFail($id);
+            $pasta->update(['ativo' => false]);
+
+            // Inativar subpastas recursivamente
+            Pasta::where('path', 'like', $pasta->path . '/%')->update(['ativo' => false]);
+
+            return redirect()->back()->with('success', 'Pasta inativada com sucesso.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Erro ao inativar pasta: ' . $e->getMessage());
+        }
+    }
+
+    public function reativar($id)
+    {
+        try {
+            $pasta = Pasta::findOrFail($id);
+            $pasta->update(['ativo' => true]);
+
+            return redirect()->back()->with('success', 'Pasta reativada com sucesso.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Erro ao reativar pasta: ' . $e->getMessage());
         }
     }
 }
