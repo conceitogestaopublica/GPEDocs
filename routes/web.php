@@ -15,6 +15,7 @@ use App\Http\Controllers\CapturaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\FluxoController;
+use App\Http\Controllers\ModulosController;
 use App\Http\Controllers\NotificacaoController;
 use App\Http\Controllers\PastaController;
 use Illuminate\Support\Facades\Route;
@@ -32,7 +33,8 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
-    Route::get('/', fn () => redirect('/dashboard'));
+    Route::get('/', fn () => redirect('/modulos'));
+    Route::get('/modulos', ModulosController::class)->name('modulos');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     // Documentos

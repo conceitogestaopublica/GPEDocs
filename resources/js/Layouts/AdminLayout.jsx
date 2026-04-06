@@ -149,7 +149,7 @@ function GedSidebar({ collapsed, isMobile, sidebarOpen, onClose }) {
             <div className="flex flex-col h-full">
                 {/* Logo */}
                 <div className="h-[70px] flex items-center justify-between px-4 shrink-0 border-b border-gray-50">
-                    <Link href="/dashboard" className="flex items-center gap-3">
+                    <Link href="/modulos" className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-md shadow-blue-200 shrink-0">
                             <i className="fas fa-archive text-white text-sm" />
                         </div>
