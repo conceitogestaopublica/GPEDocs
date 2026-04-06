@@ -3,7 +3,9 @@
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\TipoDocumentalController;
 use App\Http\Controllers\Admin\UsuarioController;
+use App\Http\Controllers\AssinaturaController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\VerificacaoController;
 use App\Http\Controllers\BuscaController;
 use App\Http\Controllers\CapturaController;
 use App\Http\Controllers\DashboardController;
@@ -12,6 +14,9 @@ use App\Http\Controllers\FluxoController;
 use App\Http\Controllers\NotificacaoController;
 use App\Http\Controllers\PastaController;
 use Illuminate\Support\Facades\Route;
+
+// Verificacao publica de documento (sem auth)
+Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
 
 // Guest
 Route::middleware('guest')->group(function () {
@@ -51,6 +56,7 @@ Route::middleware('auth')->group(function () {
     // Busca
     Route::get('busca', [BuscaController::class, 'index'])->name('busca');
     Route::post('busca/salvar', [BuscaController::class, 'salvar'])->name('busca.salvar');
+    Route::delete('busca/salvar/{id}', [BuscaController::class, 'destroy'])->name('busca.destroy');
 
     // Admin
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -59,6 +65,12 @@ Route::middleware('auth')->group(function () {
         Route::resource('tipos-documentais', TipoDocumentalController::class)->except(['create', 'edit', 'show']);
         Route::post('tipos-documentais/{id}/toggle-ativo', [TipoDocumentalController::class, 'toggleAtivo'])->name('tipos-documentais.toggle-ativo');
     });
+
+    // Assinaturas
+    Route::get('assinaturas', [AssinaturaController::class, 'index'])->name('assinaturas');
+    Route::post('documentos/{id}/solicitar-assinatura', [AssinaturaController::class, 'solicitar'])->name('assinaturas.solicitar');
+    Route::post('assinaturas/{id}/assinar', [AssinaturaController::class, 'assinar'])->name('assinaturas.assinar');
+    Route::post('assinaturas/{id}/recusar', [AssinaturaController::class, 'recusar'])->name('assinaturas.recusar');
 
     // Notificacoes
     Route::get('notificacoes', [NotificacaoController::class, 'index'])->name('notificacoes');

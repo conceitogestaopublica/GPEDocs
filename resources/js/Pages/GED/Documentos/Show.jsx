@@ -5,6 +5,7 @@
  */
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
@@ -13,12 +14,12 @@ import StatusPill from '../../../Components/StatusPill';
 const TABS = [
     { key: 'visualizar', label: 'Visualizar', icon: 'fas fa-eye' },
     { key: 'metadados', label: 'Metadados', icon: 'fas fa-tags' },
+    { key: 'assinaturas', label: 'Assinaturas', icon: 'fas fa-file-signature' },
     { key: 'versoes', label: 'Versoes', icon: 'fas fa-history' },
     { key: 'auditoria', label: 'Auditoria', icon: 'fas fa-shield-alt' },
-    { key: 'fluxos', label: 'Fluxos', icon: 'fas fa-project-diagram' },
 ];
 
-export default function Show({ documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito }) {
+export default function Show({ documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito, usuarios }) {
     const [activeTab, setActiveTab] = useState('visualizar');
     const [statusOpen, setStatusOpen] = useState(false);
     const doc = documento || {};
@@ -72,6 +73,20 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
                     </div>
 
                     <div className="flex items-center gap-2">
+                        {/* QR Code */}
+                        {doc.qr_code_token && (
+                            <div className="relative group">
+                                <button className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
+                                    title="QR Code de verificacao">
+                                    <i className="fas fa-qrcode" />
+                                </button>
+                                <div className="absolute right-0 top-12 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-50 hidden group-hover:block animate-fadeIn">
+                                    <QRCodeSVG value={`${window.location.origin}/verificar/${doc.qr_code_token}`} size={160} />
+                                    <p className="text-[10px] text-gray-400 text-center mt-2">Escaneie para verificar</p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Favorito */}
                         <button
                             onClick={() => router.post(`/documentos/${doc.id}/favorito`)}
@@ -155,9 +170,9 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
                 <div className="p-6">
                     {activeTab === 'visualizar' && <TabVisualizar documento={doc} />}
                     {activeTab === 'metadados' && <TabMetadados metadados={metadados} documento={doc} />}
+                    {activeTab === 'assinaturas' && <TabAssinaturas documento={doc} usuarios={usuarios || []} />}
                     {activeTab === 'versoes' && <TabVersoes versoes={versoes} documentoId={doc.id} />}
                     {activeTab === 'auditoria' && <TabAuditoria logs={audit_logs} />}
-                    {activeTab === 'fluxos' && <TabFluxos instancias={fluxo_instancias} />}
                 </div>
             </div>
         </AdminLayout>
@@ -331,6 +346,128 @@ function TabFluxos({ instancias }) {
                                 </span>
                             </div>
                             <p className="text-xs text-gray-400">Etapa atual: {inst.etapa_atual || '-'}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function TabAssinaturas({ documento, usuarios }) {
+    const [showSolicitar, setShowSolicitar] = useState(false);
+    const solicitacoes = documento.solicitacoes_assinatura || [];
+    const { data, setData, post, processing, reset } = useForm({
+        signatarios: [],
+        mensagem: '',
+        prazo: '',
+    });
+
+    const toggleUser = (id) => {
+        const list = data.signatarios.includes(id) ? data.signatarios.filter(x => x !== id) : [...data.signatarios, id];
+        setData('signatarios', list);
+    };
+
+    const submitSolicitar = (e) => {
+        e.preventDefault();
+        post(`/documentos/${documento.id}/solicitar-assinatura`, {
+            onSuccess: () => { reset(); setShowSolicitar(false); },
+        });
+    };
+
+    const statusColors = {
+        pendente: 'bg-yellow-100 text-yellow-700',
+        assinado: 'bg-green-100 text-green-700',
+        recusado: 'bg-red-100 text-red-700',
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-700">Solicitacoes de Assinatura</h3>
+                <Button size="sm" icon="fas fa-plus" onClick={() => setShowSolicitar(!showSolicitar)}>
+                    Solicitar Assinatura
+                </Button>
+            </div>
+
+            {/* Form solicitar */}
+            {showSolicitar && (
+                <form onSubmit={submitSolicitar} className="bg-blue-50 rounded-xl p-4 space-y-3">
+                    <p className="text-sm font-medium text-blue-800">Selecione os signatarios</p>
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                        {usuarios.map(u => (
+                            <label key={u.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-blue-100 rounded px-2 py-1">
+                                <input type="checkbox" checked={data.signatarios.includes(u.id)}
+                                    onChange={() => toggleUser(u.id)}
+                                    className="rounded border-gray-300 text-blue-600 w-3.5 h-3.5" />
+                                <span className="text-gray-700">{u.name}</span>
+                                <span className="text-xs text-gray-400">{u.email}</span>
+                            </label>
+                        ))}
+                    </div>
+                    <textarea value={data.mensagem} onChange={(e) => setData('mensagem', e.target.value)}
+                        className="ds-input !h-auto" rows={2} placeholder="Mensagem opcional..." />
+                    <div className="flex items-center gap-3">
+                        <input type="date" value={data.prazo} onChange={(e) => setData('prazo', e.target.value)}
+                            className="ds-input w-auto" />
+                        <span className="text-xs text-gray-500">Prazo (opcional)</span>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button type="submit" size="sm" loading={processing} icon="fas fa-paper-plane"
+                            disabled={data.signatarios.length === 0}>
+                            Enviar
+                        </Button>
+                        <Button variant="ghost" size="sm" type="button" onClick={() => setShowSolicitar(false)}>
+                            Cancelar
+                        </Button>
+                    </div>
+                </form>
+            )}
+
+            {/* Lista de solicitacoes */}
+            {solicitacoes.length === 0 ? (
+                <div className="py-8 text-center text-gray-400">
+                    <i className="fas fa-file-signature text-2xl mb-2 block" />
+                    <p className="text-sm">Nenhuma solicitacao de assinatura</p>
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {solicitacoes.map(sol => (
+                        <div key={sol.id} className="border border-gray-200 rounded-xl overflow-hidden">
+                            <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
+                                <div>
+                                    <span className="text-xs text-gray-500">
+                                        Solicitado por <strong>{sol.solicitante?.name}</strong> em {new Date(sol.created_at).toLocaleDateString('pt-BR')}
+                                    </span>
+                                    {sol.mensagem && <p className="text-xs text-gray-600 mt-0.5">{sol.mensagem}</p>}
+                                </div>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                    sol.status === 'concluida' ? 'bg-green-100 text-green-700' :
+                                    sol.status === 'cancelada' ? 'bg-red-100 text-red-700' :
+                                    'bg-yellow-100 text-yellow-700'
+                                }`}>{sol.status}</span>
+                            </div>
+                            <div className="divide-y divide-gray-100">
+                                {(sol.assinaturas || []).map(a => (
+                                    <div key={a.id} className="flex items-center justify-between px-4 py-2.5">
+                                        <div className="flex items-center gap-2">
+                                            <i className={`fas ${a.status === 'assinado' ? 'fa-check-circle text-green-500' : a.status === 'recusado' ? 'fa-times-circle text-red-500' : 'fa-clock text-yellow-500'} text-xs`} />
+                                            <span className="text-sm text-gray-700">{a.signatario?.name}</span>
+                                            <span className="text-xs text-gray-400">{a.email_signatario}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {a.assinado_em && (
+                                                <span className="text-[10px] text-gray-400">
+                                                    {new Date(a.assinado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            )}
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${statusColors[a.status] || 'bg-gray-100 text-gray-500'}`}>
+                                                {a.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     ))}
                 </div>

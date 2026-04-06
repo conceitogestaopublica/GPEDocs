@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class Documento extends Model
 {
@@ -31,7 +32,16 @@ class Documento extends Model
         'ocr_texto',
         'check_out_por',
         'check_out_em',
+        'qr_code_token',
     ];
+
+    protected static function boot(): void
+    {
+        parent::boot();
+        static::creating(function ($doc) {
+            $doc->qr_code_token = $doc->qr_code_token ?: (string) Str::uuid();
+        });
+    }
 
     protected function casts(): array
     {
@@ -89,5 +99,15 @@ class Documento extends Model
     public function versaoAtual(): HasOne
     {
         return $this->hasOne(Versao::class, 'documento_id')->latestOfMany('versao');
+    }
+
+    public function solicitacoesAssinatura(): HasMany
+    {
+        return $this->hasMany(SolicitacaoAssinatura::class, 'documento_id');
+    }
+
+    public function assinaturas(): HasMany
+    {
+        return $this->hasMany(Assinatura::class, 'documento_id');
     }
 }

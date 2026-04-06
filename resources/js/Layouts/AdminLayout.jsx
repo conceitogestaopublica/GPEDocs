@@ -19,6 +19,7 @@ const MENU_ITEMS = [
     { title: 'Arquivados', icon: 'fas fa-archive', href: '/documentos?filtro=arquivados', color: 'text-gray-600 bg-gray-200' },
     { section: 'label', label: 'Gestao' },
     { title: 'Capturar', icon: 'fas fa-camera', href: '/capturar', color: 'text-purple-600 bg-purple-100' },
+    { title: 'Assinaturas', icon: 'fas fa-file-signature', href: '/assinaturas', color: 'text-emerald-600 bg-emerald-100' },
     { title: 'Busca Avancada', icon: 'fas fa-search', href: '/busca', color: 'text-indigo-600 bg-indigo-100' },
     { section: 'label', label: 'Administracao' },
     { title: 'Acervo', icon: 'fas fa-sitemap', href: '/repositorio', color: 'text-amber-600 bg-amber-100' },

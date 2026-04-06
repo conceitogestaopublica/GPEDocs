@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\Documento;
+use App\Models\User;
 use App\Models\Versao;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -77,13 +78,17 @@ class DocumentoController extends Controller
             'tipoDocumental',
             'autor',
             'pasta',
+            'solicitacoesAssinatura.assinaturas.signatario',
+            'solicitacoesAssinatura.solicitante',
         ])->findOrFail($id);
 
         $isFavorito = Auth::user()->favoritos()->where('documento_id', $id)->exists();
+        $usuarios = User::orderBy('name')->get(['id', 'name', 'email']);
 
         return Inertia::render('GED/Documentos/Show', [
             'documento'   => $documento,
             'is_favorito' => $isFavorito,
+            'usuarios'    => $usuarios,
         ]);
     }
 
