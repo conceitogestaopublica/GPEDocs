@@ -17,11 +17,6 @@ const MENU_ITEMS = [
     { title: 'Ultimos Acessados', icon: 'fas fa-clock', href: '/documentos?filtro=recentes', color: 'text-cyan-600 bg-cyan-100' },
     { title: 'Mais Acessados', icon: 'fas fa-fire', href: '/documentos?filtro=populares', color: 'text-orange-600 bg-orange-100' },
     { title: 'Arquivados', icon: 'fas fa-archive', href: '/documentos?filtro=arquivados', color: 'text-gray-600 bg-gray-200' },
-    { section: 'label', label: 'Processos' },
-    { title: 'Painel Processos', icon: 'fas fa-chart-line', href: '/processos/dashboard', color: 'text-teal-600 bg-teal-100' },
-    { title: 'Caixa de Entrada', icon: 'fas fa-inbox', href: '/processos/inbox', color: 'text-blue-600 bg-blue-100' },
-    { title: 'Abrir Processo', icon: 'fas fa-plus-circle', href: '/processos/create', color: 'text-green-600 bg-green-100' },
-    { title: 'Todos Processos', icon: 'fas fa-folder-open', href: '/processos', color: 'text-indigo-600 bg-indigo-100' },
     { section: 'label', label: 'Gestao' },
     { title: 'Capturar', icon: 'fas fa-camera', href: '/capturar', color: 'text-purple-600 bg-purple-100' },
     { title: 'Assinaturas', icon: 'fas fa-file-signature', href: '/assinaturas', color: 'text-emerald-600 bg-emerald-100' },
@@ -31,7 +26,6 @@ const MENU_ITEMS = [
     { title: 'Tipos Documentais', icon: 'fas fa-file-signature', href: '/admin/tipos-documentais', color: 'text-violet-600 bg-violet-100' },
     { title: 'Usuarios', icon: 'fas fa-users', href: '/admin/usuarios', color: 'text-red-600 bg-red-100' },
     { title: 'Perfis e Permissoes', icon: 'fas fa-shield-alt', href: '/admin/roles', color: 'text-slate-600 bg-slate-100' },
-    { title: 'Tipos de Processo', icon: 'fas fa-cogs', href: '/admin/tipos-processo', color: 'text-teal-600 bg-teal-100' },
 ];
 
 export default function AdminLayout({ children }) {
