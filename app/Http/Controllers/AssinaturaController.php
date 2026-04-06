@@ -91,6 +91,67 @@ class AssinaturaController extends Controller
         return redirect()->back()->with('success', 'Solicitacao de assinatura enviada com sucesso.');
     }
 
+    public function solicitarLote(Request $request)
+    {
+        $request->validate([
+            'documento_ids'  => ['required', 'array', 'min:1'],
+            'documento_ids.*'=> ['required', 'integer', 'exists:ged_documentos,id'],
+            'signatarios'    => ['required', 'array', 'min:1'],
+            'signatarios.*'  => ['required', 'integer', 'exists:users,id'],
+            'mensagem'       => ['nullable', 'string'],
+            'prazo'          => ['nullable', 'date'],
+        ]);
+
+        $count = 0;
+
+        foreach ($request->input('documento_ids') as $documentoId) {
+            $documento = Documento::with('versaoAtual')->findOrFail($documentoId);
+
+            $solicitacao = SolicitacaoAssinatura::create([
+                'documento_id'   => $documento->id,
+                'solicitante_id' => Auth::id(),
+                'status'         => 'pendente',
+                'mensagem'       => $request->input('mensagem'),
+                'prazo'          => $request->input('prazo'),
+            ]);
+
+            foreach ($request->input('signatarios') as $idx => $userId) {
+                $user = User::findOrFail($userId);
+
+                Assinatura::create([
+                    'solicitacao_id'   => $solicitacao->id,
+                    'documento_id'     => $documento->id,
+                    'signatario_id'    => $userId,
+                    'ordem'            => $idx + 1,
+                    'status'           => 'pendente',
+                    'email_signatario' => $user->email,
+                ]);
+
+                Notificacao::create([
+                    'usuario_id'      => $userId,
+                    'tipo'            => 'assinatura_pendente',
+                    'titulo'          => 'Assinatura solicitada',
+                    'mensagem'        => "Voce tem uma solicitacao de assinatura para o documento \"{$documento->nome}\".",
+                    'referencia_tipo' => 'documento',
+                    'referencia_id'   => $documento->id,
+                ]);
+            }
+
+            AuditLog::create([
+                'documento_id' => $documento->id,
+                'usuario_id'   => Auth::id(),
+                'acao'         => 'solicitacao_assinatura',
+                'detalhes'     => ['signatarios' => $request->input('signatarios'), 'lote' => true],
+                'ip'           => $request->ip(),
+                'user_agent'   => $request->userAgent(),
+            ]);
+
+            $count++;
+        }
+
+        return redirect()->back()->with('success', "Assinatura solicitada para {$count} documento(s).");
+    }
+
     public function assinar(Request $request, $id)
     {
         $request->validate([

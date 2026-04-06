@@ -59,10 +59,13 @@ class DocumentoController extends Controller
         // Marcar favoritos do usuario
         $favoritoIds = Auth::user()->favoritos()->pluck('documento_id')->toArray();
 
+        $usuarios = User::where('id', '!=', Auth::id())->orderBy('name')->get(['id', 'name', 'email']);
+
         return Inertia::render('GED/Documentos/Index', [
             'documentos'   => $documentos,
             'filters'      => $request->only(['search', 'tipo', 'status', 'pasta_id', 'filtro']),
             'favorito_ids' => $favoritoIds,
+            'usuarios'     => $usuarios,
         ]);
     }
 
@@ -83,7 +86,7 @@ class DocumentoController extends Controller
         ])->findOrFail($id);
 
         $isFavorito = Auth::user()->favoritos()->where('documento_id', $id)->exists();
-        $usuarios = User::orderBy('name')->get(['id', 'name', 'email']);
+        $usuarios = User::where('id', '!=', Auth::id())->orderBy('name')->get(['id', 'name', 'email']);
 
         return Inertia::render('GED/Documentos/Show', [
             'documento'   => $documento,

@@ -2,6 +2,10 @@
 
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\TipoDocumentalController;
+use App\Http\Controllers\Admin\TipoProcessoController;
+use App\Http\Controllers\ProcessoController;
+use App\Http\Controllers\ProcessoDashboardController;
+use App\Http\Controllers\TramitacaoController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\AssinaturaController;
 use App\Http\Controllers\Auth\LoginController;
@@ -64,11 +68,28 @@ Route::middleware('auth')->group(function () {
         Route::resource('roles', RoleController::class)->except(['create', 'edit', 'show']);
         Route::resource('tipos-documentais', TipoDocumentalController::class)->except(['create', 'edit', 'show']);
         Route::post('tipos-documentais/{id}/toggle-ativo', [TipoDocumentalController::class, 'toggleAtivo'])->name('tipos-documentais.toggle-ativo');
+        Route::resource('tipos-processo', TipoProcessoController::class)->except(['create', 'edit', 'show']);
+        Route::post('tipos-processo/{id}/toggle-ativo', [TipoProcessoController::class, 'toggleAtivo'])->name('tipos-processo.toggle-ativo');
     });
+
+    // Processos
+    Route::get('processos/dashboard', ProcessoDashboardController::class)->name('processos.dashboard');
+    Route::get('processos/inbox', [TramitacaoController::class, 'inbox'])->name('processos.inbox');
+    Route::resource('processos', ProcessoController::class)->except(['edit', 'update', 'destroy']);
+    Route::post('processos/{id}/concluir', [ProcessoController::class, 'concluir'])->name('processos.concluir');
+    Route::post('processos/{id}/cancelar', [ProcessoController::class, 'cancelar'])->name('processos.cancelar');
+
+    // Tramitacoes
+    Route::post('tramitacoes/{id}/receber', [TramitacaoController::class, 'receber'])->name('tramitacoes.receber');
+    Route::post('tramitacoes/{id}/despachar', [TramitacaoController::class, 'despachar'])->name('tramitacoes.despachar');
+    Route::post('tramitacoes/{id}/devolver', [TramitacaoController::class, 'devolver'])->name('tramitacoes.devolver');
+    Route::post('tramitacoes/{id}/comentar', [TramitacaoController::class, 'comentar'])->name('tramitacoes.comentar');
+    Route::post('tramitacoes/{id}/anexar', [TramitacaoController::class, 'anexar'])->name('tramitacoes.anexar');
 
     // Assinaturas
     Route::get('assinaturas', [AssinaturaController::class, 'index'])->name('assinaturas');
     Route::post('documentos/{id}/solicitar-assinatura', [AssinaturaController::class, 'solicitar'])->name('assinaturas.solicitar');
+    Route::post('assinaturas/solicitar-lote', [AssinaturaController::class, 'solicitarLote'])->name('assinaturas.solicitar-lote');
     Route::post('assinaturas/{id}/assinar', [AssinaturaController::class, 'assinar'])->name('assinaturas.assinar');
     Route::post('assinaturas/{id}/recusar', [AssinaturaController::class, 'recusar'])->name('assinaturas.recusar');
 

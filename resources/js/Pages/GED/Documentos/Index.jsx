@@ -3,20 +3,23 @@
  *
  * Toolbar horizontal, status inline, metadados nas colunas, selecao em lote.
  */
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState, useRef, useEffect } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
+import Modal from '../../../Components/Modal';
 
-export default function DocumentosIndex({ documentos, filters, favorito_ids }) {
+export default function DocumentosIndex({ documentos, filters, favorito_ids, usuarios }) {
     const data = documentos?.data || documentos || [];
     const favIds = favorito_ids || [];
     const filtro = filters?.filtro || '';
+    const userList = usuarios || [];
 
     const [selected, setSelected] = useState([]);
     const [search, setSearch] = useState(filters?.search || '');
     const [perPage, setPerPage] = useState(10);
+    const [showAssinaturaModal, setShowAssinaturaModal] = useState(false);
 
     const titleMap = {
         favoritos: 'Favoritos',
@@ -135,6 +138,7 @@ export default function DocumentosIndex({ documentos, filters, favorito_ids }) {
                     <ToolBtn label="Excluir" icon="fas fa-trash" onClick={() => bulkAction('excluir')} disabled={selected.length === 0} danger />
                     <ToolSep />
                     <BulkStatusDropdown onSelect={bulkStatus} disabled={selected.length === 0} />
+                    <ToolBtn label="Solicitar Assinatura" icon="fas fa-file-signature" onClick={() => setShowAssinaturaModal(true)} disabled={selected.length === 0} />
                     <ToolSep />
                     <ToolBtn label="CSV" icon="fas fa-file-csv" onClick={exportCSV} />
                     <ToolSep />
@@ -274,6 +278,15 @@ export default function DocumentosIndex({ documentos, filters, favorito_ids }) {
                     </div>
                 )}
             </div>
+
+            {/* Modal Assinatura em Lote */}
+            <AssinaturaLoteModal
+                show={showAssinaturaModal}
+                onClose={() => setShowAssinaturaModal(false)}
+                documentoIds={selected}
+                usuarios={userList}
+                onSuccess={() => setSelected([])}
+            />
         </AdminLayout>
     );
 }
@@ -380,6 +393,83 @@ function BulkStatusDropdown({ onSelect, disabled }) {
                 </div>
             )}
         </div>
+    );
+}
+
+/* ── Modal Assinatura em Lote ── */
+function AssinaturaLoteModal({ show, onClose, documentoIds, usuarios, onSuccess }) {
+    const { data, setData, post, processing, reset } = useForm({
+        documento_ids: [],
+        signatarios: [],
+        mensagem: '',
+        prazo: '',
+    });
+
+    useEffect(() => {
+        if (show) setData('documento_ids', documentoIds);
+    }, [show, documentoIds]);
+
+    const toggleUser = (id) => {
+        const list = data.signatarios.includes(id) ? data.signatarios.filter(x => x !== id) : [...data.signatarios, id];
+        setData('signatarios', list);
+    };
+
+    const submit = (e) => {
+        e.preventDefault();
+        post('/assinaturas/solicitar-lote', {
+            onSuccess: () => { reset(); onClose(); onSuccess(); },
+        });
+    };
+
+    return (
+        <Modal show={show} onClose={onClose} title={`Solicitar Assinatura (${documentoIds.length} documento(s))`} maxWidth="lg">
+            <form onSubmit={submit} className="space-y-4">
+                <div className="bg-blue-50 rounded-xl p-3">
+                    <p className="text-xs text-blue-700">
+                        <i className="fas fa-info-circle mr-1" />
+                        A assinatura sera solicitada para <strong>{documentoIds.length}</strong> documento(s) selecionado(s).
+                    </p>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Selecione os signatarios</label>
+                    <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-xl p-2 space-y-1">
+                        {usuarios.map(u => (
+                            <label key={u.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 rounded px-2 py-1.5">
+                                <input type="checkbox" checked={data.signatarios.includes(u.id)}
+                                    onChange={() => toggleUser(u.id)}
+                                    className="rounded border-gray-300 text-blue-600 w-3.5 h-3.5" />
+                                <span className="text-gray-700">{u.name}</span>
+                                <span className="text-xs text-gray-400 ml-auto">{u.email}</span>
+                            </label>
+                        ))}
+                        {usuarios.length === 0 && (
+                            <p className="text-xs text-gray-400 text-center py-3">Nenhum usuario disponivel</p>
+                        )}
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mensagem (opcional)</label>
+                    <textarea value={data.mensagem} onChange={(e) => setData('mensagem', e.target.value)}
+                        className="ds-input !h-auto" rows={2} placeholder="Mensagem para os signatarios..." />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Prazo (opcional)</label>
+                    <input type="date" value={data.prazo} onChange={(e) => setData('prazo', e.target.value)}
+                        className="ds-input w-auto" />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                    <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
+                    <Button type="submit" loading={processing} icon="fas fa-paper-plane"
+                        disabled={data.signatarios.length === 0}>
+                        Enviar para {data.signatarios.length} signatario(s)
+                    </Button>
+                </div>
+            </form>
+        </Modal>
     );
 }
 
