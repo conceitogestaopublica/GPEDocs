@@ -35,6 +35,9 @@ const MENU_GEPSP = [
     { title: 'Caixa de Entrada', icon: 'fas fa-inbox', href: '/processos/inbox', color: 'text-blue-600 bg-blue-100' },
     { title: 'Abrir Processo', icon: 'fas fa-plus-circle', href: '/processos/create', color: 'text-green-600 bg-green-100' },
     { title: 'Todos Processos', icon: 'fas fa-folder-open', href: '/processos', color: 'text-indigo-600 bg-indigo-100' },
+    { section: 'label', label: 'Comunicacao' },
+    { title: 'Memorandos', icon: 'fas fa-envelope', href: '/memorandos', color: 'text-amber-600 bg-amber-100' },
+    { title: 'Novo Memorando', icon: 'fas fa-pen-square', href: '/memorandos/create', color: 'text-purple-600 bg-purple-100' },
     { section: 'label', label: 'Administracao' },
     { title: 'Tipos de Processo', icon: 'fas fa-cogs', href: '/admin/tipos-processo', color: 'text-teal-600 bg-teal-100' },
     { title: 'Usuarios', icon: 'fas fa-users', href: '/admin/usuarios', color: 'text-red-600 bg-red-100' },
@@ -43,7 +46,7 @@ const MENU_GEPSP = [
 
 // Detectar modulo pela URL
 function getModulo(url) {
-    if (url.startsWith('/processos') || url.startsWith('/tramitacoes') || url === '/admin/tipos-processo') return 'gepsp';
+    if (url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url === '/admin/tipos-processo') return 'gepsp';
     return 'ged';
 }
 

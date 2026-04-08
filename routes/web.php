@@ -15,6 +15,7 @@ use App\Http\Controllers\CapturaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\FluxoController;
+use App\Http\Controllers\MemorandoController;
 use App\Http\Controllers\ModulosController;
 use App\Http\Controllers\NotificacaoController;
 use App\Http\Controllers\PastaController;
@@ -73,6 +74,12 @@ Route::middleware('auth')->group(function () {
         Route::resource('tipos-processo', TipoProcessoController::class)->except(['create', 'edit', 'show']);
         Route::post('tipos-processo/{id}/toggle-ativo', [TipoProcessoController::class, 'toggleAtivo'])->name('tipos-processo.toggle-ativo');
     });
+
+    // Memorandos
+    Route::resource('memorandos', MemorandoController::class)->only(['index', 'create', 'store', 'show']);
+    Route::post('memorandos/{id}/responder', [MemorandoController::class, 'responder'])->name('memorandos.responder');
+    Route::post('memorandos/{id}/arquivar', [MemorandoController::class, 'arquivar'])->name('memorandos.arquivar');
+    Route::get('memorandos/{id}/pdf', [MemorandoController::class, 'downloadPdf'])->name('memorandos.pdf');
 
     // Processos (GEPSP)
     Route::get('processos/dashboard', [ProcessoDashboardController::class, '__invoke'])->name('processos.dashboard');
