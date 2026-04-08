@@ -17,10 +17,14 @@ use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\FluxoController;
 use App\Http\Controllers\CircularController;
 use App\Http\Controllers\MemorandoController;
+use App\Http\Controllers\OficioController;
 use App\Http\Controllers\ModulosController;
 use App\Http\Controllers\NotificacaoController;
 use App\Http\Controllers\PastaController;
 use Illuminate\Support\Facades\Route;
+
+// Rastreio de oficio (publico, sem auth)
+Route::get('oficios/rastrear/{token}', [OficioController::class, 'rastrear'])->name('oficios.rastrear');
 
 // Verificacao publica de documento (sem auth)
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
@@ -81,6 +85,12 @@ Route::middleware('auth')->group(function () {
     Route::post('memorandos/{id}/responder', [MemorandoController::class, 'responder'])->name('memorandos.responder');
     Route::post('memorandos/{id}/arquivar', [MemorandoController::class, 'arquivar'])->name('memorandos.arquivar');
     Route::get('memorandos/{id}/pdf', [MemorandoController::class, 'downloadPdf'])->name('memorandos.pdf');
+
+    // Oficios
+    Route::resource('oficios', OficioController::class)->only(['index', 'create', 'store', 'show']);
+    Route::post('oficios/{id}/responder', [OficioController::class, 'responder'])->name('oficios.responder');
+    Route::post('oficios/{id}/arquivar', [OficioController::class, 'arquivar'])->name('oficios.arquivar');
+    Route::get('oficios/{id}/pdf', [OficioController::class, 'downloadPdf'])->name('oficios.pdf');
 
     // Circulares
     Route::resource('circulares', CircularController::class)->only(['index', 'create', 'store', 'show']);

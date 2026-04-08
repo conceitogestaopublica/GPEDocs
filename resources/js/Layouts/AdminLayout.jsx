@@ -38,6 +38,7 @@ const MENU_GEPSP = [
     { section: 'label', label: 'Comunicacao' },
     { title: 'Memorandos', icon: 'fas fa-envelope', href: '/memorandos', color: 'text-amber-600 bg-amber-100' },
     { title: 'Circulares', icon: 'fas fa-bullhorn', href: '/circulares', color: 'text-rose-600 bg-rose-100' },
+    { title: 'Oficios', icon: 'fas fa-paper-plane', href: '/oficios', color: 'text-cyan-600 bg-cyan-100' },
     { section: 'label', label: 'Administracao' },
     { title: 'Tipos de Processo', icon: 'fas fa-cogs', href: '/admin/tipos-processo', color: 'text-teal-600 bg-teal-100' },
     { title: 'Usuarios', icon: 'fas fa-users', href: '/admin/usuarios', color: 'text-red-600 bg-red-100' },
@@ -46,7 +47,7 @@ const MENU_GEPSP = [
 
 // Detectar modulo pela URL
 function getModulo(url) {
-    if (url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url === '/admin/tipos-processo') return 'gepsp';
+    if (url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url.startsWith('/oficios') || url === '/admin/tipos-processo') return 'gepsp';
     return 'ged';
 }
 

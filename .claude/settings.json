@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git commit -m ':*)",
-      "Bash(export PATH=\"/c/laragon/bin/composer:/c/laragon/bin/php/php-8.3.14-nts-Win32-vs16-x64:$PATH\")"
+      "Bash(export PATH=\"/c/laragon/bin/composer:/c/laragon/bin/php/php-8.3.14-nts-Win32-vs16-x64:$PATH\")",
+      "Bash(ls -la \"C:/laragon/www/ged/app/Models/Processo/Oficio\"*.php)"
     ]
   }
 }
