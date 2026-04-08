@@ -15,6 +15,7 @@ use App\Http\Controllers\CapturaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\FluxoController;
+use App\Http\Controllers\CircularController;
 use App\Http\Controllers\MemorandoController;
 use App\Http\Controllers\ModulosController;
 use App\Http\Controllers\NotificacaoController;
@@ -80,6 +81,11 @@ Route::middleware('auth')->group(function () {
     Route::post('memorandos/{id}/responder', [MemorandoController::class, 'responder'])->name('memorandos.responder');
     Route::post('memorandos/{id}/arquivar', [MemorandoController::class, 'arquivar'])->name('memorandos.arquivar');
     Route::get('memorandos/{id}/pdf', [MemorandoController::class, 'downloadPdf'])->name('memorandos.pdf');
+
+    // Circulares
+    Route::resource('circulares', CircularController::class)->only(['index', 'create', 'store', 'show']);
+    Route::post('circulares/{id}/arquivar', [CircularController::class, 'arquivar'])->name('circulares.arquivar');
+    Route::get('circulares/{id}/pdf', [CircularController::class, 'downloadPdf'])->name('circulares.pdf');
 
     // Processos (GEPSP)
     Route::get('processos/dashboard', [ProcessoDashboardController::class, '__invoke'])->name('processos.dashboard');
