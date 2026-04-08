@@ -88,8 +88,8 @@ export default function Modulos() {
 
                     {/* Modulos futuros (desabilitados) */}
                     {[
-                        { sigla: 'Portal', nome: 'Portal do Cidadao', icon: 'fas fa-globe', desc: 'Servicos e solicitacoes online' },
-                        { sigla: 'Ouvidoria', nome: 'Ouvidoria e E-SIC', icon: 'fas fa-headset', desc: 'Atendimento ao cidadao e LAI' },
+                        { sigla: 'Portal', nome: 'Portal do Cidadao', icon: 'fas fa-globe', desc: 'Ouvidoria, E-SIC, Carta de Servicos e solicitacoes online' },
+                        { sigla: 'EAD', nome: 'Capacitacao EAD', icon: 'fas fa-graduation-cap', desc: 'Treinamentos com certificacao para servidores' },
                         { sigla: 'BI', nome: 'Relatorios e BI', icon: 'fas fa-chart-bar', desc: 'Dashboards e indicadores gerenciais' },
                     ].map(mod => (
                         <div

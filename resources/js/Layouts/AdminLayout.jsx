@@ -9,7 +9,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import FlashMessage from '../Components/FlashMessage';
 
-const MENU_ITEMS = [
+// Menus separados por modulo
+const MENU_GED = [
     { title: 'Dashboard', icon: 'fas fa-tachometer-alt', href: '/dashboard', color: 'text-blue-600 bg-blue-100' },
     { section: 'label', label: 'Documentos' },
     { title: 'Meus Documentos', icon: 'fas fa-file-alt', href: '/documentos', color: 'text-emerald-600 bg-emerald-100' },
@@ -17,11 +18,6 @@ const MENU_ITEMS = [
     { title: 'Ultimos Acessados', icon: 'fas fa-clock', href: '/documentos?filtro=recentes', color: 'text-cyan-600 bg-cyan-100' },
     { title: 'Mais Acessados', icon: 'fas fa-fire', href: '/documentos?filtro=populares', color: 'text-orange-600 bg-orange-100' },
     { title: 'Arquivados', icon: 'fas fa-archive', href: '/documentos?filtro=arquivados', color: 'text-gray-600 bg-gray-200' },
-    { section: 'label', label: 'Processos' },
-    { title: 'Painel Processos', icon: 'fas fa-chart-line', href: '/processos/dashboard', color: 'text-teal-600 bg-teal-100' },
-    { title: 'Caixa de Entrada', icon: 'fas fa-inbox', href: '/processos/inbox', color: 'text-blue-600 bg-blue-100' },
-    { title: 'Abrir Processo', icon: 'fas fa-plus-circle', href: '/processos/create', color: 'text-green-600 bg-green-100' },
-    { title: 'Todos Processos', icon: 'fas fa-folder-open', href: '/processos', color: 'text-indigo-600 bg-indigo-100' },
     { section: 'label', label: 'Gestao' },
     { title: 'Capturar', icon: 'fas fa-camera', href: '/capturar', color: 'text-purple-600 bg-purple-100' },
     { title: 'Assinaturas', icon: 'fas fa-file-signature', href: '/assinaturas', color: 'text-emerald-600 bg-emerald-100' },
@@ -31,11 +27,36 @@ const MENU_ITEMS = [
     { title: 'Tipos Documentais', icon: 'fas fa-file-signature', href: '/admin/tipos-documentais', color: 'text-violet-600 bg-violet-100' },
     { title: 'Usuarios', icon: 'fas fa-users', href: '/admin/usuarios', color: 'text-red-600 bg-red-100' },
     { title: 'Perfis e Permissoes', icon: 'fas fa-shield-alt', href: '/admin/roles', color: 'text-slate-600 bg-slate-100' },
-    { title: 'Tipos de Processo', icon: 'fas fa-cogs', href: '/admin/tipos-processo', color: 'text-teal-600 bg-teal-100' },
 ];
+
+const MENU_GEPSP = [
+    { title: 'Painel', icon: 'fas fa-tachometer-alt', href: '/processos/dashboard', color: 'text-teal-600 bg-teal-100' },
+    { section: 'label', label: 'Processos' },
+    { title: 'Caixa de Entrada', icon: 'fas fa-inbox', href: '/processos/inbox', color: 'text-blue-600 bg-blue-100' },
+    { title: 'Abrir Processo', icon: 'fas fa-plus-circle', href: '/processos/create', color: 'text-green-600 bg-green-100' },
+    { title: 'Todos Processos', icon: 'fas fa-folder-open', href: '/processos', color: 'text-indigo-600 bg-indigo-100' },
+    { section: 'label', label: 'Administracao' },
+    { title: 'Tipos de Processo', icon: 'fas fa-cogs', href: '/admin/tipos-processo', color: 'text-teal-600 bg-teal-100' },
+    { title: 'Usuarios', icon: 'fas fa-users', href: '/admin/usuarios', color: 'text-red-600 bg-red-100' },
+    { title: 'Perfis e Permissoes', icon: 'fas fa-shield-alt', href: '/admin/roles', color: 'text-slate-600 bg-slate-100' },
+];
+
+// Detectar modulo pela URL
+function getModulo(url) {
+    if (url.startsWith('/processos') || url.startsWith('/tramitacoes') || url === '/admin/tipos-processo') return 'gepsp';
+    return 'ged';
+}
+
+const MODULO_CONFIG = {
+    ged:   { nome: 'GED', subtitulo: 'Gestao Documental', icon: 'fas fa-archive', cor: 'from-blue-600 to-indigo-700', shadow: 'shadow-blue-200', menu: MENU_GED },
+    gepsp: { nome: 'GEPSP', subtitulo: 'Processos e Servicos', icon: 'fas fa-project-diagram', cor: 'from-teal-600 to-emerald-700', shadow: 'shadow-teal-200', menu: MENU_GEPSP },
+};
 
 export default function AdminLayout({ children }) {
     const { auth, flash, notificacoes_pendentes } = usePage().props;
+    const { url } = usePage();
+    const modulo = getModulo(url);
+    const moduloConfig = MODULO_CONFIG[modulo];
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -78,6 +99,7 @@ export default function AdminLayout({ children }) {
                 isMobile={isMobile}
                 sidebarOpen={sidebarOpen}
                 onClose={() => setSidebarOpen(false)}
+                moduloConfig={moduloConfig}
             />
 
             {/* Conteudo */}
@@ -126,8 +148,8 @@ export default function AdminLayout({ children }) {
 
                 {/* Footer */}
                 <footer className="px-5 lg:px-8 py-4 text-center text-xs text-gray-400">
-                    <span className="font-medium text-gray-500">GED</span> — Gestao Eletronica de Documentos &copy; {new Date().getFullYear()} —
-                    Desenvolvido por <span className="font-medium text-gray-500">Conceito Gestao Publica</span>
+                    <span className="font-medium text-gray-500">{moduloConfig.nome}</span> &copy; {new Date().getFullYear()} —
+                    <span className="font-medium text-gray-500">Conceito Gestao Publica</span>
                 </footer>
             </div>
         </div>
@@ -137,8 +159,9 @@ export default function AdminLayout({ children }) {
 /**
  * Sidebar do GED
  */
-function GedSidebar({ collapsed, isMobile, sidebarOpen, onClose }) {
+function GedSidebar({ collapsed, isMobile, sidebarOpen, onClose, moduloConfig }) {
     const { url } = usePage();
+    const MENU_ITEMS = moduloConfig.menu;
 
     const sidebarWidth = isMobile
         ? (sidebarOpen ? 'w-[260px] translate-x-0' : 'w-[260px] -translate-x-full')
@@ -150,13 +173,13 @@ function GedSidebar({ collapsed, isMobile, sidebarOpen, onClose }) {
                 {/* Logo */}
                 <div className="h-[70px] flex items-center justify-between px-4 shrink-0 border-b border-gray-50">
                     <Link href="/modulos" className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-md shadow-blue-200 shrink-0">
-                            <i className="fas fa-archive text-white text-sm" />
+                        <div className={`w-10 h-10 bg-gradient-to-br ${moduloConfig.cor} rounded-xl flex items-center justify-center shadow-md ${moduloConfig.shadow} shrink-0`}>
+                            <i className={`${moduloConfig.icon} text-white text-sm`} />
                         </div>
                         {!collapsed && (
                             <div>
-                                <p className="text-sm font-bold text-gray-800 leading-tight">GED</p>
-                                <p className="text-[10px] text-gray-400 leading-tight">Gestao Documental</p>
+                                <p className="text-sm font-bold text-gray-800 leading-tight">{moduloConfig.nome}</p>
+                                <p className="text-[10px] text-gray-400 leading-tight">{moduloConfig.subtitulo}</p>
                             </div>
                         )}
                     </Link>
