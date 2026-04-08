@@ -441,11 +441,20 @@ function TabAssinaturas({ documento, usuarios }) {
                                     </span>
                                     {sol.mensagem && <p className="text-xs text-gray-600 mt-0.5">{sol.mensagem}</p>}
                                 </div>
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                                    sol.status === 'concluida' ? 'bg-green-100 text-green-700' :
-                                    sol.status === 'cancelada' ? 'bg-red-100 text-red-700' :
-                                    'bg-yellow-100 text-yellow-700'
-                                }`}>{sol.status}</span>
+                                <div className="flex items-center gap-2">
+                                    {sol.status === 'concluida' && (
+                                        <a href={`/assinaturas/${sol.id}/manifesto`}
+                                            className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium hover:bg-blue-200 transition-colors"
+                                            title="Download do manifesto PDF">
+                                            <i className="fas fa-file-pdf mr-1" />Manifesto
+                                        </a>
+                                    )}
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                        sol.status === 'concluida' ? 'bg-green-100 text-green-700' :
+                                        sol.status === 'cancelada' ? 'bg-red-100 text-red-700' :
+                                        'bg-yellow-100 text-yellow-700'
+                                    }`}>{sol.status}</span>
+                                </div>
                             </div>
                             <div className="divide-y divide-gray-100">
                                 {(sol.assinaturas || []).map(a => (

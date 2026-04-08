@@ -75,7 +75,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // Processos (GEPSP)
-    Route::get('processos/dashboard', ProcessoDashboardController::class)->name('processos.dashboard');
+    Route::get('processos/dashboard', [ProcessoDashboardController::class, '__invoke'])->name('processos.dashboard');
     Route::get('processos/inbox', [TramitacaoController::class, 'inbox'])->name('processos.inbox');
     Route::resource('processos', ProcessoController::class)->except(['edit', 'update', 'destroy']);
     Route::post('processos/{id}/concluir', [ProcessoController::class, 'concluir'])->name('processos.concluir');
@@ -94,6 +94,7 @@ Route::middleware('auth')->group(function () {
     Route::post('assinaturas/solicitar-lote', [AssinaturaController::class, 'solicitarLote'])->name('assinaturas.solicitar-lote');
     Route::post('assinaturas/{id}/assinar', [AssinaturaController::class, 'assinar'])->name('assinaturas.assinar');
     Route::post('assinaturas/{id}/recusar', [AssinaturaController::class, 'recusar'])->name('assinaturas.recusar');
+    Route::get('assinaturas/{id}/manifesto', [AssinaturaController::class, 'manifesto'])->name('assinaturas.manifesto');
 
     // Notificacoes
     Route::get('notificacoes', [NotificacaoController::class, 'index'])->name('notificacoes');

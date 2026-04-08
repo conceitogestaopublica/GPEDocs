@@ -32,7 +32,8 @@ const prioridadeColors = {
     urgente: 'bg-red-100 text-red-600',
 };
 
-export default function Dashboard({ stats, inbox_count, recentes }) {
+export default function Dashboard({ stats, processos_recentes, inbox_count }) {
+    const recentes = processos_recentes || [];
     const s = stats || {};
     const lista = recentes || [];
 
@@ -44,7 +45,7 @@ export default function Dashboard({ stats, inbox_count, recentes }) {
 
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-                <StatCard title="Abertos" value={s.abertos || 0} icon="fas fa-folder-open" color="blue" />
+                <StatCard title="Abertos" value={s.total_abertos || s.abertos || 0} icon="fas fa-folder-open" color="blue" />
                 <StatCard title="Em Tramitacao" value={s.em_tramitacao || 0} icon="fas fa-exchange-alt" color="yellow" />
                 <StatCard title="Concluidos no Mes" value={s.concluidos_mes || 0} icon="fas fa-check-circle" color="green" />
                 <StatCard title="Atrasados" value={s.atrasados || 0} icon="fas fa-exclamation-triangle" color="red" />
@@ -64,7 +65,7 @@ export default function Dashboard({ stats, inbox_count, recentes }) {
                         <p className="text-xs text-gray-400">Processos aguardando sua acao</p>
                     </div>
                     <div className="flex items-center gap-2">
-                        {(inbox_count || 0) > 0 && (
+                        {(inbox_count || s.inbox_count || 0) > 0 && (
                             <span className="bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
                                 {inbox_count}
                             </span>

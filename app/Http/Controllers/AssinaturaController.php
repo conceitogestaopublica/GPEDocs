@@ -10,6 +10,7 @@ use App\Models\Documento;
 use App\Models\Notificacao;
 use App\Models\SolicitacaoAssinatura;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -243,5 +244,26 @@ class AssinaturaController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Assinatura recusada.');
+    }
+
+    public function manifesto($solicitacaoId)
+    {
+        $solicitacao = SolicitacaoAssinatura::with([
+            'documento.tipoDocumental',
+            'documento.autor',
+            'solicitante',
+            'assinaturas.signatario',
+        ])->findOrFail($solicitacaoId);
+
+        $documento = $solicitacao->documento;
+
+        $pdf = Pdf::loadView('assinaturas.manifesto', [
+            'solicitacao' => $solicitacao,
+            'documento'   => $documento,
+        ]);
+
+        $filename = "manifesto-assinatura-{$documento->nome}-{$solicitacao->id}.pdf";
+
+        return $pdf->download($filename);
     }
 }
