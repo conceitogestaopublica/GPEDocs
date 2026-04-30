@@ -49,8 +49,6 @@ const MENU_GEPSP = [
     { title: 'Oficios', icon: 'fas fa-paper-plane', href: '/oficios', color: 'text-cyan-600 bg-cyan-100' },
     { section: 'label', label: 'Administracao' },
     { title: 'Tipos de Processo', icon: 'fas fa-cogs', href: '/admin/tipos-processo', color: 'text-teal-600 bg-teal-100' },
-    { title: 'Usuarios', icon: 'fas fa-users', href: '/admin/usuarios', color: 'text-red-600 bg-red-100' },
-    { title: 'Perfis e Permissoes', icon: 'fas fa-shield-alt', href: '/admin/roles', color: 'text-slate-600 bg-slate-100' },
 ];
 
 // Detectar modulo pela URL
