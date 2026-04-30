@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import FlashMessage from '../Components/FlashMessage';
+import ModuloIcon from '../Components/ModuloIcon';
 
 // Menus separados por modulo
 const MENU_GED = [
@@ -60,13 +61,13 @@ function getModulo(url) {
 }
 
 const MODULO_CONFIG = {
-    ged:           { nome: 'GPE Docs', subtitulo: 'Gestao Documental', icon: 'fas fa-archive', cor: 'from-blue-600 to-indigo-700', shadow: 'shadow-blue-200', menu: MENU_GED },
-    gepsp:         { nome: 'GEPSP', subtitulo: 'Processos e Servicos', icon: 'fas fa-project-diagram', cor: 'from-teal-600 to-emerald-700', shadow: 'shadow-teal-200', menu: MENU_GEPSP },
-    configuracoes: { nome: 'Configuracoes', subtitulo: 'Ajustes e Estrutura', icon: 'fas fa-cog', cor: 'from-slate-600 to-gray-700', shadow: 'shadow-slate-200', menu: MENU_CONFIGURACOES },
+    ged:           { nome: 'GPE Docs',   subtitulo: 'Gestao Documental',   icon: 'fas fa-archive',         iconText: 'Docs', cor: 'from-blue-600 to-indigo-700',  shadow: 'shadow-blue-200',  menu: MENU_GED },
+    gepsp:         { nome: 'GPE Flow',   subtitulo: 'Fluxos e Tramitacao', icon: 'fas fa-project-diagram', iconText: 'Flow', cor: 'from-teal-600 to-emerald-700', shadow: 'shadow-teal-200',  menu: MENU_GEPSP },
+    configuracoes: { nome: 'GPE Config', subtitulo: 'Ajustes e Estrutura', icon: 'fas fa-cog',             iconText: 'Conf', cor: 'from-slate-600 to-gray-700',   shadow: 'shadow-slate-200', menu: MENU_CONFIGURACOES },
 };
 
 export default function AdminLayout({ children }) {
-    const { auth, flash, notificacoes_pendentes } = usePage().props;
+    const { auth, flash, notificacoes_pendentes, tenant } = usePage().props;
     const { url } = usePage();
     const modulo = getModulo(url);
     const moduloConfig = MODULO_CONFIG[modulo];
@@ -137,6 +138,11 @@ export default function AdminLayout({ children }) {
                     </div>
 
                     <div className="flex items-center gap-2">
+                        {/* UG atual */}
+                        {tenant?.atual && (
+                            <UgBadge tenant={tenant} />
+                        )}
+
                         {/* Notificacoes */}
                         <NotificacoesDropdown count={notificacoes_pendentes || 0} />
 
@@ -186,9 +192,7 @@ function GedSidebar({ collapsed, isMobile, sidebarOpen, onClose, moduloConfig })
                 {/* Logo */}
                 <div className="h-[70px] flex items-center justify-between px-4 shrink-0 border-b border-gray-50">
                     <Link href="/modulos" className="flex items-center gap-3">
-                        <div className={`w-10 h-10 bg-gradient-to-br ${moduloConfig.cor} rounded-xl flex items-center justify-center shadow-md ${moduloConfig.shadow} shrink-0`}>
-                            <i className={`${moduloConfig.icon} text-white text-sm`} />
-                        </div>
+                        <ModuloIcon texto={moduloConfig.iconText || 'Docs'} size={40} className="shrink-0" />
                         {!collapsed && (
                             <div>
                                 <p className="text-sm font-bold text-gray-800 leading-tight">{moduloConfig.nome}</p>
@@ -362,6 +366,35 @@ function UserMenu({ user }) {
                         </Link>
                     </div>
                 </div>
+            )}
+        </div>
+    );
+}
+
+
+function UgBadge({ tenant }) {
+    const trocar = () => {
+        router.post("/trocar-ug");
+    };
+
+    if (! tenant?.atual) return null;
+
+    return (
+        <div className="hidden md:flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-1.5 mr-2"
+            title={`UG ativa: ${tenant.atual.codigo} · ${tenant.atual.nome}`}>
+            <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
+                <i className="fas fa-building text-white text-[10px]" />
+            </div>
+            <div className="leading-tight">
+                <p className="text-[10px] text-indigo-500 font-mono uppercase tracking-wide">{tenant.atual.codigo}</p>
+                <p className="text-[11px] text-indigo-900 font-semibold truncate max-w-[180px]">{tenant.atual.nome}</p>
+            </div>
+            {tenant.multiplas && (
+                <button onClick={trocar}
+                    className="ml-1 px-2 py-1 rounded-md text-[10px] text-indigo-700 hover:bg-indigo-100 font-medium transition-colors"
+                    title="Trocar UG">
+                    <i className="fas fa-exchange-alt" />
+                </button>
             )}
         </div>
     );

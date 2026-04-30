@@ -1,7 +1,8 @@
 /**
  * Selecao de Modulos — Conceito Gestao Publica
  */
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import ModuloIcon from '../Components/ModuloIcon';
 
 const MODULOS = [
     {
@@ -9,36 +10,33 @@ const MODULOS = [
         nome: 'Gestao Eletronica de Documentos',
         sigla: 'GPE Docs',
         descricao: 'Repositorio, captura, busca e controle de documentos',
-        icon: 'fas fa-archive',
-        cor: 'from-blue-500 to-indigo-600',
-        corLight: 'bg-blue-50 text-blue-600',
+        iconText: 'Docs',
         href: '/dashboard',
     },
     {
         key: 'gepsp',
-        nome: 'Processos e Servicos Publicos',
-        sigla: 'GEPSP',
-        descricao: 'Protocolo eletronico, tramitacao e fluxos administrativos',
-        icon: 'fas fa-project-diagram',
-        cor: 'from-teal-500 to-emerald-600',
-        corLight: 'bg-teal-50 text-teal-600',
+        nome: 'Fluxos e Tramitacao Eletronica',
+        sigla: 'GPE Flow',
+        descricao: 'Protocolo eletronico, processos e fluxos administrativos',
+        iconText: 'Flow',
         href: '/processos/dashboard',
     },
     {
         key: 'configuracoes',
         nome: 'Configuracoes do Sistema',
-        sigla: 'Config',
+        sigla: 'GPE Config',
         descricao: 'Unidades gestoras, organograma, usuarios e perfis',
-        icon: 'fas fa-cog',
-        cor: 'from-slate-500 to-gray-700',
-        corLight: 'bg-slate-50 text-slate-600',
+        iconText: 'Conf',
         href: '/configuracoes',
     },
 ];
 
 export default function Modulos() {
-    const { auth } = usePage().props;
+    const { auth, tenant } = usePage().props;
     const user = auth?.user;
+    const ugAtual = tenant?.atual;
+
+    const trocarUg = () => router.post('/trocar-ug');
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -57,7 +55,34 @@ export default function Modulos() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        {/* UG ativa */}
+                        {ugAtual ? (
+                            <div className="hidden md:flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-1.5">
+                                <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
+                                    <i className="fas fa-building text-white text-[10px]" />
+                                </div>
+                                <div className="leading-tight">
+                                    <p className="text-[10px] text-indigo-500 font-mono uppercase tracking-wide">{ugAtual.codigo}</p>
+                                    <p className="text-[11px] text-indigo-900 font-semibold truncate max-w-[180px]">{ugAtual.nome}</p>
+                                </div>
+                                {tenant?.multiplas && (
+                                    <button onClick={trocarUg}
+                                        className="ml-1 px-2 py-1 rounded-md text-[10px] text-indigo-700 hover:bg-indigo-100 font-medium transition-colors"
+                                        title="Trocar UG">
+                                        <i className="fas fa-exchange-alt" />
+                                    </button>
+                                )}
+                            </div>
+                        ) : (user?.super_admin && (
+                            <button onClick={trocarUg}
+                                className="hidden md:flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5 hover:bg-amber-100 transition-colors"
+                                title="Selecionar UG">
+                                <i className="fas fa-exclamation-triangle text-amber-600 text-[11px]" />
+                                <span className="text-[11px] text-amber-800 font-medium">Selecionar UG</span>
+                            </button>
+                        ))}
+
                         <div className="text-right hidden sm:block">
                             <p className="text-sm font-semibold text-gray-700">{user?.name || 'Usuario'}</p>
                             <p className="text-[11px] text-gray-400">{user?.email}</p>
@@ -87,32 +112,13 @@ export default function Modulos() {
                             href={mod.href}
                             className="group bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-xl hover:border-transparent hover:ring-2 hover:ring-blue-200 transition-all duration-300 text-center"
                         >
-                            <div className={`w-16 h-16 bg-gradient-to-br ${mod.cor} rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                                <i className={`${mod.icon} text-white text-2xl`} />
+                            <div className="flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
+                                <ModuloIcon texto={mod.iconText} size={72} />
                             </div>
                             <h3 className="text-sm font-bold text-gray-800 mb-1">{mod.sigla}</h3>
                             <p className="text-xs text-gray-500 leading-relaxed">{mod.nome}</p>
                             <p className="text-[10px] text-gray-400 mt-2">{mod.descricao}</p>
                         </Link>
-                    ))}
-
-                    {/* Modulos futuros (desabilitados) */}
-                    {[
-                        { sigla: 'Portal', nome: 'Portal do Cidadao', icon: 'fas fa-globe', desc: 'Ouvidoria, E-SIC, Carta de Servicos e solicitacoes online' },
-                        { sigla: 'EAD', nome: 'Capacitacao EAD', icon: 'fas fa-graduation-cap', desc: 'Treinamentos com certificacao para servidores' },
-                        { sigla: 'BI', nome: 'Relatorios e BI', icon: 'fas fa-chart-bar', desc: 'Dashboards e indicadores gerenciais' },
-                    ].map(mod => (
-                        <div
-                            key={mod.sigla}
-                            className="bg-gray-50 rounded-2xl border border-dashed border-gray-200 p-6 text-center opacity-50 cursor-not-allowed"
-                        >
-                            <div className="w-16 h-16 bg-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                <i className={`${mod.icon} text-gray-400 text-2xl`} />
-                            </div>
-                            <h3 className="text-sm font-bold text-gray-500 mb-1">{mod.sigla}</h3>
-                            <p className="text-xs text-gray-400">{mod.nome}</p>
-                            <span className="inline-block mt-2 text-[10px] bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full">Em breve</span>
-                        </div>
                     ))}
                 </div>
             </main>
