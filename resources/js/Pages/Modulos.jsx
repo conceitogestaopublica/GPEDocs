@@ -24,6 +24,16 @@ const MODULOS = [
         corLight: 'bg-teal-50 text-teal-600',
         href: '/processos/dashboard',
     },
+    {
+        key: 'configuracoes',
+        nome: 'Configuracoes do Sistema',
+        sigla: 'Config',
+        descricao: 'Unidades gestoras, organograma, usuarios e perfis',
+        icon: 'fas fa-cog',
+        cor: 'from-slate-500 to-gray-700',
+        corLight: 'bg-slate-50 text-slate-600',
+        href: '/configuracoes',
+    },
 ];
 
 export default function Modulos() {

@@ -9,12 +9,13 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'cpf', 'password'])]
+#[Fillable(['name', 'email', 'cpf', 'password', 'tipo', 'ug_id', 'unidade_id', 'legado_usuario_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -58,5 +59,25 @@ class User extends Authenticatable
     public function certificados(): HasMany
     {
         return $this->hasMany(Certificado::class);
+    }
+
+    public function ug(): BelongsTo
+    {
+        return $this->belongsTo(Ug::class, 'ug_id');
+    }
+
+    public function unidade(): BelongsTo
+    {
+        return $this->belongsTo(UgOrganograma::class, 'unidade_id');
+    }
+
+    public function ehInterno(): bool
+    {
+        return $this->tipo === 'interno';
+    }
+
+    public function ehExterno(): bool
+    {
+        return $this->tipo === 'externo';
     }
 }

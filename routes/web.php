@@ -75,14 +75,42 @@ Route::middleware('auth')->group(function () {
     Route::post('busca/salvar', [BuscaController::class, 'salvar'])->name('busca.salvar');
     Route::delete('busca/salvar/{id}', [BuscaController::class, 'destroy'])->name('busca.destroy');
 
-    // Admin
+    // Configuracoes — modulo dedicado para usuarios, perfis, UGs e organograma
+    Route::prefix('configuracoes')->name('configuracoes.')->group(function () {
+        // Visao geral do modulo
+        Route::get('/', fn () => Inertia\Inertia::render('Configuracao/Index'))->name('index');
+
+        // Usuarios e perfis (movidos de /admin)
+        Route::resource('usuarios', UsuarioController::class)->except(['show']);
+        Route::resource('perfis', RoleController::class)->parameters(['perfis' => 'role'])->except(['create', 'edit', 'show']);
+
+        // Unidades Gestoras + organograma
+        Route::resource('ugs', \App\Http\Controllers\Configuracao\UgController::class)->except(['show']);
+        Route::post('ugs/{id}/toggle-ativo', [\App\Http\Controllers\Configuracao\UgController::class, 'toggleAtivo'])->name('ugs.toggle-ativo');
+
+        Route::get('ugs/{ug}/organograma', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'show'])->name('ugs.organograma');
+        Route::post('ugs/{ug}/organograma/labels', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'updateLabels'])->name('ugs.organograma.labels');
+
+        // Tela dedicada de cadastro de no
+        Route::get('ugs/{ug}/organograma/nodes/create', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'createNode'])->name('ugs.organograma.nodes.create');
+        Route::get('ugs/{ug}/organograma/nodes/{node}/edit', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'editNode'])->name('ugs.organograma.nodes.edit');
+
+        Route::post('ugs/{ug}/organograma/nodes', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'storeNode'])->name('ugs.organograma.nodes.store');
+        Route::put('ugs/{ug}/organograma/nodes/{node}', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'updateNode'])->name('ugs.organograma.nodes.update');
+        Route::delete('ugs/{ug}/organograma/nodes/{node}', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'destroyNode'])->name('ugs.organograma.nodes.destroy');
+        Route::post('ugs/{ug}/organograma/nodes/{node}/toggle-ativo', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'toggleAtivoNode'])->name('ugs.organograma.nodes.toggle-ativo');
+    });
+
+    // Admin (apenas tipos documentais e tipos de processo permanecem aqui)
     Route::prefix('admin')->name('admin.')->group(function () {
-        Route::resource('usuarios', UsuarioController::class)->except(['create', 'edit', 'show']);
-        Route::resource('roles', RoleController::class)->except(['create', 'edit', 'show']);
         Route::resource('tipos-documentais', TipoDocumentalController::class)->except(['create', 'edit', 'show']);
         Route::post('tipos-documentais/{id}/toggle-ativo', [TipoDocumentalController::class, 'toggleAtivo'])->name('tipos-documentais.toggle-ativo');
         Route::resource('tipos-processo', TipoProcessoController::class)->except(['create', 'edit', 'show']);
         Route::post('tipos-processo/{id}/toggle-ativo', [TipoProcessoController::class, 'toggleAtivo'])->name('tipos-processo.toggle-ativo');
+
+        // Redirects das URLs antigas para o modulo Configuracoes
+        Route::redirect('usuarios', '/configuracoes/usuarios');
+        Route::redirect('roles', '/configuracoes/perfis');
     });
 
     // Memorandos

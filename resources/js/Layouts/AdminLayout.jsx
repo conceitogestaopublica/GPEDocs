@@ -25,8 +25,15 @@ const MENU_GED = [
     { section: 'label', label: 'Administracao' },
     { title: 'Acervo', icon: 'fas fa-sitemap', href: '/repositorio', color: 'text-amber-600 bg-amber-100' },
     { title: 'Tipos Documentais', icon: 'fas fa-file-signature', href: '/admin/tipos-documentais', color: 'text-violet-600 bg-violet-100' },
-    { title: 'Usuarios', icon: 'fas fa-users', href: '/admin/usuarios', color: 'text-red-600 bg-red-100' },
-    { title: 'Perfis e Permissoes', icon: 'fas fa-shield-alt', href: '/admin/roles', color: 'text-slate-600 bg-slate-100' },
+];
+
+const MENU_CONFIGURACOES = [
+    { title: 'Visao Geral', icon: 'fas fa-cog', href: '/configuracoes', color: 'text-slate-600 bg-slate-100' },
+    { section: 'label', label: 'Estrutura' },
+    { title: 'Unidades Gestoras', icon: 'fas fa-building', href: '/configuracoes/ugs', color: 'text-indigo-600 bg-indigo-100' },
+    { section: 'label', label: 'Acessos' },
+    { title: 'Usuarios', icon: 'fas fa-users', href: '/configuracoes/usuarios', color: 'text-red-600 bg-red-100' },
+    { title: 'Perfis e Permissoes', icon: 'fas fa-shield-alt', href: '/configuracoes/perfis', color: 'text-slate-600 bg-slate-100' },
 ];
 
 const MENU_GEPSP = [
@@ -47,13 +54,15 @@ const MENU_GEPSP = [
 
 // Detectar modulo pela URL
 function getModulo(url) {
+    if (url.startsWith('/configuracoes') || url.startsWith('/perfil/certificados')) return 'configuracoes';
     if (url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url.startsWith('/oficios') || url === '/admin/tipos-processo') return 'gepsp';
     return 'ged';
 }
 
 const MODULO_CONFIG = {
-    ged:   { nome: 'GPE Docs', subtitulo: 'Gestao Documental', icon: 'fas fa-archive', cor: 'from-blue-600 to-indigo-700', shadow: 'shadow-blue-200', menu: MENU_GED },
-    gepsp: { nome: 'GEPSP', subtitulo: 'Processos e Servicos', icon: 'fas fa-project-diagram', cor: 'from-teal-600 to-emerald-700', shadow: 'shadow-teal-200', menu: MENU_GEPSP },
+    ged:           { nome: 'GPE Docs', subtitulo: 'Gestao Documental', icon: 'fas fa-archive', cor: 'from-blue-600 to-indigo-700', shadow: 'shadow-blue-200', menu: MENU_GED },
+    gepsp:         { nome: 'GEPSP', subtitulo: 'Processos e Servicos', icon: 'fas fa-project-diagram', cor: 'from-teal-600 to-emerald-700', shadow: 'shadow-teal-200', menu: MENU_GEPSP },
+    configuracoes: { nome: 'Configuracoes', subtitulo: 'Ajustes e Estrutura', icon: 'fas fa-cog', cor: 'from-slate-600 to-gray-700', shadow: 'shadow-slate-200', menu: MENU_CONFIGURACOES },
 };
 
 export default function AdminLayout({ children }) {
