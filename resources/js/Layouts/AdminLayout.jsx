@@ -52,7 +52,7 @@ function getModulo(url) {
 }
 
 const MODULO_CONFIG = {
-    ged:   { nome: 'GED', subtitulo: 'Gestao Documental', icon: 'fas fa-archive', cor: 'from-blue-600 to-indigo-700', shadow: 'shadow-blue-200', menu: MENU_GED },
+    ged:   { nome: 'GPE Docs', subtitulo: 'Gestao Documental', icon: 'fas fa-archive', cor: 'from-blue-600 to-indigo-700', shadow: 'shadow-blue-200', menu: MENU_GED },
     gepsp: { nome: 'GEPSP', subtitulo: 'Processos e Servicos', icon: 'fas fa-project-diagram', cor: 'from-teal-600 to-emerald-700', shadow: 'shadow-teal-200', menu: MENU_GEPSP },
 };
 

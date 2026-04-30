@@ -1,5 +1,5 @@
 /**
- * GED - Gestao Eletronica de Documentos
+ * GPE Docs - Plataforma Digital Integrada
  *
  * Ponto de entrada da aplicacao React + Inertia.js
  */
@@ -7,7 +7,7 @@ import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 
 createInertiaApp({
-    title: (title) => title ? `${title} - GED` : 'GED - Gestao Eletronica de Documentos',
+    title: (title) => title ? `${title} - GPE Docs` : 'GPE Docs - Plataforma Digital Integrada',
 
     resolve: (name) => {
         const pages = import.meta.glob('./Pages/**/*.jsx', { eager: true });

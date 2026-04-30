@@ -3,7 +3,19 @@
     "allow": [
       "Bash(git commit -m ':*)",
       "Bash(export PATH=\"/c/laragon/bin/composer:/c/laragon/bin/php/php-8.3.14-nts-Win32-vs16-x64:$PATH\")",
-      "Bash(ls -la \"C:/laragon/www/ged/app/Models/Processo/Oficio\"*.php)"
+      "Bash(ls -la \"C:/laragon/www/ged/app/Models/Processo/Oficio\"*.php)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8000/login)",
+      "Bash(cmd //c \"taskkill /F /IM php.exe\")",
+      "Bash(gh --version)",
+      "Bash(gh auth *)",
+      "Bash(cmd //c \"where gh\")",
+      "Bash(git remote *)",
+      "Bash(git branch *)",
+      "Bash(git push *)",
+      "Bash(cp /c/laragon/www/gpe/public/layout/assets/img/logo-white.png /c/laragon/www/ged/public/img/logo-white.png)",
+      "Bash(cp /c/laragon/www/gpe/public/layout/assets/img/logo.png /c/laragon/www/ged/public/img/logo.png)",
+      "Bash(cp /c/laragon/www/gpe/public/layout/assets/img/background_login.png /c/laragon/www/ged/public/img/background_login.png)",
+      "Bash(cp /c/laragon/www/gpe/public/layout/assets/img/logo-moderna-login.png /c/laragon/www/ged/public/img/logo-moderna-login.png)"
     ]
   }
 }

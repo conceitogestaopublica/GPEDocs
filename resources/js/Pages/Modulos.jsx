@@ -7,7 +7,7 @@ const MODULOS = [
     {
         key: 'ged',
         nome: 'Gestao Eletronica de Documentos',
-        sigla: 'GED',
+        sigla: 'GPE Docs',
         descricao: 'Repositorio, captura, busca e controle de documentos',
         icon: 'fas fa-archive',
         cor: 'from-blue-500 to-indigo-600',
