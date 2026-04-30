@@ -134,6 +134,66 @@ class CertificadoService
     }
 
     /**
+     * Roda todas as checagens necessarias para usar um cert em assinatura
+     * qualificada: pertence a ICP-Brasil, cadeia valida, validade temporal,
+     * CPF do cert bate com o do usuario (se cadastrado).
+     *
+     * @return array{ok: bool, erros: array<int,string>, meta: array}
+     */
+    public function validarParaUso(User $user, string $certPem, array $extraCerts = []): array
+    {
+        $erros = [];
+        $meta = [];
+
+        try {
+            $meta = $this->lerMetadados($certPem);
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'erros' => ['Não foi possível ler o certificado: ' . $e->getMessage()], 'meta' => []];
+        }
+
+        // Validade temporal
+        $agora = time();
+        $de  = strtotime($meta['valido_de'])  ?: 0;
+        $ate = strtotime($meta['valido_ate']) ?: 0;
+        if ($agora < $de) {
+            $erros[] = 'Certificado ainda não está válido (valido a partir de ' . date('d/m/Y', $de) . ').';
+        }
+        if ($agora > $ate) {
+            $erros[] = 'Certificado expirado em ' . date('d/m/Y', $ate) . '.';
+        }
+
+        // ICP-Brasil
+        if (! $this->ehIcpBrasil($certPem)) {
+            $erros[] = 'Certificado não pertence à cadeia ICP-Brasil.';
+        }
+
+        // Cadeia confiavel
+        if (! $this->validarCadeiaIcpBrasil($certPem, $extraCerts)) {
+            $erros[] = 'Cadeia ICP-Brasil não pôde ser validada — verifique a truststore (storage/app/private/icp-brasil).';
+        }
+
+        // CPF
+        $cpfCert = preg_replace('/\D/', '', (string) ($meta['subject_cpf'] ?? ''));
+        $cpfUser = preg_replace('/\D/', '', (string) $user->cpf);
+
+        if (! $cpfCert) {
+            $erros[] = 'CPF não encontrado no certificado (esperado no OID 2.16.76.1.3.1 — pode não ser e-CPF).';
+        } elseif ($cpfUser && $cpfCert !== $cpfUser) {
+            $erros[] = sprintf(
+                'CPF do certificado (%s) não confere com o CPF cadastrado no seu perfil (%s).',
+                $cpfCert,
+                $cpfUser,
+            );
+        }
+
+        return [
+            'ok'    => empty($erros),
+            'erros' => $erros,
+            'meta'  => $meta,
+        ];
+    }
+
+    /**
      * Persiste/atualiza o certificado para o usuário no banco (sem chave privada).
      */
     public function registrarParaUsuario(User $user, string $certPem, array $extraCerts = []): Certificado

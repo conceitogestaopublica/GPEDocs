@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\TipoDocumentalController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Admin\TipoProcessoController;
 use App\Http\Controllers\AssinaturaController;
+use App\Http\Controllers\CertificadoController;
 use App\Http\Controllers\ProcessoController;
 use App\Http\Controllers\ProcessoDashboardController;
 use App\Http\Controllers\TramitacaoController;
@@ -126,6 +127,12 @@ Route::middleware('auth')->group(function () {
     Route::get('assinaturas/{id}/download-assinado', [AssinaturaController::class, 'downloadAssinado'])->name('assinaturas.download-assinado');
     Route::post('assinaturas/{id}/recusar', [AssinaturaController::class, 'recusar'])->name('assinaturas.recusar');
     Route::get('assinaturas/{id}/manifesto', [AssinaturaController::class, 'manifesto'])->name('assinaturas.manifesto');
+
+    // Meus Certificados ICP-Brasil (perfil do usuario)
+    Route::get('perfil/certificados', [CertificadoController::class, 'index'])->name('certificados.index');
+    Route::post('perfil/certificados', [CertificadoController::class, 'store'])->name('certificados.store');
+    Route::post('perfil/certificados/{id}/inativar', [CertificadoController::class, 'inativar'])->name('certificados.inativar');
+    Route::post('perfil/certificados/{id}/reativar', [CertificadoController::class, 'reativar'])->name('certificados.reativar');
 
     // Notificacoes
     Route::get('notificacoes', [NotificacaoController::class, 'index'])->name('notificacoes');

@@ -334,6 +334,15 @@ function UserMenu({ user }) {
                         <p className="text-sm font-semibold text-gray-800">{user?.name}</p>
                         <p className="text-xs text-gray-400">{user?.email}</p>
                     </div>
+                    <div className="py-1">
+                        <Link href="/perfil/certificados"
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                                <i className="fas fa-id-card text-xs text-blue-600" />
+                            </div>
+                            <span className="font-medium">Meus certificados</span>
+                        </Link>
+                    </div>
                     <div className="border-t border-gray-100 py-1">
                         <Link href="/logout" method="post" as="button"
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
