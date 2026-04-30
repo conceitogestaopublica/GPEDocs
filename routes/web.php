@@ -121,6 +121,8 @@ Route::middleware('auth')->group(function () {
     Route::post('assinaturas/solicitar-lote', [AssinaturaController::class, 'solicitarLote'])->name('assinaturas.solicitar-lote');
     Route::post('assinaturas/{id}/assinar', [AssinaturaController::class, 'assinar'])->name('assinaturas.assinar');
     Route::post('assinaturas/{id}/assinar-icp', [AssinaturaController::class, 'assinarIcp'])->name('assinaturas.assinar-icp');
+    Route::post('assinaturas/{id}/preparar-icp-a3', [AssinaturaController::class, 'prepararIcpA3'])->name('assinaturas.preparar-icp-a3');
+    Route::post('assinaturas/{id}/finalizar-icp-a3', [AssinaturaController::class, 'finalizarIcpA3'])->name('assinaturas.finalizar-icp-a3');
     Route::get('assinaturas/{id}/download-assinado', [AssinaturaController::class, 'downloadAssinado'])->name('assinaturas.download-assinado');
     Route::post('assinaturas/{id}/recusar', [AssinaturaController::class, 'recusar'])->name('assinaturas.recusar');
     Route::get('assinaturas/{id}/manifesto', [AssinaturaController::class, 'manifesto'])->name('assinaturas.manifesto');

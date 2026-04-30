@@ -10,6 +10,7 @@ use App\Models\Documento;
 use App\Models\Notificacao;
 use App\Models\SolicitacaoAssinatura;
 use App\Models\User;
+use App\Services\AssinaturaIcpA3Service;
 use App\Services\AssinaturaIcpService;
 use App\Services\CertificadoService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -395,6 +396,222 @@ class AssinaturaController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Documento assinado digitalmente (ICP-Brasil) com sucesso.');
+    }
+
+    /**
+     * Etapa 1 do fluxo A3: cliente envia o cert publico (lido do token via
+     * Web PKI da Lacuna). Servidor monta PDF com placeholder e devolve o
+     * hash a ser assinado pelo token.
+     *
+     * Resposta JSON: { sessao_id, hash_a_assinar (b64), algoritmo_digest }
+     */
+    public function prepararIcpA3(Request $request, $id, AssinaturaIcpA3Service $svc, CertificadoService $certificadoService)
+    {
+        $request->validate([
+            'cert_pem' => ['required', 'string', 'min:100'],
+            'razao'    => ['nullable', 'string', 'max:200'],
+            'local'    => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $assinatura = Assinatura::with('documento.versaoAtual')->findOrFail($id);
+
+        if ($assinatura->signatario_id !== Auth::id()) {
+            return response()->json(['erro' => 'Sem permissão.'], 403);
+        }
+        if ($assinatura->status !== 'pendente') {
+            return response()->json(['erro' => 'Esta assinatura já foi processada.'], 409);
+        }
+
+        $versao = $assinatura->documento->versaoAtual;
+        if (! $versao) {
+            return response()->json(['erro' => 'Documento sem versão disponível.'], 422);
+        }
+
+        $pdfRelativo = $versao->arquivo_path;
+        $pdfAbsoluto = Storage::disk('local')->path($pdfRelativo);
+
+        if (! is_file($pdfAbsoluto) || ! str_ends_with(strtolower((string) $pdfRelativo), '.pdf')) {
+            return response()->json(['erro' => 'Apenas arquivos PDF podem receber assinatura ICP-Brasil.'], 422);
+        }
+
+        $certPem = (string) $request->input('cert_pem');
+
+        // Validacoes do cert antes de prosseguir
+        if (! $certificadoService->ehIcpBrasil($certPem)) {
+            return response()->json(['erro' => 'Certificado fora da cadeia ICP-Brasil.'], 422);
+        }
+        if (! $certificadoService->validarCadeiaIcpBrasil($certPem, [])) {
+            return response()->json(['erro' => 'Cadeia ICP-Brasil não validada — verifique a truststore (storage/app/private/icp-brasil).'], 422);
+        }
+
+        $meta = $certificadoService->lerMetadados($certPem);
+        $cpfCert = preg_replace('/\D/', '', (string) $meta['subject_cpf']);
+        $cpfUser = preg_replace('/\D/', '', (string) Auth::user()->cpf);
+        if ($cpfUser && $cpfCert && $cpfUser !== $cpfCert) {
+            return response()->json([
+                'erro' => "CPF do certificado ({$cpfCert}) não confere com o CPF do usuário ({$cpfUser}).",
+            ], 422);
+        }
+        if (! $cpfCert) {
+            return response()->json([
+                'erro' => 'CPF não encontrado no certificado (OID 2.16.76.1.3.1).',
+            ], 422);
+        }
+
+        try {
+            $resultado = $svc->preparar(
+                $pdfAbsoluto,
+                $certPem,
+                [
+                    'razao'   => $request->input('razao', 'Assinatura Eletrônica Qualificada (Lei 14.063/2020)'),
+                    'local'   => $request->input('local', 'Brasil'),
+                    'contato' => $meta['subject_cn'],
+                ]
+            );
+        } catch (Throwable $e) {
+            return response()->json(['erro' => 'Falha ao preparar assinatura: ' . $e->getMessage()], 500);
+        }
+
+        return response()->json([
+            'sessao_id'        => $resultado['sessao_id'],
+            'hash_a_assinar'   => $resultado['hash_a_assinar'],
+            'algoritmo_digest' => $resultado['algoritmo_digest'],
+            'cpf'              => $cpfCert,
+            'cn'               => $meta['subject_cn'],
+        ]);
+    }
+
+    /**
+     * Etapa 2 do fluxo A3: cliente envia os bytes RSA assinados pelo token
+     * (a chave privada nunca sai do hardware). Servidor monta PKCS#7,
+     * embute no PDF e persiste o registro de assinatura.
+     */
+    public function finalizarIcpA3(
+        Request $request,
+        $id,
+        AssinaturaIcpA3Service $svc,
+        CertificadoService $certificadoService,
+    ) {
+        $request->validate([
+            'sessao_id'      => ['required', 'string', 'size:36'],
+            'assinatura_b64' => ['required', 'string', 'min:50'],
+            'cadeia_pem'     => ['nullable', 'array'],
+            'cadeia_pem.*'   => ['string'],
+            'geolocalizacao' => ['nullable', 'string'],
+        ]);
+
+        $assinatura = Assinatura::with(['documento', 'solicitacao'])->findOrFail($id);
+
+        if ($assinatura->signatario_id !== Auth::id()) {
+            return response()->json(['erro' => 'Sem permissão.'], 403);
+        }
+        if ($assinatura->status !== 'pendente') {
+            return response()->json(['erro' => 'Esta assinatura já foi processada.'], 409);
+        }
+
+        try {
+            $resultado = $svc->finalizar(
+                (string) $request->input('sessao_id'),
+                (string) $request->input('assinatura_b64'),
+                (array)  $request->input('cadeia_pem', []),
+            );
+        } catch (Throwable $e) {
+            return response()->json(['erro' => 'Falha ao finalizar assinatura: ' . $e->getMessage()], 500);
+        }
+
+        $meta = $resultado['meta'];
+        $certPem = $meta['subject_dn'] ? $this->buscarCertNoResultado($resultado) : null;
+        // Nota: registramos o cert via CertificadoService a partir do meta retornado.
+        // Como nao temos o PEM diretamente aqui, lemos o thumbprint para vincular.
+        $thumbprint = $meta['thumbprint_sha256'] ?? '';
+
+        $certificado = \App\Models\Certificado::where('user_id', Auth::id())
+            ->where('thumbprint_sha256', $thumbprint)
+            ->first();
+
+        // Se ainda nao registrado, persiste a partir do PEM da cadeia (devolvido pelo servico)
+        if (! $certificado) {
+            // Recupera o PEM via cache da sessao OU via fingerprint (recarregar do estado pre-finalizar nao da, ja foi limpado).
+            // Como protecao: apenas registra dados minimos.
+            $certificado = \App\Models\Certificado::create([
+                'user_id'           => Auth::id(),
+                'tipo'              => 'A3',
+                'subject_cn'        => $meta['subject_cn'] ?? '',
+                'subject_cpf'       => $meta['subject_cpf'] ?? null,
+                'subject_dn'        => $meta['subject_dn'] ?? '',
+                'issuer_cn'         => $meta['issuer_cn'] ?? '',
+                'issuer_dn'         => $meta['issuer_dn'] ?? '',
+                'serial_number'     => $meta['serial_number'] ?? '',
+                'thumbprint_sha1'   => $meta['thumbprint_sha1'] ?? '',
+                'thumbprint_sha256' => $thumbprint,
+                'valido_de'         => $meta['valido_de'] ?? now(),
+                'valido_ate'        => $meta['valido_ate'] ?? now(),
+                'certificado_pem'   => '',
+                'icp_brasil'        => true,
+                'verificado_em'     => now(),
+            ]);
+        }
+
+        $assinatura->update([
+            'status'                  => 'assinado',
+            'tipo_assinatura'         => 'qualificada',
+            'certificado_id'          => $certificado->id,
+            'cpf_signatario'          => $meta['subject_cpf'] ?? null,
+            'ip'                      => $request->ip(),
+            'geolocalizacao'          => $request->input('geolocalizacao'),
+            'user_agent'              => $request->userAgent(),
+            'hash_documento'          => $resultado['pdf_sha256'],
+            'assinatura_pkcs7'        => $resultado['pkcs7'],
+            'cadeia_certificados'     => array_map(
+                fn ($pem) => ['cn' => '', 'thumbprint' => strtolower((string) openssl_x509_fingerprint($pem, 'sha256'))],
+                (array) $request->input('cadeia_pem', []),
+            ),
+            'politica_assinatura'     => ($meta['politica_nome'] ?? 'AD-RB v2') . ' (OID ' . ($meta['politica_oid'] ?? '2.16.76.1.7.1.1.2.3') . ')',
+            'algoritmo_hash'          => 'SHA-256',
+            'arquivo_assinado_path'   => $resultado['caminho'],
+            'hash_assinatura_sha256'  => hash('sha256', $resultado['pkcs7']),
+            'timestamp_assinatura'    => now(),
+            'assinado_em'             => now(),
+        ]);
+
+        // Atualiza solicitacao
+        $solicitacao = $assinatura->solicitacao;
+        $todasAssinadas = $solicitacao->assinaturas()->where('status', 'pendente')->doesntExist();
+        $solicitacao->update(['status' => $todasAssinadas ? 'concluida' : 'em_andamento']);
+
+        Notificacao::create([
+            'usuario_id'      => $solicitacao->solicitante_id,
+            'tipo'            => 'assinatura_realizada',
+            'titulo'          => 'Documento assinado digitalmente (ICP-Brasil A3)',
+            'mensagem'        => Auth::user()->name . " assinou \"{$assinatura->documento->nome}\" com Assinatura Qualificada ICP-Brasil (token A3).",
+            'referencia_tipo' => 'documento',
+            'referencia_id'   => $assinatura->documento_id,
+        ]);
+
+        AuditLog::create([
+            'documento_id' => $assinatura->documento_id,
+            'usuario_id'   => Auth::id(),
+            'acao'         => 'assinatura_qualificada_icp_a3',
+            'detalhes'     => [
+                'tipo'              => 'qualificada_a3',
+                'thumbprint_sha256' => $thumbprint,
+                'sessao_id'         => $request->input('sessao_id'),
+                'caminho'           => $resultado['caminho'],
+            ],
+            'ip'           => $request->ip(),
+            'user_agent'   => $request->userAgent(),
+        ]);
+
+        return response()->json([
+            'ok'      => true,
+            'caminho' => $resultado['caminho'],
+            'mensagem'=> 'Documento assinado digitalmente com ICP-Brasil A3.',
+        ]);
+    }
+
+    private function buscarCertNoResultado(array $resultado): ?string
+    {
+        return null; // helper placeholder; cert vive no PKCS7 binario
     }
 
     /**

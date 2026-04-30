@@ -20,6 +20,7 @@
         "qrcode.react": "^4.2.0",
         "react": "^19.2.4",
         "react-dom": "^19.2.4",
-        "react-dropzone": "^14.3.8"
+        "react-dropzone": "^14.3.8",
+        "web-pki": "^2.18.0"
     }
 }
