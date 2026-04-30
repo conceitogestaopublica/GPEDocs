@@ -265,7 +265,7 @@ class AssinaturaController extends Controller
         AssinaturaIcpService $assinaturaIcpService,
     ) {
         $request->validate([
-            'pfx'           => ['required', 'file', 'max:5120', 'mimes:pfx,p12'],
+            'pfx'           => ['required', 'file', 'max:5120', 'extensions:pfx,p12'],
             'senha'         => ['required', 'string'],
             'geolocalizacao'=> ['nullable', 'string'],
             'razao'         => ['nullable', 'string', 'max:200'],

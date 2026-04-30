@@ -58,7 +58,7 @@ class CertificadoController extends Controller
     public function store(Request $request, CertificadoService $svc)
     {
         $request->validate([
-            'pfx'   => ['required', 'file', 'max:5120', 'mimes:pfx,p12'],
+            'pfx'   => ['required', 'file', 'max:5120', 'extensions:pfx,p12'],
             'senha' => ['required', 'string'],
         ]);
 
