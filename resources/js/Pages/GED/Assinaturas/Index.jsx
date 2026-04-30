@@ -118,6 +118,53 @@ export default function Assinaturas({ pendentes, assinadas }) {
 }
 
 function AssinarModal({ assinatura, onClose }) {
+    const [tipo, setTipo] = useState('simples');
+
+    if (!assinatura) return null;
+
+    return (
+        <Modal show={!!assinatura} onClose={onClose} title="Assinar Documento">
+            <div className="bg-blue-50 rounded-xl p-4 mb-4">
+                <p className="text-sm font-medium text-blue-800">{assinatura.documento?.nome}</p>
+                {assinatura.solicitacao?.mensagem && (
+                    <p className="text-xs text-blue-600 mt-1">{assinatura.solicitacao.mensagem}</p>
+                )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-4">
+                <button type="button" onClick={() => setTipo('simples')}
+                    className={`text-left p-3 rounded-xl border-2 transition-colors ${
+                        tipo === 'simples' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                    }`}>
+                    <div className="flex items-center gap-2 mb-1">
+                        <i className="fas fa-pen-nib text-blue-600 text-sm" />
+                        <span className="text-sm font-semibold text-gray-800">Simples</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 leading-tight">Lei 14.063/2020 art. 4, I — CPF + IP + geolocalizacao</p>
+                </button>
+                <button type="button" onClick={() => setTipo('qualificada')}
+                    className={`text-left p-3 rounded-xl border-2 transition-colors ${
+                        tipo === 'qualificada' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:bg-gray-50'
+                    }`}>
+                    <div className="flex items-center gap-2 mb-1">
+                        <i className="fas fa-shield-alt text-green-600 text-sm" />
+                        <span className="text-sm font-semibold text-gray-800">Qualificada</span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-600 text-white font-bold">ICP-Brasil</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 leading-tight">Lei 14.063/2020 art. 4, III — certificado A1 (.pfx)</p>
+                </button>
+            </div>
+
+            {tipo === 'simples' ? (
+                <FormSimples assinatura={assinatura} onClose={onClose} />
+            ) : (
+                <FormIcp assinatura={assinatura} onClose={onClose} />
+            )}
+        </Modal>
+    );
+}
+
+function FormSimples({ assinatura, onClose }) {
     const { data, setData, post, processing, errors } = useForm({
         cpf: '',
         geolocalizacao: '',
@@ -128,7 +175,7 @@ function AssinarModal({ assinatura, onClose }) {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => setData('geolocalizacao', `${pos.coords.latitude},${pos.coords.longitude}`),
-                () => {} // Geo denied - proceed without
+                () => {}
             );
         }
     };
@@ -140,49 +187,130 @@ function AssinarModal({ assinatura, onClose }) {
         post(`/assinaturas/${assinatura.id}/assinar`, { onSuccess: onClose });
     };
 
-    if (!assinatura) return null;
+    return (
+        <form onSubmit={submit} className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
+                <input type="text" value={data.cpf} onChange={(e) => setData('cpf', e.target.value)}
+                    className="ds-input" placeholder="000.000.000-00" maxLength={14} />
+                {errors.cpf && <p className="mt-1 text-xs text-red-600">{errors.cpf}</p>}
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-[10px] text-gray-500">
+                    <i className="fas fa-info-circle mr-1" />
+                    Serao coletados: e-mail, CPF, IP, geolocalizacao (se permitida), data/hora e hash do documento — Lei 14.063/2020 art. 4, I.
+                </p>
+            </div>
+
+            <label className="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" checked={concordo} onChange={(e) => setConcordo(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 mt-0.5" />
+                <span className="text-sm text-gray-700">Declaro que li e concordo com o conteudo deste documento</span>
+            </label>
+
+            <div className="flex justify-end gap-2">
+                <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
+                <Button type="submit" loading={processing} icon="fas fa-pen-nib" disabled={!concordo}>Assinar</Button>
+            </div>
+        </form>
+    );
+}
+
+function FormIcp({ assinatura, onClose }) {
+    const { data, setData, post, processing, errors } = useForm({
+        pfx: null,
+        senha: '',
+        razao: 'Assinatura Eletronica Qualificada (Lei 14.063/2020 art. 4, III)',
+        local: 'Brasil',
+        geolocalizacao: '',
+    });
+    const [concordo, setConcordo] = useState(false);
+
+    const requestGeo = () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => setData('geolocalizacao', `${pos.coords.latitude},${pos.coords.longitude}`),
+                () => {}
+            );
+        }
+    };
+
+    const submit = (e) => {
+        e.preventDefault();
+        if (!concordo || !data.pfx || !data.senha) return;
+        requestGeo();
+        post(`/assinaturas/${assinatura.id}/assinar-icp`, {
+            forceFormData: true,
+            onSuccess: onClose,
+        });
+    };
 
     return (
-        <Modal show={!!assinatura} onClose={onClose} title="Assinar Documento">
-            <form onSubmit={submit} className="space-y-4">
-                <div className="bg-blue-50 rounded-xl p-4">
-                    <p className="text-sm font-medium text-blue-800">{assinatura.documento?.nome}</p>
-                    {assinatura.solicitacao?.mensagem && (
-                        <p className="text-xs text-blue-600 mt-1">{assinatura.solicitacao.mensagem}</p>
-                    )}
-                </div>
+        <form onSubmit={submit} className="space-y-4">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+                <p className="text-[11px] text-green-800 leading-tight">
+                    <i className="fas fa-shield-alt mr-1" />
+                    <strong>Assinatura Qualificada ICP-Brasil</strong> — equivale juridicamente a assinatura manuscrita.
+                    Sera gerado um PDF assinado em PAdES-BES, validavel em qualquer leitor compativel.
+                </p>
+            </div>
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
-                    <input type="text" value={data.cpf} onChange={(e) => setData('cpf', e.target.value)}
-                        className="ds-input" placeholder="000.000.000-00" maxLength={14} />
-                    {errors.cpf && <p className="mt-1 text-xs text-red-600">{errors.cpf}</p>}
-                </div>
-
-                <div className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-[10px] text-gray-500">
-                        <i className="fas fa-info-circle mr-1" />
-                        Ao assinar, serao coletados: e-mail, CPF, endereco IP, geolocalizacao (se permitida),
-                        data/hora e hash do documento conforme Lei 14.063/2020.
-                    </p>
-                </div>
-
-                <label className="flex items-start gap-2 cursor-pointer">
-                    <input type="checkbox" checked={concordo} onChange={(e) => setConcordo(e.target.checked)}
-                        className="rounded border-gray-300 text-blue-600 mt-0.5" />
-                    <span className="text-sm text-gray-700">
-                        Declaro que li e concordo com o conteudo deste documento
-                    </span>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Certificado digital (.pfx ou .p12)
                 </label>
+                <input type="file" accept=".pfx,.p12"
+                    onChange={(e) => setData('pfx', e.target.files?.[0] ?? null)}
+                    className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                {errors.pfx && <p className="mt-1 text-xs text-red-600">{errors.pfx}</p>}
+                <p className="mt-1 text-[10px] text-gray-500">
+                    Apenas certificados A1. Para A3 (token/smartcard), aguarde a integracao com Web PKI.
+                </p>
+            </div>
 
-                <div className="flex justify-end gap-2">
-                    <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
-                    <Button type="submit" loading={processing} icon="fas fa-pen-nib" disabled={!concordo}>
-                        Assinar
-                    </Button>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Senha do certificado</label>
+                <input type="password" value={data.senha} onChange={(e) => setData('senha', e.target.value)}
+                    autoComplete="off" className="ds-input" placeholder="Senha do .pfx" />
+                {errors.senha && <p className="mt-1 text-xs text-red-600">{errors.senha}</p>}
+                <p className="mt-1 text-[10px] text-gray-500">
+                    A senha e usada apenas em memoria para decriptar o PFX e nunca e armazenada.
+                </p>
+            </div>
+
+            <details className="bg-gray-50 rounded-xl p-3">
+                <summary className="text-xs font-medium text-gray-700 cursor-pointer">Opcoes avancadas</summary>
+                <div className="mt-3 space-y-2">
+                    <div>
+                        <label className="block text-[11px] text-gray-600 mb-1">Razao</label>
+                        <input type="text" value={data.razao} onChange={(e) => setData('razao', e.target.value)}
+                            className="ds-input text-xs" maxLength={200} />
+                    </div>
+                    <div>
+                        <label className="block text-[11px] text-gray-600 mb-1">Local</label>
+                        <input type="text" value={data.local} onChange={(e) => setData('local', e.target.value)}
+                            className="ds-input text-xs" maxLength={200} />
+                    </div>
                 </div>
-            </form>
-        </Modal>
+            </details>
+
+            <label className="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" checked={concordo} onChange={(e) => setConcordo(e.target.checked)}
+                    className="rounded border-gray-300 text-green-600 mt-0.5" />
+                <span className="text-sm text-gray-700">
+                    Declaro que li, concordo com o conteudo do documento e que sou o titular do certificado digital fornecido
+                </span>
+            </label>
+
+            <div className="flex justify-end gap-2">
+                <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
+                <Button type="submit" loading={processing} icon="fas fa-shield-alt"
+                    disabled={!concordo || !data.pfx || !data.senha}>
+                    Assinar com ICP-Brasil
+                </Button>
+            </div>
+        </form>
     );
 }
 

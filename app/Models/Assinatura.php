@@ -17,12 +17,21 @@ class Assinatura extends Model
         'signatario_id',
         'ordem',
         'status',
+        'tipo_assinatura',
+        'certificado_id',
         'email_signatario',
         'cpf_signatario',
         'ip',
         'geolocalizacao',
         'user_agent',
         'hash_documento',
+        'assinatura_pkcs7',
+        'cadeia_certificados',
+        'politica_assinatura',
+        'algoritmo_hash',
+        'arquivo_assinado_path',
+        'hash_assinatura_sha256',
+        'timestamp_assinatura',
         'versao_id',
         'motivo_recusa',
         'assinado_em',
@@ -30,7 +39,20 @@ class Assinatura extends Model
 
     protected function casts(): array
     {
-        return ['assinado_em' => 'datetime'];
+        return [
+            'assinado_em'          => 'datetime',
+            'timestamp_assinatura' => 'datetime',
+            'cadeia_certificados'  => 'array',
+        ];
+    }
+
+    protected $hidden = [
+        'assinatura_pkcs7',
+    ];
+
+    public function certificado(): BelongsTo
+    {
+        return $this->belongsTo(Certificado::class, 'certificado_id');
     }
 
     public function solicitacao(): BelongsTo

@@ -10,11 +10,15 @@ use App\Models\Documento;
 use App\Models\Notificacao;
 use App\Models\SolicitacaoAssinatura;
 use App\Models\User;
+use App\Services\AssinaturaIcpService;
+use App\Services\CertificadoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 class AssinaturaController extends Controller
 {
@@ -246,6 +250,182 @@ class AssinaturaController extends Controller
         return redirect()->back()->with('success', 'Assinatura recusada.');
     }
 
+    /**
+     * Assinatura Eletrônica Qualificada (Lei 14.063/2020 art. 4, III) — ICP-Brasil A1.
+     *
+     * Recebe upload de .pfx + senha, abre o material criptográfico em memória,
+     * valida a cadeia ICP-Brasil, gera o PDF assinado em PAdES-BES e descarta
+     * a chave privada. A senha NUNCA é persistida.
+     */
+    public function assinarIcp(
+        Request $request,
+        $id,
+        CertificadoService $certificadoService,
+        AssinaturaIcpService $assinaturaIcpService,
+    ) {
+        $request->validate([
+            'pfx'           => ['required', 'file', 'max:5120', 'mimes:pfx,p12'],
+            'senha'         => ['required', 'string'],
+            'geolocalizacao'=> ['nullable', 'string'],
+            'razao'         => ['nullable', 'string', 'max:200'],
+            'local'         => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $assinatura = Assinatura::with(['documento.versaoAtual', 'solicitacao'])->findOrFail($id);
+
+        if ($assinatura->signatario_id !== Auth::id()) {
+            return redirect()->back()->with('error', 'Voce nao tem permissao para assinar este documento.');
+        }
+
+        if ($assinatura->status !== 'pendente') {
+            return redirect()->back()->with('error', 'Esta assinatura ja foi processada.');
+        }
+
+        $versao = $assinatura->documento->versaoAtual;
+        if (! $versao) {
+            return redirect()->back()->with('error', 'Documento sem versão disponível para assinar.');
+        }
+
+        $pdfRelativo = $versao->arquivo_path;
+        $pdfAbsoluto = Storage::disk('local')->path($pdfRelativo);
+
+        if (! is_file($pdfAbsoluto) || ! str_ends_with(strtolower($pdfRelativo), '.pdf')) {
+            return redirect()->back()->with('error', 'Apenas arquivos PDF podem receber assinatura ICP-Brasil nesta versão.');
+        }
+
+        $pfxBinary = (string) file_get_contents($request->file('pfx')->getRealPath());
+        $senha     = (string) $request->input('senha');
+
+        try {
+            // 1) Valida o certificado e cadeia
+            $material = $certificadoService->abrirPfx($pfxBinary, $senha);
+            $cadeiaIcp = $certificadoService->validarCadeiaIcpBrasil(
+                $material['cert'],
+                $material['extracerts']
+            );
+            if (! $cadeiaIcp) {
+                return redirect()->back()->with('error',
+                    'Cadeia ICP-Brasil não pôde ser validada. Verifique se a truststore do ITI está instalada em storage/app/icp-brasil/ e se o certificado é ICP-Brasil válido.'
+                );
+            }
+
+            $meta = $certificadoService->lerMetadados($material['cert']);
+
+            // 2) Verifica que o CPF do cert bate com o do usuário (se cadastrado)
+            $cpfCert = preg_replace('/\D/', '', (string) $meta['subject_cpf']);
+            $cpfUser = preg_replace('/\D/', '', (string) Auth::user()->cpf);
+
+            if ($cpfUser && $cpfCert && $cpfUser !== $cpfCert) {
+                return redirect()->back()->with('error',
+                    "O CPF do certificado ({$cpfCert}) não confere com o CPF cadastrado para este usuário ({$cpfUser})."
+                );
+            }
+            if (! $cpfCert) {
+                return redirect()->back()->with('error',
+                    'CPF não encontrado no certificado (OID 2.16.76.1.3.1). Cert pode não ser e-CPF ICP-Brasil.'
+                );
+            }
+
+            // 3) Registra/atualiza certificado do usuário
+            $certificado = $certificadoService->registrarParaUsuario(
+                Auth::user(),
+                $material['cert'],
+                $material['extracerts']
+            );
+
+            // 4) Gera PDF assinado em PAdES-BES
+            $resultado = $assinaturaIcpService->assinarPdf(
+                $pdfAbsoluto,
+                $pfxBinary,
+                $senha,
+                [
+                    'razao'   => $request->input('razao', 'Assinatura Eletrônica Qualificada (Lei 14.063/2020)'),
+                    'local'   => $request->input('local', 'Brasil'),
+                    'contato' => $meta['subject_cn'],
+                ]
+            );
+
+            // 5) Persiste no registro de assinatura
+            $assinaturaIcpService->registrarAssinatura(
+                $assinatura,
+                $certificado,
+                $resultado,
+                $cpfCert,
+                (string) $request->ip(),
+                $request->input('geolocalizacao'),
+                $request->userAgent(),
+            );
+        } catch (Throwable $e) {
+            return redirect()->back()->with('error', 'Falha na assinatura digital: ' . $e->getMessage());
+        } finally {
+            // Apaga material sensível da memória PHP (best-effort)
+            $pfxBinary = str_repeat("\0", strlen($pfxBinary));
+            $senha     = str_repeat("\0", strlen($senha));
+            unset($pfxBinary, $senha, $material);
+        }
+
+        // Atualiza solicitação
+        $solicitacao = $assinatura->solicitacao;
+        $todasAssinadas = $solicitacao->assinaturas()->where('status', 'pendente')->doesntExist();
+        $solicitacao->update(['status' => $todasAssinadas ? 'concluida' : 'em_andamento']);
+
+        Notificacao::create([
+            'usuario_id'      => $solicitacao->solicitante_id,
+            'tipo'            => 'assinatura_realizada',
+            'titulo'          => 'Documento assinado digitalmente (ICP-Brasil)',
+            'mensagem'        => Auth::user()->name . " assinou \"{$assinatura->documento->nome}\" com Assinatura Qualificada ICP-Brasil.",
+            'referencia_tipo' => 'documento',
+            'referencia_id'   => $assinatura->documento_id,
+        ]);
+
+        AuditLog::create([
+            'documento_id' => $assinatura->documento_id,
+            'usuario_id'   => Auth::id(),
+            'acao'         => 'assinatura_qualificada_icp',
+            'detalhes'     => [
+                'tipo'            => 'qualificada',
+                'cpf'             => $cpfCert,
+                'issuer_cn'       => $meta['issuer_cn'] ?? null,
+                'serial'          => $meta['serial_number'] ?? null,
+                'thumbprint_sha256' => $meta['thumbprint_sha256'] ?? null,
+                'politica_oid'    => '2.16.76.1.7.1.1.2.3',
+            ],
+            'ip'           => $request->ip(),
+            'user_agent'   => $request->userAgent(),
+        ]);
+
+        return redirect()->back()->with('success', 'Documento assinado digitalmente (ICP-Brasil) com sucesso.');
+    }
+
+    /**
+     * Endpoint que devolve o PDF assinado para download.
+     */
+    public function downloadAssinado($id)
+    {
+        $assinatura = Assinatura::findOrFail($id);
+
+        if ($assinatura->signatario_id !== Auth::id()
+            && $assinatura->solicitacao->solicitante_id !== Auth::id()
+            && $assinatura->documento->autor_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if (! $assinatura->arquivo_assinado_path) {
+            abort(404, 'Esta assinatura não possui PDF qualificado anexado.');
+        }
+
+        $disk = Storage::disk('local');
+        if (! $disk->exists($assinatura->arquivo_assinado_path)) {
+            abort(404);
+        }
+
+        $nome = "assinado-icp-{$assinatura->documento_id}-{$assinatura->id}.pdf";
+        return response($disk->get($assinatura->arquivo_assinado_path), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => "attachment; filename=\"{$nome}\"",
+        ]);
+    }
+
     public function manifesto($solicitacaoId)
     {
         $solicitacao = SolicitacaoAssinatura::with([
@@ -253,6 +433,7 @@ class AssinaturaController extends Controller
             'documento.autor',
             'solicitante',
             'assinaturas.signatario',
+            'assinaturas.certificado',
         ])->findOrFail($solicitacaoId);
 
         $documento = $solicitacao->documento;

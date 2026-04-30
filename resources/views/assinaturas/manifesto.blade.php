@@ -102,30 +102,102 @@
                 <tr>
                     <th>#</th>
                     <th>Signatario</th>
-                    <th>E-mail</th>
+                    <th>Tipo</th>
                     <th>CPF</th>
                     <th>Status</th>
                     <th>Data/Hora</th>
                     <th>IP</th>
-                    <th>Geolocalizacao</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($solicitacao->assinaturas as $i => $assinatura)
                 <tr>
                     <td>{{ $i + 1 }}</td>
-                    <td>{{ $assinatura->signatario?->name ?? '-' }}</td>
-                    <td>{{ $assinatura->email_signatario }}</td>
+                    <td>{{ $assinatura->signatario?->name ?? '-' }}<br><span style="font-size:8px;color:#666">{{ $assinatura->email_signatario }}</span></td>
+                    <td>
+                        @if($assinatura->tipo_assinatura === 'qualificada')
+                            <strong style="color:#16a34a;">Qualificada</strong><br>
+                            <span style="font-size:8px;color:#666">ICP-Brasil</span>
+                        @elseif($assinatura->tipo_assinatura === 'avancada')
+                            Avancada
+                        @else
+                            Simples
+                        @endif
+                    </td>
                     <td>{{ $assinatura->cpf_signatario ? substr($assinatura->cpf_signatario, 0, 3) . '.***.' . substr($assinatura->cpf_signatario, -2) : '-' }}</td>
                     <td class="status-{{ $assinatura->status }}">{{ ucfirst($assinatura->status) }}</td>
                     <td>{{ $assinatura->assinado_em?->format('d/m/Y H:i:s') ?? '-' }}</td>
                     <td>{{ $assinatura->ip ?? '-' }}</td>
-                    <td>{{ $assinatura->geolocalizacao ?? '-' }}</td>
                 </tr>
                 @endforeach
             </tbody>
         </table>
     </div>
+
+    @php($qualificadas = $solicitacao->assinaturas->where('tipo_assinatura', 'qualificada'))
+    @if($qualificadas->count() > 0)
+    <div class="section">
+        <div class="section-title">Assinaturas Qualificadas — Detalhes ICP-Brasil</div>
+        @foreach($qualificadas as $a)
+            <div style="border:1px solid #e2e8f0; padding:10px; margin-bottom:10px; border-radius:4px; background:#f8fafc;">
+                <div class="info-grid">
+                    <div class="info-row">
+                        <div class="info-label">Signatario:</div>
+                        <div class="info-value"><strong>{{ $a->signatario?->name }}</strong></div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Titular do Cert.:</div>
+                        <div class="info-value">{{ $a->certificado?->subject_cn ?? '-' }}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">CPF:</div>
+                        <div class="info-value">{{ $a->cpf_signatario }}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">AC Emissora:</div>
+                        <div class="info-value">{{ $a->certificado?->issuer_cn ?? '-' }}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Numero de Serie:</div>
+                        <div class="info-value"><span class="hash">{{ $a->certificado?->serial_number ?? '-' }}</span></div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Validade do Cert.:</div>
+                        <div class="info-value">
+                            {{ $a->certificado?->valido_de?->format('d/m/Y') }}
+                            ate
+                            {{ $a->certificado?->valido_ate?->format('d/m/Y') }}
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Thumbprint SHA-256:</div>
+                        <div class="info-value"><span class="hash">{{ $a->certificado?->thumbprint_sha256 ?? '-' }}</span></div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Algoritmo:</div>
+                        <div class="info-value">{{ $a->algoritmo_hash ?? 'SHA-256' }} com RSA</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Politica:</div>
+                        <div class="info-value">{{ $a->politica_assinatura ?? 'AD-RB v2 (OID 2.16.76.1.7.1.1.2.3)' }}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Carimbo de Tempo:</div>
+                        <div class="info-value">{{ $a->timestamp_assinatura?->format('d/m/Y H:i:s') ?? $a->assinado_em?->format('d/m/Y H:i:s') }}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Hash do Documento:</div>
+                        <div class="info-value"><span class="hash">{{ $a->hash_documento ?? '-' }}</span></div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Hash do Envelope PKCS#7:</div>
+                        <div class="info-value"><span class="hash">{{ $a->hash_assinatura_sha256 ?? '-' }}</span></div>
+                    </div>
+                </div>
+            </div>
+        @endforeach
+    </div>
+    @endif
 
     @if($solicitacao->assinaturas->where('status', 'assinado')->count() > 0)
     <div class="section">
@@ -140,10 +212,16 @@
     @endif
 
     <div class="legal">
-        <strong>Base Legal:</strong> Este manifesto atende aos requisitos da Lei 14.063/2020 para Assinatura Eletronica Simples,
-        que valida a identidade do signatario por meio de e-mail, CPF, endereco IP, geolocalizacao e hash criptografico
-        do documento no momento da assinatura. A integridade do documento pode ser verificada comparando o hash SHA-256
-        registrado acima com o hash do arquivo original.
+        <strong>Base Legal — Lei 14.063/2020:</strong>
+        <br><br>
+        <strong>Art. 4, I (Simples):</strong> identifica o signatario por meio de email, CPF, IP, geolocalizacao e hash do documento.<br>
+        <strong>Art. 4, II (Avancada):</strong> usa certificado digital nao ICP-Brasil, com vinculo univoco ao signatario.<br>
+        <strong>Art. 4, III (Qualificada):</strong> usa certificado digital ICP-Brasil — equivale juridicamente a assinatura manuscrita
+        e e o unico tipo aceito sem restricao em qualquer interacao com o poder publico (Decreto 10.543/2020).<br><br>
+        <strong>Padrao tecnico:</strong> assinaturas qualificadas neste manifesto seguem PAdES-BES com politica AD-RB v2
+        (DOC-ICP-15.03 do ITI), algoritmo SHA-256 com RSA. A integridade pode ser verificada reabrindo o PDF em qualquer
+        leitor compativel (Adobe Reader, ITI Verificador) — a assinatura embutida e o /ByteRange permitem validacao offline
+        contra a cadeia da AC Raiz da ICP-Brasil.
     </div>
 
     <div class="footer">

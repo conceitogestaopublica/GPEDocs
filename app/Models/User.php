@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'cpf', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -53,5 +53,10 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Documento::class, 'ged_favoritos', 'user_id', 'documento_id')
             ->withPivot('created_at');
+    }
+
+    public function certificados(): HasMany
+    {
+        return $this->hasMany(Certificado::class);
     }
 }
