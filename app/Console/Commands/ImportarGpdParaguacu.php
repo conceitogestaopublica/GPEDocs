@@ -314,7 +314,7 @@ class ImportarGpdParaguacu extends Command
                 $totalVinculados++;
             }
 
-            User::create([
+            $novoUser = User::create([
                 'name'              => mb_strtoupper($this->limparTexto($u->nome)),
                 'email'             => $u->email,
                 'cpf'               => $cpf,
@@ -325,6 +325,13 @@ class ImportarGpdParaguacu extends Command
                 'legado_usuario_id' => $u->usuario_id,
                 'email_verified_at' => now(),
             ]);
+
+            // Vincula no pivot multi-UG
+            if ($no?->ug_id) {
+                $novoUser->ugs()->sync([
+                    $no->ug_id => ['principal' => true],
+                ]);
+            }
             $totalNovos++;
         }
 

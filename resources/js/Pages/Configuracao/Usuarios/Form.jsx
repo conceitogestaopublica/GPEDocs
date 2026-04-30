@@ -10,26 +10,31 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
     const isEdit = !! usuario;
 
     const { data, setData, post, put, processing, errors } = useForm({
-        name:       usuario?.name || '',
-        email:      usuario?.email || '',
-        cpf:        usuario?.cpf || '',
-        password:   '',
-        tipo:       usuario?.tipo || 'interno',
-        ug_id:      usuario?.ug_id || '',
-        unidade_id: usuario?.unidade_id || '',
-        roles:      usuario?.roles || [],
+        name:        usuario?.name || '',
+        email:       usuario?.email || '',
+        cpf:         usuario?.cpf || '',
+        password:    '',
+        tipo:        usuario?.tipo || 'interno',
+        super_admin: !! usuario?.super_admin,
+        ug_ids:      usuario?.ug_ids || [],
+        unidade_id:  usuario?.unidade_id || '',
+        roles:       usuario?.roles || [],
     });
 
-    const ugSel = ugs.find(u => u.id === Number(data.ug_id));
+    // UG "principal" para o dropdown de unidade = primeira do array
+    const ugPrincipalId = data.ug_ids[0];
+    const ugPrincipal = ugs.find(u => u.id === Number(ugPrincipalId));
+
     const unidadesDaUg = useMemo(() => {
-        if (! data.ug_id) return [];
+        if (! ugPrincipalId) return [];
         return unidades
-            .filter(u => u.ug_id === Number(data.ug_id))
+            .filter(u => u.ug_id === Number(ugPrincipalId))
             .sort((a, b) => a.nivel - b.nivel || a.nome.localeCompare(b.nome));
-    }, [data.ug_id, unidades]);
+    }, [ugPrincipalId, unidades]);
 
     const unidadeSel = unidades.find(u => u.id === Number(data.unidade_id));
     const rolesSel = roles.filter(r => data.roles.includes(r.id));
+    const ugsSel = ugs.filter(u => data.ug_ids.includes(u.id));
 
     // Campos obrigatorios
     const obrigatoriosFaltando =
@@ -38,8 +43,27 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
         (! isEdit && ! data.password.trim()) ||
         ! data.tipo;
 
-    const onUgChange = (val) => {
-        setData(d => ({ ...d, ug_id: val ? Number(val) : '', unidade_id: '' }));
+    const toggleUg = (id) => {
+        const novas = data.ug_ids.includes(id)
+            ? data.ug_ids.filter(x => x !== id)
+            : [...data.ug_ids, id];
+        // Se removeu a primeira (que era a "principal" para selecao de unidade),
+        // limpa a unidade tambem
+        const removeuPrincipal = data.ug_ids[0] === id && ! novas.includes(id);
+        setData(d => ({
+            ...d,
+            ug_ids: novas,
+            unidade_id: removeuPrincipal ? '' : d.unidade_id,
+        }));
+    };
+
+    const definirUgPrincipal = (id) => {
+        // Coloca essa UG como primeira do array
+        setData(d => ({
+            ...d,
+            ug_ids: [id, ...d.ug_ids.filter(x => x !== id)],
+            unidade_id: '',
+        }));
     };
 
     const toggleRole = (id) => {
@@ -59,11 +83,14 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
     // Resumo lateral — calculado dinamicamente
     const resumo = [
         { icone: 'fa-id-badge',     label: 'Tipo',     valor: data.tipo === 'externo' ? 'Externo' : 'Interno' },
+        ...(data.super_admin ? [{ icone: 'fa-crown', label: 'Super Admin', valor: 'Sim' }] : []),
         { icone: 'fa-user',         label: 'Nome',     valor: data.name,    vazio: ! data.name },
         { icone: 'fa-id-card',      label: 'CPF',      valor: formatarCpf(data.cpf), vazio: ! data.cpf },
         { icone: 'fa-envelope',     label: 'E-mail',   valor: data.email,   vazio: ! data.email },
         { icone: 'fa-key',          label: 'Senha',    valor: data.password ? '••••••••' : (isEdit ? 'manter atual' : ''), vazio: ! isEdit && ! data.password },
-        { icone: 'fa-building',     label: 'UG',       valor: ugSel ? `${ugSel.codigo} · ${ugSel.nome}` : '', vazio: ! ugSel },
+        { icone: 'fa-building',     label: 'UGs',
+          valor: ugsSel.length === 0 ? '' : ugsSel.map(u => u.codigo).join(', ') + (ugsSel.length === 1 ? ` · ${ugsSel[0].nome}` : ''),
+          vazio: ugsSel.length === 0 },
         { icone: 'fa-sitemap',      label: 'Unidade',  valor: unidadeSel?.nome, vazio: ! unidadeSel },
         { icone: 'fa-shield-alt',   label: 'Perfis',   valor: rolesSel.map(r => r.nome).join(', '), vazio: rolesSel.length === 0 },
     ];
@@ -157,49 +184,104 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                     </div>
                 </CadastroSecao>
 
-                {/* Vinculo com organograma */}
+                {/* Acesso multi-UG */}
                 <CadastroSecao
-                    icone="fa-sitemap"
-                    titulo="Vinculo com Estrutura"
-                    descricao={data.tipo === 'externo'
-                        ? 'Externos podem opcionalmente ter UG associada para receber notificacoes do Portal de Servicos'
-                        : 'Selecione a UG e a unidade onde o usuario atua'}
+                    icone="fa-building"
+                    titulo="Unidades Gestoras com acesso"
+                    descricao="O usuario podera escolher entre estas UGs ao logar. A primeira marcada e a UG principal (define a unidade do organograma)."
                 >
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Unidade Gestora</label>
-                            <select value={data.ug_id} onChange={(e) => onUgChange(e.target.value)} className="ds-input">
-                                <option value="">— Nenhuma —</option>
-                                {ugs.map(u => (
-                                    <option key={u.id} value={u.id}>{u.codigo} · {u.nome}</option>
-                                ))}
-                            </select>
+                    {ugs.length === 0 ? (
+                        <p className="text-xs text-gray-400">Nenhuma UG cadastrada.</p>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {ugs.map(u => {
+                                const ativo = data.ug_ids.includes(u.id);
+                                const principal = data.ug_ids[0] === u.id;
+                                return (
+                                    <div key={u.id} className={`p-3 rounded-xl border-2 transition-colors ${
+                                        ativo ? (principal ? 'border-blue-500 bg-blue-50' : 'border-blue-300 bg-blue-50/50') : 'border-gray-200 hover:bg-gray-50'
+                                    }`}>
+                                        <label className="flex items-start gap-2 cursor-pointer">
+                                            <input type="checkbox" checked={ativo} onChange={() => toggleUg(u.id)}
+                                                className="rounded border-gray-300 text-blue-600 mt-0.5" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-gray-800 truncate">{u.nome}</p>
+                                                <p className="text-[10px] text-gray-500 font-mono">{u.codigo}</p>
+                                            </div>
+                                        </label>
+                                        {ativo && data.ug_ids.length > 1 && (
+                                            <div className="mt-2 pt-2 border-t border-blue-200">
+                                                {principal ? (
+                                                    <span className="text-[10px] text-blue-700 font-bold">
+                                                        <i className="fas fa-star mr-1" />
+                                                        UG Principal
+                                                    </span>
+                                                ) : (
+                                                    <button type="button" onClick={() => definirUgPrincipal(u.id)}
+                                                        className="text-[10px] text-blue-600 hover:underline">
+                                                        Definir como principal
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
-                        {data.tipo === 'interno' && data.ug_id && (
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Unidade no organograma</label>
-                                <select value={data.unidade_id}
-                                    onChange={(e) => setData('unidade_id', e.target.value ? Number(e.target.value) : '')}
-                                    className="ds-input">
-                                    <option value="">— Selecionar —</option>
-                                    {unidadesDaUg.map(u => {
-                                        const labelN = ugSel?.[`nivel_${u.nivel}_label`] || `N${u.nivel}`;
-                                        const indent = '— '.repeat(u.nivel - 1);
-                                        return (
-                                            <option key={u.id} value={u.id}>
-                                                {indent}[{labelN}] {u.nome}
-                                            </option>
-                                        );
-                                    })}
-                                </select>
-                                {unidadesDaUg.length === 0 && (
-                                    <p className="mt-1 text-[10px] text-amber-600">
-                                        Esta UG ainda nao possui organograma cadastrado.
-                                    </p>
-                                )}
-                            </div>
+                    )}
+                </CadastroSecao>
+
+                {/* Unidade no organograma (so internos com pelo menos 1 UG) */}
+                {data.tipo === 'interno' && ugPrincipalId && (
+                    <CadastroSecao
+                        icone="fa-sitemap"
+                        titulo="Unidade no Organograma"
+                        descricao={`Unidade dentro do organograma de ${ugPrincipal?.nome} (UG principal)`}
+                    >
+                        <select value={data.unidade_id}
+                            onChange={(e) => setData('unidade_id', e.target.value ? Number(e.target.value) : '')}
+                            className="ds-input">
+                            <option value="">— Sem vinculo de unidade —</option>
+                            {unidadesDaUg.map(u => {
+                                const labelN = ugPrincipal?.[`nivel_${u.nivel}_label`] || `N${u.nivel}`;
+                                const indent = '— '.repeat(u.nivel - 1);
+                                return (
+                                    <option key={u.id} value={u.id}>
+                                        {indent}[{labelN}] {u.nome}
+                                    </option>
+                                );
+                            })}
+                        </select>
+                        {unidadesDaUg.length === 0 && (
+                            <p className="mt-1 text-[10px] text-amber-600">
+                                Esta UG ainda nao possui organograma cadastrado.
+                            </p>
                         )}
-                    </div>
+                    </CadastroSecao>
+                )}
+
+                {/* Super Admin */}
+                <CadastroSecao
+                    icone="fa-crown"
+                    titulo="Super Administrador"
+                    descricao="Super-admins veem dados de todas as UGs e podem trocar entre elas livremente. Use com moderacao."
+                >
+                    <label className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${
+                        data.super_admin ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:bg-gray-50'
+                    }`}>
+                        <input type="checkbox" checked={data.super_admin}
+                            onChange={(e) => setData('super_admin', e.target.checked)}
+                            className="rounded border-gray-300 text-amber-600 mt-0.5" />
+                        <div>
+                            <p className="text-sm font-semibold text-gray-800">
+                                <i className="fas fa-crown text-amber-500 mr-1" />
+                                Conceder privilegios de super-admin
+                            </p>
+                            <p className="text-[11px] text-gray-500 leading-tight">
+                                Permite acessar dados de qualquer UG e ignorar o filtro multi-tenant.
+                            </p>
+                        </div>
+                    </label>
                 </CadastroSecao>
 
                 {/* Perfis */}

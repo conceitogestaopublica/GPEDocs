@@ -24,15 +24,36 @@ class LoginController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
-            $request->session()->regenerate();
-
-            return redirect()->intended('/dashboard');
+        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+            return back()->withErrors([
+                'email' => 'As credenciais informadas não correspondem aos nossos registros.',
+            ])->onlyInput('email');
         }
 
-        return back()->withErrors([
-            'email' => 'As credenciais informadas não correspondem aos nossos registros.',
-        ])->onlyInput('email');
+        $request->session()->regenerate();
+        $user = Auth::user();
+
+        // UGs disponiveis: super_admin enxerga TODAS ativas; demais users sao
+        // limitados as UGs do pivot.
+        $ugs = $user->super_admin
+            ? \App\Models\Ug::where('ativo', true)->get(['id'])
+            : $user->ugs()->where('ugs.ativo', true)->get(['ugs.id']);
+
+        if ($ugs->count() === 0) {
+            // Super_admin sem nenhuma UG no sistema — segue para modulos (so pode ver/criar UG)
+            if ($user->super_admin) {
+                return redirect()->intended('/modulos');
+            }
+            return redirect()->route('sem-ug');
+        }
+
+        if ($ugs->count() === 1) {
+            session(['ug_id' => $ugs->first()->id]);
+            return redirect()->intended('/modulos');
+        }
+
+        // Mais de uma UG — usuario escolhe (inclusive super_admin)
+        return redirect()->route('selecionar-ug');
     }
 
     public function destroy(Request $request)

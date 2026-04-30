@@ -61,18 +61,20 @@ class UsuarioController extends Controller
 
     public function edit($id): Response
     {
-        $usuario = User::with('roles')->findOrFail($id);
+        $usuario = User::with(['roles', 'ugs'])->findOrFail($id);
 
         return Inertia::render('Configuracao/Usuarios/Form', [
             'usuario'  => [
-                'id'         => $usuario->id,
-                'name'       => $usuario->name,
-                'email'      => $usuario->email,
-                'cpf'        => $usuario->cpf,
-                'tipo'       => $usuario->tipo,
-                'ug_id'      => $usuario->ug_id,
-                'unidade_id' => $usuario->unidade_id,
-                'roles'      => $usuario->roles->pluck('id')->all(),
+                'id'          => $usuario->id,
+                'name'        => $usuario->name,
+                'email'       => $usuario->email,
+                'cpf'         => $usuario->cpf,
+                'tipo'        => $usuario->tipo,
+                'super_admin' => (bool) $usuario->super_admin,
+                'ug_id'       => $usuario->ug_id,        // UG primaria/legada
+                'unidade_id'  => $usuario->unidade_id,
+                'ug_ids'      => $usuario->ugs->pluck('id')->all(),  // UGs vinculadas (multi)
+                'roles'       => $usuario->roles->pluck('id')->all(),
             ],
             'roles'    => Role::orderBy('nome')->get(),
             'ugs'      => Ug::where('ativo', true)->orderBy('codigo')->get(['id','codigo','nome','nivel_1_label','nivel_2_label','nivel_3_label']),
@@ -82,70 +84,51 @@ class UsuarioController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'name'       => ['required', 'string', 'max:255'],
-            'email'      => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'cpf'        => ['nullable', 'string', 'max:14'],
-            'password'   => ['required', 'string', 'min:8'],
-            'tipo'       => ['required', 'in:interno,externo'],
-            'ug_id'      => ['nullable', 'integer', 'exists:ugs,id'],
-            'unidade_id' => ['nullable', 'integer', 'exists:ug_organograma,id'],
-            'roles'      => ['nullable', 'array'],
-            'roles.*'    => ['integer', 'exists:ged_roles,id'],
-        ]);
+        $validated = $this->validarUsuario($request, criando: true);
 
-        // Internos podem ter unidade; externos nunca
-        $tipo = $request->input('tipo');
-        $unidadeId = $tipo === 'externo' ? null : $request->input('unidade_id');
+        $tipo      = $validated['tipo'];
+        $unidadeId = $tipo === 'externo' ? null : ($validated['unidade_id'] ?? null);
+        $ugIds     = $this->normalizarUgIds($request);
 
         try {
             DB::beginTransaction();
 
             $user = User::create([
-                'name'       => $request->input('name'),
-                'email'      => $request->input('email'),
-                'cpf'        => $request->input('cpf'),
-                'password'   => Hash::make($request->input('password')),
-                'tipo'       => $tipo,
-                'ug_id'      => $request->input('ug_id'),
-                'unidade_id' => $unidadeId,
+                'name'        => $validated['name'],
+                'email'       => $validated['email'],
+                'cpf'         => $validated['cpf'] ?? null,
+                'password'    => Hash::make($validated['password']),
+                'tipo'        => $tipo,
+                'super_admin' => (bool) ($validated['super_admin'] ?? false),
+                'ug_id'       => $ugIds[0] ?? null,  // UG primaria = primeira do array
+                'unidade_id'  => $unidadeId,
             ]);
 
-            if ($request->filled('roles')) {
+            // Sincroniza pivot multi-UG
+            $this->sincronizarUgs($user, $ugIds);
+
+            // Sync roles
+            if (! empty($validated['roles'])) {
                 DB::table('ged_user_roles')->insert(
-                    collect($request->input('roles'))->map(fn ($roleId) => [
-                        'user_id' => $user->id,
-                        'role_id' => $roleId,
-                    ])->toArray()
+                    collect($validated['roles'])->map(fn ($r) => ['user_id' => $user->id, 'role_id' => $r])->toArray()
                 );
             }
 
             DB::commit();
-
             return redirect()->route('configuracoes.usuarios.index')->with('success', 'Usuário criado com sucesso.');
         } catch (\Exception $e) {
             DB::rollBack();
-
-            return redirect()->back()->with('error', 'Erro ao criar usuário: ' . $e->getMessage());
+            return back()->with('error', 'Erro ao criar usuário: ' . $e->getMessage());
         }
     }
 
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'name'       => ['required', 'string', 'max:255'],
-            'email'      => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $id],
-            'cpf'        => ['nullable', 'string', 'max:14'],
-            'password'   => ['nullable', 'string', 'min:8'],
-            'tipo'       => ['required', 'in:interno,externo'],
-            'ug_id'      => ['nullable', 'integer', 'exists:ugs,id'],
-            'unidade_id' => ['nullable', 'integer', 'exists:ug_organograma,id'],
-            'roles'      => ['nullable', 'array'],
-            'roles.*'    => ['integer', 'exists:ged_roles,id'],
-        ]);
+        $validated = $this->validarUsuario($request, criando: false, userId: $id);
 
-        $tipo = $request->input('tipo');
-        $unidadeId = $tipo === 'externo' ? null : $request->input('unidade_id');
+        $tipo      = $validated['tipo'];
+        $unidadeId = $tipo === 'externo' ? null : ($validated['unidade_id'] ?? null);
+        $ugIds     = $this->normalizarUgIds($request);
 
         try {
             DB::beginTransaction();
@@ -153,39 +136,70 @@ class UsuarioController extends Controller
             $user = User::findOrFail($id);
 
             $data = [
-                'name'       => $request->input('name'),
-                'email'      => $request->input('email'),
-                'cpf'        => $request->input('cpf'),
-                'tipo'       => $tipo,
-                'ug_id'      => $request->input('ug_id'),
-                'unidade_id' => $unidadeId,
+                'name'        => $validated['name'],
+                'email'       => $validated['email'],
+                'cpf'         => $validated['cpf'] ?? null,
+                'tipo'        => $tipo,
+                'super_admin' => (bool) ($validated['super_admin'] ?? false),
+                'ug_id'       => $ugIds[0] ?? null,
+                'unidade_id'  => $unidadeId,
             ];
 
-            if ($request->filled('password')) {
-                $data['password'] = Hash::make($request->input('password'));
+            if (! empty($validated['password'])) {
+                $data['password'] = Hash::make($validated['password']);
             }
 
             $user->update($data);
 
-            // Sync roles
+            $this->sincronizarUgs($user, $ugIds);
+
             DB::table('ged_user_roles')->where('user_id', $user->id)->delete();
-            if ($request->filled('roles')) {
+            if (! empty($validated['roles'])) {
                 DB::table('ged_user_roles')->insert(
-                    collect($request->input('roles'))->map(fn ($roleId) => [
-                        'user_id' => $user->id,
-                        'role_id' => $roleId,
-                    ])->toArray()
+                    collect($validated['roles'])->map(fn ($r) => ['user_id' => $user->id, 'role_id' => $r])->toArray()
                 );
             }
 
             DB::commit();
-
             return redirect()->route('configuracoes.usuarios.index')->with('success', 'Usuário atualizado com sucesso.');
         } catch (\Exception $e) {
             DB::rollBack();
-
-            return redirect()->back()->with('error', 'Erro ao atualizar usuário: ' . $e->getMessage());
+            return back()->with('error', 'Erro ao atualizar usuário: ' . $e->getMessage());
         }
+    }
+
+    private function validarUsuario(Request $request, bool $criando, ?int $userId = null): array
+    {
+        return $request->validate([
+            'name'        => ['required', 'string', 'max:255'],
+            'email'       => ['required', 'string', 'email', 'max:255',
+                              $criando ? 'unique:users,email' : 'unique:users,email,' . $userId],
+            'cpf'         => ['nullable', 'string', 'max:14'],
+            'password'    => $criando ? ['required', 'string', 'min:8'] : ['nullable', 'string', 'min:8'],
+            'tipo'        => ['required', 'in:interno,externo'],
+            'super_admin' => ['boolean'],
+            'ug_ids'      => ['nullable', 'array'],
+            'ug_ids.*'    => ['integer', 'exists:ugs,id'],
+            'unidade_id'  => ['nullable', 'integer', 'exists:ug_organograma,id'],
+            'roles'       => ['nullable', 'array'],
+            'roles.*'     => ['integer', 'exists:ged_roles,id'],
+        ]);
+    }
+
+    private function normalizarUgIds(Request $request): array
+    {
+        $ids = (array) $request->input('ug_ids', []);
+        return array_values(array_unique(array_map('intval', $ids)));
+    }
+
+    private function sincronizarUgs(User $user, array $ugIds): void
+    {
+        // Sync com pivot — primeiro = principal
+        $sync = [];
+        foreach ($ugIds as $i => $ugId) {
+            $sync[$ugId] = ['principal' => $i === 0];
+        }
+        $user->ugs()->sync($sync);
     }
 
     public function destroy($id)

@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToUg;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Pasta extends Model
 {
+    use BelongsToUg;
+
     protected $table = 'ged_pastas';
 
     protected $fillable = [
+        'ug_id',
         'nome',
         'descricao',
         'parent_id',

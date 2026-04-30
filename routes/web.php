@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Admin\TipoProcessoController;
 use App\Http\Controllers\AssinaturaController;
 use App\Http\Controllers\CertificadoController;
+use App\Http\Controllers\SelecionarUgController;
 use App\Http\Controllers\ProcessoController;
 use App\Http\Controllers\ProcessoDashboardController;
 use App\Http\Controllers\TramitacaoController;
@@ -38,6 +39,14 @@ Route::post('validar-assinatura', [VerificacaoController::class, 'validarPdf'])-
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'index'])->name('login');
     Route::post('/login', [LoginController::class, 'store']);
+});
+
+// Selecionar UG (autenticado, mas isento do EnsureUgSelected)
+Route::middleware('auth')->group(function () {
+    Route::get('/selecionar-ug', [SelecionarUgController::class, 'index'])->name('selecionar-ug');
+    Route::post('/selecionar-ug/{id}', [SelecionarUgController::class, 'selecionar'])->name('selecionar-ug.set');
+    Route::post('/trocar-ug', [SelecionarUgController::class, 'trocar'])->name('trocar-ug');
+    Route::get('/sem-ug', [SelecionarUgController::class, 'semUg'])->name('sem-ug');
 });
 
 // Auth

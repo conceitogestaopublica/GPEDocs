@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Ug extends Model
@@ -50,6 +51,16 @@ class Ug extends Model
     public function usuarios(): HasMany
     {
         return $this->hasMany(User::class, 'ug_id');
+    }
+
+    /**
+     * Vinculo multi-tenant: usuarios que tem acesso a esta UG.
+     */
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'user_ugs', 'ug_id', 'user_id')
+            ->withPivot('principal')
+            ->withTimestamps();
     }
 
     /**

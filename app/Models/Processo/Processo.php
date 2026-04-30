@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Processo;
 
+use App\Models\Concerns\BelongsToUg;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,11 +13,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Processo extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, BelongsToUg;
 
     protected $table = 'proc_processos';
 
     protected $fillable = [
+        'ug_id',
         'numero_protocolo',
         'tipo_processo_id',
         'assunto',

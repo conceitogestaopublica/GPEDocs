@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Processo;
 
+use App\Models\Concerns\BelongsToUg;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,11 +14,12 @@ use Illuminate\Support\Str;
 
 class Memorando extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, BelongsToUg;
 
     protected $table = 'proc_memorandos';
 
     protected $fillable = [
+        'ug_id',
         'numero',
         'assunto',
         'conteudo',
