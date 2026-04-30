@@ -64,6 +64,19 @@ return [
             ]) : [],
         ],
 
+        'gpe_legado' => [
+            'driver'    => 'mysql',
+            'host'      => env('GPE_LEGADO_HOST', '127.0.0.1'),
+            'port'      => env('GPE_LEGADO_PORT', '3306'),
+            'database'  => env('GPE_LEGADO_DATABASE', 'gpdparaguacu'),
+            'username'  => env('GPE_LEGADO_USERNAME', 'root'),
+            'password'  => env('GPE_LEGADO_PASSWORD', ''),
+            'charset'   => 'latin1',  // banco esta em latin1; convertimos no PHP
+            'collation' => 'latin1_general_ci',
+            'prefix'    => '',
+            'strict'    => false,
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),
