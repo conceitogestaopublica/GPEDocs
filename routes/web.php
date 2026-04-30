@@ -29,6 +29,10 @@ Route::get('oficios/rastrear/{token}', [OficioController::class, 'rastrear'])->n
 // Verificacao publica de documento (sem auth)
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
 
+// Validacao publica de assinatura ICP-Brasil em PDF (sem auth)
+Route::get('validar-assinatura', [VerificacaoController::class, 'validarPdfPagina'])->name('validar-assinatura');
+Route::post('validar-assinatura', [VerificacaoController::class, 'validarPdf'])->name('validar-assinatura.upload');
+
 // Guest
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'index'])->name('login');

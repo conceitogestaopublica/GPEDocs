@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Documento;
+use App\Services\AssinaturaValidadorService;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Throwable;
 
 class VerificacaoController extends Controller
 {
@@ -35,6 +38,38 @@ class VerificacaoController extends Controller
                 'atualizado_em'   => $documento->updated_at?->format('d/m/Y H:i'),
             ],
             'valido' => true,
+        ]);
+    }
+
+    /**
+     * Pagina de validacao de PDFs assinados — publica, sem auth.
+     */
+    public function validarPdfPagina()
+    {
+        return Inertia::render('GED/ValidarAssinatura', [
+            'resultado' => null,
+        ]);
+    }
+
+    /**
+     * Recebe upload de PDF e devolve relatorio de validacao da(s) assinatura(s) ICP-Brasil.
+     */
+    public function validarPdf(Request $request, AssinaturaValidadorService $validador)
+    {
+        $request->validate([
+            'pdf' => ['required', 'file', 'max:20480', 'mimes:pdf'],
+        ]);
+
+        try {
+            $bytes = (string) file_get_contents($request->file('pdf')->getRealPath());
+            $resultado = $validador->validar($bytes);
+        } catch (Throwable $e) {
+            return back()->with('error', 'Falha ao validar PDF: ' . $e->getMessage());
+        }
+
+        return Inertia::render('GED/ValidarAssinatura', [
+            'resultado'    => $resultado,
+            'arquivo_nome' => $request->file('pdf')->getClientOriginalName(),
         ]);
     }
 }

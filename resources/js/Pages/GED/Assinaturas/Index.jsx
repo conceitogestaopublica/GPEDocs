@@ -20,7 +20,7 @@ export default function Assinaturas({ pendentes, assinadas }) {
             <PageHeader title="Assinaturas" subtitle="Documentos aguardando sua assinatura" />
 
             {/* Tabs */}
-            <div className="flex gap-2 mb-6">
+            <div className="flex gap-2 mb-6 items-center">
                 {[
                     { key: 'pendentes', label: `Pendentes (${(pendentes || []).length})`, icon: 'fas fa-clock' },
                     { key: 'assinadas', label: 'Assinadas', icon: 'fas fa-check' },
@@ -32,6 +32,11 @@ export default function Assinaturas({ pendentes, assinadas }) {
                         {tab.label}
                     </button>
                 ))}
+                <a href="/validar-assinatura" target="_blank" rel="noopener"
+                   className="ml-auto flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 transition-colors">
+                    <i className="fas fa-shield-alt text-xs" />
+                    Validar PDF assinado
+                </a>
             </div>
 
             {activeTab === 'pendentes' && (
