@@ -141,16 +141,27 @@ Route::middleware('auth')->group(function () {
     Route::post('circulares/{id}/arquivar', [CircularController::class, 'arquivar'])->name('circulares.arquivar');
     Route::get('circulares/{id}/pdf', [CircularController::class, 'downloadPdf'])->name('circulares.pdf');
 
-    // GPE Flow — Inbox unificada
+    // GPE Flow — Inbox unificada por ESTADO
     Route::prefix('flow')->name('flow.')->group(function () {
-        Route::get('inbox-pessoal', [\App\Http\Controllers\Flow\InboxController::class, 'pessoal'])->name('inbox-pessoal');
-        Route::get('inbox-setor',   [\App\Http\Controllers\Flow\InboxController::class, 'setor'])->name('inbox-setor');
+        // Entrada (preciso agir)
+        Route::get('inbox-pessoal',         [\App\Http\Controllers\Flow\InboxController::class, 'pessoal'])->name('inbox-pessoal');
+        Route::get('inbox-setor',           [\App\Http\Controllers\Flow\InboxController::class, 'setor'])->name('inbox-setor');
+        Route::get('aguardando-assinatura', [\App\Http\Controllers\Flow\InboxController::class, 'aguardandoAssinatura'])->name('aguardando-assinatura');
+
+        // Em andamento
+        Route::get('em-tramitacao', [\App\Http\Controllers\Flow\InboxController::class, 'emTramitacao'])->name('em-tramitacao');
+
+        // Concluidos
+        Route::get('concluidos',    [\App\Http\Controllers\Flow\InboxController::class, 'concluidos'])->name('concluidos');
+
+        // Privado
         Route::get('saida',         [\App\Http\Controllers\Flow\InboxController::class, 'saida'])->name('saida');
-        Route::get('tramitacao',    [\App\Http\Controllers\Flow\InboxController::class, 'tramitacao'])->name('tramitacao');
         Route::get('rascunhos',     [\App\Http\Controllers\Flow\InboxController::class, 'rascunhos'])->name('rascunhos');
-        Route::get('arquivados',    [\App\Http\Controllers\Flow\InboxController::class, 'arquivados'])->name('arquivados');
-        // Compat: URL antiga
+
+        // Compat: URLs antigas
         Route::redirect('encaminhados', '/flow/saida');
+        Route::redirect('tramitacao',   '/flow/em-tramitacao');
+        Route::redirect('arquivados',   '/flow/concluidos');
     });
 
     // Processos (GEPSP)

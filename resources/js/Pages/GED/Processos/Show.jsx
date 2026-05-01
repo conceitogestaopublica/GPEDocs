@@ -741,7 +741,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                         Parecer / Justificativa <span className="text-red-500">*</span>
                                     </label>
                                     <textarea value={concluirForm.data.observacao_conclusao}
-                                        onChange={(e) => concluirForm.setData('observacao', e.target.value)}
+                                        onChange={(e) => concluirForm.setData('observacao_conclusao', e.target.value)}
                                         rows={5} className="ds-input !h-auto"
                                         placeholder="Justificativa da decisao..." />
                                     {concluirForm.errors.observacao_conclusao && (
@@ -778,7 +778,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Motivo do arquivamento (opcional)</label>
                                     <textarea value={concluirForm.data.observacao_conclusao}
-                                        onChange={(e) => concluirForm.setData('observacao', e.target.value)}
+                                        onChange={(e) => concluirForm.setData('observacao_conclusao', e.target.value)}
                                         rows={3} className="ds-input !h-auto"
                                         placeholder="Ex.: pedido desistido pelo requerente, objeto perdeu sentido..." />
                                 </div>
@@ -878,7 +878,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             <label className="block text-sm font-medium text-gray-700 mb-1">Observacao</label>
                             <textarea
                                 value={concluirForm.data.observacao_conclusao}
-                                onChange={(e) => concluirForm.setData('observacao', e.target.value)}
+                                onChange={(e) => concluirForm.setData('observacao_conclusao', e.target.value)}
                                 className="ds-input !h-auto"
                                 rows={3}
                                 placeholder="Observacao sobre a conclusao..."

@@ -12,106 +12,168 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * GPE Flow — Inbox unificada (memorando + circular + oficio + processo).
+ * GPE Flow — Inbox unificada por ESTADO.
  *
- * Le da view SQL `proc_inbox` que une os 4 tipos por destino (usuario ou
- * unidade do organograma) e mostra como uma unica caixa de correspondencias.
+ * Ler da view SQL `proc_inbox` (memorando + oficio + processo) e organiza
+ * por estado do item da perspectiva do usuario logado:
  *
- * Vistas:
- *   - pessoal()      itens enderecados ao usuario logado
- *   - setor()        itens enderecados a unidade do usuario logado
- *   - encaminhados() itens que o usuario logado enviou (e remetente)
- *   - rascunhos()    itens com status='rascunho' criados pelo usuario
- *   - arquivados()   itens com status='arquivado' que tocaram o usuario
+ *   ENTRADA (preciso agir):
+ *     pessoal()            — endereçado a mim, ainda nao recebi
+ *     setor()              — endereçado ao meu setor, ainda ninguem recebeu
+ *     aguardandoAssinatura() — eu decidi um processo, falta assinar
+ *
+ *   EM ANDAMENTO:
+ *     emTramitacao()       — itens em fluxo onde participei (ainda nao final)
+ *
+ *   CONCLUIDOS:
+ *     concluidos()         — itens finalizados onde participei
+ *
+ *   PRIVADO:
+ *     saida()              — tudo que eu originei (qualquer status)
+ *     rascunhos()          — meus rascunhos
+ *
+ * Estados finais: concluido, cancelado, arquivado.
+ * Estados ativos: rascunho, aberto, enviado, em_tramitacao, aguardando_assinatura.
  */
 class InboxController extends Controller
 {
+    private const ESTADOS_FINAIS = ['concluido', 'cancelado', 'arquivado'];
+
+    /**
+     * Caixa Pessoal — itens enderecados pessoalmente a mim, ainda em estado ativo.
+     */
     public function pessoal(Request $request): Response
     {
         $userId = (int) Auth::id();
         return $this->render($request, 'pessoal',
             fn ($q) => $q->where('destino_usuario_id', $userId)
+                         ->whereNotIn('status', self::ESTADOS_FINAIS)
         );
     }
 
+    /**
+     * Caixa Setor — itens enderecados ao meu setor (sem destinatario especifico).
+     * Usuario com acesso_geral_ug ve todos itens em primeiro recebimento da UG.
+     */
     public function setor(Request $request): Response
     {
         $user = Auth::user();
         $unidadeId = $user->unidade_id;
         $acessoGeral = (bool) $user->acesso_geral_ug;
 
-        // Acesso geral: ve itens em "primeiro recebimento" da UG ativa (originais ainda
-        // nao tramitados E primeiras tramitacoes que chegaram em algum setor).
-        // Itens ja tramitados a partir de algum setor migram para a aba Tramitacao.
         if ($acessoGeral) {
             return $this->render($request, 'setor',
                 fn ($q) => $q->whereNotNull('destino_unidade_id')
                              ->whereNull('destino_usuario_id')
-                             ->where('id', 'not like', 'MT-%') // exclui tramitacoes de memorando
+                             ->whereNotIn('status', self::ESTADOS_FINAIS)
+                             ->where('id', 'not like', 'MT-%')
             );
         }
 
-        // Sem acesso geral e sem unidade: caixa vazia + aviso para o admin vincular
         if (! $unidadeId) {
             return $this->render($request, 'setor', fn ($q) => $q->whereRaw('1 = 0'),
                 avisoSemUnidade: true);
         }
 
-        // Padrao: ve apenas a unidade onde esta lotado (incluindo tramitacoes que chegaram aqui)
         return $this->render($request, 'setor',
             fn ($q) => $q->where('destino_unidade_id', $unidadeId)
                          ->whereNull('destino_usuario_id')
+                         ->whereNotIn('status', self::ESTADOS_FINAIS)
         );
     }
 
     /**
-     * Saida — itens que o usuario originou (criou e despachou pela primeira vez).
+     * Aguardando Assinatura — processos onde eu sou o signatario pendente.
+     * Para Lei 14.063/2020 (decisoes que exigem assinatura ICP-Brasil).
      */
-    public function saida(Request $request): Response
+    public function aguardandoAssinatura(Request $request): Response
     {
         $userId = (int) Auth::id();
-        // Saida = itens que NAO sao tramitacao (so aparece o estagio inicial — destinos originais)
-        // Cada tipo distingue diferentemente: para memorando o item original (sem tramite) tem id 'M-...';
-        // para tramite o id comeca com 'MT-' ou (P-...). Filtramos pelo prefixo do id.
-        return $this->render($request, 'saida',
-            fn ($q) => $q->where('remetente_id', $userId)
-                         ->where(function ($q) {
-                             $q->where('id', 'like', 'M-%')      // memorando original
-                               ->orWhere('id', 'like', 'O-%')    // oficio
-                               ->orWhere('id', 'like', 'P-%');   // processo (todas tramitacoes — remetente_id = quem enviou esse passo)
+        return $this->render($request, 'aguardando_assinatura',
+            fn ($q) => $q->where('status', 'aguardando_assinatura')
+                         ->where('id', 'like', 'P-%') // somente processos por enquanto
+                         ->whereIn('item_id', function ($sub) use ($userId) {
+                             $sub->select('p.id')
+                                 ->from('proc_processos as p')
+                                 ->join('ged_assinaturas as a', 'a.solicitacao_id', '=', 'p.solicitacao_assinatura_id')
+                                 ->where('a.signatario_id', $userId)
+                                 ->where('a.status', 'pendente');
                          })
         );
     }
 
     /**
-     * Tramitacao — itens com chain de encaminhamentos onde o usuario participou
-     * como origem (recebeu e tramitou pra frente).
+     * Em Tramitacao — itens em fluxo (nao final) onde eu participei (originei,
+     * fui destino atual, ou meu setor foi destino).
      */
-    public function tramitacao(Request $request): Response
+    public function emTramitacao(Request $request): Response
     {
         $user = Auth::user();
         $userId = (int) $user->id;
         $unidadeId = $user->unidade_id;
         $acessoGeral = (bool) $user->acesso_geral_ug;
 
-        return $this->render($request, 'tramitacao',
-            fn ($q) => $q->where('id', 'like', 'MT-%')
+        return $this->render($request, 'em_tramitacao',
+            fn ($q) => $q->whereNotIn('status', self::ESTADOS_FINAIS)
+                         ->where('status', '!=', 'aguardando_assinatura')
+                         ->where('status', '!=', 'rascunho')
                          ->where(function ($q) use ($userId, $unidadeId, $acessoGeral) {
+                             $q->where('remetente_id', $userId)
+                               ->orWhere('destino_usuario_id', $userId);
                              if ($acessoGeral) {
-                                 // Ve todas tramitacoes da UG ativa (filtro de UG ja vem do scope)
-                                 $q->whereRaw('1 = 1');
-                             } else {
-                                 // Apenas onde participou: origem ou destino atual
-                                 $q->where('remetente_id', $userId);
-                                 if ($unidadeId) {
-                                     $q->orWhere('destino_unidade_id', $unidadeId);
-                                 }
-                                 $q->orWhere('destino_usuario_id', $userId);
+                                 $q->orWhereNotNull('destino_unidade_id');
+                             } elseif ($unidadeId) {
+                                 $q->orWhere('destino_unidade_id', $unidadeId);
                              }
                          })
         );
     }
 
+    /**
+     * Concluidos — itens em estado final que eu participei.
+     * Engloba o antigo "Arquivados" + processos decididos/cancelados.
+     */
+    public function concluidos(Request $request): Response
+    {
+        $user = Auth::user();
+        $userId = (int) $user->id;
+        $unidadeId = $user->unidade_id;
+        $acessoGeral = (bool) $user->acesso_geral_ug;
+
+        return $this->render($request, 'concluidos',
+            fn ($q) => $q->whereIn('status', self::ESTADOS_FINAIS)
+                         ->where(function ($q) use ($userId, $unidadeId, $acessoGeral) {
+                             $q->where('remetente_id', $userId)
+                               ->orWhere('destino_usuario_id', $userId);
+                             if ($acessoGeral) {
+                                 $q->orWhereNotNull('destino_unidade_id');
+                             } elseif ($unidadeId) {
+                                 $q->orWhere('destino_unidade_id', $unidadeId);
+                             }
+                         })
+        );
+    }
+
+    /**
+     * Saida (Originados) — tudo que eu criei, em qualquer estado.
+     * Vista privada — overlap proposital com outras categorias.
+     */
+    public function saida(Request $request): Response
+    {
+        $userId = (int) Auth::id();
+        return $this->render($request, 'saida',
+            fn ($q) => $q->where('remetente_id', $userId)
+                         ->where(function ($q) {
+                             $q->where('id', 'like', 'M-%')
+                               ->orWhere('id', 'like', 'O-%')
+                               ->orWhere('id', 'like', 'P-%');
+                         })
+        );
+    }
+
+    /**
+     * Rascunhos — itens que eu criei mas ainda nao despachei.
+     */
     public function rascunhos(Request $request): Response
     {
         $userId = (int) Auth::id();
@@ -120,31 +182,10 @@ class InboxController extends Controller
         );
     }
 
-    public function arquivados(Request $request): Response
-    {
-        $userId = (int) Auth::id();
-        $user = Auth::user();
-        $unidadeId = $user->unidade_id;
-        $acessoGeral = (bool) $user->acesso_geral_ug;
-
-        return $this->render($request, 'arquivados',
-            fn ($q) => $q->whereNotNull('arquivado_em')
-                ->where(function ($q) use ($userId, $unidadeId, $acessoGeral) {
-                    $q->where('remetente_id', $userId)
-                      ->orWhere('destino_usuario_id', $userId);
-                    if ($acessoGeral) {
-                        $q->orWhereNotNull('destino_unidade_id');
-                    } elseif ($unidadeId) {
-                        $q->orWhere('destino_unidade_id', $unidadeId);
-                    }
-                })
-        );
-    }
-
     private function render(Request $request, string $vista, \Closure $escopoFn, bool $avisoSemUnidade = false): Response
     {
         $busca = trim((string) $request->input('busca', ''));
-        $tipoFiltro = $request->input('tipo'); // null|memorando|oficio|processo
+        $tipoFiltro = $request->input('tipo');
         $somenteNaoLidos = $request->boolean('nao_lidos');
 
         $query = DB::table('proc_inbox');
@@ -165,7 +206,7 @@ class InboxController extends Controller
             $query->where('lido', false);
         }
 
-        // Filtro multi-tenant: ja vem na view via ug_id
+        // Filtro multi-tenant
         $ugId = session('ug_id');
         if ($ugId && ! Auth::user()->super_admin) {
             $query->where('ug_id', $ugId);
@@ -190,7 +231,6 @@ class InboxController extends Controller
             return $it;
         }));
 
-        // Contagem para os badges do menu
         $contagens = $this->contagens();
 
         return Inertia::render('GED/Flow/Inbox', [
@@ -207,7 +247,7 @@ class InboxController extends Controller
     }
 
     /**
-     * Conta itens em cada vista (para badges do menu).
+     * Contagens para badges do menu (todas as 7 vistas).
      */
     private function contagens(): array
     {
@@ -222,21 +262,38 @@ class InboxController extends Controller
             $base->where('ug_id', $ugId);
         }
 
-        $pessoal = (clone $base)->where('destino_usuario_id', $userId)->where('lido', false)->count();
+        $pessoal = (clone $base)
+            ->where('destino_usuario_id', $userId)
+            ->whereNotIn('status', self::ESTADOS_FINAIS)
+            ->where('lido', false)
+            ->count();
 
         if ($acessoGeral) {
             $setor = (clone $base)->whereNotNull('destino_unidade_id')->whereNull('destino_usuario_id')
+                ->whereNotIn('status', self::ESTADOS_FINAIS)
                 ->where('id', 'not like', 'MT-%')
                 ->where('lido', false)->count();
         } elseif ($unidadeId) {
-            $setor = (clone $base)->where('destino_unidade_id', $unidadeId)->whereNull('destino_usuario_id')->where('lido', false)->count();
+            $setor = (clone $base)->where('destino_unidade_id', $unidadeId)->whereNull('destino_usuario_id')
+                ->whereNotIn('status', self::ESTADOS_FINAIS)
+                ->where('lido', false)->count();
         } else {
             $setor = 0;
         }
 
+        // Aguardando assinatura: processos com Assinatura pendente para mim
+        $assinatura = DB::table('ged_assinaturas as a')
+            ->join('proc_processos as p', 'p.solicitacao_assinatura_id', '=', 'a.solicitacao_id')
+            ->where('a.signatario_id', $userId)
+            ->where('a.status', 'pendente')
+            ->where('p.status', 'aguardando_assinatura')
+            ->when($ugId && ! $user->super_admin, fn ($q) => $q->where('p.ug_id', $ugId))
+            ->count();
+
         return [
-            'pessoal_nao_lidos' => $pessoal,
-            'setor_nao_lidos'   => $setor,
+            'pessoal_nao_lidos'    => $pessoal,
+            'setor_nao_lidos'      => $setor,
+            'aguardando_assinatura'=> $assinatura,
         ];
     }
 }
