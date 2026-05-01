@@ -10,15 +10,16 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
     const isEdit = !! usuario;
 
     const { data, setData, post, put, processing, errors } = useForm({
-        name:        usuario?.name || '',
-        email:       usuario?.email || '',
-        cpf:         usuario?.cpf || '',
-        password:    '',
-        tipo:        usuario?.tipo || 'interno',
-        super_admin: !! usuario?.super_admin,
-        ug_ids:      usuario?.ug_ids || [],
-        unidade_id:  usuario?.unidade_id || '',
-        roles:       usuario?.roles || [],
+        name:            usuario?.name || '',
+        email:           usuario?.email || '',
+        cpf:             usuario?.cpf || '',
+        password:        '',
+        tipo:            usuario?.tipo || 'interno',
+        super_admin:     !! usuario?.super_admin,
+        acesso_geral_ug: !! usuario?.acesso_geral_ug,
+        ug_ids:          usuario?.ug_ids || [],
+        unidade_id:      usuario?.unidade_id || '',
+        roles:           usuario?.roles || [],
     });
 
     // UG "principal" para o dropdown de unidade = primeira do array
@@ -84,6 +85,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
     const resumo = [
         { icone: 'fa-id-badge',     label: 'Tipo',     valor: data.tipo === 'externo' ? 'Externo' : 'Interno' },
         ...(data.super_admin ? [{ icone: 'fa-crown', label: 'Super Admin', valor: 'Sim' }] : []),
+        ...(data.acesso_geral_ug ? [{ icone: 'fa-eye', label: 'Acesso UG', valor: 'Toda a UG' }] : []),
         { icone: 'fa-user',         label: 'Nome',     valor: data.name,    vazio: ! data.name },
         { icone: 'fa-id-card',      label: 'CPF',      valor: formatarCpf(data.cpf), vazio: ! data.cpf },
         { icone: 'fa-envelope',     label: 'E-mail',   valor: data.email,   vazio: ! data.email },
@@ -257,6 +259,32 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                                 Esta UG ainda nao possui organograma cadastrado.
                             </p>
                         )}
+                    </CadastroSecao>
+                )}
+
+                {/* Acesso a toda a UG (sem amarrar a unidade especifica) */}
+                {data.tipo === 'interno' && (
+                    <CadastroSecao
+                        icone="fa-eye"
+                        titulo="Acesso a toda a UG"
+                        descricao="Quando marcado, o usuario ve a Caixa Entrada Setor da UG inteira (todas as unidades), em vez de apenas a unidade onde esta lotado. Util para chefes de gabinete, secretarios e gestores."
+                    >
+                        <label className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${
+                            data.acesso_geral_ug ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:bg-gray-50'
+                        }`}>
+                            <input type="checkbox" checked={data.acesso_geral_ug}
+                                onChange={(e) => setData('acesso_geral_ug', e.target.checked)}
+                                className="rounded border-gray-300 text-emerald-600 mt-0.5" />
+                            <div>
+                                <p className="text-sm font-semibold text-gray-800">
+                                    <i className="fas fa-eye text-emerald-500 mr-1" />
+                                    Conceder acesso a toda a UG
+                                </p>
+                                <p className="text-[11px] text-gray-500 leading-tight">
+                                    Ignora o filtro por unidade do organograma na Caixa Entrada Setor. O usuario continua restrito as UGs marcadas acima.
+                                </p>
+                            </div>
+                        </label>
                     </CadastroSecao>
                 )}
 

@@ -23,24 +23,54 @@ use Throwable;
 
 class AssinaturaController extends Controller
 {
-    public function index(): Response
+    public function index(\Illuminate\Http\Request $request): Response
     {
+        // Filtros (apenas para a aba "assinadas")
+        $busca = trim((string) $request->input('busca', ''));
+        $tipoFiltro = $request->input('tipo_filtro');     // null | simples | qualificada
+        $dataDe   = $request->input('data_de');
+        $dataAte  = $request->input('data_ate');
+
+        // Pendentes — sem filtro, sao poucas
         $pendentes = Assinatura::with(['documento', 'solicitacao.solicitante'])
             ->where('signatario_id', Auth::id())
             ->where('status', 'pendente')
             ->orderByDesc('created_at')
             ->get();
 
-        $assinadas = Assinatura::with(['documento', 'solicitacao.solicitante'])
+        // Assinadas — com busca + filtros + paginacao
+        $assinadas = Assinatura::with(['documento', 'solicitacao.solicitante', 'certificado'])
             ->where('signatario_id', Auth::id())
             ->where('status', 'assinado')
+            ->when($busca !== '', function ($q) use ($busca) {
+                $termo = "%{$busca}%";
+                $cpfDigits = preg_replace('/\D/', '', $busca);
+                $q->where(function ($q) use ($termo, $cpfDigits) {
+                    $q->whereHas('documento', fn ($q2) => $q2->where('nome', 'like', $termo))
+                      ->orWhereHas('solicitacao', fn ($q2) => $q2->where('mensagem', 'like', $termo))
+                      ->orWhere('email_signatario', 'like', $termo);
+                    if ($cpfDigits !== '') {
+                        $q->orWhere('cpf_signatario', 'like', "%{$cpfDigits}%");
+                    }
+                });
+            })
+            ->when(in_array($tipoFiltro, ['simples', 'qualificada'], true),
+                fn ($q) => $q->where('tipo_assinatura', $tipoFiltro))
+            ->when($dataDe, fn ($q) => $q->whereDate('assinado_em', '>=', $dataDe))
+            ->when($dataAte, fn ($q) => $q->whereDate('assinado_em', '<=', $dataAte))
             ->orderByDesc('assinado_em')
-            ->limit(20)
-            ->get();
+            ->paginate(20)
+            ->withQueryString();
 
         return Inertia::render('GED/Assinaturas/Index', [
             'pendentes' => $pendentes,
             'assinadas' => $assinadas,
+            'filtros'   => [
+                'busca'       => $busca,
+                'tipo_filtro' => $tipoFiltro,
+                'data_de'     => $dataDe,
+                'data_ate'    => $dataAte,
+            ],
         ]);
     }
 
@@ -626,7 +656,7 @@ class AssinaturaController extends Controller
     /**
      * Endpoint que devolve o PDF assinado para download.
      */
-    public function downloadAssinado($id)
+    public function downloadAssinado(Request $request, $id)
     {
         $assinatura = Assinatura::findOrFail($id);
 
@@ -646,9 +676,15 @@ class AssinaturaController extends Controller
         }
 
         $nome = "assinado-icp-{$assinatura->documento_id}-{$assinatura->id}.pdf";
+
+        // ?inline=1 abre direto no navegador (visualizacao); sem isso, baixa
+        $disposition = $request->boolean('inline')
+            ? "inline; filename=\"{$nome}\""
+            : "attachment; filename=\"{$nome}\"";
+
         return response($disk->get($assinatura->arquivo_assinado_path), 200, [
             'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => "attachment; filename=\"{$nome}\"",
+            'Content-Disposition' => $disposition,
         ]);
     }
 

@@ -73,4 +73,9 @@ class Memorando extends Model
     {
         return $this->hasMany(MemorandoResposta::class);
     }
+
+    public function tramitacoes(): HasMany
+    {
+        return $this->hasMany(MemorandoTramitacao::class);
+    }
 }

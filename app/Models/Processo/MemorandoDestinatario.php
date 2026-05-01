@@ -15,10 +15,16 @@ class MemorandoDestinatario extends Model
     protected $fillable = [
         'memorando_id',
         'usuario_id',
+        'unidade_id',
         'setor_destino',
         'lido',
         'lido_em',
     ];
+
+    public function unidade(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\UgOrganograma::class, 'unidade_id');
+    }
 
     protected function casts(): array
     {

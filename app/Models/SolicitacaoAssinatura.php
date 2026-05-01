@@ -39,4 +39,14 @@ class SolicitacaoAssinatura extends Model
     {
         return $this->hasMany(Assinatura::class, 'solicitacao_id');
     }
+
+    /**
+     * Numero de protocolo legivel — formato SOL-AAAA-NNNNNN.
+     * Util para localizar uma solicitacao especifica em listagens grandes.
+     */
+    public function getProtocoloAttribute(): string
+    {
+        $ano = $this->created_at?->format('Y') ?? date('Y');
+        return sprintf('SOL-%s-%06d', $ano, $this->id);
+    }
 }

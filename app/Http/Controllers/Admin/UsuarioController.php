@@ -65,16 +65,17 @@ class UsuarioController extends Controller
 
         return Inertia::render('Configuracao/Usuarios/Form', [
             'usuario'  => [
-                'id'          => $usuario->id,
-                'name'        => $usuario->name,
-                'email'       => $usuario->email,
-                'cpf'         => $usuario->cpf,
-                'tipo'        => $usuario->tipo,
-                'super_admin' => (bool) $usuario->super_admin,
-                'ug_id'       => $usuario->ug_id,        // UG primaria/legada
-                'unidade_id'  => $usuario->unidade_id,
-                'ug_ids'      => $usuario->ugs->pluck('id')->all(),  // UGs vinculadas (multi)
-                'roles'       => $usuario->roles->pluck('id')->all(),
+                'id'              => $usuario->id,
+                'name'            => $usuario->name,
+                'email'           => $usuario->email,
+                'cpf'             => $usuario->cpf,
+                'tipo'            => $usuario->tipo,
+                'super_admin'     => (bool) $usuario->super_admin,
+                'acesso_geral_ug' => (bool) $usuario->acesso_geral_ug,
+                'ug_id'           => $usuario->ug_id,        // UG primaria/legada
+                'unidade_id'      => $usuario->unidade_id,
+                'ug_ids'          => $usuario->ugs->pluck('id')->all(),  // UGs vinculadas (multi)
+                'roles'           => $usuario->roles->pluck('id')->all(),
             ],
             'roles'    => Role::orderBy('nome')->get(),
             'ugs'      => Ug::where('ativo', true)->orderBy('codigo')->get(['id','codigo','nome','nivel_1_label','nivel_2_label','nivel_3_label']),
@@ -94,14 +95,15 @@ class UsuarioController extends Controller
             DB::beginTransaction();
 
             $user = User::create([
-                'name'        => $validated['name'],
-                'email'       => $validated['email'],
-                'cpf'         => $validated['cpf'] ?? null,
-                'password'    => Hash::make($validated['password']),
-                'tipo'        => $tipo,
-                'super_admin' => (bool) ($validated['super_admin'] ?? false),
-                'ug_id'       => $ugIds[0] ?? null,  // UG primaria = primeira do array
-                'unidade_id'  => $unidadeId,
+                'name'            => $validated['name'],
+                'email'           => $validated['email'],
+                'cpf'             => $validated['cpf'] ?? null,
+                'password'        => Hash::make($validated['password']),
+                'tipo'            => $tipo,
+                'super_admin'     => (bool) ($validated['super_admin'] ?? false),
+                'acesso_geral_ug' => (bool) ($validated['acesso_geral_ug'] ?? false),
+                'ug_id'           => $ugIds[0] ?? null,  // UG primaria = primeira do array
+                'unidade_id'      => $unidadeId,
             ]);
 
             // Sincroniza pivot multi-UG
@@ -124,7 +126,7 @@ class UsuarioController extends Controller
 
     public function update(Request $request, $id)
     {
-        $validated = $this->validarUsuario($request, criando: false, userId: $id);
+        $validated = $this->validarUsuario($request, criando: false, userId: (int) $id);
 
         $tipo      = $validated['tipo'];
         $unidadeId = $tipo === 'externo' ? null : ($validated['unidade_id'] ?? null);
@@ -136,13 +138,14 @@ class UsuarioController extends Controller
             $user = User::findOrFail($id);
 
             $data = [
-                'name'        => $validated['name'],
-                'email'       => $validated['email'],
-                'cpf'         => $validated['cpf'] ?? null,
-                'tipo'        => $tipo,
-                'super_admin' => (bool) ($validated['super_admin'] ?? false),
-                'ug_id'       => $ugIds[0] ?? null,
-                'unidade_id'  => $unidadeId,
+                'name'            => $validated['name'],
+                'email'           => $validated['email'],
+                'cpf'             => $validated['cpf'] ?? null,
+                'tipo'            => $tipo,
+                'super_admin'     => (bool) ($validated['super_admin'] ?? false),
+                'acesso_geral_ug' => (bool) ($validated['acesso_geral_ug'] ?? false),
+                'ug_id'           => $ugIds[0] ?? null,
+                'unidade_id'      => $unidadeId,
             ];
 
             if (! empty($validated['password'])) {
@@ -177,7 +180,8 @@ class UsuarioController extends Controller
             'cpf'         => ['nullable', 'string', 'max:14'],
             'password'    => $criando ? ['required', 'string', 'min:8'] : ['nullable', 'string', 'min:8'],
             'tipo'        => ['required', 'in:interno,externo'],
-            'super_admin' => ['boolean'],
+            'super_admin'      => ['boolean'],
+            'acesso_geral_ug'  => ['boolean'],
             'ug_ids'      => ['nullable', 'array'],
             'ug_ids.*'    => ['integer', 'exists:ugs,id'],
             'unidade_id'  => ['nullable', 'integer', 'exists:ug_organograma,id'],

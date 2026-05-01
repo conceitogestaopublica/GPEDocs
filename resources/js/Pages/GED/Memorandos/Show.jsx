@@ -4,23 +4,71 @@
  * Visualizacao completa com respostas em thread.
  */
 import { Head, router, useForm } from '@inertiajs/react';
-import { useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 
-export default function MemorandosShow({ memorando }) {
+export default function MemorandosShow({ memorando, pode_receber, pode_tramitar, meu_status, unidades = [], usuarios = [] }) {
     const memo = memorando || {};
     const respostas = memo.respostas || [];
     const destinatarios = memo.destinatarios || [];
     const anexos = memo.anexos || [];
+    const tramitacoes = memo.tramitacoes || [];
     const replyRef = useRef(null);
+    const [tramitarOpen, setTramitarOpen] = useState(false);
 
     const { data, setData, post, processing, reset } = useForm({
         conteudo: '',
     });
+
+    // Modal de tramitar
+    const tramiteForm = useForm({
+        tipo_destino: 'setor',
+        destino_unidade_id: '',
+        destino_usuario_id: '',
+        parecer: '',
+        registrar_como_resposta: false,
+    });
+
+    const unidadesTree = useMemo(() => {
+        const filhosPor = new Map();
+        unidades.forEach(u => {
+            const pid = u.parent_id ?? null;
+            if (! filhosPor.has(pid)) filhosPor.set(pid, []);
+            filhosPor.get(pid).push(u);
+        });
+        for (const [, lista] of filhosPor) lista.sort((a, b) => a.nome.localeCompare(b.nome));
+        const out = [];
+        const visitar = (parentId) => {
+            for (const u of (filhosPor.get(parentId) || [])) {
+                out.push(u);
+                visitar(u.id);
+            }
+        };
+        visitar(null);
+        return out;
+    }, [unidades]);
+
+    const usuariosFiltrados = useMemo(() => {
+        if (! tramiteForm.data.destino_unidade_id) return usuarios;
+        return usuarios.filter(u => Number(u.unidade_id) === Number(tramiteForm.data.destino_unidade_id));
+    }, [usuarios, tramiteForm.data.destino_unidade_id]);
+
+    const enviarReceber = () => {
+        if (confirm('Confirmar recebimento deste memorando?'))
+            router.post(`/memorandos/${memo.id}/receber`, {}, { preserveScroll: true });
+    };
+
+    const enviarTramitar = (e) => {
+        e.preventDefault();
+        tramiteForm.post(`/memorandos/${memo.id}/tramitar`, {
+            preserveScroll: true,
+            onSuccess: () => { tramiteForm.reset(); setTramitarOpen(false); },
+        });
+    };
 
     const submitReply = (e) => {
         e.preventDefault();
@@ -35,9 +83,29 @@ export default function MemorandosShow({ memorando }) {
         replyRef.current?.querySelector('textarea')?.focus();
     };
 
+    const statusBanner = (() => {
+        if (! meu_status) return null;
+        const map = {
+            remetente: { cor: 'blue', icone: 'fa-paper-plane' },
+            pendente:  { cor: 'amber', icone: 'fa-clock' },
+            recebido:  { cor: 'emerald', icone: 'fa-check-circle' },
+            tramitou:  { cor: 'purple', icone: 'fa-share' },
+        };
+        const cfg = map[meu_status.estado] || map.recebido;
+        const corBg = { blue: 'bg-blue-50 border-blue-200 text-blue-800', amber: 'bg-amber-50 border-amber-200 text-amber-800', emerald: 'bg-emerald-50 border-emerald-200 text-emerald-800', purple: 'bg-purple-50 border-purple-200 text-purple-800' }[cfg.cor];
+        return (
+            <div className={`rounded-xl border p-3 mb-4 flex items-start gap-3 ${corBg}`}>
+                <i className={`fas ${cfg.icone} mt-0.5`} />
+                <p className="text-sm">{meu_status.mensagem}</p>
+            </div>
+        );
+    })();
+
     return (
         <AdminLayout>
             <Head title={`Memorando ${memo.numero || ''}`} />
+
+            {statusBanner}
 
             {/* Cabecalho */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
@@ -74,6 +142,18 @@ export default function MemorandosShow({ memorando }) {
                             </div>
                         )}
 
+                        {pode_receber && (
+                            <Button icon="fas fa-inbox" onClick={enviarReceber}
+                                title="Confirmar recebimento (registra timestamp e libera tramitar/responder)">
+                                Receber
+                            </Button>
+                        )}
+                        {pode_tramitar && (
+                            <Button icon="fas fa-share" onClick={() => setTramitarOpen(true)}
+                                title="Encaminhar para outro setor ou usuario (com parecer opcional)">
+                                Encaminhar
+                            </Button>
+                        )}
                         {memo.status !== 'arquivado' && (
                             <Button variant="secondary" icon="fas fa-archive"
                                 onClick={() => {
@@ -202,6 +282,47 @@ export default function MemorandosShow({ memorando }) {
                         </div>
                     </Card>
 
+                    {/* Cadeia de Tramitacao */}
+                    {tramitacoes.length > 0 && (
+                        <Card title={`Tramitacao (${tramitacoes.length})`}>
+                            <div className="space-y-3">
+                                {tramitacoes.map((t, i) => {
+                                    const origem = t.origem_usuario?.name || '?';
+                                    const origemUnid = t.origem_unidade?.nome;
+                                    const dest = t.destino_usuario?.name || t.destino_unidade?.nome || '?';
+                                    return (
+                                        <div key={t.id} className={`relative pl-6 pb-3 ${i < tramitacoes.length - 1 ? 'border-l-2 border-gray-200' : ''}`}>
+                                            <div className={`absolute -left-1.5 top-0 w-3 h-3 rounded-full border-2 border-white ${
+                                                t.em_uso ? 'bg-blue-500' : (t.finalizado ? 'bg-green-500' : 'bg-gray-300')
+                                            }`} />
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-xs text-gray-700"><strong>{origem}</strong>
+                                                    {origemUnid && <span className="text-gray-400"> · {origemUnid}</span>}
+                                                </span>
+                                                <i className="fas fa-arrow-right text-gray-300 text-[10px]" />
+                                                <span className="text-xs text-gray-700"><strong>{dest}</strong></span>
+                                                {t.em_uso && ! t.finalizado && (
+                                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-bold uppercase">Aguardando</span>
+                                                )}
+                                                {t.em_uso && t.finalizado && (
+                                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold uppercase">Recebido</span>
+                                                )}
+                                                {! t.em_uso && (
+                                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-bold uppercase">Tramitado</span>
+                                                )}
+                                            </div>
+                                            {t.parecer && <p className="text-[11px] text-gray-500 mt-1 italic">"{t.parecer}"</p>}
+                                            <p className="text-[10px] text-gray-400 mt-1">
+                                                {t.despachado_em ? new Date(t.despachado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
+                                                {t.recebido_em && <span className="ml-2">recebido em {new Date(t.recebido_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>}
+                                            </p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </Card>
+                    )}
+
                     {/* Destinatarios */}
                     <Card title="Destinatarios">
                         {destinatarios.length === 0 ? (
@@ -248,6 +369,124 @@ export default function MemorandosShow({ memorando }) {
                     </Card>
                 </div>
             </div>
+
+            {/* Modal Tramitar */}
+            {tramitarOpen && (
+                <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setTramitarOpen(false)}>
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+                        <form onSubmit={enviarTramitar} className="p-6 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-bold text-gray-800"><i className="fas fa-share text-blue-500 mr-2" />Encaminhar Memorando</h3>
+                                <button type="button" onClick={() => setTramitarOpen(false)} className="text-gray-400 hover:text-gray-600 text-lg">
+                                    <i className="fas fa-times" />
+                                </button>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-2">Encaminhar para</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[
+                                        { v: 'setor',   icone: 'fa-users', titulo: 'Setor' },
+                                        { v: 'usuario', icone: 'fa-user',  titulo: 'Usuario' },
+                                    ].map(op => {
+                                        const ativo = tramiteForm.data.tipo_destino === op.v;
+                                        return (
+                                            <button key={op.v} type="button"
+                                                onClick={() => tramiteForm.setData(d => ({ ...d, tipo_destino: op.v, destino_unidade_id: '', destino_usuario_id: '' }))}
+                                                className={`p-3 rounded-xl border-2 transition-colors text-left ${ativo ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                                <i className={`fas ${op.icone} mr-2 ${ativo ? 'text-blue-600' : 'text-gray-400'}`} />
+                                                <span className="text-sm font-semibold text-gray-800">{op.titulo}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {tramiteForm.data.tipo_destino === 'setor' && (
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Setor de destino <span className="text-red-500">*</span></label>
+                                    <select value={tramiteForm.data.destino_unidade_id}
+                                        onChange={(e) => tramiteForm.setData('destino_unidade_id', e.target.value)}
+                                        className="ds-input">
+                                        <option value="">— Selecione o setor —</option>
+                                        {unidadesTree.map(u => (
+                                            <option key={u.id} value={u.id}>
+                                                {'— '.repeat(Math.max(0, u.nivel - 1))}[N{u.nivel}] {u.nome}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {tramiteForm.data.tipo_destino === 'usuario' && (
+                                <>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Filtrar por setor (opcional)</label>
+                                        <select value={tramiteForm.data.destino_unidade_id}
+                                            onChange={(e) => tramiteForm.setData(d => ({ ...d, destino_unidade_id: e.target.value, destino_usuario_id: '' }))}
+                                            className="ds-input">
+                                            <option value="">— Todos os setores —</option>
+                                            {unidadesTree.map(u => (
+                                                <option key={u.id} value={u.id}>
+                                                    {'— '.repeat(Math.max(0, u.nivel - 1))}[N{u.nivel}] {u.nome}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Usuario de destino <span className="text-red-500">*</span></label>
+                                        <select value={tramiteForm.data.destino_usuario_id}
+                                            onChange={(e) => tramiteForm.setData('destino_usuario_id', e.target.value)}
+                                            className="ds-input">
+                                            <option value="">— Selecione o usuario —</option>
+                                            {usuariosFiltrados.map(u => (
+                                                <option key={u.id} value={u.id}>{u.name} · {u.email}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Parecer / Resposta (opcional)</label>
+                                <textarea value={tramiteForm.data.parecer}
+                                    onChange={(e) => tramiteForm.setData('parecer', e.target.value)}
+                                    rows={4} className="ds-input !h-auto"
+                                    placeholder="Texto que acompanha o encaminhamento..." />
+                            </div>
+
+                            <label className={`flex items-start gap-2 p-3 rounded-xl border-2 cursor-pointer transition-colors ${
+                                tramiteForm.data.registrar_como_resposta ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:bg-gray-50'
+                            }`}>
+                                <input type="checkbox" checked={tramiteForm.data.registrar_como_resposta}
+                                    onChange={(e) => tramiteForm.setData('registrar_como_resposta', e.target.checked)}
+                                    className="rounded border-gray-300 text-emerald-600 mt-0.5"
+                                    disabled={! tramiteForm.data.parecer.trim()} />
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-800">
+                                        <i className="fas fa-comment-dots text-emerald-500 mr-1" />
+                                        Tambem registrar como resposta no thread
+                                    </p>
+                                    <p className="text-[11px] text-gray-500 leading-tight">
+                                        O texto acima ficara visivel para o remetente original na aba Respostas e gerara notificacao para ele.
+                                    </p>
+                                </div>
+                            </label>
+
+                            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                                <Button variant="secondary" type="button" onClick={() => setTramitarOpen(false)}>Cancelar</Button>
+                                <Button type="submit" loading={tramiteForm.processing} icon="fas fa-paper-plane"
+                                    disabled={
+                                        (tramiteForm.data.tipo_destino === 'setor' && ! tramiteForm.data.destino_unidade_id) ||
+                                        (tramiteForm.data.tipo_destino === 'usuario' && ! tramiteForm.data.destino_usuario_id)
+                                    }>
+                                    Encaminhar
+                                </Button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </AdminLayout>
     );
 }

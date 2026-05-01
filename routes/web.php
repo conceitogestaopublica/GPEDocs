@@ -126,6 +126,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('memorandos', MemorandoController::class)->only(['index', 'create', 'store', 'show']);
     Route::post('memorandos/{id}/responder', [MemorandoController::class, 'responder'])->name('memorandos.responder');
     Route::post('memorandos/{id}/arquivar', [MemorandoController::class, 'arquivar'])->name('memorandos.arquivar');
+    Route::post('memorandos/{id}/receber', [MemorandoController::class, 'receber'])->name('memorandos.receber');
+    Route::post('memorandos/{id}/tramitar', [MemorandoController::class, 'tramitar'])->name('memorandos.tramitar');
     Route::get('memorandos/{id}/pdf', [MemorandoController::class, 'downloadPdf'])->name('memorandos.pdf');
 
     // Oficios
@@ -138,6 +140,18 @@ Route::middleware('auth')->group(function () {
     Route::resource('circulares', CircularController::class)->only(['index', 'create', 'store', 'show']);
     Route::post('circulares/{id}/arquivar', [CircularController::class, 'arquivar'])->name('circulares.arquivar');
     Route::get('circulares/{id}/pdf', [CircularController::class, 'downloadPdf'])->name('circulares.pdf');
+
+    // GPE Flow — Inbox unificada
+    Route::prefix('flow')->name('flow.')->group(function () {
+        Route::get('inbox-pessoal', [\App\Http\Controllers\Flow\InboxController::class, 'pessoal'])->name('inbox-pessoal');
+        Route::get('inbox-setor',   [\App\Http\Controllers\Flow\InboxController::class, 'setor'])->name('inbox-setor');
+        Route::get('saida',         [\App\Http\Controllers\Flow\InboxController::class, 'saida'])->name('saida');
+        Route::get('tramitacao',    [\App\Http\Controllers\Flow\InboxController::class, 'tramitacao'])->name('tramitacao');
+        Route::get('rascunhos',     [\App\Http\Controllers\Flow\InboxController::class, 'rascunhos'])->name('rascunhos');
+        Route::get('arquivados',    [\App\Http\Controllers\Flow\InboxController::class, 'arquivados'])->name('arquivados');
+        // Compat: URL antiga
+        Route::redirect('encaminhados', '/flow/saida');
+    });
 
     // Processos (GEPSP)
     Route::get('processos/dashboard', [ProcessoDashboardController::class, '__invoke'])->name('processos.dashboard');

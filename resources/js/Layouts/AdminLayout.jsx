@@ -38,15 +38,23 @@ const MENU_CONFIGURACOES = [
 ];
 
 const MENU_GEPSP = [
+    { section: 'label', label: 'Entrada' },
+    { title: 'Caixa de Entrada', icon: 'fas fa-inbox', href: '/flow/inbox-pessoal', color: 'text-blue-600 bg-blue-100' },
+    { title: 'Caixa Entrada Setor', icon: 'fas fa-users', href: '/flow/inbox-setor', color: 'text-indigo-600 bg-indigo-100' },
+    { section: 'label', label: 'Em Movimento' },
+    { title: 'Tramitacao', icon: 'fas fa-share', href: '/flow/tramitacao', color: 'text-purple-600 bg-purple-100' },
+    { section: 'label', label: 'Saida' },
+    { title: 'Saida (Originados)', icon: 'fas fa-paper-plane', href: '/flow/saida', color: 'text-emerald-600 bg-emerald-100' },
+    { title: 'Rascunhos', icon: 'fas fa-pencil-alt', href: '/flow/rascunhos', color: 'text-yellow-600 bg-yellow-100' },
+    { title: 'Arquivados', icon: 'fas fa-archive', href: '/flow/arquivados', color: 'text-gray-600 bg-gray-200' },
+    { section: 'label', label: 'Criar' },
+    { title: 'Novo Processo', icon: 'fas fa-plus-circle', href: '/processos/create', color: 'text-green-600 bg-green-100' },
+    { title: 'Novo Memorando', icon: 'fas fa-envelope', href: '/memorandos/create', color: 'text-amber-600 bg-amber-100' },
+    { title: 'Nova Circular', icon: 'fas fa-bullhorn', href: '/circulares/create', color: 'text-rose-600 bg-rose-100' },
+    { title: 'Novo Oficio', icon: 'fas fa-file-alt', href: '/oficios/create', color: 'text-cyan-600 bg-cyan-100' },
+    { section: 'label', label: 'Gestao' },
     { title: 'Painel', icon: 'fas fa-tachometer-alt', href: '/processos/dashboard', color: 'text-teal-600 bg-teal-100' },
-    { section: 'label', label: 'Processos' },
-    { title: 'Caixa de Entrada', icon: 'fas fa-inbox', href: '/processos/inbox', color: 'text-blue-600 bg-blue-100' },
-    { title: 'Abrir Processo', icon: 'fas fa-plus-circle', href: '/processos/create', color: 'text-green-600 bg-green-100' },
     { title: 'Todos Processos', icon: 'fas fa-folder-open', href: '/processos', color: 'text-indigo-600 bg-indigo-100' },
-    { section: 'label', label: 'Comunicacao' },
-    { title: 'Memorandos', icon: 'fas fa-envelope', href: '/memorandos', color: 'text-amber-600 bg-amber-100' },
-    { title: 'Circulares', icon: 'fas fa-bullhorn', href: '/circulares', color: 'text-rose-600 bg-rose-100' },
-    { title: 'Oficios', icon: 'fas fa-paper-plane', href: '/oficios', color: 'text-cyan-600 bg-cyan-100' },
     { section: 'label', label: 'Administracao' },
     { title: 'Tipos de Processo', icon: 'fas fa-cogs', href: '/admin/tipos-processo', color: 'text-teal-600 bg-teal-100' },
 ];
@@ -54,7 +62,7 @@ const MENU_GEPSP = [
 // Detectar modulo pela URL
 function getModulo(url) {
     if (url.startsWith('/configuracoes') || url.startsWith('/perfil/certificados')) return 'configuracoes';
-    if (url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url.startsWith('/oficios') || url === '/admin/tipos-processo') return 'gepsp';
+    if (url.startsWith('/flow') || url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url.startsWith('/oficios') || url === '/admin/tipos-processo') return 'gepsp';
     return 'ged';
 }
 

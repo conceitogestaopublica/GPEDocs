@@ -436,9 +436,14 @@ function TabAssinaturas({ documento, usuarios }) {
                         <div key={sol.id} className="border border-gray-200 rounded-xl overflow-hidden">
                             <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
                                 <div>
-                                    <span className="text-xs text-gray-500">
-                                        Solicitado por <strong>{sol.solicitante?.name}</strong> em {new Date(sol.created_at).toLocaleDateString('pt-BR')}
-                                    </span>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-[10px] font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded font-bold">
+                                            SOL-{(sol.created_at || '').slice(0,4)}-{String(sol.id).padStart(6,'0')}
+                                        </span>
+                                        <span className="text-xs text-gray-500">
+                                            Solicitado por <strong>{sol.solicitante?.name}</strong> em {new Date(sol.created_at).toLocaleDateString('pt-BR')}
+                                        </span>
+                                    </div>
                                     {sol.mensagem && <p className="text-xs text-gray-600 mt-0.5">{sol.mensagem}</p>}
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -532,14 +537,20 @@ function AssinaturaItem({ a, statusColors }) {
                         <DetalheCert label="Politica" valor={a.politica_assinatura} />
                     )}
                     {a.arquivo_assinado_path && (
-                        <div className="md:col-span-2 mt-1 flex items-center gap-2">
-                            <a href={`/assinaturas/${a.id}/download-assinado`}
+                        <div className="md:col-span-2 mt-1 flex items-center flex-wrap gap-2">
+                            <a href={`/assinaturas/${a.id}/download-assinado?inline=1`} target="_blank" rel="noopener"
                                 className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                                <i className="fas fa-eye" />
+                                Visualizar PDF assinado
+                            </a>
+                            <a href={`/assinaturas/${a.id}/download-assinado`}
+                                className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg bg-white border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors">
                                 <i className="fas fa-file-download" />
-                                Baixar PDF assinado (PAdES)
+                                Baixar
                             </a>
                             <a href="/validar-assinatura" target="_blank" rel="noopener"
-                                className="text-[11px] text-blue-600 hover:underline">
+                                className="text-[11px] text-blue-600 hover:underline ml-auto">
+                                <i className="fas fa-shield-alt mr-1" />
                                 Validar assinatura
                             </a>
                         </div>

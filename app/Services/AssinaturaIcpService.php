@@ -189,7 +189,11 @@ class AssinaturaIcpService
                 $pdf->useTemplate($tplId);
             }
 
-            // Pagina extra de Termo de Assinatura (visivel)
+            // Carimbo visual NA ultima pagina do documento original (rodape)
+            $pdf->setPage($totalPaginas);
+            $this->desenharCarimboAssinatura($pdf, $meta);
+
+            // Pagina extra de Termo de Assinatura (auditoria completa)
             $this->adicionarPaginaTermo($pdf, $meta, $razao, $local);
 
             $pdf->setSignature(
@@ -264,6 +268,88 @@ class AssinaturaIcpService
             'valido_ate' => isset($info['validTo_time_t']) ? date('c', (int) $info['validTo_time_t']) : null,
             'thumbprint' => strtolower((string) openssl_x509_fingerprint($pem, 'sha256')),
         ];
+    }
+
+    /**
+     * Desenha um pequeno carimbo na pagina atual com os dados essenciais da
+     * assinatura — equivalente ao "Documento assinado digitalmente" que
+     * sistemas como FlowDocs / SEI / GPE Cloud aplicam visualmente. Vai no
+     * canto inferior direito da pagina para nao poluir o conteudo.
+     */
+    private function desenharCarimboAssinatura(Fpdi $pdf, array $meta): void
+    {
+        $cn  = $meta['subject_cn']  ?? '?';
+        $cpf = $meta['subject_cpf'] ?? null;
+        $cpfFmt = $cpf ? $this->formatarCpf($cpf) : '';
+        $serial = isset($meta['serial_number']) ? substr($meta['serial_number'], 0, 16) . '...' : '';
+        $timestamp = date('d/m/Y H:i:s');
+
+        // Posicao no rodape (mm) — ajusta para nao bater com conteudo
+        $pageHeight = $pdf->getPageHeight();
+        $pageWidth  = $pdf->getPageWidth();
+        $largura = 75;
+        $altura  = 22;
+        $x = $pageWidth - $largura - 10;
+        $y = $pageHeight - $altura - 10;
+
+        // Caixa
+        $pdf->SetDrawColor(30, 64, 175);    // azul ICP-Brasil
+        $pdf->SetLineWidth(0.3);
+        $pdf->SetFillColor(245, 247, 252);  // azul muito claro
+        $pdf->Rect($x, $y, $largura, $altura, 'DF');
+
+        // Faixa lateral azul escura
+        $pdf->SetFillColor(30, 64, 175);
+        $pdf->Rect($x, $y, 4, $altura, 'F');
+
+        // Selo "ICP" vertical na faixa
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 6);
+        $pdf->StartTransform();
+        $pdf->Rotate(90, $x + 2, $y + $altura / 2);
+        $pdf->SetXY($x - $altura / 2 + 2, $y + $altura / 2 - 1.5);
+        $pdf->Cell($altura, 3, 'ICP-BRASIL', 0, 0, 'C');
+        $pdf->StopTransform();
+
+        // Conteudo
+        $pdf->SetTextColor(30, 64, 175);
+        $pdf->SetFont('helvetica', 'B', 7);
+        $pdf->SetXY($x + 6, $y + 2);
+        $pdf->Cell($largura - 8, 3, 'Documento assinado digitalmente', 0, 1, 'L');
+
+        $pdf->SetTextColor(40, 40, 40);
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->SetXY($x + 6, $y + 6);
+        $pdf->Cell($largura - 8, 3.5, mb_strimwidth($cn, 0, 38, '...'), 0, 1, 'L');
+
+        $pdf->SetFont('helvetica', '', 6.5);
+        $pdf->SetTextColor(80, 80, 80);
+        if ($cpfFmt) {
+            $pdf->SetXY($x + 6, $y + 9.5);
+            $pdf->Cell($largura - 8, 2.8, 'CPF: ' . $this->mascararCpf($cpfFmt), 0, 1, 'L');
+        }
+        $pdf->SetXY($x + 6, $y + 12.5);
+        $pdf->Cell($largura - 8, 2.8, 'Data: ' . $timestamp, 0, 1, 'L');
+
+        if ($serial) {
+            $pdf->SetXY($x + 6, $y + 15.5);
+            $pdf->SetFont('helvetica', '', 5.5);
+            $pdf->SetTextColor(120, 120, 120);
+            $pdf->Cell($largura - 8, 2.5, 'Serial: ' . $serial, 0, 1, 'L');
+        }
+
+        $pdf->SetXY($x + 6, $y + 18);
+        $pdf->SetFont('helvetica', 'I', 5.5);
+        $pdf->SetTextColor(120, 120, 120);
+        $pdf->Cell($largura - 8, 2.5, 'Verifique em /validar-assinatura', 0, 1, 'L');
+    }
+
+    private function mascararCpf(string $cpf): string
+    {
+        // Mascara o meio: 851.183.865-04 -> 851.***.***-04
+        $d = preg_replace('/\D/', '', $cpf);
+        if (strlen($d) !== 11) return $cpf;
+        return sprintf('%s.***.***-%s', substr($d, 0, 3), substr($d, 9, 2));
     }
 
     /**
