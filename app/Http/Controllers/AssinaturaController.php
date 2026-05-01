@@ -357,6 +357,13 @@ class AssinaturaController extends Controller
                 $request->userAgent(),
             );
         } catch (Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Falha na assinatura ICP-Brasil A1', [
+                'assinatura_id' => $assinatura->id,
+                'user_id'       => Auth::id(),
+                'erro'          => $e->getMessage(),
+                'arquivo'       => $e->getFile() . ':' . $e->getLine(),
+                'trace'         => $e->getTraceAsString(),
+            ]);
             return redirect()->back()->with('error', 'Falha na assinatura digital: ' . $e->getMessage());
         } finally {
             // Apaga material sensível da memória PHP (best-effort)
@@ -561,7 +568,9 @@ class AssinaturaController extends Controller
             'geolocalizacao'          => $request->input('geolocalizacao'),
             'user_agent'              => $request->userAgent(),
             'hash_documento'          => $resultado['pdf_sha256'],
-            'assinatura_pkcs7'        => $resultado['pkcs7'],
+            // assinatura_pkcs7 nao e mais persistida (vive no PDF embutido
+            // em arquivo_assinado_path); evita erro UTF-8 do PostgreSQL com
+            // bytes binarios em coluna text.
             'cadeia_certificados'     => array_map(
                 fn ($pem) => ['cn' => '', 'thumbprint' => strtolower((string) openssl_x509_fingerprint($pem, 'sha256'))],
                 (array) $request->input('cadeia_pem', []),

@@ -80,6 +80,7 @@ class AssinaturaIcpService
             razao: $razao['razao']   ?? 'Assinatura Eletrônica Qualificada (Lei 14.063/2020)',
             local: $razao['local']   ?? 'Brasil',
             contato: $razao['contato'] ?? ($meta['subject_cn'] ?? ''),
+            meta: $meta,
         );
 
         // Persiste o resultado
@@ -129,7 +130,12 @@ class AssinaturaIcpService
             'geolocalizacao'          => $geolocalizacao,
             'user_agent'              => $userAgent,
             'hash_documento'          => $resultado['meta']['hash_pdf'] ?? null,
-            'assinatura_pkcs7'        => $resultado['pkcs7'],
+            // assinatura_pkcs7 nao e mais persistida no banco — o envelope
+            // completo ja vive embutido em arquivo_assinado_path (PDF) e o
+            // hash do envelope esta em hash_assinatura_sha256. Salvar bytes
+            // binarios em coluna postgres causaria erro UTF-8. O envelope
+            // pode ser re-extraido do PDF quando necessario via
+            // AssinaturaValidadorService.
             'cadeia_certificados'     => array_map(
                 fn (string $pem) => $this->resumoCert($pem),
                 $resultado['cadeia']
@@ -153,6 +159,7 @@ class AssinaturaIcpService
         string $razao,
         string $local,
         string $contato,
+        array $meta = [],
     ): string {
         // signing_cert e private_key sao passados como PEM inline porque
         // openssl_pkcs7_sign no Windows com PHP 8.3 + OpenSSL 3 falha ao
@@ -181,6 +188,9 @@ class AssinaturaIcpService
                 $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
                 $pdf->useTemplate($tplId);
             }
+
+            // Pagina extra de Termo de Assinatura (visivel)
+            $this->adicionarPaginaTermo($pdf, $meta, $razao, $local);
 
             $pdf->setSignature(
                 signing_cert: $certPem,
@@ -254,5 +264,151 @@ class AssinaturaIcpService
             'valido_ate' => isset($info['validTo_time_t']) ? date('c', (int) $info['validTo_time_t']) : null,
             'thumbprint' => strtolower((string) openssl_x509_fingerprint($pem, 'sha256')),
         ];
+    }
+
+    /**
+     * Anexa ao final do PDF uma pagina visivel com os dados da assinatura
+     * qualificada (titular, AC, validade, hash, politica). Equivale ao
+     * "termo de assinatura" exibido em sistemas como ITI Verificador / SEI.
+     */
+    private function adicionarPaginaTermo(Fpdi $pdf, array $meta, string $razao, string $local): void
+    {
+        $pdf->AddPage('P', 'A4');
+
+        $azul     = [30, 64, 175];   // #1e40af
+        $cinzaEsc = [50, 50, 50];
+        $cinzaMed = [120, 120, 120];
+
+        // Cabecalho azul
+        $pdf->SetFillColor(...$azul);
+        $pdf->Rect(0, 0, 210, 28, 'F');
+
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 16);
+        $pdf->SetXY(15, 8);
+        $pdf->Cell(0, 6, 'TERMO DE ASSINATURA ELETRONICA QUALIFICADA', 0, 1, 'L');
+        $pdf->SetFont('helvetica', '', 9);
+        $pdf->SetX(15);
+        $pdf->Cell(0, 5, 'ICP-Brasil  -  Lei 14.063/2020 art. 4, III  -  PAdES-BES', 0, 1, 'L');
+
+        // Selo a direita
+        $pdf->SetFont('helvetica', 'B', 11);
+        $pdf->SetXY(160, 8);
+        $pdf->Cell(35, 12, 'ICP-BRASIL', 1, 1, 'C');
+
+        // Conteudo
+        $pdf->SetTextColor(...$cinzaEsc);
+        $pdf->SetY(38);
+        $pdf->SetFont('helvetica', '', 10);
+
+        $pdf->SetX(15);
+        $pdf->MultiCell(180, 5,
+            'Este documento foi assinado digitalmente com certificado ICP-Brasil. ' .
+            'A assinatura abaixo e juridicamente equivalente a uma assinatura manuscrita ' .
+            'em qualquer interacao com o poder publico brasileiro (Decreto 10.543/2020). ' .
+            'Para verificar a integridade da assinatura, abra o PDF em qualquer leitor compativel ' .
+            '(Adobe Reader, ITI Verificador) ou utilize o validador online do sistema.',
+            0, 'J');
+        $pdf->Ln(4);
+
+        // Caixa com dados do signatario
+        $cn         = $meta['subject_cn']       ?? '?';
+        $cpf        = $meta['subject_cpf']      ?? null;
+        $issuer     = $meta['issuer_cn']        ?? '?';
+        $serial     = $meta['serial_number']    ?? '?';
+        $validoDe   = $meta['valido_de']        ?? null;
+        $validoAte  = $meta['valido_ate']       ?? null;
+        $thumb      = $meta['thumbprint_sha256']?? '?';
+        $politica   = self::POLITICA_NOME . ' (OID ' . self::POLITICA_OID . ')';
+        $algoritmo  = 'SHA-256 com RSA';
+        $timestamp  = date('d/m/Y H:i:s');
+
+        $cpfFmt = $cpf ? $this->formatarCpf($cpf) : null;
+
+        $pdf->SetFont('helvetica', 'B', 11);
+        $pdf->SetTextColor(...$azul);
+        $pdf->SetX(15);
+        $pdf->Cell(0, 6, 'Dados do Signatario', 0, 1);
+        $pdf->SetTextColor(...$cinzaEsc);
+
+        $linhas = [
+            ['Titular do certificado', $cn],
+        ];
+        if ($cpfFmt) {
+            $linhas[] = ['CPF', $cpfFmt];
+        }
+        $linhas = array_merge($linhas, [
+            ['Autoridade Certificadora', $issuer],
+            ['Numero de serie', $this->formatarSerial($serial)],
+            ['Validade do certificado',
+                ($validoDe ? date('d/m/Y', strtotime($validoDe)) : '?') . ' ate ' .
+                ($validoAte ? date('d/m/Y', strtotime($validoAte)) : '?')],
+            ['Thumbprint SHA-256', $this->formatarThumbprint($thumb)],
+        ]);
+
+        foreach ($linhas as [$label, $valor]) {
+            $pdf->SetFont('helvetica', '', 8);
+            $pdf->SetTextColor(...$cinzaMed);
+            $pdf->SetX(15);
+            $pdf->Cell(50, 5, mb_strtoupper($label), 0, 0);
+            $pdf->SetFont('helvetica', '', 10);
+            $pdf->SetTextColor(...$cinzaEsc);
+            $pdf->MultiCell(130, 5, (string) $valor, 0, 'L');
+            $pdf->Ln(0.5);
+        }
+
+        $pdf->Ln(4);
+
+        // Caixa com dados da assinatura
+        $pdf->SetFont('helvetica', 'B', 11);
+        $pdf->SetTextColor(...$azul);
+        $pdf->SetX(15);
+        $pdf->Cell(0, 6, 'Dados da Assinatura', 0, 1);
+        $pdf->SetTextColor(...$cinzaEsc);
+
+        $linhas2 = [
+            ['Razao',           $razao],
+            ['Local',           $local],
+            ['Politica',        $politica],
+            ['Algoritmo',       $algoritmo],
+            ['Carimbo de tempo', $timestamp],
+        ];
+        foreach ($linhas2 as [$label, $valor]) {
+            $pdf->SetFont('helvetica', '', 8);
+            $pdf->SetTextColor(...$cinzaMed);
+            $pdf->SetX(15);
+            $pdf->Cell(50, 5, mb_strtoupper($label), 0, 0);
+            $pdf->SetFont('helvetica', '', 10);
+            $pdf->SetTextColor(...$cinzaEsc);
+            $pdf->MultiCell(130, 5, (string) $valor, 0, 'L');
+            $pdf->Ln(0.5);
+        }
+
+        // Rodape
+        $pdf->SetY(275);
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->SetTextColor(...$cinzaMed);
+        $pdf->SetX(15);
+        $pdf->Cell(0, 4, 'GPE Docs - Plataforma Digital Integrada - Conceito Gestao Publica', 0, 1, 'C');
+        $pdf->SetX(15);
+        $pdf->Cell(0, 4, 'A integridade desta assinatura pode ser verificada em /validar-assinatura ou em qualquer leitor PDF compativel.', 0, 1, 'C');
+    }
+
+    private function formatarCpf(string $cpf): string
+    {
+        $d = preg_replace('/\D/', '', $cpf);
+        if (strlen($d) !== 11) return $cpf;
+        return sprintf('%s.%s.%s-%s', substr($d, 0, 3), substr($d, 3, 3), substr($d, 6, 3), substr($d, 9, 2));
+    }
+
+    private function formatarSerial(string $hex): string
+    {
+        $h = strtoupper(preg_replace('/[^0-9A-Fa-f]/', '', $hex));
+        return implode(':', str_split($h, 2));
+    }
+
+    private function formatarThumbprint(string $hex): string
+    {
+        return strtoupper(implode(':', str_split($hex, 2)));
     }
 }

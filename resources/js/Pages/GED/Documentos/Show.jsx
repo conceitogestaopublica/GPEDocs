@@ -458,23 +458,7 @@ function TabAssinaturas({ documento, usuarios }) {
                             </div>
                             <div className="divide-y divide-gray-100">
                                 {(sol.assinaturas || []).map(a => (
-                                    <div key={a.id} className="flex items-center justify-between px-4 py-2.5">
-                                        <div className="flex items-center gap-2">
-                                            <i className={`fas ${a.status === 'assinado' ? 'fa-check-circle text-green-500' : a.status === 'recusado' ? 'fa-times-circle text-red-500' : 'fa-clock text-yellow-500'} text-xs`} />
-                                            <span className="text-sm text-gray-700">{a.signatario?.name}</span>
-                                            <span className="text-xs text-gray-400">{a.email_signatario}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {a.assinado_em && (
-                                                <span className="text-[10px] text-gray-400">
-                                                    {new Date(a.assinado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            )}
-                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${statusColors[a.status] || 'bg-gray-100 text-gray-500'}`}>
-                                                {a.status}
-                                            </span>
-                                        </div>
-                                    </div>
+                                    <AssinaturaItem key={a.id} a={a} statusColors={statusColors} />
                                 ))}
                             </div>
                         </div>
@@ -483,6 +467,102 @@ function TabAssinaturas({ documento, usuarios }) {
             )}
         </div>
     );
+}
+
+function AssinaturaItem({ a, statusColors }) {
+    const ehQualificada = a.tipo_assinatura === 'qualificada';
+    const tipoLabel = ehQualificada ? 'Qualificada' : (a.tipo_assinatura || 'Simples');
+
+    return (
+        <div className="px-4 py-3 hover:bg-gray-50 transition-colors">
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <i className={`fas ${
+                        a.status === 'assinado' ? 'fa-check-circle text-green-500' :
+                        a.status === 'recusado' ? 'fa-times-circle text-red-500' :
+                        'fa-clock text-yellow-500'
+                    } text-xs`} />
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-gray-700">{a.signatario?.name}</span>
+                            <span className="text-xs text-gray-400">{a.email_signatario}</span>
+                            {ehQualificada && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold">
+                                    ICP-Brasil
+                                </span>
+                            )}
+                            <span className="text-[10px] text-gray-500">· {tipoLabel}</span>
+                        </div>
+                        {a.cpf_signatario && (
+                            <p className="text-[10px] text-gray-400 font-mono">CPF {mascararCpf(a.cpf_signatario)}</p>
+                        )}
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                    {a.assinado_em && (
+                        <span className="text-[10px] text-gray-400">
+                            {new Date(a.assinado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                    )}
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${statusColors[a.status] || 'bg-gray-100 text-gray-500'}`}>
+                        {a.status}
+                    </span>
+                </div>
+            </div>
+
+            {/* Detalhes da assinatura qualificada */}
+            {ehQualificada && a.status === 'assinado' && (
+                <div className="ml-6 mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 bg-green-50 rounded-lg p-3 border border-green-100">
+                    {a.certificado?.subject_cn && (
+                        <DetalheCert label="Titular" valor={a.certificado.subject_cn} />
+                    )}
+                    {a.certificado?.issuer_cn && (
+                        <DetalheCert label="AC emissora" valor={a.certificado.issuer_cn} />
+                    )}
+                    {a.certificado?.serial_number && (
+                        <DetalheCert label="Serial" valor={a.certificado.serial_number?.slice(0, 24) + '...'} mono />
+                    )}
+                    {a.certificado?.valido_ate && (
+                        <DetalheCert label="Cert valido ate" valor={new Date(a.certificado.valido_ate).toLocaleDateString('pt-BR')} />
+                    )}
+                    {a.algoritmo_hash && (
+                        <DetalheCert label="Algoritmo" valor={a.algoritmo_hash + ' com RSA'} />
+                    )}
+                    {a.politica_assinatura && (
+                        <DetalheCert label="Politica" valor={a.politica_assinatura} />
+                    )}
+                    {a.arquivo_assinado_path && (
+                        <div className="md:col-span-2 mt-1 flex items-center gap-2">
+                            <a href={`/assinaturas/${a.id}/download-assinado`}
+                                className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                                <i className="fas fa-file-download" />
+                                Baixar PDF assinado (PAdES)
+                            </a>
+                            <a href="/validar-assinatura" target="_blank" rel="noopener"
+                                className="text-[11px] text-blue-600 hover:underline">
+                                Validar assinatura
+                            </a>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function DetalheCert({ label, valor, mono }) {
+    return (
+        <div>
+            <p className="text-[9px] text-gray-500 uppercase tracking-wide font-semibold">{label}</p>
+            <p className={`text-[11px] text-gray-800 break-all ${mono ? 'font-mono' : ''}`}>{valor}</p>
+        </div>
+    );
+}
+
+function mascararCpf(cpf) {
+    const d = (cpf || '').replace(/\D/g, '');
+    if (d.length !== 11) return cpf;
+    return `${d.slice(0,3)}.***.***-${d.slice(-2)}`;
 }
 
 function InfoRow({ label, value }) {

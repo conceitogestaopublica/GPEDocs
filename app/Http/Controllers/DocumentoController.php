@@ -82,6 +82,7 @@ class DocumentoController extends Controller
             'autor',
             'pasta',
             'solicitacoesAssinatura.assinaturas.signatario',
+            'solicitacoesAssinatura.assinaturas.certificado',
             'solicitacoesAssinatura.solicitante',
         ])->findOrFail($id);
 
