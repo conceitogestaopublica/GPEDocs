@@ -206,6 +206,7 @@ class OficioController extends Controller
         $data = [
             'oficio'    => $oficio,
             'qrCodeUrl' => $qrCodeUrl,
+            'ug'        => \App\Models\Ug::find($oficio->ug_id),
         ];
 
         $pdf = Pdf::loadView('pdf.oficio', $data);

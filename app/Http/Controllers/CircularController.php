@@ -214,6 +214,7 @@ class CircularController extends Controller
         $data = [
             'circular'  => $circular,
             'qrCodeUrl' => $qrCodeUrl,
+            'ug'        => \App\Models\Ug::find($circular->ug_id),
         ];
 
         $pdf = Pdf::loadView('pdf.circular', $data);

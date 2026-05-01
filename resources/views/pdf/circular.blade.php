@@ -30,11 +30,12 @@
     </style>
 </head>
 <body>
+    @include('pdf.partials.cabecalho-ug', ['ug' => $ug ?? null])
+
     {{-- Cabecalho --}}
     <div class="header">
         <h1>CIRCULAR INTERNA</h1>
         <div class="numero">{{ $circular->numero }}</div>
-        <p>Conceito Gestao Publica — Plataforma Digital Integrada</p>
         <p>Documento gerado em {{ now()->format('d/m/Y H:i:s') }}</p>
     </div>
 

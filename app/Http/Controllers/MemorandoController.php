@@ -499,6 +499,7 @@ class MemorandoController extends Controller
         $data = [
             'memorando'  => $memorando,
             'qrCodeUrl'  => $qrCodeUrl,
+            'ug'         => \App\Models\Ug::find($memorando->ug_id),
         ];
 
         $pdf = Pdf::loadView('pdf.memorando', $data);
