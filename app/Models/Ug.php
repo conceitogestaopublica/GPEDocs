@@ -29,6 +29,10 @@ class Ug extends Model
         'nivel_3_label',
         'ativo',
         'observacoes',
+        'brasao_path',
+        'telefone',
+        'email_institucional',
+        'site',
     ];
 
     protected function casts(): array

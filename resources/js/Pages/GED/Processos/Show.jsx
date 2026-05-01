@@ -63,7 +63,7 @@ const tabList = [
     { key: 'comentarios', label: 'Comentarios', icon: 'fas fa-comments' },
 ];
 
-export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente }) {
+export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada }) {
     const proc = processo || {};
     const tramitacoes = proc.tramitacoes || [];
     const comentarios = proc.comentarios || [];
@@ -104,7 +104,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     const [acaoMode, setAcaoMode] = useState('encaminhar');
 
     // Form: Concluir / Decidir
-    const concluirForm = useForm({ observacao: '', decisao: '' });
+    const concluirForm = useForm({ observacao_conclusao: '', decisao: '' });
 
     // Form: Despachar
     const despacharForm = useForm({
@@ -140,7 +140,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
 
     // Decidir e Encerrar — usa /concluir passando decisao
     const handleDecidir = (decisao) => {
-        if (! concluirForm.data.observacao.trim()) {
+        if (! concluirForm.data.observacao_conclusao.trim()) {
             alert('Informe a observacao/parecer da decisao.');
             return;
         }
@@ -154,7 +154,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
 
     const handleArquivar = () => {
         if (! confirm('Arquivar este processo? Ele sera encerrado sem decisao formal.')) return;
-        concluirForm.transform((data) => ({ ...data, decisao: 'arquivado', observacao: data.observacao || 'Arquivado sem decisao formal' }));
+        concluirForm.transform((data) => ({ ...data, decisao: 'arquivado', observacao_conclusao: data.observacao_conclusao || 'Arquivado sem decisao formal' }));
         concluirForm.post(`/processos/${proc.id}/concluir`, {
             preserveScroll: true,
             onSuccess: () => concluirForm.reset(),
@@ -254,21 +254,46 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
 
             {/* Banner: decisao concluida */}
             {proc.status === 'concluido' && proc.decisao && decisaoLabels[proc.decisao] && (
-                <div className={`rounded-xl border p-3 mb-4 flex items-center gap-3 ${
+                <div className={`rounded-xl border p-3 mb-4 flex items-start gap-3 ${
                     proc.decisao === 'deferido' ? 'bg-green-50 border-green-200' :
                     proc.decisao === 'indeferido' ? 'bg-red-50 border-red-200' :
                     proc.decisao === 'parcial' ? 'bg-amber-50 border-amber-200' :
                     'bg-gray-50 border-gray-200'
                 }`}>
-                    <i className={`fas ${decisaoLabels[proc.decisao].icone} text-${decisaoLabels[proc.decisao].cor}-600 text-lg`} />
-                    <div>
+                    <i className={`fas ${decisaoLabels[proc.decisao].icone} text-${decisaoLabels[proc.decisao].cor}-600 text-lg mt-0.5`} />
+                    <div className="flex-1">
                         <p className="text-sm font-semibold text-gray-800">
                             Decisao final: <strong>{decisaoLabels[proc.decisao].texto}</strong>
                         </p>
                         {proc.observacao_conclusao && (
                             <p className="text-xs text-gray-600 mt-0.5">{proc.observacao_conclusao}</p>
                         )}
+                        {decisao_assinada && (
+                            <p className="text-[10px] text-gray-500 mt-1">
+                                <i className="fas fa-shield-alt mr-1" />
+                                Assinado digitalmente em {decisao_assinada.assinado_em}
+                                {decisao_assinada.tipo_assinatura && ` · ${decisao_assinada.tipo_assinatura}`}
+                            </p>
+                        )}
                     </div>
+                    {decisao_assinada && (
+                        <div className="flex gap-2 shrink-0">
+                            {decisao_assinada.tem_pdf_assinado && (
+                                <a href={`/assinaturas/${decisao_assinada.assinatura_id}/download-assinado`}
+                                    target="_blank" rel="noopener noreferrer"
+                                    className="ds-btn ds-btn-primary text-xs whitespace-nowrap"
+                                    title="PDF com assinatura ICP-Brasil embutida (PAdES-BES)">
+                                    <i className="fas fa-file-pdf mr-1" />Baixar PDF Assinado
+                                </a>
+                            )}
+                            <a href={`/documentos/${decisao_assinada.documento_id}/download`}
+                                target="_blank" rel="noopener noreferrer"
+                                className="ds-btn ds-btn-outline text-xs whitespace-nowrap"
+                                title="Documento original da decisao">
+                                <i className="fas fa-print mr-1" />Imprimir
+                            </a>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -715,7 +740,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Parecer / Justificativa <span className="text-red-500">*</span>
                                     </label>
-                                    <textarea value={concluirForm.data.observacao}
+                                    <textarea value={concluirForm.data.observacao_conclusao}
                                         onChange={(e) => concluirForm.setData('observacao', e.target.value)}
                                         rows={5} className="ds-input !h-auto"
                                         placeholder="Justificativa da decisao..." />
@@ -752,7 +777,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Motivo do arquivamento (opcional)</label>
-                                    <textarea value={concluirForm.data.observacao}
+                                    <textarea value={concluirForm.data.observacao_conclusao}
                                         onChange={(e) => concluirForm.setData('observacao', e.target.value)}
                                         rows={3} className="ds-input !h-auto"
                                         placeholder="Ex.: pedido desistido pelo requerente, objeto perdeu sentido..." />
@@ -852,7 +877,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Observacao</label>
                             <textarea
-                                value={concluirForm.data.observacao}
+                                value={concluirForm.data.observacao_conclusao}
                                 onChange={(e) => concluirForm.setData('observacao', e.target.value)}
                                 className="ds-input !h-auto"
                                 rows={3}

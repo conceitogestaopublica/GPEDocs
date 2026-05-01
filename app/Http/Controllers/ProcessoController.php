@@ -280,21 +280,39 @@ class ProcessoController extends Controller
 
         // Se ha solicitacao de assinatura pendente, passa a assinatura do usuario logado
         $assinaturaPendente = null;
-        if ($processo->solicitacao_assinatura_id && $processo->status === 'aguardando_assinatura') {
+        $decisaoAssinada = null; // Assinatura ja concluida — para download do PDF assinado
+        if ($processo->solicitacao_assinatura_id) {
             $solicitacao = \App\Models\SolicitacaoAssinatura::with('documento')->find($processo->solicitacao_assinatura_id);
             if ($solicitacao) {
-                $minha = \App\Models\Assinatura::where('solicitacao_id', $solicitacao->id)
-                    ->where('signatario_id', Auth::id())
-                    ->where('status', 'pendente')
-                    ->first();
-                if ($minha) {
-                    $assinaturaPendente = [
-                        'id'            => $minha->id,
-                        'solicitacao_id'=> $solicitacao->id,
-                        'documento_id'  => $solicitacao->documento_id,
-                        'documento_nome'=> $solicitacao->documento?->nome,
-                        'mensagem'      => $solicitacao->mensagem,
-                    ];
+                if ($processo->status === 'aguardando_assinatura') {
+                    $minha = \App\Models\Assinatura::where('solicitacao_id', $solicitacao->id)
+                        ->where('signatario_id', Auth::id())
+                        ->where('status', 'pendente')
+                        ->first();
+                    if ($minha) {
+                        $assinaturaPendente = [
+                            'id'            => $minha->id,
+                            'solicitacao_id'=> $solicitacao->id,
+                            'documento_id'  => $solicitacao->documento_id,
+                            'documento_nome'=> $solicitacao->documento?->nome,
+                            'mensagem'      => $solicitacao->mensagem,
+                        ];
+                    }
+                } elseif ($processo->status === 'concluido') {
+                    // Pega a assinatura concluida (preferencialmente ICP, com PDF assinado)
+                    $assinada = \App\Models\Assinatura::where('solicitacao_id', $solicitacao->id)
+                        ->where('status', 'assinado')
+                        ->orderByDesc('arquivo_assinado_path')
+                        ->first();
+                    if ($assinada) {
+                        $decisaoAssinada = [
+                            'assinatura_id'         => $assinada->id,
+                            'documento_id'          => $solicitacao->documento_id,
+                            'tem_pdf_assinado'      => ! empty($assinada->arquivo_assinado_path),
+                            'tipo_assinatura'       => $assinada->tipo_assinatura,
+                            'assinado_em'           => $assinada->assinado_em?->format('d/m/Y H:i'),
+                        ];
+                    }
                 }
             }
         }
@@ -307,6 +325,7 @@ class ProcessoController extends Controller
             'pode_despachar'       => $podeDespachar,
             'pode_concluir'        => $podeConcluir,
             'assinatura_pendente'  => $assinaturaPendente,
+            'decisao_assinada'     => $decisaoAssinada,
         ]);
     }
 
@@ -342,9 +361,11 @@ class ProcessoController extends Controller
             // Para decisoes formais: gera PDF + Documento + SolicitacaoAssinatura
             if ($exigeAssinatura) {
                 $autor = User::find(Auth::id());
+                $ug = \App\Models\Ug::find($processo->ug_id);
                 $pdf = Pdf::loadView('pdf.processo-decisao', [
                     'processo' => $processo->refresh()->load(['tipoProcesso', 'abertoPor', 'tramitacoes.remetente']),
                     'autor'    => $autor,
+                    'ug'       => $ug,
                 ]);
                 $pdf->setPaper('A4', 'portrait');
                 $pdfBytes = $pdf->output();

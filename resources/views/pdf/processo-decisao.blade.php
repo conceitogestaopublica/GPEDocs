@@ -40,10 +40,11 @@
     </style>
 </head>
 <body>
+    @include('pdf.partials.cabecalho-ug', ['ug' => $ug])
+
     <div class="header">
         <h1>DECISAO ADMINISTRATIVA</h1>
         <div class="numero">Processo {{ $processo->numero_protocolo }}</div>
-        <p>Conceito Gestao Publica - Plataforma Digital Integrada</p>
         <p>Documento gerado em {{ now()->format('d/m/Y H:i:s') }}</p>
     </div>
 
