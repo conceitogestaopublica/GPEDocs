@@ -38,6 +38,7 @@ class Processo extends Model
         'observacao_conclusao',
         'decisao',
         'solicitacao_assinatura_id',
+        'documento_decisao_id',
     ];
 
     protected function casts(): array

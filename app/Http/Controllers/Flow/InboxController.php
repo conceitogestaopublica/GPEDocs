@@ -187,6 +187,8 @@ class InboxController extends Controller
         $busca = trim((string) $request->input('busca', ''));
         $tipoFiltro = $request->input('tipo');
         $somenteNaoLidos = $request->boolean('nao_lidos');
+        $dataDe = $request->input('data_de');
+        $dataAte = $request->input('data_ate');
 
         $query = DB::table('proc_inbox');
 
@@ -205,10 +207,16 @@ class InboxController extends Controller
         if ($somenteNaoLidos) {
             $query->where('lido', false);
         }
+        if ($dataDe) {
+            $query->where('criado_em', '>=', $dataDe . ' 00:00:00');
+        }
+        if ($dataAte) {
+            $query->where('criado_em', '<=', $dataAte . ' 23:59:59');
+        }
 
-        // Filtro multi-tenant
+        // Filtro multi-tenant — sempre que ha UG selecionada, filtra (inclui super_admin)
         $ugId = session('ug_id');
-        if ($ugId && ! Auth::user()->super_admin) {
+        if ($ugId) {
             $query->where('ug_id', $ugId);
         }
 
@@ -224,14 +232,137 @@ class InboxController extends Controller
         $unidades = DB::table('ug_organograma')->whereIn('id', $destUnidIds)
             ->select('id', 'nome', 'codigo')->get()->keyBy('id');
 
-        $items->setCollection($items->getCollection()->map(function ($it) use ($users, $unidades) {
+        // Pre-carrega info pra acoes inline: assinaturas pendentes do user logado
+        // e processos/memorandos/oficios/circulares arquivados (para botao Arquivar no GED)
+        $userId = (int) Auth::id();
+        $procIds = collect($items->items())
+            ->filter(fn ($it) => $it->tipo === 'processo')
+            ->pluck('item_id')
+            ->unique();
+
+        // Memorandos arquivados: candidatos a arquivar no GED
+        $memoIds = collect($items->items())
+            ->filter(fn ($it) => $it->tipo === 'memorando' && in_array($it->status, ['arquivado'], true))
+            ->pluck('item_id')->unique();
+        $oficioIds = collect($items->items())
+            ->filter(fn ($it) => $it->tipo === 'oficio' && in_array($it->status, ['arquivado'], true))
+            ->pluck('item_id')->unique();
+
+        $assinaturasPorProcesso = [];
+        $documentosPorProcesso = [];
+        if ($procIds->isNotEmpty()) {
+            $procs = DB::table('proc_processos')
+                ->whereIn('id', $procIds)
+                ->get(['id', 'status', 'solicitacao_assinatura_id', 'documento_decisao_id']);
+
+            // Assinaturas pendentes do user logado (so processos com solicitacao)
+            $solicitacaoIds = $procs->pluck('solicitacao_assinatura_id')->filter()->unique();
+            if ($solicitacaoIds->isNotEmpty()) {
+                $assinaturas = DB::table('ged_assinaturas')
+                    ->whereIn('solicitacao_id', $solicitacaoIds)
+                    ->where('signatario_id', $userId)
+                    ->where('status', 'pendente')
+                    ->get(['id', 'solicitacao_id']);
+
+                foreach ($procs as $p) {
+                    if (! $p->solicitacao_assinatura_id) continue;
+                    $a = $assinaturas->firstWhere('solicitacao_id', $p->solicitacao_assinatura_id);
+                    if ($a && $p->status === 'aguardando_assinatura') {
+                        $assinaturasPorProcesso[$p->id] = (int) $a->id;
+                    }
+                }
+            }
+
+            // Documentos das decisoes (para arquivamento no GED) — usa documento_decisao_id
+            // primeiro, com fallback para solicitacao->documento_id (compat com decisoes antigas)
+            $docIds = $procs->pluck('documento_decisao_id')->filter()->unique();
+            $docsViaSolicitacao = collect();
+            if ($solicitacaoIds->isNotEmpty()) {
+                $docsViaSolicitacao = DB::table('ged_solicitacoes_assinatura')
+                    ->whereIn('id', $solicitacaoIds)
+                    ->pluck('documento_id', 'id');
+            }
+
+            $todosDocIds = $docIds->merge($docsViaSolicitacao->values())->filter()->unique();
+            $documentos = $todosDocIds->isNotEmpty()
+                ? DB::table('ged_documentos')->whereIn('id', $todosDocIds)
+                    ->get(['id', 'nome', 'pasta_id', 'status'])->keyBy('id')
+                : collect();
+
+            foreach ($procs as $p) {
+                if ($p->status !== 'concluido') continue;
+                $docId = $p->documento_decisao_id ?? ($p->solicitacao_assinatura_id ? $docsViaSolicitacao[$p->solicitacao_assinatura_id] ?? null : null);
+                if ($docId && isset($documentos[$docId])) {
+                    $d = $documentos[$docId];
+                    $documentosPorProcesso[$p->id] = [
+                        'documento_id' => (int) $d->id,
+                        'nome'         => $d->nome,
+                        'arquivado'    => $d->status === 'arquivado' && $d->pasta_id !== null,
+                    ];
+                }
+            }
+        }
+
+        // Memorandos/Oficios arquivados: pode_arquivar_ged se ainda nao tem documento_id ja com pasta
+        $memosInfo = $memoIds->isNotEmpty()
+            ? DB::table('proc_memorandos as m')->whereIn('m.id', $memoIds)
+                ->leftJoin('ged_documentos as d', 'd.id', '=', 'm.documento_id')
+                ->select('m.id', 'm.documento_id', 'd.pasta_id', 'd.status as doc_status')
+                ->get()->keyBy('id')
+            : collect();
+        $oficiosInfo = $oficioIds->isNotEmpty()
+            ? DB::table('proc_oficios as o')->whereIn('o.id', $oficioIds)
+                ->leftJoin('ged_documentos as d', 'd.id', '=', 'o.documento_id')
+                ->select('o.id', 'o.documento_id', 'd.pasta_id', 'd.status as doc_status')
+                ->get()->keyBy('id')
+            : collect();
+
+        $items->setCollection($items->getCollection()->map(function ($it) use ($users, $unidades, $assinaturasPorProcesso, $documentosPorProcesso, $memosInfo, $oficiosInfo) {
             $it->remetente_nome = $users[$it->remetente_id]->name ?? null;
             $it->destino_usuario_nome = $it->destino_usuario_id ? ($users[$it->destino_usuario_id]->name ?? null) : null;
             $it->destino_unidade_nome = $it->destino_unidade_id ? ($unidades[$it->destino_unidade_id]->nome ?? null) : null;
+
+            $it->pode_assinar = isset($assinaturasPorProcesso[$it->item_id]);
+            $it->assinatura_id = $assinaturasPorProcesso[$it->item_id] ?? null;
+
+            // Estado de arquivamento no GED — varia por tipo
+            $jaArquivado = false;
+            $podeArquivar = false;
+            $docId = null;
+
+            if ($it->tipo === 'processo') {
+                $docInfo = $documentosPorProcesso[$it->item_id] ?? null;
+                if ($docInfo) {
+                    $podeArquivar = ! $docInfo['arquivado'];
+                    $jaArquivado  = $docInfo['arquivado'];
+                    $docId        = $docInfo['documento_id'];
+                }
+            } elseif ($it->tipo === 'memorando' && isset($memosInfo[$it->item_id])) {
+                $m = $memosInfo[$it->item_id];
+                $jaArquivado = $m->doc_status === 'arquivado' && $m->pasta_id !== null;
+                $podeArquivar = ! $jaArquivado && $it->status === 'arquivado';
+                $docId = $m->documento_id;
+            } elseif ($it->tipo === 'oficio' && isset($oficiosInfo[$it->item_id])) {
+                $o = $oficiosInfo[$it->item_id];
+                $jaArquivado = $o->doc_status === 'arquivado' && $o->pasta_id !== null;
+                $podeArquivar = ! $jaArquivado && $it->status === 'arquivado';
+                $docId = $o->documento_id;
+            }
+
+            $it->pode_arquivar_ged = $podeArquivar;
+            $it->ja_arquivado_ged  = $jaArquivado;
+            $it->documento_id      = $docId;
+
             return $it;
         }));
 
         $contagens = $this->contagens();
+
+        // Pastas da UG ativa (para modal de arquivar no GED)
+        $pastas = $ugId
+            ? DB::table('ged_pastas')->where('ug_id', $ugId)->orderBy('parent_id')->orderBy('nome')
+                ->get(['id','nome','parent_id','descricao'])
+            : collect();
 
         return Inertia::render('GED/Flow/Inbox', [
             'vista'    => $vista,
@@ -240,8 +371,11 @@ class InboxController extends Controller
                 'busca'      => $busca,
                 'tipo'       => $tipoFiltro,
                 'nao_lidos'  => $somenteNaoLidos,
+                'data_de'    => $dataDe,
+                'data_ate'   => $dataAte,
             ],
             'contagens' => $contagens,
+            'pastas'    => $pastas,
             'aviso_sem_unidade' => $avisoSemUnidade,
         ]);
     }
@@ -258,7 +392,7 @@ class InboxController extends Controller
 
         $base = DB::table('proc_inbox');
         $ugId = session('ug_id');
-        if ($ugId && ! $user->super_admin) {
+        if ($ugId) {
             $base->where('ug_id', $ugId);
         }
 
@@ -287,7 +421,7 @@ class InboxController extends Controller
             ->where('a.signatario_id', $userId)
             ->where('a.status', 'pendente')
             ->where('p.status', 'aguardando_assinatura')
-            ->when($ugId && ! $user->super_admin, fn ($q) => $q->where('p.ug_id', $ugId))
+            ->when($ugId, fn ($q) => $q->where('p.ug_id', $ugId))
             ->count();
 
         return [

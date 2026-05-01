@@ -15,6 +15,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -484,6 +485,80 @@ class MemorandoController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Memorando arquivado com sucesso.');
+    }
+
+    /**
+     * Arquiva o memorando em uma pasta do GPE Docs.
+     * Gera PDF, cria Documento+Versao e move para a pasta.
+     */
+    public function arquivarNoGed(Request $request, $id)
+    {
+        $request->validate(['pasta_id' => ['required', 'integer', 'exists:ged_pastas,id']]);
+
+        $memorando = Memorando::with(['remetente', 'destinatarios.usuario', 'respostas.usuario'])->findOrFail($id);
+
+        // Valida pasta na mesma UG
+        $pasta = DB::table('ged_pastas')->where('id', $request->input('pasta_id'))->first();
+        if (! $pasta || $pasta->ug_id !== $memorando->ug_id) {
+            return redirect()->back()->with('error', 'A pasta selecionada nao pertence a UG deste memorando.');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Reaproveita o documento ja gerado, se houver
+            if ($memorando->documento_id) {
+                $documento = \App\Models\Documento::find($memorando->documento_id);
+                if ($documento) {
+                    $documento->update(['pasta_id' => (int) $request->input('pasta_id'), 'status' => 'arquivado']);
+                    DB::commit();
+                    return redirect()->back()->with('success', "Memorando arquivado na pasta \"{$pasta->nome}\".");
+                }
+            }
+
+            // Gera o PDF do memorando
+            $pdf = Pdf::loadView('pdf.memorando', [
+                'memorando' => $memorando,
+                'qrCodeUrl' => url("/memorandos/verificar/{$memorando->qr_code_token}"),
+                'ug'        => \App\Models\Ug::find($memorando->ug_id),
+            ]);
+            $pdf->setPaper('A4', 'portrait');
+            $pdfBytes = $pdf->output();
+
+            $filename = 'memorando-' . str_replace(['/', '\\'], '-', $memorando->numero) . '.pdf';
+            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            Storage::disk('documentos')->put($path, $pdfBytes);
+
+            $documento = \App\Models\Documento::create([
+                'nome'              => 'Memorando ' . $memorando->numero,
+                'descricao'         => $memorando->assunto,
+                'tipo_documental_id'=> 2, // Memorando
+                'pasta_id'          => (int) $request->input('pasta_id'),
+                'versao_atual'      => 1,
+                'tamanho'           => strlen($pdfBytes),
+                'mime_type'         => 'application/pdf',
+                'autor_id'          => Auth::id(),
+                'status'            => 'arquivado',
+            ]);
+
+            \App\Models\Versao::create([
+                'documento_id' => $documento->id,
+                'versao'       => 1,
+                'arquivo_path' => $path,
+                'tamanho'      => strlen($pdfBytes),
+                'hash_sha256'  => hash('sha256', $pdfBytes),
+                'autor_id'     => Auth::id(),
+                'comentario'   => 'Arquivado automaticamente do GPE Flow',
+            ]);
+
+            $memorando->update(['documento_id' => $documento->id]);
+
+            DB::commit();
+            return redirect()->back()->with('success', "Memorando arquivado na pasta \"{$pasta->nome}\".");
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Erro ao arquivar: ' . $e->getMessage());
+        }
     }
 
     public function downloadPdf($id)

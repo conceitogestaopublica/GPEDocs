@@ -202,6 +202,73 @@ class CircularController extends Controller
         return redirect()->back()->with('success', 'Circular arquivada com sucesso.');
     }
 
+    public function arquivarNoGed(Request $request, $id)
+    {
+        $request->validate(['pasta_id' => ['required', 'integer', 'exists:ged_pastas,id']]);
+
+        $circular = Circular::with(['remetente'])->findOrFail($id);
+
+        $pasta = DB::table('ged_pastas')->where('id', $request->input('pasta_id'))->first();
+        if (! $pasta || $pasta->ug_id !== $circular->ug_id) {
+            return redirect()->back()->with('error', 'A pasta selecionada nao pertence a UG desta circular.');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            if ($circular->documento_id) {
+                $documento = \App\Models\Documento::find($circular->documento_id);
+                if ($documento) {
+                    $documento->update(['pasta_id' => (int) $request->input('pasta_id'), 'status' => 'arquivado']);
+                    DB::commit();
+                    return redirect()->back()->with('success', "Circular arquivada na pasta \"{$pasta->nome}\".");
+                }
+            }
+
+            $pdf = Pdf::loadView('pdf.circular', [
+                'circular'  => $circular,
+                'qrCodeUrl' => url("/circulares/verificar/{$circular->qr_code_token}"),
+                'ug'        => \App\Models\Ug::find($circular->ug_id),
+            ]);
+            $pdf->setPaper('A4', 'portrait');
+            $pdfBytes = $pdf->output();
+
+            $filename = 'circular-' . str_replace(['/', '\\'], '-', $circular->numero) . '.pdf';
+            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            \Illuminate\Support\Facades\Storage::disk('documentos')->put($path, $pdfBytes);
+
+            $documento = \App\Models\Documento::create([
+                'nome'              => 'Circular ' . $circular->numero,
+                'descricao'         => $circular->assunto,
+                'tipo_documental_id'=> 2, // Memorando/Comunicado
+                'pasta_id'          => (int) $request->input('pasta_id'),
+                'versao_atual'      => 1,
+                'tamanho'           => strlen($pdfBytes),
+                'mime_type'         => 'application/pdf',
+                'autor_id'          => Auth::id(),
+                'status'            => 'arquivado',
+            ]);
+
+            \App\Models\Versao::create([
+                'documento_id' => $documento->id,
+                'versao'       => 1,
+                'arquivo_path' => $path,
+                'tamanho'      => strlen($pdfBytes),
+                'hash_sha256'  => hash('sha256', $pdfBytes),
+                'autor_id'     => Auth::id(),
+                'comentario'   => 'Arquivado automaticamente do GPE Flow',
+            ]);
+
+            $circular->update(['documento_id' => $documento->id]);
+
+            DB::commit();
+            return redirect()->back()->with('success', "Circular arquivada na pasta \"{$pasta->nome}\".");
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Erro ao arquivar: ' . $e->getMessage());
+        }
+    }
+
     public function downloadPdf($id)
     {
         $circular = Circular::with([

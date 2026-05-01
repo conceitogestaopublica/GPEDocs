@@ -12,6 +12,9 @@ export default defineConfig({
         react(),
         tailwindcss(),
     ],
+    build: {
+        sourcemap: true,
+    },
     server: {
         watch: {
             ignored: ['**/storage/framework/views/**'],

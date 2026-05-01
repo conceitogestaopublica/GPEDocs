@@ -63,7 +63,7 @@ const tabList = [
     { key: 'comentarios', label: 'Comentarios', icon: 'fas fa-comments' },
 ];
 
-export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada }) {
+export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [] }) {
     const proc = processo || {};
     const tramitacoes = proc.tramitacoes || [];
     const comentarios = proc.comentarios || [];
@@ -99,6 +99,39 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     const [showConcluirModal, setShowConcluirModal] = useState(false);
     const [showCancelarModal, setShowCancelarModal] = useState(false);
     const [assinarOpen, setAssinarOpen] = useState(false);
+    const [arquivarGedOpen, setArquivarGedOpen] = useState(false);
+
+    // Form: arquivar no GPE Docs
+    const arquivarGedForm = useForm({ pasta_id: '' });
+
+    // Hierarquia visual de pastas (filhos abaixo do pai)
+    const pastasTree = useMemo(() => {
+        const filhosPor = new Map();
+        (pastas || []).forEach(p => {
+            const pid = p.parent_id ?? null;
+            if (! filhosPor.has(pid)) filhosPor.set(pid, []);
+            filhosPor.get(pid).push(p);
+        });
+        for (const [, l] of filhosPor) l.sort((a, b) => a.nome.localeCompare(b.nome));
+        const out = [];
+        const visit = (pid, nivel) => {
+            for (const p of (filhosPor.get(pid) || [])) {
+                out.push({ ...p, nivel });
+                visit(p.id, nivel + 1);
+            }
+        };
+        visit(null, 0);
+        return out;
+    }, [pastas]);
+
+    const handleArquivarGed = (e) => {
+        e.preventDefault();
+        if (! arquivarGedForm.data.pasta_id) return;
+        arquivarGedForm.post(`/processos/${proc.id}/arquivar-no-ged`, {
+            preserveScroll: true,
+            onSuccess: () => { arquivarGedForm.reset(); setArquivarGedOpen(false); },
+        });
+    };
 
     // Modo da acao (Encaminhar | Decidir | Arquivar)
     const [acaoMode, setAcaoMode] = useState('encaminhar');
@@ -277,7 +310,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                         )}
                     </div>
                     {decisao_assinada && (
-                        <div className="flex gap-2 shrink-0">
+                        <div className="flex gap-2 shrink-0 flex-wrap">
                             {decisao_assinada.tem_pdf_assinado && (
                                 <a href={`/assinaturas/${decisao_assinada.assinatura_id}/download-assinado`}
                                     target="_blank" rel="noopener noreferrer"
@@ -292,9 +325,76 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                 title="Documento original da decisao">
                                 <i className="fas fa-print mr-1" />Imprimir
                             </a>
+                            {decisao_assinada.arquivado_no_ged ? (
+                                <span className="inline-flex items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg whitespace-nowrap">
+                                    <i className="fas fa-folder-open mr-1" />
+                                    Arquivado em <strong className="ml-1">{decisao_assinada.pasta_nome}</strong>
+                                </span>
+                            ) : (
+                                <button onClick={() => setArquivarGedOpen(true)}
+                                    className="ds-btn ds-btn-outline text-xs whitespace-nowrap"
+                                    title="Mover documento da decisao para uma pasta do GPE Docs">
+                                    <i className="fas fa-folder-plus mr-1" />Arquivar no GPE Docs
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* Modal: Arquivar no GPE Docs */}
+            {arquivarGedOpen && (
+                <Modal show={arquivarGedOpen} onClose={() => setArquivarGedOpen(false)} title="Arquivar no GPE Docs">
+                    <form onSubmit={handleArquivarGed} className="space-y-4">
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+                            <i className="fas fa-info-circle mr-1" />
+                            O PDF assinado da decisao sera movido para a pasta escolhida e ficara disponivel no GPE Docs.
+                        </div>
+
+                        {pastasTree.length === 0 ? (
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+                                <i className="fas fa-folder-open text-amber-600 text-2xl mb-2" />
+                                <p className="text-sm text-amber-800 font-semibold mb-1">Nenhuma pasta cadastrada</p>
+                                <p className="text-xs text-amber-700">Cadastre pastas em GPE Docs antes de arquivar.</p>
+                            </div>
+                        ) : (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Pasta de destino <span className="text-red-500">*</span>
+                                </label>
+                                <select value={arquivarGedForm.data.pasta_id}
+                                    onChange={(e) => arquivarGedForm.setData('pasta_id', e.target.value)}
+                                    className="ds-input">
+                                    <option value="">— Selecione a pasta —</option>
+                                    {pastasTree.map(p => (
+                                        <option key={p.id} value={p.id}>
+                                            {'— '.repeat(p.nivel)}{p.nome}{p.descricao ? ` — ${p.descricao}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                                {(() => {
+                                    const sel = pastasTree.find(p => String(p.id) === String(arquivarGedForm.data.pasta_id));
+                                    return sel?.descricao ? (
+                                        <p className="mt-1 text-[11px] text-gray-500 italic">
+                                            <i className="fas fa-info-circle mr-1" />{sel.descricao}
+                                        </p>
+                                    ) : null;
+                                })()}
+                                {arquivarGedForm.errors.pasta_id && (
+                                    <p className="mt-1 text-xs text-red-600">{arquivarGedForm.errors.pasta_id}</p>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                            <Button variant="secondary" type="button" onClick={() => setArquivarGedOpen(false)}>Cancelar</Button>
+                            <Button type="submit" loading={arquivarGedForm.processing} icon="fas fa-folder-plus"
+                                disabled={! arquivarGedForm.data.pasta_id || pastasTree.length === 0}>
+                                Arquivar
+                            </Button>
+                        </div>
+                    </form>
+                </Modal>
             )}
 
             {/* Header */}

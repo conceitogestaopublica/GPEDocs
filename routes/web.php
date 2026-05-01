@@ -128,17 +128,20 @@ Route::middleware('auth')->group(function () {
     Route::post('memorandos/{id}/arquivar', [MemorandoController::class, 'arquivar'])->name('memorandos.arquivar');
     Route::post('memorandos/{id}/receber', [MemorandoController::class, 'receber'])->name('memorandos.receber');
     Route::post('memorandos/{id}/tramitar', [MemorandoController::class, 'tramitar'])->name('memorandos.tramitar');
+    Route::post('memorandos/{id}/arquivar-no-ged', [MemorandoController::class, 'arquivarNoGed'])->name('memorandos.arquivar-no-ged');
     Route::get('memorandos/{id}/pdf', [MemorandoController::class, 'downloadPdf'])->name('memorandos.pdf');
 
     // Oficios
     Route::resource('oficios', OficioController::class)->only(['index', 'create', 'store', 'show']);
     Route::post('oficios/{id}/responder', [OficioController::class, 'responder'])->name('oficios.responder');
     Route::post('oficios/{id}/arquivar', [OficioController::class, 'arquivar'])->name('oficios.arquivar');
+    Route::post('oficios/{id}/arquivar-no-ged', [OficioController::class, 'arquivarNoGed'])->name('oficios.arquivar-no-ged');
     Route::get('oficios/{id}/pdf', [OficioController::class, 'downloadPdf'])->name('oficios.pdf');
 
     // Circulares
     Route::resource('circulares', CircularController::class)->only(['index', 'create', 'store', 'show']);
     Route::post('circulares/{id}/arquivar', [CircularController::class, 'arquivar'])->name('circulares.arquivar');
+    Route::post('circulares/{id}/arquivar-no-ged', [CircularController::class, 'arquivarNoGed'])->name('circulares.arquivar-no-ged');
     Route::get('circulares/{id}/pdf', [CircularController::class, 'downloadPdf'])->name('circulares.pdf');
 
     // GPE Flow — Inbox unificada por ESTADO
@@ -170,6 +173,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('processos', ProcessoController::class)->except(['edit', 'update', 'destroy']);
     Route::post('processos/{id}/concluir', [ProcessoController::class, 'concluir'])->name('processos.concluir');
     Route::post('processos/{id}/cancelar', [ProcessoController::class, 'cancelar'])->name('processos.cancelar');
+    Route::post('processos/{id}/arquivar-no-ged', [ProcessoController::class, 'arquivarNoGed'])->name('processos.arquivar-no-ged');
 
     // Tramitacoes
     Route::post('tramitacoes/{id}/receber', [TramitacaoController::class, 'receber'])->name('tramitacoes.receber');

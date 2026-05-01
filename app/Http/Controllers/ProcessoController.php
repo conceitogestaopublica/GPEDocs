@@ -280,42 +280,70 @@ class ProcessoController extends Controller
 
         // Se ha solicitacao de assinatura pendente, passa a assinatura do usuario logado
         $assinaturaPendente = null;
-        $decisaoAssinada = null; // Assinatura ja concluida — para download do PDF assinado
-        if ($processo->solicitacao_assinatura_id) {
+        $decisaoAssinada = null;
+        if ($processo->solicitacao_assinatura_id && $processo->status === 'aguardando_assinatura') {
             $solicitacao = \App\Models\SolicitacaoAssinatura::with('documento')->find($processo->solicitacao_assinatura_id);
             if ($solicitacao) {
-                if ($processo->status === 'aguardando_assinatura') {
-                    $minha = \App\Models\Assinatura::where('solicitacao_id', $solicitacao->id)
-                        ->where('signatario_id', Auth::id())
-                        ->where('status', 'pendente')
-                        ->first();
-                    if ($minha) {
-                        $assinaturaPendente = [
-                            'id'            => $minha->id,
-                            'solicitacao_id'=> $solicitacao->id,
-                            'documento_id'  => $solicitacao->documento_id,
-                            'documento_nome'=> $solicitacao->documento?->nome,
-                            'mensagem'      => $solicitacao->mensagem,
-                        ];
-                    }
-                } elseif ($processo->status === 'concluido') {
-                    // Pega a assinatura concluida (preferencialmente ICP, com PDF assinado)
-                    $assinada = \App\Models\Assinatura::where('solicitacao_id', $solicitacao->id)
-                        ->where('status', 'assinado')
-                        ->orderByDesc('arquivo_assinado_path')
-                        ->first();
-                    if ($assinada) {
-                        $decisaoAssinada = [
-                            'assinatura_id'         => $assinada->id,
-                            'documento_id'          => $solicitacao->documento_id,
-                            'tem_pdf_assinado'      => ! empty($assinada->arquivo_assinado_path),
-                            'tipo_assinatura'       => $assinada->tipo_assinatura,
-                            'assinado_em'           => $assinada->assinado_em?->format('d/m/Y H:i'),
-                        ];
-                    }
+                $minha = \App\Models\Assinatura::where('solicitacao_id', $solicitacao->id)
+                    ->where('signatario_id', Auth::id())
+                    ->where('status', 'pendente')
+                    ->first();
+                if ($minha) {
+                    $assinaturaPendente = [
+                        'id'            => $minha->id,
+                        'solicitacao_id'=> $solicitacao->id,
+                        'documento_id'  => $solicitacao->documento_id,
+                        'documento_nome'=> $solicitacao->documento?->nome,
+                        'mensagem'      => $solicitacao->mensagem,
+                    ];
                 }
             }
         }
+
+        // Para processos concluidos: monta info da decisao para banner + botoes de
+        // download/arquivar (incluindo arquivamento simples sem assinatura).
+        if ($processo->status === 'concluido') {
+            $documentoId = $processo->documento_decisao_id;
+            if (! $documentoId && $processo->solicitacao_assinatura_id) {
+                $documentoId = \App\Models\SolicitacaoAssinatura::where('id', $processo->solicitacao_assinatura_id)
+                    ->value('documento_id');
+            }
+
+            if ($documentoId) {
+                $documento = \App\Models\Documento::find($documentoId);
+                $pastaNome = null;
+                if ($documento?->pasta_id) {
+                    $pastaNome = DB::table('ged_pastas')->where('id', $documento->pasta_id)->value('nome');
+                }
+
+                // Assinatura ICP (so existe pra deferido/indeferido/parcial)
+                $assinada = null;
+                if ($processo->solicitacao_assinatura_id) {
+                    $assinada = \App\Models\Assinatura::where('solicitacao_id', $processo->solicitacao_assinatura_id)
+                        ->where('status', 'assinado')
+                        ->orderByDesc('arquivo_assinado_path')
+                        ->first();
+                }
+
+                $decisaoAssinada = [
+                    'assinatura_id'    => $assinada?->id,
+                    'documento_id'     => $documentoId,
+                    'tem_pdf_assinado' => $assinada && ! empty($assinada->arquivo_assinado_path),
+                    'tipo_assinatura'  => $assinada?->tipo_assinatura,
+                    'assinado_em'      => $assinada?->assinado_em?->format('d/m/Y H:i'),
+                    'pasta_id'         => $documento?->pasta_id,
+                    'pasta_nome'       => $pastaNome,
+                    'arquivado_no_ged' => $documento?->status === 'arquivado' && $documento?->pasta_id !== null,
+                ];
+            }
+        }
+
+        // Pastas do GPE Docs (para arquivar a decisao)
+        $pastas = DB::table('ged_pastas')
+            ->where('ug_id', $processo->ug_id)
+            ->orderBy('parent_id')
+            ->orderBy('nome')
+            ->get(['id', 'nome', 'parent_id', 'descricao']);
 
         return Inertia::render('GED/Processos/Show', [
             'processo'             => $processo,
@@ -326,6 +354,7 @@ class ProcessoController extends Controller
             'pode_concluir'        => $podeConcluir,
             'assinatura_pendente'  => $assinaturaPendente,
             'decisao_assinada'     => $decisaoAssinada,
+            'pastas'               => $pastas,
         ]);
     }
 
@@ -358,44 +387,49 @@ class ProcessoController extends Controller
                 ->whereIn('status', ['pendente', 'recebido'])
                 ->update(['status' => 'concluido', 'recebido_em' => DB::raw('COALESCE(recebido_em, NOW())')]);
 
-            // Para decisoes formais: gera PDF + Documento + SolicitacaoAssinatura
+            // Toda decisao (inclusive arquivamento) gera PDF + Documento — pra poder
+            // arquivar em pasta do GPE Docs. So as decisoes formais (deferido/indeferido/
+            // parcial) criam SolicitacaoAssinatura+Assinatura para exigir ICP-Brasil.
+            $autor = User::find(Auth::id());
+            $ug = \App\Models\Ug::find($processo->ug_id);
+            $pdf = Pdf::loadView('pdf.processo-decisao', [
+                'processo' => $processo->refresh()->load(['tipoProcesso', 'abertoPor', 'tramitacoes.remetente']),
+                'autor'    => $autor,
+                'ug'       => $ug,
+            ]);
+            $pdf->setPaper('A4', 'portrait');
+            $pdfBytes = $pdf->output();
+
+            $filename = 'decisao-' . str_replace(['/', '\\'], '-', $processo->numero_protocolo) . '.pdf';
+            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            Storage::disk('documentos')->put($path, $pdfBytes);
+
+            $documento = Documento::create([
+                'nome'              => 'Decisao - ' . $processo->numero_protocolo,
+                'descricao'         => "Decisao administrativa do processo {$processo->numero_protocolo}: " . strtoupper($decisao),
+                'tipo_documental_id'=> 25,
+                'pasta_id'          => null,
+                'versao_atual'      => 1,
+                'tamanho'           => strlen($pdfBytes),
+                'mime_type'         => 'application/pdf',
+                'autor_id'          => Auth::id(),
+                'status'            => 'rascunho',
+            ]);
+
+            Versao::create([
+                'documento_id' => $documento->id,
+                'versao'       => 1,
+                'arquivo_path' => $path,
+                'tamanho'      => strlen($pdfBytes),
+                'hash_sha256'  => hash('sha256', $pdfBytes),
+                'autor_id'     => Auth::id(),
+                'comentario'   => 'Documento gerado automaticamente da decisao do processo ' . $processo->numero_protocolo,
+            ]);
+
+            $processo->update(['documento_decisao_id' => $documento->id]);
+
+            // Para decisoes formais: cria SolicitacaoAssinatura+Assinatura
             if ($exigeAssinatura) {
-                $autor = User::find(Auth::id());
-                $ug = \App\Models\Ug::find($processo->ug_id);
-                $pdf = Pdf::loadView('pdf.processo-decisao', [
-                    'processo' => $processo->refresh()->load(['tipoProcesso', 'abertoPor', 'tramitacoes.remetente']),
-                    'autor'    => $autor,
-                    'ug'       => $ug,
-                ]);
-                $pdf->setPaper('A4', 'portrait');
-                $pdfBytes = $pdf->output();
-
-                $filename = 'decisao-' . str_replace(['/', '\\'], '-', $processo->numero_protocolo) . '.pdf';
-                $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
-                Storage::disk('documentos')->put($path, $pdfBytes);
-
-                $documento = Documento::create([
-                    'nome'              => 'Decisao - ' . $processo->numero_protocolo,
-                    'descricao'         => "Decisao administrativa do processo {$processo->numero_protocolo}: " . strtoupper($decisao),
-                    'tipo_documental_id'=> 25, // "Decisao Administrativa" (criado no seed/setup)
-                    'pasta_id'          => null,
-                    'versao_atual'      => 1,
-                    'tamanho'           => strlen($pdfBytes),
-                    'mime_type'         => 'application/pdf',
-                    'autor_id'          => Auth::id(),
-                    'status'            => 'rascunho',
-                ]);
-
-                Versao::create([
-                    'documento_id' => $documento->id,
-                    'versao'       => 1,
-                    'arquivo_path' => $path,
-                    'tamanho'      => strlen($pdfBytes),
-                    'hash_sha256'  => hash('sha256', $pdfBytes),
-                    'autor_id'     => Auth::id(),
-                    'comentario'   => 'Documento gerado automaticamente para assinatura da decisao do processo ' . $processo->numero_protocolo,
-                ]);
-
                 $solicitacao = SolicitacaoAssinatura::create([
                     'documento_id'   => $documento->id,
                     'solicitante_id' => Auth::id(),
@@ -440,6 +474,66 @@ class ProcessoController extends Controller
 
             return redirect()->back()->with('error', 'Erro ao concluir processo: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Arquiva o documento da decisao em uma pasta do GPE Docs.
+     * Move o documento gerado (PDF da decisao) para a pasta escolhida e
+     * marca como `arquivado` para sair da listagem de rascunhos do GED.
+     */
+    public function arquivarNoGed(Request $request, $id)
+    {
+        $request->validate([
+            'pasta_id' => ['required', 'integer', 'exists:ged_pastas,id'],
+        ]);
+
+        $processo = Processo::findOrFail($id);
+
+        if ($processo->status !== 'concluido') {
+            return redirect()->back()->with('error', 'So processos concluidos podem ser arquivados no GPE Docs.');
+        }
+
+        // Localiza o Documento da decisao — preferencia para documento_decisao_id (coluna
+        // direta), com fallback para solicitacao_assinatura_id (compatibilidade com decisoes
+        // antigas, antes da coluna existir).
+        $documentoId = $processo->documento_decisao_id;
+        if (! $documentoId && $processo->solicitacao_assinatura_id) {
+            $documentoId = \App\Models\SolicitacaoAssinatura::where('id', $processo->solicitacao_assinatura_id)
+                ->value('documento_id');
+        }
+
+        if (! $documentoId) {
+            return redirect()->back()->with('error', 'Processo sem documento gerado para arquivar.');
+        }
+
+        $documento = Documento::find($documentoId);
+        if (! $documento) {
+            return redirect()->back()->with('error', 'Documento nao encontrado.');
+        }
+
+        // Valida que a pasta esta na mesma UG do processo
+        $pasta = DB::table('ged_pastas')->where('id', $request->input('pasta_id'))->first();
+        if (! $pasta || $pasta->ug_id !== $processo->ug_id) {
+            return redirect()->back()->with('error', 'A pasta selecionada nao pertence a UG deste processo.');
+        }
+
+        $documento->update([
+            'pasta_id' => (int) $request->input('pasta_id'),
+            'status'   => 'arquivado',
+        ]);
+
+        ProcessoHistorico::create([
+            'processo_id' => $processo->id,
+            'usuario_id'  => Auth::id(),
+            'acao'        => 'arquivado_no_ged',
+            'detalhes'    => [
+                'pasta_id'    => (int) $request->input('pasta_id'),
+                'pasta_nome'  => $pasta->nome,
+                'documento_id'=> $documento->id,
+            ],
+        ]);
+
+        return redirect()->back()->with('success', "Decisao arquivada na pasta \"{$pasta->nome}\" do GPE Docs.");
     }
 
     /**

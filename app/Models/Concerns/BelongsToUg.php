@@ -26,20 +26,19 @@ trait BelongsToUg
     public static function bootBelongsToUg(): void
     {
         static::addGlobalScope('ug', function (Builder $query) {
-            // Sem usuario logado e sem sessao com ug_id, nao aplica filtro
-            // (jobs, console, public endpoints).
-            $user = Auth::user();
-
-            // Super_admin ve dados de todas UGs
-            if ($user && $user->super_admin) {
-                return;
-            }
-
             $ugId = session('ug_id');
+
+            // Sem ug na sessao: nao aplica filtro (jobs, console, public endpoints,
+            // ou super_admin antes de selecionar uma UG). EnsureUgSelected middleware
+            // forca selecao para usuarios normais.
             if (! $ugId) {
                 return;
             }
 
+            // Com ug na sessao: filtra SEMPRE por ela, inclusive para super_admin.
+            // O super_admin pode trocar de UG para visualizar dados de outras, mas
+            // a UG ativa define o escopo. Para liberar uma query especifica use
+            // Model::withoutGlobalScope('ug').
             $query->where($query->getModel()->qualifyColumn('ug_id'), $ugId);
         });
 

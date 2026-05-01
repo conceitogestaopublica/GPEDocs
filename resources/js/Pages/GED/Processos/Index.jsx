@@ -13,6 +13,7 @@ import Card from '../../../Components/Card';
 const statusColors = {
     aberto: 'bg-blue-100 text-blue-700',
     em_tramitacao: 'bg-yellow-100 text-yellow-700',
+    aguardando_assinatura: 'bg-purple-100 text-purple-700',
     concluido: 'bg-green-100 text-green-700',
     cancelado: 'bg-red-100 text-red-700',
     arquivado: 'bg-gray-100 text-gray-700',
@@ -21,6 +22,7 @@ const statusColors = {
 const statusLabels = {
     aberto: 'Aberto',
     em_tramitacao: 'Em Tramitacao',
+    aguardando_assinatura: 'Aguardando Assinatura',
     concluido: 'Concluido',
     cancelado: 'Cancelado',
     arquivado: 'Arquivado',
@@ -186,7 +188,7 @@ export default function Index({ processos, filters, tipos_processo }) {
                                                 {proc.prioridade}
                                             </span>
                                         </td>
-                                        <td className="py-3 px-4 text-gray-500">{proc.usuario?.name || proc.aberto_por || '-'}</td>
+                                        <td className="py-3 px-4 text-gray-500">{proc.aberto_por?.name || '-'}</td>
                                         <td className="py-3 px-4 text-gray-400 text-xs">{formatDate(proc.created_at)}</td>
                                     </tr>
                                 ))}

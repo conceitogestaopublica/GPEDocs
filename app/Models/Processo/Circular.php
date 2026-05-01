@@ -32,6 +32,7 @@ class Circular extends Model
         'arquivado_em',
         'data_arquivamento_auto',
         'qr_code_token',
+        'documento_id',
     ];
 
     protected function casts(): array

@@ -36,6 +36,7 @@ class Oficio extends Model
         'arquivado_em',
         'rastreio_token',
         'qr_code_token',
+        'documento_id',
     ];
 
     protected function casts(): array
