@@ -110,7 +110,7 @@ class DocumentoController extends Controller
             DB::beginTransaction();
 
             $file = $request->file('arquivo');
-            $path = $file->store('documentos', 'local');
+            $path = $file->store('documentos', 'documentos');
 
             $documento = Documento::create([
                 'nome'              => $request->input('nome'),
@@ -211,7 +211,7 @@ class DocumentoController extends Controller
         $documento = Documento::with('versaoAtual')->findOrFail($id);
         $versao = $documento->versaoAtual;
 
-        if (!$versao || !Storage::disk('local')->exists($versao->arquivo_path)) {
+        if (!$versao || !Storage::disk('documentos')->exists($versao->arquivo_path)) {
             return redirect()->back()->with('error', 'Arquivo nao encontrado.');
         }
 
@@ -224,7 +224,7 @@ class DocumentoController extends Controller
             'user_agent'   => request()->userAgent(),
         ]);
 
-        return Storage::disk('local')->download($versao->arquivo_path, $documento->nome);
+        return Storage::disk('documentos')->download($versao->arquivo_path, $documento->nome);
     }
 
     public function preview($id)
@@ -232,11 +232,11 @@ class DocumentoController extends Controller
         $documento = Documento::with('versaoAtual')->findOrFail($id);
         $versao = $documento->versaoAtual;
 
-        if (!$versao || !Storage::disk('local')->exists($versao->arquivo_path)) {
+        if (!$versao || !Storage::disk('documentos')->exists($versao->arquivo_path)) {
             return redirect()->back()->with('error', 'Arquivo nao encontrado.');
         }
 
-        return Storage::disk('local')->response($versao->arquivo_path, $documento->nome, [
+        return Storage::disk('documentos')->response($versao->arquivo_path, $documento->nome, [
             'Content-Type' => $documento->mime_type,
         ]);
     }

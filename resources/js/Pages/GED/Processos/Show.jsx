@@ -4,17 +4,19 @@
  * Detalhes completos, timeline de tramitacao, despacho e comentarios.
  */
 import { Head, Link, useForm, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
 import Tabs from '../../../Components/Tabs';
+import AssinarModal from '../../../Components/AssinarModal';
 
 const statusColors = {
     aberto: 'bg-blue-100 text-blue-700',
     em_tramitacao: 'bg-yellow-100 text-yellow-700',
+    aguardando_assinatura: 'bg-purple-100 text-purple-700',
     concluido: 'bg-green-100 text-green-700',
     cancelado: 'bg-red-100 text-red-700',
     arquivado: 'bg-gray-100 text-gray-700',
@@ -23,9 +25,17 @@ const statusColors = {
 const statusLabels = {
     aberto: 'Aberto',
     em_tramitacao: 'Em Tramitacao',
+    aguardando_assinatura: 'Aguardando Assinatura',
     concluido: 'Concluido',
     cancelado: 'Cancelado',
     arquivado: 'Arquivado',
+};
+
+const decisaoLabels = {
+    deferido:   { texto: 'Deferido',          cor: 'green',  icone: 'fa-check-circle' },
+    indeferido: { texto: 'Indeferido',        cor: 'red',    icone: 'fa-times-circle' },
+    parcial:    { texto: 'Deferido Parcial',  cor: 'amber',  icone: 'fa-balance-scale' },
+    arquivado:  { texto: 'Arquivado',         cor: 'gray',   icone: 'fa-archive' },
 };
 
 const prioridadeColors = {
@@ -50,11 +60,10 @@ function getSlaInfo(prazo) {
 const tabList = [
     { key: 'detalhes', label: 'Detalhes', icon: 'fas fa-info-circle' },
     { key: 'tramitacao', label: 'Tramitacao', icon: 'fas fa-route' },
-    { key: 'despachar', label: 'Despachar', icon: 'fas fa-paper-plane' },
     { key: 'comentarios', label: 'Comentarios', icon: 'fas fa-comments' },
 ];
 
-export default function Show({ processo, usuarios }) {
+export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente }) {
     const proc = processo || {};
     const tramitacoes = proc.tramitacoes || [];
     const comentarios = proc.comentarios || [];
@@ -66,12 +75,36 @@ export default function Show({ processo, usuarios }) {
     const etapaAtual = proc.etapa_atual || tramitacoes.find(t => t.status === 'pendente' || t.status === 'recebido');
     const userList = usuarios || [];
 
+    // Hierarquia de unidades para o dropdown de despacho (filhos sob o pai)
+    const unidadesTree = useMemo(() => {
+        const filhosPor = new Map();
+        (unidades || []).forEach(u => {
+            const pid = u.parent_id ?? null;
+            if (! filhosPor.has(pid)) filhosPor.set(pid, []);
+            filhosPor.get(pid).push(u);
+        });
+        for (const [, l] of filhosPor) l.sort((a, b) => a.nome.localeCompare(b.nome));
+        const out = [];
+        const visit = (pid) => {
+            for (const u of (filhosPor.get(pid) || [])) {
+                out.push(u);
+                visit(u.id);
+            }
+        };
+        visit(null);
+        return out;
+    }, [unidades]);
+
     const [activeTab, setActiveTab] = useState('detalhes');
     const [showConcluirModal, setShowConcluirModal] = useState(false);
     const [showCancelarModal, setShowCancelarModal] = useState(false);
+    const [assinarOpen, setAssinarOpen] = useState(false);
 
-    // Form: Concluir
-    const concluirForm = useForm({ observacao: '' });
+    // Modo da acao (Encaminhar | Decidir | Arquivar)
+    const [acaoMode, setAcaoMode] = useState('encaminhar');
+
+    // Form: Concluir / Decidir
+    const concluirForm = useForm({ observacao: '', decisao: '' });
 
     // Form: Despachar
     const despacharForm = useForm({
@@ -81,6 +114,16 @@ export default function Show({ processo, usuarios }) {
         files: [],
     });
     const [despacharFiles, setDespacharFiles] = useState([]);
+
+    // Combobox de setor (busca + dropdown)
+    const [setorSearch, setSetorSearch] = useState('');
+    const [setorOpen, setSetorOpen] = useState(false);
+    const unidadesFiltradas = useMemo(() => {
+        if (! setorSearch.trim()) return unidadesTree;
+        const t = setorSearch.toLowerCase();
+        return unidadesTree.filter(u => u.nome.toLowerCase().includes(t) || (u.codigo || '').toLowerCase().includes(t));
+    }, [unidadesTree, setorSearch]);
+    const setorSelecionado = unidadesTree.find(u => String(u.id) === String(despacharForm.data.setor_destino));
 
     // Form: Comentario
     const comentarioForm = useForm({
@@ -92,6 +135,29 @@ export default function Show({ processo, usuarios }) {
         e.preventDefault();
         concluirForm.post(`/processos/${proc.id}/concluir`, {
             onSuccess: () => setShowConcluirModal(false),
+        });
+    };
+
+    // Decidir e Encerrar — usa /concluir passando decisao
+    const handleDecidir = (decisao) => {
+        if (! concluirForm.data.observacao.trim()) {
+            alert('Informe a observacao/parecer da decisao.');
+            return;
+        }
+        concluirForm.setData('decisao', decisao);
+        concluirForm.transform((data) => ({ ...data, decisao }));
+        concluirForm.post(`/processos/${proc.id}/concluir`, {
+            preserveScroll: true,
+            onSuccess: () => concluirForm.reset(),
+        });
+    };
+
+    const handleArquivar = () => {
+        if (! confirm('Arquivar este processo? Ele sera encerrado sem decisao formal.')) return;
+        concluirForm.transform((data) => ({ ...data, decisao: 'arquivado', observacao: data.observacao || 'Arquivado sem decisao formal' }));
+        concluirForm.post(`/processos/${proc.id}/concluir`, {
+            preserveScroll: true,
+            onSuccess: () => concluirForm.reset(),
         });
     };
 
@@ -149,6 +215,63 @@ export default function Show({ processo, usuarios }) {
         <AdminLayout>
             <Head title={`Processo ${proc.numero_protocolo || ''}`} />
 
+            {/* Banner: aguardando assinatura digital */}
+            {proc.status === 'aguardando_assinatura' && (
+                <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-4 flex items-start gap-3">
+                    <i className="fas fa-file-signature text-purple-600 text-xl mt-0.5" />
+                    <div className="flex-1">
+                        <p className="text-sm font-semibold text-purple-900">
+                            Decisao registrada — pendente de assinatura digital
+                        </p>
+                        <p className="text-xs text-purple-700 mt-0.5">
+                            {proc.decisao && decisaoLabels[proc.decisao] && (
+                                <><i className={`fas ${decisaoLabels[proc.decisao].icone} mr-1`} /><strong>{decisaoLabels[proc.decisao].texto}</strong> · </>
+                            )}
+                            Para tornar oficial conforme Lei 14.063/2020 (art. 4 III), assine digitalmente o documento de decisao.
+                        </p>
+                    </div>
+                    {assinatura_pendente ? (
+                        <button onClick={() => setAssinarOpen(true)} className="ds-btn ds-btn-primary text-sm whitespace-nowrap">
+                            <i className="fas fa-pen-nib mr-1" /> Assinar Agora
+                        </button>
+                    ) : (
+                        <span className="text-xs text-purple-600 italic">Outro signatario esta assinando.</span>
+                    )}
+                </div>
+            )}
+
+            {/* Modal de assinar inline */}
+            {assinarOpen && assinatura_pendente && (
+                <AssinarModal
+                    assinatura={{
+                        id: assinatura_pendente.id,
+                        documento: { nome: assinatura_pendente.documento_nome },
+                        solicitacao: { mensagem: assinatura_pendente.mensagem },
+                    }}
+                    onClose={() => setAssinarOpen(false)}
+                />
+            )}
+
+            {/* Banner: decisao concluida */}
+            {proc.status === 'concluido' && proc.decisao && decisaoLabels[proc.decisao] && (
+                <div className={`rounded-xl border p-3 mb-4 flex items-center gap-3 ${
+                    proc.decisao === 'deferido' ? 'bg-green-50 border-green-200' :
+                    proc.decisao === 'indeferido' ? 'bg-red-50 border-red-200' :
+                    proc.decisao === 'parcial' ? 'bg-amber-50 border-amber-200' :
+                    'bg-gray-50 border-gray-200'
+                }`}>
+                    <i className={`fas ${decisaoLabels[proc.decisao].icone} text-${decisaoLabels[proc.decisao].cor}-600 text-lg`} />
+                    <div>
+                        <p className="text-sm font-semibold text-gray-800">
+                            Decisao final: <strong>{decisaoLabels[proc.decisao].texto}</strong>
+                        </p>
+                        {proc.observacao_conclusao && (
+                            <p className="text-xs text-gray-600 mt-0.5">{proc.observacao_conclusao}</p>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <div className="mb-6">
                 <div className="flex items-start justify-between flex-wrap gap-4">
@@ -175,12 +298,18 @@ export default function Show({ processo, usuarios }) {
                     <div className="flex items-center gap-2">
                         {proc.status !== 'concluido' && proc.status !== 'cancelado' && (
                             <>
-                                <Button variant="success" icon="fas fa-check" onClick={() => setShowConcluirModal(true)}>
-                                    Concluir
-                                </Button>
-                                <Button variant="danger" icon="fas fa-ban" onClick={() => setShowCancelarModal(true)}>
-                                    Cancelar
-                                </Button>
+                                {pode_concluir && (
+                                    <Button variant="primary" icon="fas fa-bolt"
+                                        onClick={() => setActiveTab('tramitacao')}>
+                                        Tramitar
+                                    </Button>
+                                )}
+                                {! pode_concluir && (
+                                    <span className="text-xs text-gray-500 italic">
+                                        <i className="fas fa-clock mr-1" />
+                                        Aguardando acao do destino atual
+                                    </span>
+                                )}
                             </>
                         )}
                     </div>
@@ -279,8 +408,9 @@ export default function Show({ processo, usuarios }) {
                     </div>
                 )}
 
-                {/* ── Tab: Tramitacao (Timeline) ── */}
+                {/* ── Tab: Tramitacao (Timeline + Acoes) ── */}
                 {activeTab === 'tramitacao' && (
+                    <div className="space-y-4">
                     <Card title="Historico de Tramitacao">
                         {tramitacoes.length === 0 ? (
                             <div className="py-8 text-center text-gray-400">
@@ -366,12 +496,38 @@ export default function Show({ processo, usuarios }) {
                             </div>
                         )}
                     </Card>
-                )}
 
-                {/* ── Tab: Despachar ── */}
-                {activeTab === 'despachar' && (
-                    <Card title="Despachar Processo">
-                        {!etapaAtual ? (
+                    {/* Painel de acao unificado */}
+                    {pode_concluir && ! ['concluido', 'cancelado', 'aguardando_assinatura'].includes(proc.status) && (
+                    <Card title="O que voce deseja fazer?" className="overflow-visible">
+                        {/* Mode picker */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
+                            {[
+                                { v: 'encaminhar', icone: 'fa-paper-plane', cor: 'blue',    titulo: 'Encaminhar',         desc: 'Mandar para outro setor/pessoa' },
+                                { v: 'decidir',    icone: 'fa-gavel',       cor: 'emerald', titulo: 'Decidir e Encerrar', desc: 'Deferir/Indeferir/Parcial' },
+                                { v: 'arquivar',   icone: 'fa-archive',     cor: 'gray',    titulo: 'Arquivar',           desc: 'Encerrar sem decisao formal' },
+                            ].map(op => {
+                                const ativo = acaoMode === op.v;
+                                const corMap = { blue: 'border-blue-500 bg-blue-50', emerald: 'border-emerald-500 bg-emerald-50', gray: 'border-gray-500 bg-gray-50' };
+                                const iconeMap = { blue: 'text-blue-600', emerald: 'text-emerald-600', gray: 'text-gray-600' };
+                                return (
+                                    <button key={op.v} type="button" onClick={() => setAcaoMode(op.v)}
+                                        className={`text-left p-3 rounded-xl border-2 transition-colors ${ativo ? corMap[op.cor] : 'border-gray-200 hover:bg-gray-50'}`}>
+                                        <div className="flex items-center gap-2">
+                                            <i className={`fas ${op.icone} ${ativo ? iconeMap[op.cor] : 'text-gray-400'}`} />
+                                            <div>
+                                                <p className="text-sm font-semibold text-gray-800">{op.titulo}</p>
+                                                <p className="text-[10px] text-gray-500 leading-tight">{op.desc}</p>
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Modo: Encaminhar (despachar atual) */}
+                        {acaoMode === 'encaminhar' && (
+                          !etapaAtual ? (
                             <div className="py-8 text-center text-gray-400">
                                 <i className="fas fa-check-circle text-2xl mb-2 block" />
                                 <p className="text-sm">Nenhuma etapa ativa para despachar</p>
@@ -379,34 +535,86 @@ export default function Show({ processo, usuarios }) {
                         ) : (
                             <form onSubmit={handleDespachar}>
                                 <div className="space-y-4">
+                                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 flex items-start gap-2">
+                                        <i className="fas fa-info-circle mt-0.5" />
+                                        <p>Despache para um <strong>setor</strong> (qualquer pessoa do setor pode receber) e, opcionalmente, indique uma <strong>pessoa especifica</strong> daquele setor.</p>
+                                    </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="relative">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Setor de Destino <span className="text-red-500">*</span>
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    value={setorOpen ? setorSearch : (setorSelecionado?.nome || '')}
+                                                    onChange={(e) => { setSetorSearch(e.target.value); setSetorOpen(true); }}
+                                                    onFocus={() => { setSetorOpen(true); setSetorSearch(''); }}
+                                                    placeholder="Digite para buscar setor..."
+                                                    className="ds-input pr-9"
+                                                />
+                                                {despacharForm.data.setor_destino && (
+                                                    <button type="button"
+                                                        onClick={() => { despacharForm.setData('setor_destino', ''); setSetorSearch(''); }}
+                                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500">
+                                                        <i className="fas fa-times text-xs" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {setorOpen && (
+                                                <>
+                                                    <div className="fixed inset-0 z-30" onClick={() => setSetorOpen(false)} />
+                                                    <div className="absolute z-40 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-auto py-1">
+                                                        {unidadesFiltradas.length === 0 ? (
+                                                            <p className="p-3 text-xs text-gray-400 text-center">Nenhum setor encontrado</p>
+                                                        ) : unidadesFiltradas.map(u => {
+                                                            const isTopo = u.nivel === 1;
+                                                            const indent = (u.nivel - 1) * 16;
+                                                            return (
+                                                                <button key={u.id} type="button"
+                                                                    onClick={() => { despacharForm.setData('setor_destino', u.id); setSetorOpen(false); setSetorSearch(''); }}
+                                                                    style={{ paddingLeft: `${12 + indent}px` }}
+                                                                    className={`w-full text-left pr-3 py-1.5 text-sm transition-colors ${
+                                                                        isTopo
+                                                                            ? 'bg-blue-50 text-blue-800 font-bold border-l-4 border-blue-500 hover:bg-blue-100'
+                                                                            : 'text-gray-700 hover:bg-gray-100 border-l-4 border-transparent'
+                                                                    }`}>
+                                                                    {! isTopo && <i className="fas fa-angle-right text-gray-300 text-[10px] mr-1.5" />}
+                                                                    {u.nome}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </>
+                                            )}
+                                            {despacharForm.errors.setor_destino && (
+                                                <p className="mt-1 text-xs text-red-600">{despacharForm.errors.setor_destino}</p>
+                                            )}
+                                        </div>
+
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                Destinatario <span className="text-red-500">*</span>
+                                                Pessoa especifica <span className="text-gray-400 text-xs">(opcional)</span>
                                             </label>
                                             <select
                                                 value={despacharForm.data.destinatario_id}
                                                 onChange={(e) => despacharForm.setData('destinatario_id', e.target.value)}
                                                 className="ds-input"
                                             >
-                                                <option value="">Selecionar usuario...</option>
-                                                {userList.map(u => (
-                                                    <option key={u.id} value={u.id}>{u.name}</option>
-                                                ))}
+                                                <option value="">— Qualquer pessoa do setor —</option>
+                                                {userList
+                                                    .filter(u => ! despacharForm.data.setor_destino
+                                                        || Number(u.unidade_id) === Number(despacharForm.data.setor_destino))
+                                                    .map(u => (
+                                                        <option key={u.id} value={u.id}>{u.name}</option>
+                                                    ))}
                                             </select>
+                                            <p className="mt-1 text-[10px] text-gray-400">
+                                                Se vazio, qualquer um do setor podera receber via Caixa Setor.
+                                            </p>
                                             {despacharForm.errors.destinatario_id && (
                                                 <p className="mt-1 text-xs text-red-600">{despacharForm.errors.destinatario_id}</p>
                                             )}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Setor de Destino</label>
-                                            <input
-                                                type="text"
-                                                value={despacharForm.data.setor_destino}
-                                                onChange={(e) => despacharForm.setData('setor_destino', e.target.value)}
-                                                className="ds-input"
-                                                placeholder="Setor de destino"
-                                            />
                                         </div>
                                     </div>
 
@@ -486,7 +694,7 @@ export default function Show({ processo, usuarios }) {
 
                                     <div className="flex items-center gap-3 pt-2">
                                         <Button type="submit" loading={despacharForm.processing} icon="fas fa-paper-plane">
-                                            Despachar
+                                            Encaminhar
                                         </Button>
                                         <Button type="button" variant="secondary" icon="fas fa-undo" onClick={handleDevolver}>
                                             Devolver
@@ -494,8 +702,72 @@ export default function Show({ processo, usuarios }) {
                                     </div>
                                 </div>
                             </form>
+                        ))}
+
+                        {/* Modo: Decidir e Encerrar */}
+                        {acaoMode === 'decidir' && (
+                            <div className="space-y-4">
+                                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 flex items-start gap-2">
+                                    <i className="fas fa-info-circle mt-0.5" />
+                                    <p>Registre a <strong>decisao final</strong> sobre o pedido. O processo sera <strong>encerrado</strong> apos a decisao.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Parecer / Justificativa <span className="text-red-500">*</span>
+                                    </label>
+                                    <textarea value={concluirForm.data.observacao}
+                                        onChange={(e) => concluirForm.setData('observacao', e.target.value)}
+                                        rows={5} className="ds-input !h-auto"
+                                        placeholder="Justificativa da decisao..." />
+                                    {concluirForm.errors.observacao_conclusao && (
+                                        <p className="mt-1 text-xs text-red-600">{concluirForm.errors.observacao_conclusao}</p>
+                                    )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 pt-2">
+                                    <Button type="button" variant="success" icon="fas fa-check-circle"
+                                        loading={concluirForm.processing}
+                                        onClick={() => handleDecidir('deferido')}>
+                                        Deferir
+                                    </Button>
+                                    <Button type="button" variant="warning" icon="fas fa-balance-scale"
+                                        loading={concluirForm.processing}
+                                        onClick={() => handleDecidir('parcial')}>
+                                        Deferir Parcial
+                                    </Button>
+                                    <Button type="button" variant="danger" icon="fas fa-times-circle"
+                                        loading={concluirForm.processing}
+                                        onClick={() => handleDecidir('indeferido')}>
+                                        Indeferir
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Modo: Arquivar */}
+                        {acaoMode === 'arquivar' && (
+                            <div className="space-y-4">
+                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-start gap-2">
+                                    <i className="fas fa-exclamation-triangle mt-0.5" />
+                                    <p>Arquivar o processo <strong>encerra-o sem decisao formal</strong> (deferido/indeferido). Use quando o pedido perdeu objeto, foi desistido, ou nao se aplica mais.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Motivo do arquivamento (opcional)</label>
+                                    <textarea value={concluirForm.data.observacao}
+                                        onChange={(e) => concluirForm.setData('observacao', e.target.value)}
+                                        rows={3} className="ds-input !h-auto"
+                                        placeholder="Ex.: pedido desistido pelo requerente, objeto perdeu sentido..." />
+                                </div>
+                                <div className="pt-2">
+                                    <Button type="button" variant="secondary" icon="fas fa-archive"
+                                        loading={concluirForm.processing} onClick={handleArquivar}>
+                                        Arquivar Processo
+                                    </Button>
+                                </div>
+                            </div>
                         )}
                     </Card>
+                    )}
+                    </div>
                 )}
 
                 {/* ── Tab: Comentarios ── */}

@@ -123,7 +123,7 @@ class CircularController extends Controller
 
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('circulares', 'local');
+                    $path = $file->store('circulares', 'documentos');
 
                     CircularAnexo::create([
                         'circular_id'  => $circular->id,

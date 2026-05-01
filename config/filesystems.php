@@ -60,6 +60,33 @@ return [
             'report' => false,
         ],
 
+        // Disco para arquivos documentais (PDFs do GED, anexos de processos/memorandos/oficios,
+        // PDFs assinados). Em dev usa filesystem local apontando para o mesmo dir do disco 'local'
+        // (compat com arquivos ja existentes). Em producao, aponta para servidor de documentos
+        // via DOCUMENTOS_DRIVER=s3 (compativel com S3, MinIO, DigitalOcean Spaces, etc) na .env.
+        //
+        // Variaveis de ambiente para producao:
+        //   DOCUMENTOS_DRIVER=s3
+        //   DOCUMENTOS_KEY=...
+        //   DOCUMENTOS_SECRET=...
+        //   DOCUMENTOS_BUCKET=ged-documentos
+        //   DOCUMENTOS_REGION=us-east-1
+        //   DOCUMENTOS_ENDPOINT=https://servidor-docs.exemplo.com (opcional, para self-hosted)
+        //   DOCUMENTOS_PATH_STYLE=true (recomendado para MinIO)
+        'documentos' => [
+            'driver'   => env('DOCUMENTOS_DRIVER', 'local'),
+            'root'     => env('DOCUMENTOS_ROOT', storage_path('app/private')),
+            'key'      => env('DOCUMENTOS_KEY', env('AWS_ACCESS_KEY_ID')),
+            'secret'   => env('DOCUMENTOS_SECRET', env('AWS_SECRET_ACCESS_KEY')),
+            'region'   => env('DOCUMENTOS_REGION', env('AWS_DEFAULT_REGION', 'us-east-1')),
+            'bucket'   => env('DOCUMENTOS_BUCKET', env('AWS_BUCKET')),
+            'endpoint' => env('DOCUMENTOS_ENDPOINT', env('AWS_ENDPOINT')),
+            'use_path_style_endpoint' => env('DOCUMENTOS_PATH_STYLE', true),
+            'visibility' => 'private',
+            'throw'    => false,
+            'report'   => false,
+        ],
+
     ],
 
     /*

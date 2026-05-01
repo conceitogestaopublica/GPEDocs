@@ -51,7 +51,10 @@ class MemorandoController extends Controller
         $ugId = session('ug_id');
 
         $usuarios = User::where('id', '!=', Auth::id())
-            ->when($ugId, fn ($q) => $q->whereHas('ugs', fn ($q) => $q->where('ugs.id', $ugId)))
+            ->when($ugId, fn ($q) => $q->where(function ($q) use ($ugId) {
+                $q->whereHas('ugs', fn ($q) => $q->where('ugs.id', $ugId))
+                  ->orWhere('ug_id', $ugId);
+            }))
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'unidade_id']);
 
@@ -142,7 +145,7 @@ class MemorandoController extends Controller
 
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('memorandos', 'local');
+                    $path = $file->store('memorandos', 'documentos');
 
                     MemorandoAnexo::create([
                         'memorando_id' => $memorando->id,
@@ -268,7 +271,10 @@ class MemorandoController extends Controller
             ->orderBy('nome')
             ->get(['id', 'nome', 'codigo', 'nivel', 'parent_id']);
         $usuariosTramite = User::where('id', '!=', $userId)
-            ->when($ugId, fn ($q) => $q->whereHas('ugs', fn ($q) => $q->where('ugs.id', $ugId)))
+            ->when($ugId, fn ($q) => $q->where(function ($q) use ($ugId) {
+                $q->whereHas('ugs', fn ($q) => $q->where('ugs.id', $ugId))
+                  ->orWhere('ug_id', $ugId);
+            }))
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'unidade_id']);
 

@@ -3,14 +3,14 @@
  *
  * Formulario com campos dinamicos baseados no tipo de processo selecionado.
  */
-import { Head, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, router, useForm } from '@inertiajs/react';
+import { useMemo, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 
-export default function Create({ tipos_processo }) {
+export default function Create({ tipos_processo, unidades = [], usuarios = [] }) {
     const tipos = tipos_processo || [];
     const [files, setFiles] = useState([]);
 
@@ -24,7 +24,41 @@ export default function Create({ tipos_processo }) {
         requerente_cpf: '',
         requerente_email: '',
         requerente_telefone: '',
+        setor_destino_inicial: '',
+        destinatario_inicial: '',
     });
+
+    // Combobox setor
+    const [setorSearch, setSetorSearch] = useState('');
+    const [setorOpen, setSetorOpen] = useState(false);
+    const unidadesTree = useMemo(() => {
+        const filhosPor = new Map();
+        (unidades || []).forEach(u => {
+            const pid = u.parent_id ?? null;
+            if (! filhosPor.has(pid)) filhosPor.set(pid, []);
+            filhosPor.get(pid).push(u);
+        });
+        for (const [, l] of filhosPor) l.sort((a, b) => a.nome.localeCompare(b.nome));
+        const out = [];
+        const visit = (pid) => {
+            for (const u of (filhosPor.get(pid) || [])) {
+                out.push(u);
+                visit(u.id);
+            }
+        };
+        visit(null);
+        return out;
+    }, [unidades]);
+    const unidadesFiltradas = useMemo(() => {
+        if (! setorSearch.trim()) return unidadesTree;
+        const t = setorSearch.toLowerCase();
+        return unidadesTree.filter(u => u.nome.toLowerCase().includes(t));
+    }, [unidadesTree, setorSearch]);
+    const setorSelecionado = unidadesTree.find(u => String(u.id) === String(data.setor_destino_inicial));
+    const usuariosFiltrados = useMemo(() => {
+        if (! data.setor_destino_inicial) return usuarios;
+        return usuarios.filter(u => Number(u.unidade_id) === Number(data.setor_destino_inicial));
+    }, [usuarios, data.setor_destino_inicial]);
 
     const tipoSelecionado = tipos.find(t => String(t.id) === String(data.tipo_processo_id));
     const schemaCampos = tipoSelecionado?.schema_formulario || [];
@@ -69,13 +103,14 @@ export default function Create({ tipos_processo }) {
         if (data.requerente_email) formData.append('requerente_email', data.requerente_email);
         if (data.requerente_telefone) formData.append('requerente_telefone', data.requerente_telefone);
 
+        // Destino inicial
+        if (data.setor_destino_inicial) formData.append('setor_destino_inicial', data.setor_destino_inicial);
+        if (data.destinatario_inicial) formData.append('destinatario_inicial', data.destinatario_inicial);
+
         // Arquivos
         files.forEach((file, i) => formData.append(`files[${i}]`, file));
 
-        post('/processos', {
-            data: formData,
-            forceFormData: true,
-        });
+        router.post('/processos', formData, { forceFormData: true });
     };
 
     return (
@@ -216,6 +251,82 @@ export default function Create({ tipos_processo }) {
                                         className="ds-input"
                                         placeholder="(00) 00000-0000"
                                     />
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* Destino inicial — para onde o processo vai */}
+                        <Card title="Para qual setor enviar" subtitle="Setor que vai receber o processo na Caixa de Entrada (obrigatorio)" className="overflow-visible">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="relative">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Setor de Destino <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            value={setorOpen ? setorSearch : (setorSelecionado?.nome || '')}
+                                            onChange={(e) => { setSetorSearch(e.target.value); setSetorOpen(true); }}
+                                            onFocus={() => { setSetorOpen(true); setSetorSearch(''); }}
+                                            placeholder="Digite para buscar setor..."
+                                            className="ds-input pr-9"
+                                        />
+                                        {data.setor_destino_inicial && (
+                                            <button type="button"
+                                                onClick={() => { setData(d => ({ ...d, setor_destino_inicial: '', destinatario_inicial: '' })); setSetorSearch(''); }}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500">
+                                                <i className="fas fa-times text-xs" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    {setorOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-30" onClick={() => setSetorOpen(false)} />
+                                            <div className="absolute z-40 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-auto py-1">
+                                                {unidadesFiltradas.length === 0 ? (
+                                                    <p className="p-3 text-xs text-gray-400 text-center">Nenhum setor encontrado</p>
+                                                ) : unidadesFiltradas.map(u => {
+                                                    const isTopo = u.nivel === 1;
+                                                    const indent = (u.nivel - 1) * 16;
+                                                    return (
+                                                        <button key={u.id} type="button"
+                                                            onClick={() => { setData(d => ({ ...d, setor_destino_inicial: u.id, destinatario_inicial: '' })); setSetorOpen(false); setSetorSearch(''); }}
+                                                            style={{ paddingLeft: `${12 + indent}px` }}
+                                                            className={`w-full text-left pr-3 py-1.5 text-sm transition-colors ${
+                                                                isTopo
+                                                                    ? 'bg-blue-50 text-blue-800 font-bold border-l-4 border-blue-500 hover:bg-blue-100'
+                                                                    : 'text-gray-700 hover:bg-gray-100 border-l-4 border-transparent'
+                                                            }`}>
+                                                            {! isTopo && <i className="fas fa-angle-right text-gray-300 text-[10px] mr-1.5" />}
+                                                            {u.nome}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </>
+                                    )}
+                                    {errors.setor_destino_inicial && (
+                                        <p className="mt-1 text-xs text-red-600">{errors.setor_destino_inicial}</p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Pessoa especifica <span className="text-gray-400 text-xs">(opcional)</span>
+                                    </label>
+                                    <select
+                                        value={data.destinatario_inicial}
+                                        onChange={(e) => setData('destinatario_inicial', e.target.value)}
+                                        className="ds-input"
+                                    >
+                                        <option value="">— Qualquer pessoa do setor —</option>
+                                        {usuariosFiltrados.map(u => (
+                                            <option key={u.id} value={u.id}>{u.name}</option>
+                                        ))}
+                                    </select>
+                                    <p className="mt-1 text-[10px] text-gray-400">
+                                        Se vazio, qualquer um do setor podera receber via Caixa Setor.
+                                    </p>
                                 </div>
                             </div>
                         </Card>

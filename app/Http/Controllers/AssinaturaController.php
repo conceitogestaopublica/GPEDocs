@@ -224,6 +224,7 @@ class AssinaturaController extends Controller
 
         if ($todasAssinadas) {
             $solicitacao->update(['status' => 'concluida']);
+            $this->finalizarProcessoSeVinculado($solicitacao);
         } else {
             $solicitacao->update(['status' => 'em_andamento']);
         }
@@ -248,6 +249,36 @@ class AssinaturaController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Documento assinado com sucesso.');
+    }
+
+    /**
+     * Se a solicitacao esta vinculada a um processo (decisao administrativa),
+     * marca o processo como concluido apos a assinatura ICP-Brasil.
+     */
+    private function finalizarProcessoSeVinculado(SolicitacaoAssinatura $solicitacao): void
+    {
+        $processo = \App\Models\Processo\Processo::where('solicitacao_assinatura_id', $solicitacao->id)
+            ->where('status', 'aguardando_assinatura')
+            ->first();
+
+        if (! $processo) {
+            return;
+        }
+
+        $processo->update([
+            'status'       => 'concluido',
+            'concluido_em' => now(),
+        ]);
+
+        \App\Models\Processo\ProcessoHistorico::create([
+            'processo_id' => $processo->id,
+            'usuario_id'  => Auth::id(),
+            'acao'        => 'assinatura_decisao',
+            'detalhes'    => [
+                'decisao'        => $processo->decisao,
+                'solicitacao_id' => $solicitacao->id,
+            ],
+        ]);
     }
 
     public function recusar(Request $request, $id)
@@ -318,7 +349,7 @@ class AssinaturaController extends Controller
         }
 
         $pdfRelativo = $versao->arquivo_path;
-        $pdfAbsoluto = Storage::disk('local')->path($pdfRelativo);
+        $pdfAbsoluto = Storage::disk('documentos')->path($pdfRelativo);
 
         if (! is_file($pdfAbsoluto) || ! str_ends_with(strtolower($pdfRelativo), '.pdf')) {
             return redirect()->back()->with('error', 'Apenas arquivos PDF podem receber assinatura ICP-Brasil nesta versão.');
@@ -406,6 +437,9 @@ class AssinaturaController extends Controller
         $solicitacao = $assinatura->solicitacao;
         $todasAssinadas = $solicitacao->assinaturas()->where('status', 'pendente')->doesntExist();
         $solicitacao->update(['status' => $todasAssinadas ? 'concluida' : 'em_andamento']);
+        if ($todasAssinadas) {
+            $this->finalizarProcessoSeVinculado($solicitacao);
+        }
 
         Notificacao::create([
             'usuario_id'      => $solicitacao->solicitante_id,
@@ -465,7 +499,7 @@ class AssinaturaController extends Controller
         }
 
         $pdfRelativo = $versao->arquivo_path;
-        $pdfAbsoluto = Storage::disk('local')->path($pdfRelativo);
+        $pdfAbsoluto = Storage::disk('documentos')->path($pdfRelativo);
 
         if (! is_file($pdfAbsoluto) || ! str_ends_with(strtolower((string) $pdfRelativo), '.pdf')) {
             return response()->json(['erro' => 'Apenas arquivos PDF podem receber assinatura ICP-Brasil.'], 422);
@@ -617,6 +651,9 @@ class AssinaturaController extends Controller
         $solicitacao = $assinatura->solicitacao;
         $todasAssinadas = $solicitacao->assinaturas()->where('status', 'pendente')->doesntExist();
         $solicitacao->update(['status' => $todasAssinadas ? 'concluida' : 'em_andamento']);
+        if ($todasAssinadas) {
+            $this->finalizarProcessoSeVinculado($solicitacao);
+        }
 
         Notificacao::create([
             'usuario_id'      => $solicitacao->solicitante_id,
@@ -670,7 +707,7 @@ class AssinaturaController extends Controller
             abort(404, 'Esta assinatura não possui PDF qualificado anexado.');
         }
 
-        $disk = Storage::disk('local');
+        $disk = Storage::disk('documentos');
         if (! $disk->exists($assinatura->arquivo_assinado_path)) {
             abort(404);
         }

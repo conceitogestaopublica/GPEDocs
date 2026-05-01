@@ -84,7 +84,7 @@ class AssinaturaIcpService
         );
 
         // Persiste o resultado
-        $disk = Storage::disk('local');
+        $disk = Storage::disk('documentos');
         $nomeArquivo = sprintf(
             'assinaturas/icp/%s_%s.pdf',
             date('Ymd_His'),

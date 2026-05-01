@@ -72,12 +72,17 @@ class TramitacaoController extends Controller
     public function despachar(Request $request, $id)
     {
         $request->validate([
-            'destinatario_id' => ['required', 'integer', 'exists:users,id'],
-            'despacho'        => ['nullable', 'string'],
-            'setor_destino'   => ['required', 'string'],
+            'destinatario_id' => ['nullable', 'integer', 'exists:users,id'],
+            'despacho'        => ['required', 'string'],
+            'setor_destino'   => ['required', 'integer', 'exists:ug_organograma,id'],
             'files'           => ['nullable', 'array'],
             'files.*'         => ['file', 'max:51200'],
         ]);
+
+        // Resolve nome do setor a partir do id
+        $unidadeDestino = \App\Models\UgOrganograma::find($request->input('setor_destino'));
+        $setorDestinoNome = $unidadeDestino?->nome;
+        $setorDestinoId   = (int) $request->input('setor_destino');
 
         try {
             DB::beginTransaction();
@@ -109,16 +114,17 @@ class TramitacaoController extends Controller
 
             // Criar nova tramitacao
             $novaTramitacao = Tramitacao::create([
-                'processo_id'     => $processo->id,
-                'tipo_etapa_id'   => $proximaEtapa?->id,
-                'ordem'           => $tramitacaoAtual->ordem + 1,
-                'setor_origem'    => $tramitacaoAtual->setor_destino,
-                'setor_destino'   => $request->input('setor_destino'),
-                'remetente_id'    => Auth::id(),
-                'destinatario_id' => $request->input('destinatario_id'),
-                'status'          => 'pendente',
-                'sla_horas'       => $proximaEtapa?->sla_horas ?? $processo->tipoProcesso->sla_padrao_horas,
-                'prazo'           => now()->addHours($proximaEtapa?->sla_horas ?? $processo->tipoProcesso->sla_padrao_horas),
+                'processo_id'        => $processo->id,
+                'tipo_etapa_id'      => $proximaEtapa?->id,
+                'ordem'              => $tramitacaoAtual->ordem + 1,
+                'setor_origem'       => $tramitacaoAtual->setor_destino,
+                'setor_destino'      => $setorDestinoNome,
+                'destino_unidade_id' => $setorDestinoId,
+                'remetente_id'       => Auth::id(),
+                'destinatario_id'    => $request->input('destinatario_id'),
+                'status'             => 'pendente',
+                'sla_horas'          => $proximaEtapa?->sla_horas ?? $processo->tipoProcesso->sla_padrao_horas,
+                'prazo'              => now()->addHours($proximaEtapa?->sla_horas ?? $processo->tipoProcesso->sla_padrao_horas),
             ]);
 
             $processo->update(['etapa_atual_id' => $novaTramitacao->id]);
@@ -126,7 +132,7 @@ class TramitacaoController extends Controller
             // Armazenar anexos
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('processos', 'local');
+                    $path = $file->store('processos', 'documentos');
 
                     ProcessoAnexo::create([
                         'processo_id'   => $processo->id,
@@ -149,22 +155,32 @@ class TramitacaoController extends Controller
                     'de_tramitacao'   => $tramitacaoAtual->id,
                     'para_tramitacao' => $novaTramitacao->id,
                     'destinatario_id' => $request->input('destinatario_id'),
-                    'setor_destino'   => $request->input('setor_destino'),
+                    'setor_destino'   => $setorDestinoNome,
+                    'destino_unidade_id' => $setorDestinoId,
                     'despacho'        => $request->input('despacho'),
                 ],
                 'ip'         => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ]);
 
-            Notificacao::create([
-                'usuario_id'     => $request->input('destinatario_id'),
-                'tipo'           => 'processo',
-                'titulo'         => 'Processo despachado para voce',
-                'mensagem'       => "Processo {$processo->numero_protocolo} - {$processo->assunto} foi despachado para voce.",
-                'referencia_tipo'=> 'processo',
-                'referencia_id'  => $processo->id,
-                'lida'           => false,
-            ]);
+            // Notifica destinatario especifico OU todos os usuarios do setor de destino
+            $usuariosNotificar = [];
+            if ($request->filled('destinatario_id')) {
+                $usuariosNotificar[] = (int) $request->input('destinatario_id');
+            } elseif ($setorDestinoId) {
+                $usuariosNotificar = \App\Models\User::where('unidade_id', $setorDestinoId)->pluck('id')->all();
+            }
+            foreach (array_unique($usuariosNotificar) as $uid) {
+                Notificacao::create([
+                    'usuario_id'     => (int) $uid,
+                    'tipo'           => 'processo',
+                    'titulo'         => 'Processo despachado para voce',
+                    'mensagem'       => "Processo {$processo->numero_protocolo} - {$processo->assunto} foi despachado para voce.",
+                    'referencia_tipo'=> 'processo',
+                    'referencia_id'  => $processo->id,
+                    'lida'           => false,
+                ]);
+            }
 
             DB::commit();
 
@@ -301,7 +317,7 @@ class TramitacaoController extends Controller
             $anexosNomes = [];
 
             foreach ($request->file('files') as $file) {
-                $path = $file->store('processos', 'local');
+                $path = $file->store('processos', 'documentos');
 
                 ProcessoAnexo::create([
                     'processo_id'   => $tramitacao->processo_id,

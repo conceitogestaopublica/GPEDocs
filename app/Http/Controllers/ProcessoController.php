@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Assinatura;
+use App\Models\Documento;
 use App\Models\Notificacao;
 use App\Models\Processo\Processo;
 use App\Models\Processo\ProcessoAnexo;
@@ -11,10 +13,14 @@ use App\Models\Processo\ProcessoHistorico;
 use App\Models\Processo\TipoEtapa;
 use App\Models\Processo\TipoProcesso;
 use App\Models\Processo\Tramitacao;
+use App\Models\SolicitacaoAssinatura;
 use App\Models\User;
+use App\Models\Versao;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -63,8 +69,26 @@ class ProcessoController extends Controller
             ->orderBy('nome')
             ->get();
 
+        $ugId = session('ug_id');
+        $unidades = \App\Models\UgOrganograma::query()
+            ->when($ugId, fn ($q) => $q->where('ug_id', $ugId))
+            ->where('ativo', true)
+            ->orderBy('nivel')
+            ->orderBy('nome')
+            ->get(['id', 'nome', 'codigo', 'nivel', 'parent_id']);
+
+        $usuarios = User::where('id', '!=', Auth::id())
+            ->when($ugId, fn ($q) => $q->where(function ($q) use ($ugId) {
+                $q->whereHas('ugs', fn ($q) => $q->where('ugs.id', $ugId))
+                  ->orWhere('ug_id', $ugId);
+            }))
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'unidade_id']);
+
         return Inertia::render('GED/Processos/Create', [
             'tipos_processo' => $tiposProcesso,
+            'unidades'       => $unidades,
+            'usuarios'       => $usuarios,
         ]);
     }
 
@@ -81,6 +105,8 @@ class ProcessoController extends Controller
             'requerente_email'   => ['nullable', 'string', 'email', 'max:255'],
             'requerente_telefone'=> ['nullable', 'string', 'max:20'],
             'setor_origem'       => ['nullable', 'string', 'max:150'],
+            'setor_destino_inicial' => ['required', 'integer', 'exists:ug_organograma,id'],
+            'destinatario_inicial'  => ['nullable', 'integer', 'exists:users,id'],
             'files'              => ['nullable', 'array'],
             'files.*'            => ['file', 'max:51200'],
         ]);
@@ -119,17 +145,22 @@ class ProcessoController extends Controller
                 'aberto_por'        => Auth::id(),
             ]);
 
+            // Primeira tramitacao ja vai despachada para o setor escolhido na abertura
+            $unidadeDestino = \App\Models\UgOrganograma::find((int) $request->input('setor_destino_inicial'));
+
             $tramitacao = Tramitacao::create([
-                'processo_id'     => $processo->id,
-                'tipo_etapa_id'   => $primeiraEtapa?->id,
-                'ordem'           => 1,
-                'setor_origem'    => $request->input('setor_origem'),
-                'setor_destino'   => $primeiraEtapa?->setor_destino,
-                'remetente_id'    => Auth::id(),
-                'destinatario_id' => $primeiraEtapa?->responsavel_id,
-                'status'          => 'pendente',
-                'sla_horas'       => $primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas,
-                'prazo'           => now()->addHours($primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas),
+                'processo_id'        => $processo->id,
+                'tipo_etapa_id'      => $primeiraEtapa?->id,
+                'ordem'              => 1,
+                'setor_origem'       => $request->input('setor_origem'),
+                'setor_destino'      => $unidadeDestino?->nome,
+                'destino_unidade_id' => $unidadeDestino?->id,
+                'remetente_id'       => Auth::id(),
+                'destinatario_id'    => $request->input('destinatario_inicial') ?: $primeiraEtapa?->responsavel_id,
+                'status'             => 'pendente',
+                'despachado_em'      => now(),
+                'sla_horas'          => $primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas,
+                'prazo'              => now()->addHours($primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas),
             ]);
 
             $processo->update(['etapa_atual_id' => $tramitacao->id]);
@@ -137,7 +168,7 @@ class ProcessoController extends Controller
             // Armazenar anexos
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('processos', 'local');
+                    $path = $file->store('processos', 'documentos');
 
                     ProcessoAnexo::create([
                         'processo_id'   => $processo->id,
@@ -165,10 +196,16 @@ class ProcessoController extends Controller
                 'user_agent' => $request->userAgent(),
             ]);
 
-            // Notificar destinatario
-            if ($primeiraEtapa?->responsavel_id) {
+            // Notificar destino (usuario especifico OU todos do setor)
+            $usuariosNotificar = [];
+            if ($request->filled('destinatario_inicial')) {
+                $usuariosNotificar[] = (int) $request->input('destinatario_inicial');
+            } elseif ($unidadeDestino) {
+                $usuariosNotificar = User::where('unidade_id', $unidadeDestino->id)->pluck('id')->all();
+            }
+            foreach (array_unique($usuariosNotificar) as $uid) {
                 Notificacao::create([
-                    'usuario_id'     => $primeiraEtapa->responsavel_id,
+                    'usuario_id'     => (int) $uid,
                     'tipo'           => 'processo',
                     'titulo'         => 'Novo processo recebido',
                     'mensagem'       => "Processo {$protocolo} - {$processo->assunto} foi encaminhado para voce.",
@@ -202,11 +239,74 @@ class ProcessoController extends Controller
             'concluidoPor',
         ])->findOrFail($id);
 
-        $usuarios = User::orderBy('name')->get(['id', 'name', 'email']);
+        $ugId = session('ug_id');
+        $usuarios = User::where('id', '!=', Auth::id())
+            ->when($ugId, fn ($q) => $q->where(function ($q) use ($ugId) {
+                $q->whereHas('ugs', fn ($q) => $q->where('ugs.id', $ugId))
+                  ->orWhere('ug_id', $ugId);
+            }))
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'unidade_id']);
+
+        $unidades = \App\Models\UgOrganograma::query()
+            ->when($ugId, fn ($q) => $q->where('ug_id', $ugId))
+            ->where('ativo', true)
+            ->orderBy('nivel')
+            ->orderBy('nome')
+            ->get(['id', 'nome', 'codigo', 'nivel', 'parent_id']);
+
+        // Determina o que o usuario logado pode fazer no estado atual
+        $user = Auth::user();
+        $unidadeId = $user->unidade_id;
+        $acessoGeral = (bool) $user->acesso_geral_ug;
+
+        $etapaAtual = $processo->tramitacoes
+            ->whereIn('status', ['pendente', 'recebido'])
+            ->sortByDesc('id')
+            ->first();
+
+        $souAtivoNaEtapa = $etapaAtual && (
+            $etapaAtual->destinatario_id === $user->id
+            || ($unidadeId && $etapaAtual->destino_unidade_id === $unidadeId)
+            || ($acessoGeral && $etapaAtual->destino_unidade_id !== null)
+        );
+
+        $podeReceber = $etapaAtual && $etapaAtual->status === 'pendente' && $souAtivoNaEtapa;
+        $podeDespachar = $etapaAtual && $etapaAtual->status === 'recebido' && $souAtivoNaEtapa;
+        // So pode concluir/cancelar quem esta na etapa ativa OU o autor (caso ainda nao tenha sido despachado)
+        $souAutor = $processo->aberto_por === $user->id;
+        $semDespachoAinda = $processo->tramitacoes->count() <= 1 && $etapaAtual && $etapaAtual->status === 'pendente';
+        $podeConcluir = $souAtivoNaEtapa || ($souAutor && $semDespachoAinda);
+
+        // Se ha solicitacao de assinatura pendente, passa a assinatura do usuario logado
+        $assinaturaPendente = null;
+        if ($processo->solicitacao_assinatura_id && $processo->status === 'aguardando_assinatura') {
+            $solicitacao = \App\Models\SolicitacaoAssinatura::with('documento')->find($processo->solicitacao_assinatura_id);
+            if ($solicitacao) {
+                $minha = \App\Models\Assinatura::where('solicitacao_id', $solicitacao->id)
+                    ->where('signatario_id', Auth::id())
+                    ->where('status', 'pendente')
+                    ->first();
+                if ($minha) {
+                    $assinaturaPendente = [
+                        'id'            => $minha->id,
+                        'solicitacao_id'=> $solicitacao->id,
+                        'documento_id'  => $solicitacao->documento_id,
+                        'documento_nome'=> $solicitacao->documento?->nome,
+                        'mensagem'      => $solicitacao->mensagem,
+                    ];
+                }
+            }
+        }
 
         return Inertia::render('GED/Processos/Show', [
-            'processo' => $processo,
-            'usuarios' => $usuarios,
+            'processo'             => $processo,
+            'usuarios'             => $usuarios,
+            'unidades'             => $unidades,
+            'pode_receber'         => $podeReceber,
+            'pode_despachar'       => $podeDespachar,
+            'pode_concluir'        => $podeConcluir,
+            'assinatura_pendente'  => $assinaturaPendente,
         ]);
     }
 
@@ -214,24 +314,92 @@ class ProcessoController extends Controller
     {
         $request->validate([
             'observacao_conclusao' => ['nullable', 'string'],
+            'decisao'              => ['nullable', 'string', 'in:deferido,indeferido,parcial,arquivado'],
         ]);
 
         try {
             DB::beginTransaction();
 
-            $processo = Processo::findOrFail($id);
+            $processo = Processo::with(['tipoProcesso', 'abertoPor', 'tramitacoes.remetente'])->findOrFail($id);
+            $decisao = $request->input('decisao');
+            $exigeAssinatura = in_array($decisao, ['deferido', 'indeferido', 'parcial'], true);
+
+            // Decisoes formais (deferido/indeferido/parcial) ficam aguardando assinatura digital
+            // (Lei 14.063/2020 art. 4 III). Arquivamento simples nao precisa.
             $processo->update([
-                'status'              => 'concluido',
+                'status'              => $exigeAssinatura ? 'aguardando_assinatura' : 'concluido',
                 'concluido_por'       => Auth::id(),
-                'concluido_em'        => now(),
+                'concluido_em'        => $exigeAssinatura ? null : now(),
                 'observacao_conclusao'=> $request->input('observacao_conclusao'),
+                'decisao'             => $decisao,
             ]);
+
+            // Encerra a tramitacao ativa (decisao foi tomada, ninguem mais despacha)
+            Tramitacao::where('processo_id', $processo->id)
+                ->whereIn('status', ['pendente', 'recebido'])
+                ->update(['status' => 'concluido', 'recebido_em' => DB::raw('COALESCE(recebido_em, NOW())')]);
+
+            // Para decisoes formais: gera PDF + Documento + SolicitacaoAssinatura
+            if ($exigeAssinatura) {
+                $autor = User::find(Auth::id());
+                $pdf = Pdf::loadView('pdf.processo-decisao', [
+                    'processo' => $processo->refresh()->load(['tipoProcesso', 'abertoPor', 'tramitacoes.remetente']),
+                    'autor'    => $autor,
+                ]);
+                $pdf->setPaper('A4', 'portrait');
+                $pdfBytes = $pdf->output();
+
+                $filename = 'decisao-' . str_replace(['/', '\\'], '-', $processo->numero_protocolo) . '.pdf';
+                $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+                Storage::disk('documentos')->put($path, $pdfBytes);
+
+                $documento = Documento::create([
+                    'nome'              => 'Decisao - ' . $processo->numero_protocolo,
+                    'descricao'         => "Decisao administrativa do processo {$processo->numero_protocolo}: " . strtoupper($decisao),
+                    'tipo_documental_id'=> 25, // "Decisao Administrativa" (criado no seed/setup)
+                    'pasta_id'          => null,
+                    'versao_atual'      => 1,
+                    'tamanho'           => strlen($pdfBytes),
+                    'mime_type'         => 'application/pdf',
+                    'autor_id'          => Auth::id(),
+                    'status'            => 'rascunho',
+                ]);
+
+                Versao::create([
+                    'documento_id' => $documento->id,
+                    'versao'       => 1,
+                    'arquivo_path' => $path,
+                    'tamanho'      => strlen($pdfBytes),
+                    'hash_sha256'  => hash('sha256', $pdfBytes),
+                    'autor_id'     => Auth::id(),
+                    'comentario'   => 'Documento gerado automaticamente para assinatura da decisao do processo ' . $processo->numero_protocolo,
+                ]);
+
+                $solicitacao = SolicitacaoAssinatura::create([
+                    'documento_id'   => $documento->id,
+                    'solicitante_id' => Auth::id(),
+                    'status'         => 'pendente',
+                    'mensagem'       => "Decisao do processo {$processo->numero_protocolo} (" . strtoupper($decisao) . ") - assinar para tornar oficial.",
+                ]);
+
+                Assinatura::create([
+                    'solicitacao_id'   => $solicitacao->id,
+                    'documento_id'     => $documento->id,
+                    'signatario_id'    => Auth::id(),
+                    'ordem'            => 1,
+                    'status'           => 'pendente',
+                    'email_signatario' => $autor->email,
+                ]);
+
+                $processo->update(['solicitacao_assinatura_id' => $solicitacao->id]);
+            }
 
             ProcessoHistorico::create([
                 'processo_id' => $processo->id,
                 'usuario_id'  => Auth::id(),
-                'acao'        => 'conclusao',
+                'acao'        => $exigeAssinatura ? 'decisao' : 'arquivamento',
                 'detalhes'    => [
+                    'decisao'    => $decisao,
                     'observacao' => $request->input('observacao_conclusao'),
                 ],
                 'ip'         => $request->ip(),
@@ -240,12 +408,44 @@ class ProcessoController extends Controller
 
             DB::commit();
 
-            return redirect()->back()->with('success', 'Processo concluido com sucesso.');
+            if ($exigeAssinatura) {
+                return redirect()->back()->with('success',
+                    'Decisao registrada. Para tornar oficial, assine digitalmente o documento de decisao (Lei 14.063/2020).');
+            }
+
+            return redirect()->back()->with('success', 'Processo arquivado.');
         } catch (\Exception $e) {
             DB::rollBack();
 
             return redirect()->back()->with('error', 'Erro ao concluir processo: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Marca o processo como concluido APOS a assinatura digital da decisao.
+     * Chamado pelo callback do servico de assinatura.
+     */
+    public function finalizarAposAssinatura($id)
+    {
+        $processo = Processo::findOrFail($id);
+
+        if ($processo->status !== 'aguardando_assinatura') {
+            return redirect()->back()->with('error', 'Processo nao esta aguardando assinatura.');
+        }
+
+        $processo->update([
+            'status'        => 'concluido',
+            'concluido_em'  => now(),
+        ]);
+
+        ProcessoHistorico::create([
+            'processo_id' => $processo->id,
+            'usuario_id'  => Auth::id(),
+            'acao'        => 'assinatura_decisao',
+            'detalhes'    => ['decisao' => $processo->decisao],
+        ]);
+
+        return redirect()->back()->with('success', 'Decisao assinada digitalmente. Processo encerrado oficialmente.');
     }
 
     public function cancelar(Request $request, $id)

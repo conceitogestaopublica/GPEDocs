@@ -153,7 +153,7 @@ class AssinaturaIcpA3Service
         $pdfFinal = $this->substituirContents($pdfPlaceholder, $byteRange, $pkcs7);
 
         // Persiste
-        $disk = Storage::disk('local');
+        $disk = Storage::disk('documentos');
         $thumbprint = openssl_x509_fingerprint($certPem, 'sha256');
         $caminho = sprintf(
             'assinaturas/icp/%s_a3_%s.pdf',

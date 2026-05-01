@@ -95,7 +95,7 @@ class OficioController extends Controller
 
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('oficios', 'local');
+                    $path = $file->store('oficios', 'documentos');
 
                     OficioAnexo::create([
                         'oficio_id'           => $oficio->id,

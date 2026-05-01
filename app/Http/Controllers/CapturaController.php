@@ -51,7 +51,7 @@ class CapturaController extends Controller
             $criados = 0;
 
             foreach ($arquivos as $file) {
-                $path = $file->store('documentos', 'local');
+                $path = $file->store('documentos', 'documentos');
                 $nome = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
 
                 $documento = Documento::create([

@@ -19,6 +19,7 @@ class Tramitacao extends Model
         'ordem',
         'setor_origem',
         'setor_destino',
+        'destino_unidade_id',
         'remetente_id',
         'destinatario_id',
         'recebido_por',
@@ -29,15 +30,22 @@ class Tramitacao extends Model
         'prazo',
         'recebido_em',
         'despachado_em',
+        'lida_em',
     ];
 
     protected function casts(): array
     {
         return [
-            'prazo' => 'datetime',
-            'recebido_em' => 'datetime',
+            'prazo'         => 'datetime',
+            'recebido_em'   => 'datetime',
             'despachado_em' => 'datetime',
+            'lida_em'       => 'datetime',
         ];
+    }
+
+    public function destinoUnidade(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\UgOrganograma::class, 'destino_unidade_id');
     }
 
     public function processo(): BelongsTo
