@@ -96,6 +96,7 @@ Route::middleware('auth')->group(function () {
         // Unidades Gestoras + organograma
         Route::resource('ugs', \App\Http\Controllers\Configuracao\UgController::class)->except(['show']);
         Route::post('ugs/{id}/toggle-ativo', [\App\Http\Controllers\Configuracao\UgController::class, 'toggleAtivo'])->name('ugs.toggle-ativo');
+        Route::get('ugs/{id}/brasao', [\App\Http\Controllers\Configuracao\UgController::class, 'brasao'])->name('ug.brasao');
 
         Route::get('ugs/{ug}/organograma', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'show'])->name('ugs.organograma');
         Route::post('ugs/{ug}/organograma/labels', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'updateLabels'])->name('ugs.organograma.labels');

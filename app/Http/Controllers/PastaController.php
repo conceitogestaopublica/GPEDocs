@@ -14,21 +14,94 @@ use Inertia\Response;
 
 class PastaController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $pastaId = $request->input('pasta_id');
+        $busca   = trim((string) $request->input('busca', ''));
+        $tipoDocId = $request->input('tipo_documental_id');
+        $status    = $request->input('status');
+        $dataDe    = $request->input('data_de');
+        $dataAte   = $request->input('data_ate');
+
         $pastas = Pasta::where('ativo', true)
             ->withCount(['documentos' => fn ($q) => $q->whereNull('deleted_at')])
             ->orderBy('nome')
             ->get();
 
-        $documentosSemPasta = Documento::whereNull('pasta_id')
-            ->whereNull('deleted_at')
-            ->orderBy('nome')
-            ->get();
+        // Subpastas filhas para uso do withCount('children') no front
+        $childrenCount = Pasta::where('ativo', true)
+            ->selectRaw('parent_id, count(*) as total')
+            ->groupBy('parent_id')
+            ->pluck('total', 'parent_id');
+        $pastas = $pastas->map(function ($p) use ($childrenCount) {
+            $p->children_count = (int) ($childrenCount[$p->id] ?? 0);
+            return $p;
+        });
+
+        $pastaAtual = $pastaId ? Pasta::find($pastaId) : null;
+        $breadcrumb = [];
+        if ($pastaAtual) {
+            $atual = $pastaAtual;
+            while ($atual) {
+                array_unshift($breadcrumb, ['id' => $atual->id, 'nome' => $atual->nome]);
+                $atual = $atual->parent_id ? Pasta::find($atual->parent_id) : null;
+            }
+        }
+
+        // Documentos da pasta atual (ou raiz = sem pasta) — quando ha busca/filtros,
+        // pesquisa em TODAS as pastas, nao so na atual.
+        $temFiltroAvancado = $busca !== '' || $tipoDocId || $status || $dataDe || $dataAte;
+
+        $docsQuery = Documento::whereNull('deleted_at')
+            ->with(['tipoDocumental:id,nome', 'autor:id,name'])
+            ->when($temFiltroAvancado, function ($q) use ($pastaAtual) {
+                // Com filtros: busca em todo lugar (mas se ha pasta selecionada, restringe a ela e descendentes)
+                if ($pastaAtual) {
+                    $q->where('pasta_id', $pastaAtual->id);
+                }
+            }, function ($q) use ($pastaAtual) {
+                // Sem filtros: lista apenas a pasta atual (ou raiz)
+                $pastaAtual
+                    ? $q->where('pasta_id', $pastaAtual->id)
+                    : $q->whereNull('pasta_id');
+            })
+            ->when($busca !== '', function ($q) use ($busca) {
+                $termo = "%{$busca}%";
+                $q->where(function ($q2) use ($termo) {
+                    $q2->where('nome', 'ilike', $termo)
+                       ->orWhere('descricao', 'ilike', $termo);
+                });
+            })
+            ->when($tipoDocId, fn ($q) => $q->where('tipo_documental_id', $tipoDocId))
+            ->when($status, fn ($q) => $q->where('status', $status))
+            ->when($dataDe, fn ($q) => $q->where('created_at', '>=', $dataDe . ' 00:00:00'))
+            ->when($dataAte, fn ($q) => $q->where('created_at', '<=', $dataAte . ' 23:59:59'))
+            ->orderByDesc('updated_at');
+
+        $documentos = $docsQuery->paginate(30)->withQueryString();
+        $documentos->setCollection($documentos->getCollection()->map(function ($d) {
+            $d->tipo_nome = $d->tipoDocumental?->nome;
+            $d->autor_nome = $d->autor?->name;
+            unset($d->tipoDocumental, $d->autor);
+            return $d;
+        }));
+
+        $tiposDocumentais = DB::table('ged_tipos_documentais')
+            ->where('ativo', true)->orderBy('nome')->get(['id','nome']);
 
         return Inertia::render('GED/Repositorio/Index', [
-            'pastas'               => $pastas,
-            'documentos_sem_pasta' => $documentosSemPasta,
+            'pastas'           => $pastas,
+            'documentos'       => $documentos,
+            'pasta_atual'      => $pastaAtual,
+            'breadcrumb'       => $breadcrumb,
+            'tipos_documentais'=> $tiposDocumentais,
+            'filtros'          => [
+                'busca'              => $busca,
+                'tipo_documental_id' => $tipoDocId,
+                'status'             => $status,
+                'data_de'            => $dataDe,
+                'data_ate'           => $dataAte,
+            ],
         ]);
     }
 

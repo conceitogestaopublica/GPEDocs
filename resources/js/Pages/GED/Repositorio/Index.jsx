@@ -9,11 +9,17 @@ import Button from '../../../Components/Button';
 import Modal from '../../../Components/Modal';
 import Card from '../../../Components/Card';
 
-export default function Repositorio({ pastas, documentos, pasta_atual, breadcrumb }) {
-    const [viewMode, setViewMode] = useState('grid');
+export default function Repositorio({ pastas, documentos, pasta_atual, breadcrumb, tipos_documentais = [], filtros = {} }) {
+    const [viewMode, setViewMode] = useState('list');
     const [selectedDoc, setSelectedDoc] = useState(null);
     const [showNewFolder, setShowNewFolder] = useState(false);
-    const [search, setSearch] = useState('');
+
+    // Filtros server-side
+    const [busca, setBusca]         = useState(filtros.busca || '');
+    const [tipoDocId, setTipoDocId] = useState(filtros.tipo_documental_id || '');
+    const [status, setStatus]       = useState(filtros.status || '');
+    const [dataDe, setDataDe]       = useState(filtros.data_de || '');
+    const [dataAte, setDataAte]     = useState(filtros.data_ate || '');
 
     // Modais de acao em pasta
     const [renamePasta, setRenamePasta] = useState(null);
@@ -23,6 +29,25 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
     const docs = documentos?.data || documentos || [];
     const folders = pastas || [];
     const crumbs = breadcrumb || [];
+
+    const aplicarFiltros = (e) => {
+        e?.preventDefault();
+        router.get('/repositorio', {
+            pasta_id: pasta_atual?.id || undefined,
+            busca: busca || undefined,
+            tipo_documental_id: tipoDocId || undefined,
+            status: status || undefined,
+            data_de: dataDe || undefined,
+            data_ate: dataAte || undefined,
+        }, { preserveState: true, replace: true });
+    };
+
+    const limparFiltros = () => {
+        setBusca(''); setTipoDocId(''); setStatus(''); setDataDe(''); setDataAte('');
+        router.get('/repositorio', { pasta_id: pasta_atual?.id || undefined }, { preserveState: true, replace: true });
+    };
+
+    const temFiltro = busca || tipoDocId || status || dataDe || dataAte;
 
     return (
         <AdminLayout>
@@ -56,49 +81,81 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
 
                 {/* Area principal */}
                 <div className="flex-1 min-w-0">
-                    {/* Toolbar */}
-                    <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 mb-4 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1 text-sm">
-                                <Link href="/repositorio" className="text-blue-600 hover:underline">
-                                    <i className="fas fa-home text-xs" />
-                                </Link>
-                                {crumbs.map((c, i) => (
-                                    <span key={c.id} className="flex items-center gap-1">
-                                        <i className="fas fa-chevron-right text-[8px] text-gray-300" />
-                                        {i === crumbs.length - 1 ? (
-                                            <span className="text-gray-700 font-medium">{c.nome}</span>
-                                        ) : (
-                                            <Link href={`/repositorio?pasta_id=${c.id}`} className="text-blue-600 hover:underline">{c.nome}</Link>
-                                        )}
-                                    </span>
-                                ))}
-                            </div>
+                    {/* Breadcrumb + view mode */}
+                    <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 mb-3 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-1 text-sm">
+                            <Link href="/repositorio" className="text-blue-600 hover:underline">
+                                <i className="fas fa-home text-xs" />
+                            </Link>
+                            {crumbs.map((c, i) => (
+                                <span key={c.id} className="flex items-center gap-1">
+                                    <i className="fas fa-chevron-right text-[8px] text-gray-300" />
+                                    {i === crumbs.length - 1 ? (
+                                        <span className="text-gray-700 font-medium">{c.nome}</span>
+                                    ) : (
+                                        <Link href={`/repositorio?pasta_id=${c.id}`} className="text-blue-600 hover:underline">{c.nome}</Link>
+                                    )}
+                                </span>
+                            ))}
+                            <span className="text-xs text-gray-400 ml-3">
+                                {documentos?.total ?? docs.length} documento(s)
+                            </span>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                            <div className="relative">
-                                <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
-                                <input
-                                    type="text"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    placeholder="Filtrar..."
-                                    className="pl-8 pr-3 py-1.5 rounded-lg border border-gray-200 text-sm w-48 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                />
-                            </div>
-
-                            <div className="flex border border-gray-200 rounded-lg overflow-hidden">
-                                <button onClick={() => setViewMode('grid')}
-                                    className={`px-3 py-1.5 text-xs ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
-                                    <i className="fas fa-th" />
-                                </button>
-                                <button onClick={() => setViewMode('list')}
-                                    className={`px-3 py-1.5 text-xs ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
-                                    <i className="fas fa-list" />
-                                </button>
-                            </div>
+                        <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+                            <button onClick={() => setViewMode('grid')}
+                                className={`px-3 py-1.5 text-xs ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`} title="Visao em grade">
+                                <i className="fas fa-th" />
+                            </button>
+                            <button onClick={() => setViewMode('list')}
+                                className={`px-3 py-1.5 text-xs ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`} title="Visao em lista">
+                                <i className="fas fa-list" />
+                            </button>
                         </div>
+                    </div>
+
+                    {/* Filtros */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-3 mb-3">
+                        <form onSubmit={aplicarFiltros} className="flex flex-wrap items-end gap-2">
+                            <div className="relative flex-1 min-w-[260px]">
+                                <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">Buscar</label>
+                                <i className="fas fa-search absolute left-3 top-[60%] -translate-y-1/2 text-gray-400 text-xs" />
+                                <input type="text" value={busca} onChange={(e) => setBusca(e.target.value)}
+                                    placeholder="Nome ou descricao..." className="ds-input pl-9" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">Tipo</label>
+                                <select value={tipoDocId} onChange={(e) => setTipoDocId(e.target.value)} className="ds-input w-44">
+                                    <option value="">Todos</option>
+                                    {tipos_documentais.map(t => (
+                                        <option key={t.id} value={t.id}>{t.nome}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">Status</label>
+                                <select value={status} onChange={(e) => setStatus(e.target.value)} className="ds-input w-36">
+                                    <option value="">Todos</option>
+                                    <option value="rascunho">Rascunho</option>
+                                    <option value="publicado">Publicado</option>
+                                    <option value="arquivado">Arquivado</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">De</label>
+                                <input type="date" value={dataDe} onChange={(e) => setDataDe(e.target.value)} className="ds-input w-40" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">Ate</label>
+                                <input type="date" value={dataAte} onChange={(e) => setDataAte(e.target.value)} className="ds-input w-40" />
+                            </div>
+                            <Button type="submit" icon="fas fa-filter">Filtrar</Button>
+                            {temFiltro && (
+                                <button type="button" onClick={limparFiltros} className="text-xs text-gray-500 hover:text-gray-800 px-2 pb-2">
+                                    <i className="fas fa-times mr-1" />Limpar
+                                </button>
+                            )}
+                        </form>
                     </div>
 
                     {/* Subpastas */}
@@ -119,13 +176,16 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                     {/* Documentos */}
                     {viewMode === 'grid' ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {filteredDocs(docs, search).map(doc => (
+                            {docs.map(doc => (
                                 <Link key={doc.id} href={`/documentos/${doc.id}`}
                                     className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md hover:border-blue-200 transition-all group">
                                     <div className="w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-3">
                                         <i className={`${getFileIcon(doc.mime_type)} text-3xl text-gray-300 group-hover:text-blue-400 transition-colors`} />
                                     </div>
-                                    <p className="text-sm font-medium text-gray-700 truncate">{doc.nome}</p>
+                                    <p className="text-sm font-medium text-gray-700 truncate" title={doc.nome}>{doc.nome}</p>
+                                    {doc.tipo_nome && (
+                                        <p className="text-[10px] text-gray-400 mt-0.5">{doc.tipo_nome}</p>
+                                    )}
                                     <div className="flex items-center justify-between mt-2">
                                         <span className="text-xs text-gray-400">{formatBytes(doc.tamanho)}</span>
                                         <StatusBadge status={doc.status} />
@@ -135,44 +195,68 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                         </div>
                     ) : (
                         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                            <table className="w-full text-sm">
-                                <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left font-semibold">Nome</th>
-                                        <th className="px-4 py-3 text-left font-semibold">Tipo</th>
-                                        <th className="px-4 py-3 text-left font-semibold">Tamanho</th>
-                                        <th className="px-4 py-3 text-left font-semibold">Status</th>
-                                        <th className="px-4 py-3 text-left font-semibold">Modificado</th>
-                                        <th className="px-4 py-3 text-center font-semibold w-24">Acoes</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {filteredDocs(docs, search).map(doc => (
-                                        <tr key={doc.id} className="hover:bg-gray-50">
-                                            <td className="px-4 py-3">
-                                                <Link href={`/documentos/${doc.id}`} className="flex items-center gap-3 text-gray-700 hover:text-blue-600">
-                                                    <i className={`${getFileIcon(doc.mime_type)} text-gray-400`} />
-                                                    <span className="font-medium truncate max-w-xs">{doc.nome}</span>
-                                                </Link>
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-500">{doc.tipo_nome || '-'}</td>
-                                            <td className="px-4 py-3 text-gray-500">{formatBytes(doc.tamanho)}</td>
-                                            <td className="px-4 py-3"><StatusBadge status={doc.status} /></td>
-                                            <td className="px-4 py-3 text-gray-400 text-xs">{formatDate(doc.updated_at)}</td>
-                                            <td className="px-4 py-3 text-center">
-                                                <a href={`/documentos/${doc.id}/download`}
-                                                    className="text-gray-400 hover:text-blue-600 transition-colors">
-                                                    <i className="fas fa-download text-xs" />
-                                                </a>
-                                            </td>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gray-50 text-gray-500 uppercase text-[10px]">
+                                        <tr>
+                                            <th className="px-3 py-2.5 text-left font-semibold">Nome</th>
+                                            <th className="px-3 py-2.5 text-left font-semibold">Tipo</th>
+                                            <th className="px-3 py-2.5 text-left font-semibold">Autor</th>
+                                            <th className="px-3 py-2.5 text-left font-semibold">Tamanho</th>
+                                            <th className="px-3 py-2.5 text-left font-semibold">Status</th>
+                                            <th className="px-3 py-2.5 text-left font-semibold">Criado em</th>
+                                            <th className="px-3 py-2.5 text-left font-semibold">Modificado</th>
+                                            <th className="px-3 py-2.5 text-center font-semibold w-32">Acoes</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            {filteredDocs(docs, search).length === 0 && (
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {docs.map(doc => (
+                                            <tr key={doc.id} className="hover:bg-gray-50">
+                                                <td className="px-3 py-2.5">
+                                                    <Link href={`/documentos/${doc.id}`} className="flex items-center gap-2 text-gray-700 hover:text-blue-600 group">
+                                                        <i className={`${getFileIcon(doc.mime_type)} shrink-0`} />
+                                                        <div className="min-w-0">
+                                                            <p className="font-medium truncate max-w-[280px] group-hover:text-blue-600">{doc.nome}</p>
+                                                            {doc.descricao && (
+                                                                <p className="text-[10px] text-gray-400 truncate max-w-[280px]">{doc.descricao}</p>
+                                                            )}
+                                                        </div>
+                                                    </Link>
+                                                </td>
+                                                <td className="px-3 py-2.5 text-gray-500 text-xs">{doc.tipo_nome || '-'}</td>
+                                                <td className="px-3 py-2.5 text-gray-500 text-xs">{doc.autor_nome || '-'}</td>
+                                                <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap">{formatBytes(doc.tamanho)}</td>
+                                                <td className="px-3 py-2.5"><StatusBadge status={doc.status} /></td>
+                                                <td className="px-3 py-2.5 text-gray-400 text-[11px] whitespace-nowrap">{formatDate(doc.created_at)}</td>
+                                                <td className="px-3 py-2.5 text-gray-400 text-[11px] whitespace-nowrap">{formatDate(doc.updated_at)}</td>
+                                                <td className="px-3 py-2.5">
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        <Link href={`/documentos/${doc.id}`}
+                                                            className="text-[11px] px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+                                                            title="Abrir">
+                                                            <i className="fas fa-eye" />
+                                                        </Link>
+                                                        <a href={`/documentos/${doc.id}/download`}
+                                                            className="text-[11px] px-2 py-1 rounded bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                                                            title="Baixar">
+                                                            <i className="fas fa-download" />
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {docs.length === 0 && (
                                 <div className="py-12 text-center text-gray-400">
                                     <i className="fas fa-folder-open text-3xl mb-2 block" />
-                                    <p>Nenhum documento nesta pasta</p>
+                                    <p className="text-sm font-medium">Nenhum documento {temFiltro ? 'encontrado com esses filtros' : 'nesta pasta'}</p>
+                                    {temFiltro && (
+                                        <button onClick={limparFiltros} className="text-xs text-blue-600 hover:underline mt-2">
+                                            Limpar filtros
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>

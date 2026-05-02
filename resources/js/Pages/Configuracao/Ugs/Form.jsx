@@ -2,6 +2,7 @@
  * Cadastro de Unidade Gestora — tela dedicada (padrao "wizard com resumo lateral")
  */
 import { Head, router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import CadastroLayout, { CadastroSecao } from '../../../Components/CadastroLayout';
 import EnderecoForm from '../../../Components/EnderecoForm';
@@ -9,7 +10,7 @@ import EnderecoForm from '../../../Components/EnderecoForm';
 export default function UgForm({ ug }) {
     const isEdit = !! ug;
 
-    const { data, setData, post, put, processing, errors } = useForm({
+    const { data, setData, post, processing, errors } = useForm({
         codigo:        ug?.codigo || '',
         nome:          ug?.nome || '',
         cnpj:          ug?.cnpj || '',
@@ -20,11 +21,30 @@ export default function UgForm({ ug }) {
         bairro:        ug?.bairro || '',
         cidade:        ug?.cidade || '',
         uf:            ug?.uf || '',
+        telefone:            ug?.telefone || '',
+        email_institucional: ug?.email_institucional || '',
+        site:                ug?.site || '',
+        brasao:              null, // arquivo novo (File) — opcional
+        remover_brasao:      false,
         nivel_1_label: ug?.nivel_1_label || 'Órgão',
         nivel_2_label: ug?.nivel_2_label || 'Unidade',
         nivel_3_label: ug?.nivel_3_label || 'Setor',
         observacoes:   ug?.observacoes || '',
     });
+
+    const [brasaoPreview, setBrasaoPreview] = useState(null);
+
+    const handleBrasaoChange = (e) => {
+        const file = e.target.files?.[0] ?? null;
+        setData(d => ({ ...d, brasao: file, remover_brasao: false }));
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = ev => setBrasaoPreview(ev.target.result);
+            reader.readAsDataURL(file);
+        } else {
+            setBrasaoPreview(null);
+        }
+    };
 
     const obrigatoriosFaltando =
         ! data.codigo.trim() ||
@@ -34,9 +54,20 @@ export default function UgForm({ ug }) {
         ! data.nivel_3_label.trim();
 
     const onSalvar = () => {
-        const opts = { preserveScroll: true };
-        if (isEdit) put(`/configuracoes/ugs/${ug.id}`, opts);
-        else        post('/configuracoes/ugs', opts);
+        const url = isEdit ? `/configuracoes/ugs/${ug.id}` : '/configuracoes/ugs';
+        // Sempre POST com FormData (Laravel le _method=PUT)
+        const fd = new FormData();
+        Object.entries(data).forEach(([k, v]) => {
+            if (k === 'brasao') {
+                if (v instanceof File) fd.append('brasao', v);
+            } else if (typeof v === 'boolean') {
+                fd.append(k, v ? '1' : '0');
+            } else if (v !== null && v !== undefined) {
+                fd.append(k, v);
+            }
+        });
+        if (isEdit) fd.append('_method', 'PUT');
+        router.post(url, fd, { preserveScroll: true, forceFormData: true });
     };
 
     const onCancelar = () => router.visit('/configuracoes/ugs');
@@ -135,6 +166,70 @@ export default function UgForm({ ug }) {
                             <strong> {data.nivel_2_label}</strong>, que contem
                             <strong> {data.nivel_3_label}</strong>.
                         </p>
+                    </div>
+                </CadastroSecao>
+
+                <CadastroSecao
+                    icone="fa-image"
+                    titulo="Identidade Visual"
+                    descricao="Brasao oficial — usado nos cabecalhos dos PDFs (memorando, oficio, circular, decisao de processo)"
+                >
+                    <div className="flex items-start gap-4">
+                        <div className="w-32 h-32 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+                            {brasaoPreview ? (
+                                <img src={brasaoPreview} alt="Preview" className="max-w-full max-h-full object-contain" />
+                            ) : ug?.brasao_url && ! data.remover_brasao ? (
+                                <img src={ug.brasao_url} alt="Brasao atual" className="max-w-full max-h-full object-contain" />
+                            ) : (
+                                <i className="fas fa-shield-alt text-3xl text-gray-300" />
+                            )}
+                        </div>
+                        <div className="flex-1 space-y-2">
+                            <label className="block text-xs font-medium text-gray-700">Enviar imagem (PNG ou JPG, recomendado &lt; 200KB)</label>
+                            <input type="file" accept="image/png,image/jpeg,image/jpg"
+                                onChange={handleBrasaoChange}
+                                className="block w-full text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                            {errors.brasao && <p className="text-xs text-red-600">{errors.brasao}</p>}
+                            {ug?.brasao_url && ! data.brasao && (
+                                <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-600">
+                                    <input type="checkbox" checked={data.remover_brasao}
+                                        onChange={(e) => setData('remover_brasao', e.target.checked)}
+                                        className="rounded border-gray-300 text-red-600" />
+                                    Remover brasao atual
+                                </label>
+                            )}
+                            <p className="text-[10px] text-gray-400">
+                                <i className="fas fa-info-circle mr-1" />
+                                A imagem aparece a esquerda do cabecalho dos PDFs, com tamanho aproximado de 60px de largura.
+                            </p>
+                        </div>
+                    </div>
+                </CadastroSecao>
+
+                <CadastroSecao
+                    icone="fa-phone"
+                    titulo="Contato Institucional"
+                    descricao="Telefone, e-mail e site oficiais — exibidos no cabecalho dos PDFs"
+                >
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Telefone(s)</label>
+                            <input type="text" value={data.telefone} onChange={(e) => setData('telefone', e.target.value)}
+                                className="ds-input" maxLength={50} placeholder="(35) 3267-1155 - (35) 3267-1888" />
+                            {errors.telefone && <p className="mt-1 text-xs text-red-600">{errors.telefone}</p>}
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Site oficial</label>
+                            <input type="text" value={data.site} onChange={(e) => setData('site', e.target.value)}
+                                className="ds-input" maxLength={150} placeholder="www.exemplo.mg.gov.br" />
+                            {errors.site && <p className="mt-1 text-xs text-red-600">{errors.site}</p>}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">E-mail institucional</label>
+                        <input type="email" value={data.email_institucional} onChange={(e) => setData('email_institucional', e.target.value)}
+                            className="ds-input" maxLength={150} placeholder="contato@exemplo.mg.gov.br" />
+                        {errors.email_institucional && <p className="mt-1 text-xs text-red-600">{errors.email_institucional}</p>}
                     </div>
                 </CadastroSecao>
 
