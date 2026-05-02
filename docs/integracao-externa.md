@@ -91,6 +91,44 @@ Envia um documento para assinatura.
 }
 ```
 
+### `POST /api/integracoes/documentos/{numero_externo}/versao`
+
+Envia uma **nova versão** do PDF (substitui o anterior) **antes de qualquer assinatura**.
+Bloqueado com `409 Conflict` se já houver assinatura ou recusa registrada.
+
+**Body:**
+
+```json
+{
+  "pdf_base64": "JVBERi0xLjQKJ...",
+  "comentario": "Correcao no valor"
+}
+```
+
+**Resposta `200`:**
+
+```json
+{
+  "numero_externo": "2026/000123",
+  "versao_atual": 2,
+  "tamanho": 248391,
+  "visualizacao_url": "..."
+}
+```
+
+### `POST /api/integracoes/documentos/{numero_externo}/reenviar-webhook`
+
+Reenvia o webhook `assinatura.todas_concluidas` para o `callback_url` original.
+Útil quando o sistema externo perdeu o callback (queda, indisponibilidade).
+
+Só funciona se todas as assinaturas já foram concluídas.
+
+**Resposta `200`:**
+
+```json
+{ "sucesso": true, "mensagem": "Webhook reenviado com sucesso." }
+```
+
 ### `GET /api/integracoes/documentos/{numero_externo}`
 
 Consulta o status de um documento já enviado (útil pra polling antes do webhook).
@@ -117,13 +155,25 @@ Consulta o status de um documento já enviado (útil pra polling antes do webhoo
 ### Webhook de callback
 
 Se `callback_url` for fornecido no `POST /documentos`, o GPE Docs faz `POST` no callback
-quando **todas as assinaturas** forem concluídas.
+em vários eventos do ciclo de vida das assinaturas:
+
+| evento | quando dispara | payload extra |
+|---|---|---|
+| `assinatura.individual` | Cada vez que **um** signatário assina | `tipo_assinatura`, `signatario_id`, `cpf`, `assinado_em`, `todas_assinadas` |
+| `assinatura.recusada` | Signatário **recusou** assinar | `signatario_id`, `cpf`, `motivo`, `recusado_em` |
+| `assinatura.todas_concluidas` | **Todas** as assinaturas concluídas (final) | `concluido_em`, `pdf_assinado_url` |
+
+O sistema externo pode optar por receber só alguns eventos via campo `eventos_assinatura`
+no admin de Sistemas Integrados (default: todos).
+
+Todos os webhooks têm o **mesmo formato** com identificação do evento no body e header:
 
 **Headers:**
 
 ```
 Content-Type: application/json
 X-GpeDocs-Sistema: gpe
+X-GpeDocs-Evento: assinatura.todas_concluidas
 X-GpeDocs-Signature: sha256=a3f8b2c4d5e6...    (HMAC-SHA256 do body)
 ```
 

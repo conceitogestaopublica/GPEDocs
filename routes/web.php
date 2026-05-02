@@ -45,8 +45,14 @@ Route::prefix('api/integracoes')
         Route::post('documentos', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'store'])
             ->name('api.integracoes.documentos.store');
         Route::get('documentos/{numero}', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'show'])
-            ->where('numero', '.*')
+            ->where('numero', '[^/]+')
             ->name('api.integracoes.documentos.show');
+        Route::post('documentos/{numero}/versao', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'novaVersao'])
+            ->where('numero', '[^/]+')
+            ->name('api.integracoes.documentos.versao');
+        Route::post('documentos/{numero}/reenviar-webhook', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'reenviarWebhook'])
+            ->where('numero', '[^/]+')
+            ->name('api.integracoes.documentos.reenviar-webhook');
     });
 
 // Verificacao publica de documento (sem auth)
@@ -138,6 +144,8 @@ Route::middleware('auth')->group(function () {
             ->name('sistemas-integrados.regenerar-token');
         Route::post('sistemas-integrados/{id}/regenerar-webhook-secret', [\App\Http\Controllers\Configuracao\SistemaIntegradoController::class, 'regenerarWebhookSecret'])
             ->name('sistemas-integrados.regenerar-webhook-secret');
+        Route::post('sistemas-integrados/webhook-logs/{id}/reenviar', [\App\Http\Controllers\Configuracao\SistemaIntegradoController::class, 'reenviarWebhook'])
+            ->name('sistemas-integrados.reenviar-webhook');
         Route::post('sistemas-integrados/{id}/toggle-ativo', [\App\Http\Controllers\Configuracao\SistemaIntegradoController::class, 'toggleAtivo'])
             ->name('sistemas-integrados.toggle-ativo');
     });

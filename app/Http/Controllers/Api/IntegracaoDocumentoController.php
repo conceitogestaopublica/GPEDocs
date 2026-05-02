@@ -213,6 +213,133 @@ class IntegracaoDocumentoController extends Controller
     }
 
     /**
+     * Substitui o PDF do documento (nova versao). Bloqueado se alguma
+     * assinatura ja foi feita — neste caso o sistema externo deve cancelar
+     * o documento atual e enviar um novo.
+     *
+     * POST /api/integracoes/documentos/{numero}/versao
+     *   Headers: Authorization: Bearer {token}
+     *   Body (JSON):
+     *     { "pdf_base64": "...", "comentario": "Correcao no valor" }
+     */
+    public function novaVersao(Request $request, string $numeroExterno): JsonResponse
+    {
+        $sistema = $request->attributes->get('sistema_integrado');
+
+        $request->validate([
+            'pdf_base64' => ['required', 'string'],
+            'comentario' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $documento = Documento::with('versoes')
+            ->where('sistema_origem', $sistema->codigo)
+            ->where('numero_externo', $numeroExterno)
+            ->first();
+
+        if (! $documento) {
+            return response()->json(['erro' => 'Documento nao encontrado para este sistema.'], 404);
+        }
+
+        // Bloqueia se ja tem assinatura
+        $jaAssinou = \App\Models\Assinatura::where('documento_id', $documento->id)
+            ->whereIn('status', ['assinado', 'recusado'])
+            ->exists();
+        if ($jaAssinou) {
+            return response()->json([
+                'erro' => 'Nao e possivel substituir: ja existe assinatura ou recusa registrada. Cancele e crie um novo documento.',
+            ], 409);
+        }
+
+        $pdfBytes = base64_decode($request->input('pdf_base64'), true);
+        if ($pdfBytes === false || strlen($pdfBytes) < 100) {
+            return response()->json(['erro' => 'pdf_base64 invalido.'], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $proximaVersao = ($documento->versao_atual ?? 1) + 1;
+            $filename = 'integracao-' . $sistema->codigo . '-' . str_replace(['/','\\'], '-', $documento->numero_externo) . '-v' . $proximaVersao . '.pdf';
+            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            Storage::disk('documentos')->put($path, $pdfBytes);
+
+            Versao::create([
+                'documento_id' => $documento->id,
+                'versao'       => $proximaVersao,
+                'arquivo_path' => $path,
+                'tamanho'      => strlen($pdfBytes),
+                'hash_sha256'  => hash('sha256', $pdfBytes),
+                'autor_id'     => $documento->autor_id,
+                'comentario'   => $request->input('comentario') ?: "Nova versao via API ({$sistema->nome})",
+            ]);
+
+            $documento->update([
+                'versao_atual' => $proximaVersao,
+                'tamanho'      => strlen($pdfBytes),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'numero_externo' => $documento->numero_externo,
+                'versao_atual'   => $proximaVersao,
+                'tamanho'        => strlen($pdfBytes),
+                'visualizacao_url' => url("/documentos/{$documento->id}"),
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json(['erro' => 'Falha ao salvar versao.', 'detalhe' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Reenvia o webhook de "todas_concluidas" pro sistema externo.
+     * Util quando o cliente perdeu o callback original.
+     *
+     * POST /api/integracoes/documentos/{numero}/reenviar-webhook
+     */
+    public function reenviarWebhook(Request $request, string $numeroExterno): JsonResponse
+    {
+        $sistema = $request->attributes->get('sistema_integrado');
+
+        $documento = Documento::where('sistema_origem', $sistema->codigo)
+            ->where('numero_externo', $numeroExterno)
+            ->first();
+
+        if (! $documento) {
+            return response()->json(['erro' => 'Documento nao encontrado.'], 404);
+        }
+
+        if (! $documento->callback_url) {
+            return response()->json(['erro' => 'Documento sem callback_url configurada.'], 422);
+        }
+
+        $solicitacao = $documento->solicitacoesAssinatura()->first();
+        $todasAssinadas = $solicitacao
+            && $solicitacao->assinaturas()->where('status', 'pendente')->doesntExist();
+
+        if (! $todasAssinadas) {
+            return response()->json([
+                'erro' => 'Documento ainda tem assinaturas pendentes — webhook .todas_concluidas so e enviado depois de todas concluirem.',
+            ], 422);
+        }
+
+        // For-ca a reenviar mesmo se ja foi
+        $documento->update(['callback_executado' => false]);
+
+        $sucesso = app(\App\Services\WebhookDispatcher::class)->disparar(
+            $documento, 'assinatura.todas_concluidas',
+            ['concluido_em' => $documento->concluido_em?->toIso8601String() ?: now()->toIso8601String(),
+             'reenvio'      => true]
+        );
+
+        return response()->json([
+            'sucesso' => $sucesso,
+            'mensagem' => $sucesso ? 'Webhook reenviado com sucesso.' : 'Falha ao reenviar — confira os logs.',
+        ], $sucesso ? 200 : 502);
+    }
+
+    /**
      * Status de um documento ja enviado — util pra GPE poliar antes do webhook.
      * GET /api/integracoes/documentos/{numero_externo}
      */

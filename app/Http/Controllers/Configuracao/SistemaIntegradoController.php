@@ -20,7 +20,7 @@ use Inertia\Response;
  */
 class SistemaIntegradoController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $sistemas = SistemaIntegrado::orderByDesc('ativo')
             ->orderBy('codigo')
@@ -28,12 +28,37 @@ class SistemaIntegradoController extends Controller
             ->map(function ($s) {
                 $s->total_documentos = Documento::where('sistema_origem', $s->codigo)->count();
                 $s->token_mascarado  = $s->token_mascarado;
+                $s->total_webhooks   = \App\Models\WebhookLog::where('sistema_origem', $s->codigo)->count();
+                $s->webhooks_falha   = \App\Models\WebhookLog::where('sistema_origem', $s->codigo)
+                    ->where('sucesso', false)->count();
                 return $s;
             });
 
+        // Logs recentes (todos sistemas, ultimos 50)
+        $logs = \App\Models\WebhookLog::with(['documento:id,nome,numero_externo,sistema_origem'])
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get();
+
         return Inertia::render('Configuracao/SistemasIntegrados/Index', [
             'sistemas' => $sistemas,
+            'logs'     => $logs,
         ]);
+    }
+
+    /**
+     * Reenvia manualmente um webhook que falhou (admin).
+     * Chamado da tela de logs.
+     */
+    public function reenviarWebhook($logId)
+    {
+        $log = \App\Models\WebhookLog::findOrFail($logId);
+        $sucesso = app(\App\Services\WebhookDispatcher::class)->reenviar($log);
+
+        return redirect()->back()->with(
+            $sucesso ? 'success' : 'error',
+            $sucesso ? 'Webhook reenviado com sucesso.' : 'Falha ao reenviar — verifique o detalhe nos logs.'
+        );
     }
 
     public function store(Request $request)

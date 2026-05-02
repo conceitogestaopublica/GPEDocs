@@ -23,6 +23,7 @@ class SistemaIntegrado extends Model
         'codigo', 'nome', 'descricao',
         'api_token_hash', 'api_token_prefix',
         'webhook_secret',
+        'eventos_assinatura',
         'ativo', 'ultimo_uso_em',
     ];
 
@@ -31,9 +32,23 @@ class SistemaIntegrado extends Model
     protected function casts(): array
     {
         return [
-            'ativo'         => 'boolean',
-            'ultimo_uso_em' => 'datetime',
+            'ativo'              => 'boolean',
+            'ultimo_uso_em'      => 'datetime',
+            'eventos_assinatura' => 'array',
         ];
+    }
+
+    /**
+     * Verifica se este sistema deseja receber webhooks do evento dado.
+     * Se eventos_assinatura for null/vazio, recebe todos.
+     */
+    public function escuta(string $evento): bool
+    {
+        $eventos = $this->eventos_assinatura;
+        if (! $eventos || ! is_array($eventos) || count($eventos) === 0) {
+            return true; // null = todos
+        }
+        return in_array($evento, $eventos, true);
     }
 
     /**

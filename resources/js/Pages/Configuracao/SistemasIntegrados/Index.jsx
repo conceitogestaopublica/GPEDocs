@@ -10,18 +10,22 @@ import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
 
-export default function SistemasIntegradosIndex({ sistemas = [] }) {
+export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
     const { props } = usePage();
     const tokenGerado = props.flash?.token_gerado;
 
+    const [activeTab, setActiveTab] = useState('sistemas');
     const [showNovo, setShowNovo] = useState(false);
     const [tokenExibido, setTokenExibido] = useState(tokenGerado || null);
     const [editando, setEditando] = useState(null);
     const [confirmRegenerar, setConfirmRegenerar] = useState(null);
+    const [logDetalhe, setLogDetalhe] = useState(null);
 
     useEffect(() => {
         if (tokenGerado) setTokenExibido(tokenGerado);
     }, [tokenGerado]);
+
+    const totalFalhas = (logs || []).filter(l => ! l.sucesso).length;
 
     const baseUrl = (typeof window !== 'undefined' ? window.location.origin : '');
 
@@ -34,6 +38,23 @@ export default function SistemasIntegradosIndex({ sistemas = [] }) {
                 <Button icon="fas fa-plus" onClick={() => setShowNovo(true)}>Novo Sistema</Button>
             </PageHeader>
 
+            {/* Tabs */}
+            <div className="flex gap-2 mb-4">
+                {[
+                    { key: 'sistemas', label: `Sistemas (${sistemas.length})`, icon: 'fas fa-plug' },
+                    { key: 'logs', label: `Webhooks ${totalFalhas > 0 ? `· ${totalFalhas} falhas` : ''}`, icon: 'fas fa-paper-plane' },
+                ].map(t => (
+                    <button key={t.key} onClick={() => setActiveTab(t.key)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                            activeTab === t.key ? 'bg-blue-600 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                        }`}>
+                        <i className={`${t.icon} text-xs`} />
+                        {t.label}
+                    </button>
+                ))}
+            </div>
+
+            {activeTab === 'sistemas' && (
             <Card padding={false}>
                 {sistemas.length === 0 ? (
                     <div className="py-16 text-center text-gray-400">
@@ -113,7 +134,87 @@ export default function SistemasIntegradosIndex({ sistemas = [] }) {
                     </div>
                 )}
             </Card>
+            )}
 
+            {activeTab === 'logs' && (
+                <Card padding={false}>
+                    {(logs || []).length === 0 ? (
+                        <div className="py-16 text-center text-gray-400">
+                            <i className="fas fa-paper-plane text-4xl mb-3 block" />
+                            <p className="text-sm font-medium">Nenhum webhook enviado ainda</p>
+                            <p className="text-xs mt-1">Os logs aparecem aqui quando documentos sao assinados.</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50 text-gray-500 uppercase text-[10px]">
+                                    <tr>
+                                        <th className="px-3 py-2.5 text-left font-semibold">Sistema</th>
+                                        <th className="px-3 py-2.5 text-left font-semibold">Evento</th>
+                                        <th className="px-3 py-2.5 text-left font-semibold">Documento</th>
+                                        <th className="px-3 py-2.5 text-left font-semibold">URL</th>
+                                        <th className="px-3 py-2.5 text-left font-semibold">Status</th>
+                                        <th className="px-3 py-2.5 text-left font-semibold">Quando</th>
+                                        <th className="px-3 py-2.5 text-center font-semibold w-32">Acoes</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {logs.map(l => (
+                                        <tr key={l.id} className={`hover:bg-gray-50 ${! l.sucesso ? 'bg-red-50/30' : ''}`}>
+                                            <td className="px-3 py-2.5">
+                                                <code className="text-[11px] bg-violet-50 px-1.5 py-0.5 rounded text-violet-700">
+                                                    {l.sistema_origem}
+                                                </code>
+                                            </td>
+                                            <td className="px-3 py-2.5">
+                                                <span className="text-[11px] font-mono text-gray-700">{l.evento}</span>
+                                            </td>
+                                            <td className="px-3 py-2.5">
+                                                <Link href={`/documentos/${l.documento?.id}`} className="text-xs text-blue-600 hover:underline">
+                                                    {l.documento?.numero_externo || l.documento?.nome || `#${l.documento_id}`}
+                                                </Link>
+                                            </td>
+                                            <td className="px-3 py-2.5 text-[10px] text-gray-500 font-mono max-w-xs truncate" title={l.callback_url}>
+                                                {l.callback_url}
+                                            </td>
+                                            <td className="px-3 py-2.5">
+                                                {l.sucesso ? (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-green-100 text-green-700 font-bold">
+                                                        <i className="fas fa-check" />{l.http_status} ({l.duracao_ms}ms)
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-red-100 text-red-700 font-bold">
+                                                        <i className="fas fa-times" />{l.http_status || 'erro'}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-3 py-2.5 text-[11px] text-gray-400 whitespace-nowrap">
+                                                {new Date(l.enviado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                            </td>
+                                            <td className="px-3 py-2.5 text-center">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    <button onClick={() => setLogDetalhe(l)} title="Ver detalhes"
+                                                        className="text-[11px] px-2 py-1 rounded bg-white border border-gray-200 text-gray-600 hover:bg-gray-50">
+                                                        <i className="fas fa-eye" />
+                                                    </button>
+                                                    {! l.sucesso && (
+                                                        <button onClick={() => router.post(`/configuracoes/sistemas-integrados/webhook-logs/${l.id}/reenviar`)} title="Reenviar"
+                                                            className="text-[11px] px-2 py-1 rounded bg-white border border-amber-300 text-amber-700 hover:bg-amber-50">
+                                                            <i className="fas fa-redo" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </Card>
+            )}
+
+            {activeTab === 'sistemas' && (
             <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
                 <p className="text-xs text-blue-800 font-semibold mb-1">
                     <i className="fas fa-book mr-1" />Como integrar um sistema externo
@@ -129,6 +230,56 @@ export default function SistemasIntegradosIndex({ sistemas = [] }) {
                     Documentacao completa: <a href="/docs/integracao-externa.md" target="_blank" className="underline">docs/integracao-externa.md</a>
                 </p>
             </div>
+            )}
+
+            {/* Modal: Detalhe do log */}
+            {logDetalhe && (
+                <Modal show={!! logDetalhe} onClose={() => setLogDetalhe(null)} title={`Webhook #${logDetalhe.id} — ${logDetalhe.evento}`}>
+                    <div className="space-y-3 text-xs">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div><span className="text-gray-500">Sistema:</span> <code className="bg-violet-50 px-1 rounded">{logDetalhe.sistema_origem}</code></div>
+                            <div><span className="text-gray-500">Status:</span> {logDetalhe.sucesso ? <span className="text-green-700 font-bold">{logDetalhe.http_status} OK</span> : <span className="text-red-700 font-bold">{logDetalhe.http_status || 'ERRO'}</span>}</div>
+                            <div><span className="text-gray-500">Tentativas:</span> {logDetalhe.tentativas}</div>
+                            <div><span className="text-gray-500">Duracao:</span> {logDetalhe.duracao_ms}ms</div>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] uppercase tracking-wide font-semibold text-gray-500 mb-1">URL</label>
+                            <code className="block bg-gray-50 border border-gray-200 rounded p-2 text-[10px] break-all">{logDetalhe.callback_url}</code>
+                        </div>
+                        {logDetalhe.signature_header && (
+                            <div>
+                                <label className="block text-[10px] uppercase tracking-wide font-semibold text-gray-500 mb-1">X-GpeDocs-Signature</label>
+                                <code className="block bg-gray-50 border border-gray-200 rounded p-2 text-[10px] break-all">{logDetalhe.signature_header}</code>
+                            </div>
+                        )}
+                        <div>
+                            <label className="block text-[10px] uppercase tracking-wide font-semibold text-gray-500 mb-1">Payload</label>
+                            <pre className="bg-gray-50 border border-gray-200 rounded p-2 text-[10px] max-h-48 overflow-auto">{JSON.stringify(logDetalhe.payload, null, 2)}</pre>
+                        </div>
+                        {logDetalhe.response_body && (
+                            <div>
+                                <label className="block text-[10px] uppercase tracking-wide font-semibold text-gray-500 mb-1">Response body (truncado em 2000 chars)</label>
+                                <pre className="bg-gray-50 border border-gray-200 rounded p-2 text-[10px] max-h-32 overflow-auto whitespace-pre-wrap">{logDetalhe.response_body}</pre>
+                            </div>
+                        )}
+                        {logDetalhe.erro && (
+                            <div>
+                                <label className="block text-[10px] uppercase tracking-wide font-semibold text-red-500 mb-1">Erro</label>
+                                <pre className="bg-red-50 border border-red-200 rounded p-2 text-[10px] text-red-800 whitespace-pre-wrap">{logDetalhe.erro}</pre>
+                            </div>
+                        )}
+                        <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                            <Button variant="secondary" onClick={() => setLogDetalhe(null)}>Fechar</Button>
+                            {! logDetalhe.sucesso && (
+                                <Button variant="primary" icon="fas fa-redo" onClick={() => {
+                                    router.post(`/configuracoes/sistemas-integrados/webhook-logs/${logDetalhe.id}/reenviar`,
+                                        {}, { onSuccess: () => setLogDetalhe(null) });
+                                }}>Reenviar</Button>
+                            )}
+                        </div>
+                    </div>
+                </Modal>
+            )}
 
             {/* Modal: Token gerado (uma unica exibicao) */}
             {tokenExibido && (

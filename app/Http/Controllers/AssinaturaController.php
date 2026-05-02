@@ -246,10 +246,21 @@ class AssinaturaController extends Controller
         $solicitacao = $assinatura->solicitacao;
         $todasAssinadas = $solicitacao->assinaturas()->where('status', 'pendente')->doesntExist();
 
+        // Webhook por assinatura individual (sistemas que escutam .individual)
+        $this->dispararWebhook($solicitacao, 'assinatura.individual', [
+            'tipo_assinatura' => 'simples',
+            'signatario_id'   => $assinatura->signatario_id,
+            'cpf'             => $assinatura->cpf_signatario,
+            'assinado_em'     => $assinatura->assinado_em?->toIso8601String(),
+            'todas_assinadas' => $todasAssinadas,
+        ]);
+
         if ($todasAssinadas) {
             $solicitacao->update(['status' => 'concluida']);
             $this->finalizarProcessoSeVinculado($solicitacao);
-            $this->dispararCallbackSistemaExterno($solicitacao);
+            $this->dispararWebhook($solicitacao, 'assinatura.todas_concluidas', [
+                'concluido_em' => now()->toIso8601String(),
+            ]);
         } else {
             $solicitacao->update(['status' => 'em_andamento']);
         }
@@ -307,65 +318,24 @@ class AssinaturaController extends Controller
     }
 
     /**
-     * Quando todas as assinaturas concluem em um documento que veio de
-     * sistema externo (sistema_origem != null e callback_url presente),
-     * dispara webhook POST para o sistema atualizar la.
+     * Centraliza disparo de webhooks via service. Eventos suportados:
+     *   - assinatura.individual       (cada signatario individual)
+     *   - assinatura.recusada
+     *   - assinatura.todas_concluidas (final, marca callback_executado=true)
      */
-    private function dispararCallbackSistemaExterno(SolicitacaoAssinatura $solicitacao): void
+    private function dispararWebhook(SolicitacaoAssinatura $solicitacao, string $evento, array $extra = []): void
     {
         $documento = $solicitacao->documento;
-        if (! $documento || ! $documento->sistema_origem || ! $documento->callback_url
-            || $documento->callback_executado) {
+        if (! $documento) {
             return;
         }
 
-        try {
-            $payload = [
-                'sistema_origem'   => $documento->sistema_origem,
-                'numero_externo'   => $documento->numero_externo,
-                'documento_id'     => $documento->id,
-                'status'           => 'assinado',
-                'todas_assinadas'  => true,
-                'concluido_em'     => now()->toIso8601String(),
-                'pdf_assinado_url' => url("/documentos/{$documento->id}/download"),
-                'visualizacao_url' => url("/documentos/{$documento->id}"),
-            ];
-            $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-            // Localiza sistema e calcula assinatura HMAC do payload
-            $sistema = \App\Models\SistemaIntegrado::where('codigo', $documento->sistema_origem)->first();
-            $assinatura = $sistema?->webhook_secret
-                ? $sistema->assinarPayload($payloadJson)
-                : null;
-
-            $resp = \Illuminate\Support\Facades\Http::timeout(10)
-                ->retry(2, 500)
-                ->withHeaders(array_filter([
-                    'Content-Type'      => 'application/json',
-                    'X-GpeDocs-Signature' => $assinatura,           // HMAC-SHA256 do body
-                    'X-GpeDocs-Sistema'   => $documento->sistema_origem,
-                ]))
-                ->withBody($payloadJson, 'application/json')
-                ->post($documento->callback_url);
-
-            $documento->update([
-                'callback_executado'    => true,
-                'callback_executado_em' => now(),
-            ]);
-
-            \Log::info('Webhook de callback enviado', [
-                'sistema'  => $documento->sistema_origem,
-                'numero'   => $documento->numero_externo,
-                'status'   => $resp->status(),
-            ]);
-        } catch (\Throwable $e) {
-            \Log::warning('Falha ao executar callback de sistema externo', [
-                'sistema'  => $documento->sistema_origem,
-                'numero'   => $documento->numero_externo,
-                'callback' => $documento->callback_url,
-                'erro'     => $e->getMessage(),
-            ]);
+        // Para o evento final, evita reenvio se ja foi marcado como executado
+        if ($evento === 'assinatura.todas_concluidas' && $documento->callback_executado) {
+            return;
         }
+
+        app(\App\Services\WebhookDispatcher::class)->disparar($documento, $evento, $extra);
     }
 
     public function recusar(Request $request, $id)
@@ -394,6 +364,14 @@ class AssinaturaController extends Controller
             'mensagem'        => Auth::user()->name . " recusou assinar o documento \"{$assinatura->documento->nome}\".",
             'referencia_tipo' => 'documento',
             'referencia_id'   => $assinatura->documento_id,
+        ]);
+
+        // Webhook do evento de recusa
+        $this->dispararWebhook($assinatura->solicitacao, 'assinatura.recusada', [
+            'signatario_id' => $assinatura->signatario_id,
+            'cpf'           => $assinatura->cpf_signatario,
+            'motivo'        => $request->input('motivo'),
+            'recusado_em'   => now()->toIso8601String(),
         ]);
 
         return redirect()->back()->with('success', 'Assinatura recusada.');
@@ -524,9 +502,21 @@ class AssinaturaController extends Controller
         $solicitacao = $assinatura->solicitacao;
         $todasAssinadas = $solicitacao->assinaturas()->where('status', 'pendente')->doesntExist();
         $solicitacao->update(['status' => $todasAssinadas ? 'concluida' : 'em_andamento']);
+
+        // Webhook por assinatura individual (ICP-Brasil A1)
+        $this->dispararWebhook($solicitacao, 'assinatura.individual', [
+            'tipo_assinatura' => 'qualificada',
+            'signatario_id'   => $assinatura->signatario_id,
+            'cpf'             => $assinatura->cpf_signatario,
+            'assinado_em'     => $assinatura->assinado_em?->toIso8601String(),
+            'todas_assinadas' => $todasAssinadas,
+        ]);
+
         if ($todasAssinadas) {
             $this->finalizarProcessoSeVinculado($solicitacao);
-            $this->dispararCallbackSistemaExterno($solicitacao);
+            $this->dispararWebhook($solicitacao, 'assinatura.todas_concluidas', [
+                'concluido_em' => now()->toIso8601String(),
+            ]);
         }
 
         Notificacao::create([
@@ -739,9 +729,21 @@ class AssinaturaController extends Controller
         $solicitacao = $assinatura->solicitacao;
         $todasAssinadas = $solicitacao->assinaturas()->where('status', 'pendente')->doesntExist();
         $solicitacao->update(['status' => $todasAssinadas ? 'concluida' : 'em_andamento']);
+
+        // Webhook por assinatura individual (ICP-Brasil A3)
+        $this->dispararWebhook($solicitacao, 'assinatura.individual', [
+            'tipo_assinatura' => 'qualificada_a3',
+            'signatario_id'   => $assinatura->signatario_id,
+            'cpf'             => $assinatura->cpf_signatario,
+            'assinado_em'     => $assinatura->assinado_em?->toIso8601String(),
+            'todas_assinadas' => $todasAssinadas,
+        ]);
+
         if ($todasAssinadas) {
             $this->finalizarProcessoSeVinculado($solicitacao);
-            $this->dispararCallbackSistemaExterno($solicitacao);
+            $this->dispararWebhook($solicitacao, 'assinatura.todas_concluidas', [
+                'concluido_em' => now()->toIso8601String(),
+            ]);
         }
 
         Notificacao::create([
