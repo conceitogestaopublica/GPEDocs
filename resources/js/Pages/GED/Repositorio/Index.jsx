@@ -158,10 +158,10 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                         </form>
                     </div>
 
-                    {/* Subpastas */}
-                    {folders.filter(f => f.parent_id === (pasta_atual?.id || null)).length > 0 && (
+                    {/* Subpastas (apenas quando estiver dentro de alguma pasta — na raiz, usa-se a arvore lateral) */}
+                    {pasta_atual && folders.filter(f => f.parent_id === pasta_atual.id).length > 0 && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
-                            {folders.filter(f => f.parent_id === (pasta_atual?.id || null)).map(folder => (
+                            {folders.filter(f => f.parent_id === pasta_atual.id).map(folder => (
                                 <FolderCard
                                     key={folder.id}
                                     folder={folder}
@@ -201,6 +201,9 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                                         <tr>
                                             <th className="px-3 py-2.5 text-left font-semibold">Nome</th>
                                             <th className="px-3 py-2.5 text-left font-semibold">Tipo</th>
+                                            {! pasta_atual && (
+                                                <th className="px-3 py-2.5 text-left font-semibold">Pasta</th>
+                                            )}
                                             <th className="px-3 py-2.5 text-left font-semibold">Autor</th>
                                             <th className="px-3 py-2.5 text-left font-semibold">Tamanho</th>
                                             <th className="px-3 py-2.5 text-left font-semibold">Status</th>
@@ -224,6 +227,19 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                                                     </Link>
                                                 </td>
                                                 <td className="px-3 py-2.5 text-gray-500 text-xs">{doc.tipo_nome || '-'}</td>
+                                                {! pasta_atual && (
+                                                    <td className="px-3 py-2.5 text-xs">
+                                                        {doc.pasta_nome ? (
+                                                            <Link href={`/repositorio?pasta_id=${doc.pasta_id}`}
+                                                                className="inline-flex items-center gap-1 text-blue-600 hover:underline">
+                                                                <i className="fas fa-folder text-[10px] text-amber-400" />
+                                                                {doc.pasta_nome}
+                                                            </Link>
+                                                        ) : (
+                                                            <span className="text-gray-400 italic">Sem pasta</span>
+                                                        )}
+                                                    </td>
+                                                )}
                                                 <td className="px-3 py-2.5 text-gray-500 text-xs">{doc.autor_nome || '-'}</td>
                                                 <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap">{formatBytes(doc.tamanho)}</td>
                                                 <td className="px-3 py-2.5"><StatusBadge status={doc.status} /></td>
@@ -276,7 +292,7 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
             </div>
 
             {/* Modais */}
-            <NewFolderModal show={showNewFolder} onClose={() => setShowNewFolder(false)} pastaAtualId={pasta_atual?.id} />
+            <NewFolderModal show={showNewFolder} onClose={() => setShowNewFolder(false)} pastaAtualId={pasta_atual?.id} pastaAtualNome={pasta_atual?.nome} pastas={folders} />
             <RenameFolderModal pasta={renamePasta} onClose={() => setRenamePasta(null)} />
             <DeleteFolderModal pasta={deletePasta} onClose={() => setDeletePasta(null)} />
             <InativarFolderModal pasta={inativarPasta} onClose={() => setInativarPasta(null)} />
@@ -436,26 +452,102 @@ function FolderItem({ folder, currentPastaId, level, onRename, onDelete, onInati
 }
 
 /* ── Modal: Nova Pasta ── */
-function NewFolderModal({ show, onClose, pastaAtualId }) {
-    const { data, setData, post, processing, errors, reset } = useForm({ nome: '', parent_id: pastaAtualId || '' });
+function NewFolderModal({ show, onClose, pastaAtualId, pastaAtualNome, pastas = [] }) {
+    const { data, setData, post, processing, errors, reset } = useForm({
+        nome: '',
+        descricao: '',
+        parent_id: pastaAtualId || '',
+    });
+
+    // Reset parent_id quando pastaAtualId muda (ao abrir o modal)
+    useEffect(() => {
+        if (show) {
+            setData(d => ({ ...d, parent_id: pastaAtualId || '' }));
+        }
+    }, [show, pastaAtualId]);
+
+    // Lista hierarquica de pastas para o dropdown
+    const pastasTree = (() => {
+        const filhosPor = new Map();
+        pastas.forEach(p => {
+            const pid = p.parent_id ?? null;
+            if (! filhosPor.has(pid)) filhosPor.set(pid, []);
+            filhosPor.get(pid).push(p);
+        });
+        for (const [, l] of filhosPor) l.sort((a, b) => a.nome.localeCompare(b.nome));
+        const out = [];
+        const visit = (pid, nivel) => {
+            for (const p of (filhosPor.get(pid) || [])) {
+                out.push({ ...p, nivel });
+                visit(p.id, nivel + 1);
+            }
+        };
+        visit(null, 0);
+        return out;
+    })();
 
     const submit = (e) => {
         e.preventDefault();
         post('/pastas', { onSuccess: () => { reset(); onClose(); } });
     };
 
+    const paiNome = data.parent_id
+        ? (pastas.find(p => String(p.id) === String(data.parent_id))?.nome || pastaAtualNome)
+        : null;
+
     return (
         <Modal show={show} onClose={onClose} title="Nova Pasta">
             <form onSubmit={submit} className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+                    <i className="fas fa-info-circle mr-1" />
+                    {paiNome
+                        ? <>A nova pasta sera criada <strong>dentro de "{paiNome}"</strong> (subpasta).</>
+                        : <>A nova pasta sera criada na <strong>raiz</strong> do repositorio.</>
+                    }
+                </div>
+
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Pasta</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Nome da Pasta <span className="text-red-500">*</span>
+                    </label>
                     <input type="text" value={data.nome} onChange={(e) => setData('nome', e.target.value)}
-                        className="ds-input" placeholder="Nome da pasta" autoFocus />
+                        className="ds-input" placeholder="Ex: Contabilidade, Atos Oficiais..." autoFocus />
                     {errors.nome && <p className="mt-1 text-xs text-red-600">{errors.nome}</p>}
                 </div>
-                <div className="flex justify-end gap-2">
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Descricao <span className="text-gray-400 text-xs">(opcional)</span>
+                    </label>
+                    <input type="text" value={data.descricao} onChange={(e) => setData('descricao', e.target.value)}
+                        className="ds-input" placeholder="Ex: Documentos contabeis arquivados em definitivo" />
+                    <p className="mt-1 text-[10px] text-gray-400">
+                        Aparece quando o usuario for arquivar um documento — ajuda a saber qual pasta escolher.
+                    </p>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Pasta pai <span className="text-gray-400 text-xs">(onde criar)</span>
+                    </label>
+                    <select value={data.parent_id || ''}
+                        onChange={(e) => setData('parent_id', e.target.value || '')}
+                        className="ds-input">
+                        <option value="">— Raiz (sem pasta pai) —</option>
+                        {pastasTree.map(p => (
+                            <option key={p.id} value={p.id}>
+                                {'— '.repeat(p.nivel)}{p.nome}
+                            </option>
+                        ))}
+                    </select>
+                    {errors.parent_id && <p className="mt-1 text-xs text-red-600">{errors.parent_id}</p>}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
                     <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
-                    <Button type="submit" loading={processing} icon="fas fa-folder-plus">Criar Pasta</Button>
+                    <Button type="submit" loading={processing} icon="fas fa-folder-plus" disabled={! data.nome.trim()}>
+                        Criar Pasta
+                    </Button>
                 </div>
             </form>
         </Modal>

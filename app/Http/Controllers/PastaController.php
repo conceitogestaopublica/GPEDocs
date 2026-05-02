@@ -48,23 +48,11 @@ class PastaController extends Controller
             }
         }
 
-        // Documentos da pasta atual (ou raiz = sem pasta) — quando ha busca/filtros,
-        // pesquisa em TODAS as pastas, nao so na atual.
-        $temFiltroAvancado = $busca !== '' || $tipoDocId || $status || $dataDe || $dataAte;
-
+        // Documentos: na raiz mostra TUDO (qualquer pasta), em uma pasta especifica
+        // mostra so dela. Filtros sempre aplicaveis em ambos os casos.
         $docsQuery = Documento::whereNull('deleted_at')
             ->with(['tipoDocumental:id,nome', 'autor:id,name'])
-            ->when($temFiltroAvancado, function ($q) use ($pastaAtual) {
-                // Com filtros: busca em todo lugar (mas se ha pasta selecionada, restringe a ela e descendentes)
-                if ($pastaAtual) {
-                    $q->where('pasta_id', $pastaAtual->id);
-                }
-            }, function ($q) use ($pastaAtual) {
-                // Sem filtros: lista apenas a pasta atual (ou raiz)
-                $pastaAtual
-                    ? $q->where('pasta_id', $pastaAtual->id)
-                    : $q->whereNull('pasta_id');
-            })
+            ->when($pastaAtual, fn ($q) => $q->where('pasta_id', $pastaAtual->id))
             ->when($busca !== '', function ($q) use ($busca) {
                 $termo = "%{$busca}%";
                 $q->where(function ($q2) use ($termo) {
@@ -79,9 +67,17 @@ class PastaController extends Controller
             ->orderByDesc('updated_at');
 
         $documentos = $docsQuery->paginate(30)->withQueryString();
-        $documentos->setCollection($documentos->getCollection()->map(function ($d) {
-            $d->tipo_nome = $d->tipoDocumental?->nome;
+
+        // Pre-carrega nomes das pastas referenciadas
+        $pastaIdsRef = $documentos->getCollection()->pluck('pasta_id')->filter()->unique();
+        $pastaNomes = $pastaIdsRef->isNotEmpty()
+            ? Pasta::whereIn('id', $pastaIdsRef)->pluck('nome', 'id')
+            : collect();
+
+        $documentos->setCollection($documentos->getCollection()->map(function ($d) use ($pastaNomes) {
+            $d->tipo_nome  = $d->tipoDocumental?->nome;
             $d->autor_nome = $d->autor?->name;
+            $d->pasta_nome = $d->pasta_id ? ($pastaNomes[$d->pasta_id] ?? null) : null;
             unset($d->tipoDocumental, $d->autor);
             return $d;
         }));
