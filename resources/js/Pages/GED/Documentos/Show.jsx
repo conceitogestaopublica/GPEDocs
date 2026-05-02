@@ -19,7 +19,7 @@ const TABS = [
     { key: 'auditoria', label: 'Auditoria', icon: 'fas fa-shield-alt' },
 ];
 
-export default function Show({ documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito, usuarios }) {
+export default function Show({ documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito, usuarios, versao_assinada }) {
     const [activeTab, setActiveTab] = useState('visualizar');
     const [statusOpen, setStatusOpen] = useState(false);
     const doc = documento || {};
@@ -177,7 +177,7 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
                 </div>
 
                 <div className="p-6">
-                    {activeTab === 'visualizar' && <TabVisualizar documento={doc} />}
+                    {activeTab === 'visualizar' && <TabVisualizar documento={doc} versaoAssinada={versao_assinada} />}
                     {activeTab === 'metadados' && <TabMetadados metadados={metadados} documento={doc} />}
                     {activeTab === 'assinaturas' && <TabAssinaturas documento={doc} usuarios={usuarios || []} />}
                     {activeTab === 'versoes' && <TabVersoes versoes={versoes} documentoId={doc.id} />}
@@ -188,21 +188,44 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
     );
 }
 
-function TabVisualizar({ documento }) {
+function TabVisualizar({ documento, versaoAssinada }) {
     const isPdf = documento.mime_type?.includes('pdf');
     const isImage = documento.mime_type?.includes('image');
+    const [verOriginal, setVerOriginal] = useState(false);
 
     return (
-        <div className="flex items-center justify-center min-h-[400px] bg-gray-50 rounded-xl">
+        <div className="space-y-3">
+            {versaoAssinada && (
+                <div className="flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                    <div className="flex items-start gap-2 text-xs text-emerald-800">
+                        <i className="fas fa-shield-alt text-emerald-600 mt-0.5" />
+                        <div>
+                            <p className="font-semibold">
+                                {verOriginal ? 'Visualizando versao ORIGINAL (sem assinatura)' : 'Visualizando versao ASSINADA digitalmente (ICP-Brasil PAdES-BES)'}
+                            </p>
+                            <p className="text-emerald-700">
+                                Assinada em {versaoAssinada.assinado_em}
+                                {versaoAssinada.tipo && <> · {versaoAssinada.tipo}</>}
+                            </p>
+                        </div>
+                    </div>
+                    <button onClick={() => setVerOriginal(! verOriginal)}
+                        className="text-[11px] px-3 py-1.5 rounded-lg bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 whitespace-nowrap">
+                        <i className={`fas fa-${verOriginal ? 'shield-alt' : 'history'} mr-1`} />
+                        {verOriginal ? 'Ver versao assinada' : 'Ver versao original'}
+                    </button>
+                </div>
+            )}
+            <div className="flex items-center justify-center min-h-[400px] bg-gray-50 rounded-xl">
             {isPdf ? (
                 <iframe
-                    src={`/documentos/${documento.id}/preview`}
+                    src={`/documentos/${documento.id}/preview${verOriginal ? '?original=1' : ''}`}
                     className="w-full h-[600px] rounded-lg"
                     title="Visualizador PDF"
                 />
             ) : isImage ? (
                 <img
-                    src={`/documentos/${documento.id}/preview`}
+                    src={`/documentos/${documento.id}/preview${verOriginal ? '?original=1' : ''}`}
                     alt={documento.nome}
                     className="max-w-full max-h-[600px] rounded-lg shadow-lg"
                 />
@@ -216,6 +239,7 @@ function TabVisualizar({ documento }) {
                     </a>
                 </div>
             )}
+            </div>
         </div>
     );
 }

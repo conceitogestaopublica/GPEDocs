@@ -89,10 +89,25 @@ class DocumentoController extends Controller
         $isFavorito = Auth::user()->favoritos()->where('documento_id', $id)->exists();
         $usuarios = User::where('id', '!=', Auth::id())->orderBy('name')->get(['id', 'name', 'email']);
 
+        // Info da assinatura ICP (a mais recente) — para banner "vendo versao assinada"
+        $assinada = \App\Models\Assinatura::where('documento_id', $documento->id)
+            ->where('status', 'assinado')
+            ->whereNotNull('arquivo_assinado_path')
+            ->orderByDesc('assinado_em')
+            ->first();
+
+        $versaoAssinada = $assinada ? [
+            'tipo'         => $assinada->tipo_assinatura,
+            'assinado_em'  => $assinada->assinado_em?->format('d/m/Y H:i'),
+            'cpf'          => $assinada->cpf_signatario,
+            'assinatura_id'=> $assinada->id,
+        ] : null;
+
         return Inertia::render('GED/Documentos/Show', [
-            'documento'   => $documento,
-            'is_favorito' => $isFavorito,
-            'usuarios'    => $usuarios,
+            'documento'        => $documento,
+            'is_favorito'      => $isFavorito,
+            'usuarios'         => $usuarios,
+            'versao_assinada'  => $versaoAssinada,
         ]);
     }
 
@@ -213,12 +228,21 @@ class DocumentoController extends Controller
         }
     }
 
-    public function download($id)
+    public function download($id, Request $request)
     {
         $documento = Documento::with('versaoAtual')->findOrFail($id);
         $versao = $documento->versaoAtual;
 
-        if (!$versao || !Storage::disk('documentos')->exists($versao->arquivo_path)) {
+        if (!$versao) {
+            return redirect()->back()->with('error', 'Arquivo nao encontrado.');
+        }
+
+        // Quando ?original=1, ignora assinatura e retorna o PDF pre-assinatura
+        $caminho = $request->boolean('original')
+            ? $versao->arquivo_path
+            : $this->caminhoVersaoOficial($documento, $versao);
+
+        if (! Storage::disk('documentos')->exists($caminho)) {
             return redirect()->back()->with('error', 'Arquivo nao encontrado.');
         }
 
@@ -226,26 +250,56 @@ class DocumentoController extends Controller
             'documento_id' => $documento->id,
             'usuario_id'   => Auth::id(),
             'acao'         => 'download',
-            'detalhes'     => ['versao' => $versao->versao],
+            'detalhes'     => ['versao' => $versao->versao, 'oficial' => ! request()->boolean('original')],
             'ip'           => request()->ip(),
             'user_agent'   => request()->userAgent(),
         ]);
 
-        return Storage::disk('documentos')->download($versao->arquivo_path, $this->sanitizarNomeArquivo($documento));
+        return Storage::disk('documentos')->download($caminho, $this->sanitizarNomeArquivo($documento));
     }
 
-    public function preview($id)
+    public function preview($id, Request $request)
     {
         $documento = Documento::with('versaoAtual')->findOrFail($id);
         $versao = $documento->versaoAtual;
 
-        if (!$versao || !Storage::disk('documentos')->exists($versao->arquivo_path)) {
+        if (!$versao) {
             return redirect()->back()->with('error', 'Arquivo nao encontrado.');
         }
 
-        return Storage::disk('documentos')->response($versao->arquivo_path, $this->sanitizarNomeArquivo($documento), [
+        // Quando ?original=1, ignora assinatura e retorna o PDF pre-assinatura
+        $caminho = $request->boolean('original')
+            ? $versao->arquivo_path
+            : $this->caminhoVersaoOficial($documento, $versao);
+
+        if (! Storage::disk('documentos')->exists($caminho)) {
+            return redirect()->back()->with('error', 'Arquivo nao encontrado.');
+        }
+
+        return Storage::disk('documentos')->response($caminho, $this->sanitizarNomeArquivo($documento), [
             'Content-Type' => $documento->mime_type,
         ]);
+    }
+
+    /**
+     * Devolve o caminho da versao "oficial" do documento: se houver assinatura
+     * ICP concluida com PDF assinado (PAdES-BES), retorna esse arquivo. Caso
+     * contrario, retorna o caminho da versao atual (PDF original).
+     */
+    private function caminhoVersaoOficial(Documento $documento, $versao): string
+    {
+        $assinada = \App\Models\Assinatura::where('documento_id', $documento->id)
+            ->where('status', 'assinado')
+            ->whereNotNull('arquivo_assinado_path')
+            ->orderByDesc('assinado_em')
+            ->first();
+
+        if ($assinada && $assinada->arquivo_assinado_path
+            && Storage::disk('documentos')->exists($assinada->arquivo_assinado_path)) {
+            return $assinada->arquivo_assinado_path;
+        }
+
+        return $versao->arquivo_path;
     }
 
     /**
