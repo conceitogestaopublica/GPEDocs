@@ -14,17 +14,14 @@ import ModuloIcon from '../Components/ModuloIcon';
 const MENU_GED = [
     { title: 'Dashboard', icon: 'fas fa-tachometer-alt', href: '/dashboard', color: 'text-blue-600 bg-blue-100' },
     { section: 'label', label: 'Documentos' },
-    { title: 'Meus Documentos', icon: 'fas fa-file-alt', href: '/documentos', color: 'text-emerald-600 bg-emerald-100' },
-    { title: 'Favoritos', icon: 'fas fa-star', href: '/documentos?filtro=favoritos', color: 'text-yellow-600 bg-yellow-100' },
-    { title: 'Ultimos Acessados', icon: 'fas fa-clock', href: '/documentos?filtro=recentes', color: 'text-cyan-600 bg-cyan-100' },
-    { title: 'Mais Acessados', icon: 'fas fa-fire', href: '/documentos?filtro=populares', color: 'text-orange-600 bg-orange-100' },
-    { title: 'Arquivados', icon: 'fas fa-archive', href: '/documentos?filtro=arquivados', color: 'text-gray-600 bg-gray-200' },
-    { section: 'label', label: 'Gestao' },
+    { title: 'Repositorio', icon: 'fas fa-folder-tree', href: '/repositorio', color: 'text-amber-600 bg-amber-100' },
+    { title: 'Favoritos', icon: 'fas fa-star', href: '/repositorio?filtro=favoritos', color: 'text-yellow-600 bg-yellow-100' },
+    { title: 'Recentes', icon: 'fas fa-clock', href: '/repositorio?filtro=recentes', color: 'text-cyan-600 bg-cyan-100' },
+    { title: 'Mais Acessados', icon: 'fas fa-fire', href: '/repositorio?filtro=populares', color: 'text-orange-600 bg-orange-100' },
+    { section: 'label', label: 'Acoes' },
     { title: 'Capturar', icon: 'fas fa-camera', href: '/capturar', color: 'text-purple-600 bg-purple-100' },
     { title: 'Assinaturas', icon: 'fas fa-file-signature', href: '/assinaturas', color: 'text-emerald-600 bg-emerald-100' },
-    { title: 'Busca Avancada', icon: 'fas fa-search', href: '/busca', color: 'text-indigo-600 bg-indigo-100' },
     { section: 'label', label: 'Administracao' },
-    { title: 'Acervo', icon: 'fas fa-sitemap', href: '/repositorio', color: 'text-amber-600 bg-amber-100' },
     { title: 'Tipos Documentais', icon: 'fas fa-file-signature', href: '/admin/tipos-documentais', color: 'text-violet-600 bg-violet-100' },
 ];
 

@@ -22,6 +22,8 @@ class PastaController extends Controller
         $status    = $request->input('status');
         $dataDe    = $request->input('data_de');
         $dataAte   = $request->input('data_ate');
+        // Filtro rapido: favoritos | recentes | populares | arquivados
+        $filtroRapido = $request->input('filtro');
 
         $pastas = Pasta::where('ativo', true)
             ->withCount(['documentos' => fn ($q) => $q->whereNull('deleted_at')])
@@ -50,9 +52,38 @@ class PastaController extends Controller
 
         // Documentos: na raiz mostra TUDO (qualquer pasta), em uma pasta especifica
         // mostra so dela. Filtros sempre aplicaveis em ambos os casos.
+        // Filtros rapidos (favoritos/recentes/etc) ignoram a pasta — pesquisam em todas.
+        $userId = (int) Auth::id();
         $docsQuery = Documento::whereNull('deleted_at')
             ->with(['tipoDocumental:id,nome', 'autor:id,name'])
-            ->when($pastaAtual, fn ($q) => $q->where('pasta_id', $pastaAtual->id))
+            ->when($filtroRapido === null && $pastaAtual,
+                fn ($q) => $q->where('pasta_id', $pastaAtual->id))
+            ->when($filtroRapido === 'favoritos', function ($q) use ($userId) {
+                $q->whereIn('id', function ($sub) use ($userId) {
+                    $sub->select('documento_id')->from('ged_favoritos')->where('user_id', $userId);
+                });
+            })
+            ->when($filtroRapido === 'recentes', function ($q) use ($userId) {
+                // Documentos acessados pelo user nos ultimos 30 dias (via audit_log)
+                $q->whereIn('id', function ($sub) use ($userId) {
+                    $sub->select('documento_id')->from('ged_audit_logs')
+                        ->where('usuario_id', $userId)
+                        ->where('acao', 'visualizacao')
+                        ->where('created_at', '>=', now()->subDays(30));
+                });
+            })
+            ->when($filtroRapido === 'populares', function ($q) {
+                // Top documentos com mais visualizacoes nos ultimos 30 dias
+                $q->whereIn('id', function ($sub) {
+                    $sub->select('documento_id')->from('ged_audit_logs')
+                        ->where('acao', 'visualizacao')
+                        ->where('created_at', '>=', now()->subDays(30))
+                        ->groupBy('documento_id')
+                        ->orderByRaw('count(*) desc')
+                        ->limit(50);
+                });
+            })
+            ->when($filtroRapido === 'arquivados', fn ($q) => $q->where('status', 'arquivado'))
             ->when($busca !== '', function ($q) use ($busca) {
                 $termo = "%{$busca}%";
                 $q->where(function ($q2) use ($termo) {
@@ -101,6 +132,7 @@ class PastaController extends Controller
                 'status'             => $status,
                 'data_de'            => $dataDe,
                 'data_ate'           => $dataAte,
+                'filtro_rapido'      => $filtroRapido,
             ],
         ]);
     }
