@@ -28,6 +28,27 @@ use Illuminate\Support\Facades\Route;
 // Rastreio de oficio (publico, sem auth)
 Route::get('oficios/rastrear/{token}', [OficioController::class, 'rastrear'])->name('oficios.rastrear');
 
+// API de integracao com sistemas externos (GPE, RH, etc) — auth por Bearer token.
+// Stateless: pula middlewares de sessao/auth/inertia/UG (so usa o middleware
+// proprio sistema.api que valida o token de API).
+Route::prefix('api/integracoes')
+    ->withoutMiddleware([
+        \App\Http\Middleware\HandleInertiaRequests::class,
+        \App\Http\Middleware\EnsureUgSelected::class,
+        \Illuminate\Auth\Middleware\Authenticate::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+    ])
+    ->middleware(['sistema.api'])
+    ->group(function () {
+        Route::post('documentos', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'store'])
+            ->name('api.integracoes.documentos.store');
+        Route::get('documentos/{numero}', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'show'])
+            ->where('numero', '.*')
+            ->name('api.integracoes.documentos.show');
+    });
+
 // Verificacao publica de documento (sem auth)
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
 

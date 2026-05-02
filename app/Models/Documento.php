@@ -35,6 +35,19 @@ class Documento extends Model
         'check_out_por',
         'check_out_em',
         'qr_code_token',
+        'sistema_origem',
+        'numero_externo',
+        'metadados_externos',
+        'callback_url',
+        'callback_executado',
+        'callback_executado_em',
+    ];
+
+    protected $casts = [
+        'metadados_externos'   => 'array',
+        'callback_executado'   => 'boolean',
+        'callback_executado_em'=> 'datetime',
+        'check_out_em'         => 'datetime',
     ];
 
     protected static function boot(): void

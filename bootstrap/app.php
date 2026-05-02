@@ -15,6 +15,16 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\EnsureUgSelected::class,
         ]);
+
+        // Aliases para uso em rotas
+        $middleware->alias([
+            'sistema.api' => \App\Http\Middleware\AutenticaSistemaIntegrado::class,
+        ]);
+
+        // API stateless: ignora CSRF nas rotas /api/integracoes/*
+        $middleware->validateCsrfTokens(except: [
+            'api/integracoes/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

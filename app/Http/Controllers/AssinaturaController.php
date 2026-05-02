@@ -225,6 +225,7 @@ class AssinaturaController extends Controller
         if ($todasAssinadas) {
             $solicitacao->update(['status' => 'concluida']);
             $this->finalizarProcessoSeVinculado($solicitacao);
+            $this->dispararCallbackSistemaExterno($solicitacao);
         } else {
             $solicitacao->update(['status' => 'em_andamento']);
         }
@@ -279,6 +280,53 @@ class AssinaturaController extends Controller
                 'solicitacao_id' => $solicitacao->id,
             ],
         ]);
+    }
+
+    /**
+     * Quando todas as assinaturas concluem em um documento que veio de
+     * sistema externo (sistema_origem != null e callback_url presente),
+     * dispara webhook POST para o sistema atualizar la.
+     */
+    private function dispararCallbackSistemaExterno(SolicitacaoAssinatura $solicitacao): void
+    {
+        $documento = $solicitacao->documento;
+        if (! $documento || ! $documento->sistema_origem || ! $documento->callback_url
+            || $documento->callback_executado) {
+            return;
+        }
+
+        try {
+            $resp = \Illuminate\Support\Facades\Http::timeout(10)
+                ->retry(2, 500)
+                ->post($documento->callback_url, [
+                    'sistema_origem'   => $documento->sistema_origem,
+                    'numero_externo'   => $documento->numero_externo,
+                    'documento_id'     => $documento->id,
+                    'status'           => 'assinado',
+                    'todas_assinadas'  => true,
+                    'concluido_em'     => now()->toIso8601String(),
+                    'pdf_assinado_url' => url("/documentos/{$documento->id}/download"),
+                    'visualizacao_url' => url("/documentos/{$documento->id}"),
+                ]);
+
+            $documento->update([
+                'callback_executado'    => true,
+                'callback_executado_em' => now(),
+            ]);
+
+            \Log::info('Webhook de callback enviado', [
+                'sistema'  => $documento->sistema_origem,
+                'numero'   => $documento->numero_externo,
+                'status'   => $resp->status(),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('Falha ao executar callback de sistema externo', [
+                'sistema'  => $documento->sistema_origem,
+                'numero'   => $documento->numero_externo,
+                'callback' => $documento->callback_url,
+                'erro'     => $e->getMessage(),
+            ]);
+        }
     }
 
     public function recusar(Request $request, $id)
@@ -439,6 +487,7 @@ class AssinaturaController extends Controller
         $solicitacao->update(['status' => $todasAssinadas ? 'concluida' : 'em_andamento']);
         if ($todasAssinadas) {
             $this->finalizarProcessoSeVinculado($solicitacao);
+            $this->dispararCallbackSistemaExterno($solicitacao);
         }
 
         Notificacao::create([
@@ -653,6 +702,7 @@ class AssinaturaController extends Controller
         $solicitacao->update(['status' => $todasAssinadas ? 'concluida' : 'em_andamento']);
         if ($todasAssinadas) {
             $this->finalizarProcessoSeVinculado($solicitacao);
+            $this->dispararCallbackSistemaExterno($solicitacao);
         }
 
         Notificacao::create([
