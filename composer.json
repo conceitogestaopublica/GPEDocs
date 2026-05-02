@@ -13,6 +13,7 @@
         "laravel/tinker": "^3.0",
         "phpseclib/phpseclib": "^3.0",
         "setasign/fpdi": "^2.6",
+        "smalot/pdfparser": "^2.12",
         "tecnickcom/tcpdf": "^6.11"
     },
     "require-dev": {

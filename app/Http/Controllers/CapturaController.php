@@ -54,6 +54,11 @@ class CapturaController extends Controller
                 $path = $file->store('documentos', 'documentos');
                 $nome = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
 
+                $ocrTexto = null;
+                if ($file->getMimeType() === 'application/pdf') {
+                    $ocrTexto = (new \App\Services\PdfTextExtractor())->extrair($file->getRealPath());
+                }
+
                 $documento = Documento::create([
                     'nome'              => $nome,
                     'tipo_documental_id'=> $request->input('tipo_documental_id'),
@@ -65,6 +70,7 @@ class CapturaController extends Controller
                     'mime_type'         => $file->getMimeType(),
                     'autor_id'          => Auth::id(),
                     'status'            => 'rascunho',
+                    'ocr_texto'         => $ocrTexto,
                 ]);
 
                 Versao::create([

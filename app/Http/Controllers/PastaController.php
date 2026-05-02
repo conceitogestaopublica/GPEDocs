@@ -57,7 +57,11 @@ class PastaController extends Controller
                 $termo = "%{$busca}%";
                 $q->where(function ($q2) use ($termo) {
                     $q2->where('nome', 'ilike', $termo)
-                       ->orWhere('descricao', 'ilike', $termo);
+                       ->orWhere('descricao', 'ilike', $termo)
+                       ->orWhere('ocr_texto', 'ilike', $termo)
+                       // Busca em metadados (chave/valor JSON) e tags
+                       ->orWhereHas('metadados', fn ($q3) => $q3->where('valor', 'ilike', $termo)->orWhere('chave', 'ilike', $termo))
+                       ->orWhereHas('tags', fn ($q3) => $q3->where('nome', 'ilike', $termo));
                 });
             })
             ->when($tipoDocId, fn ($q) => $q->where('tipo_documental_id', $tipoDocId))

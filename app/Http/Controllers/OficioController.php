@@ -225,6 +225,12 @@ class OficioController extends Controller
             $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             \Illuminate\Support\Facades\Storage::disk('documentos')->put($path, $pdfBytes);
 
+            $textoPesquisavel = collect([
+                'Oficio', $oficio->numero, $oficio->assunto, $oficio->conteudo,
+                $oficio->setor_origem, $oficio->remetente?->name,
+                $oficio->destinatario_nome, $oficio->destinatario_orgao, $oficio->destinatario_email,
+            ])->filter()->implode(' | ');
+
             $documento = \App\Models\Documento::create([
                 'nome'              => 'Oficio ' . $oficio->numero,
                 'descricao'         => $oficio->assunto,
@@ -235,6 +241,7 @@ class OficioController extends Controller
                 'mime_type'         => 'application/pdf',
                 'autor_id'          => Auth::id(),
                 'status'            => 'arquivado',
+                'ocr_texto'         => $textoPesquisavel,
             ]);
 
             \App\Models\Versao::create([

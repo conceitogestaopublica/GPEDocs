@@ -404,6 +404,19 @@ class ProcessoController extends Controller
             $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             Storage::disk('documentos')->put($path, $pdfBytes);
 
+            // Texto pesquisavel: junta dados do processo + parecer + dados do formulario
+            $textoPesquisavel = collect([
+                'Decisao Administrativa',
+                $processo->numero_protocolo,
+                $processo->tipoProcesso?->nome,
+                $processo->assunto,
+                strtoupper($decisao),
+                $processo->observacao_conclusao,
+                $processo->requerente_nome,
+                $processo->requerente_cpf,
+                ...(array) ($processo->dados_formulario ?? []),
+            ])->filter()->implode(' | ');
+
             $documento = Documento::create([
                 'nome'              => 'Decisao - ' . $processo->numero_protocolo,
                 'descricao'         => "Decisao administrativa do processo {$processo->numero_protocolo}: " . strtoupper($decisao),
@@ -414,6 +427,7 @@ class ProcessoController extends Controller
                 'mime_type'         => 'application/pdf',
                 'autor_id'          => Auth::id(),
                 'status'            => 'rascunho',
+                'ocr_texto'         => $textoPesquisavel,
             ]);
 
             Versao::create([

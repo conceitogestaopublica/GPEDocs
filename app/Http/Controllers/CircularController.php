@@ -237,16 +237,22 @@ class CircularController extends Controller
             $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             \Illuminate\Support\Facades\Storage::disk('documentos')->put($path, $pdfBytes);
 
+            $textoPesquisavel = collect([
+                'Circular', $circular->numero, $circular->assunto, $circular->conteudo,
+                $circular->setor_origem, $circular->remetente?->name,
+            ])->filter()->implode(' | ');
+
             $documento = \App\Models\Documento::create([
                 'nome'              => 'Circular ' . $circular->numero,
                 'descricao'         => $circular->assunto,
-                'tipo_documental_id'=> 2, // Memorando/Comunicado
+                'tipo_documental_id'=> 2,
                 'pasta_id'          => (int) $request->input('pasta_id'),
                 'versao_atual'      => 1,
                 'tamanho'           => strlen($pdfBytes),
                 'mime_type'         => 'application/pdf',
                 'autor_id'          => Auth::id(),
                 'status'            => 'arquivado',
+                'ocr_texto'         => $textoPesquisavel,
             ]);
 
             \App\Models\Versao::create([

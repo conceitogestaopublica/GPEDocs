@@ -529,6 +529,12 @@ class MemorandoController extends Controller
             $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             Storage::disk('documentos')->put($path, $pdfBytes);
 
+            $textoPesquisavel = collect([
+                'Memorando', $memorando->numero, $memorando->assunto,
+                $memorando->conteudo, $memorando->setor_origem,
+                $memorando->remetente?->name,
+            ])->filter()->implode(' | ');
+
             $documento = \App\Models\Documento::create([
                 'nome'              => 'Memorando ' . $memorando->numero,
                 'descricao'         => $memorando->assunto,
@@ -539,6 +545,7 @@ class MemorandoController extends Controller
                 'mime_type'         => 'application/pdf',
                 'autor_id'          => Auth::id(),
                 'status'            => 'arquivado',
+                'ocr_texto'         => $textoPesquisavel,
             ]);
 
             \App\Models\Versao::create([

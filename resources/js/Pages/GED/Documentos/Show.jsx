@@ -42,6 +42,15 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
         <AdminLayout>
             <Head title={doc.nome || 'Documento'} />
 
+            {/* Voltar */}
+            <div className="mb-3">
+                <Link href={doc.pasta_id ? `/repositorio?pasta_id=${doc.pasta_id}` : '/repositorio'}
+                    className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors">
+                    <i className="fas fa-arrow-left text-xs" />
+                    Voltar para {doc.pasta_id ? 'a pasta' : 'o repositorio'}
+                </Link>
+            </div>
+
             {/* Cabecalho do Documento */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
                 <div className="flex items-start justify-between">

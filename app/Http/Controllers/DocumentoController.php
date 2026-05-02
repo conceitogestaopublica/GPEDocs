@@ -112,6 +112,12 @@ class DocumentoController extends Controller
             $file = $request->file('arquivo');
             $path = $file->store('documentos', 'documentos');
 
+            // Extrai texto se for PDF — para busca full-text no repositorio
+            $ocrTexto = null;
+            if ($file->getMimeType() === 'application/pdf') {
+                $ocrTexto = (new \App\Services\PdfTextExtractor())->extrair($file->getRealPath());
+            }
+
             $documento = Documento::create([
                 'nome'              => $request->input('nome'),
                 'descricao'         => $request->input('descricao'),
@@ -122,6 +128,7 @@ class DocumentoController extends Controller
                 'mime_type'         => $file->getMimeType(),
                 'autor_id'          => Auth::id(),
                 'status'            => 'rascunho',
+                'ocr_texto'         => $ocrTexto,
             ]);
 
             Versao::create([
@@ -224,7 +231,7 @@ class DocumentoController extends Controller
             'user_agent'   => request()->userAgent(),
         ]);
 
-        return Storage::disk('documentos')->download($versao->arquivo_path, $documento->nome);
+        return Storage::disk('documentos')->download($versao->arquivo_path, $this->sanitizarNomeArquivo($documento));
     }
 
     public function preview($id)
@@ -236,9 +243,29 @@ class DocumentoController extends Controller
             return redirect()->back()->with('error', 'Arquivo nao encontrado.');
         }
 
-        return Storage::disk('documentos')->response($versao->arquivo_path, $documento->nome, [
+        return Storage::disk('documentos')->response($versao->arquivo_path, $this->sanitizarNomeArquivo($documento), [
             'Content-Type' => $documento->mime_type,
         ]);
+    }
+
+    /**
+     * Remove caracteres invalidos do nome para uso em Content-Disposition (HTTP).
+     * `/` e `\` quebram o makeDisposition do Symfony.
+     */
+    private function sanitizarNomeArquivo(Documento $doc): string
+    {
+        $nome = str_replace(['/', '\\'], '-', $doc->nome ?? 'documento');
+        // Adiciona extensao se nao tiver
+        if (! pathinfo($nome, PATHINFO_EXTENSION) && $doc->mime_type) {
+            $ext = match (true) {
+                str_contains($doc->mime_type, 'pdf') => '.pdf',
+                str_contains($doc->mime_type, 'png') => '.png',
+                str_contains($doc->mime_type, 'jpeg') || str_contains($doc->mime_type, 'jpg') => '.jpg',
+                default => '',
+            };
+            $nome .= $ext;
+        }
+        return $nome;
     }
 
     public function toggleFavorito($id)
