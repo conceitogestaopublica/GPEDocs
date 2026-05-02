@@ -216,19 +216,35 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
 
             {activeTab === 'sistemas' && (
             <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-xs text-blue-800 font-semibold mb-1">
-                    <i className="fas fa-book mr-1" />Como integrar um sistema externo
-                </p>
-                <p className="text-[11px] text-blue-700 mb-2">
-                    Os sistemas cadastrados podem enviar documentos para assinatura via:
-                </p>
-                <code className="block bg-white border border-blue-200 rounded p-2 text-[11px] text-gray-700 mb-2">
-                    POST {baseUrl}/api/integracoes/documentos<br />
-                    Header: Authorization: Bearer {'{token}'}
-                </code>
-                <p className="text-[11px] text-blue-700">
-                    Documentacao completa: <a href="/docs/integracao-externa.md" target="_blank" className="underline">docs/integracao-externa.md</a>
-                </p>
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex-1 min-w-[280px]">
+                        <p className="text-xs text-blue-800 font-semibold mb-1">
+                            <i className="fas fa-book mr-1" />Como integrar um sistema externo
+                        </p>
+                        <p className="text-[11px] text-blue-700 mb-2">
+                            Sistemas cadastrados enviam documentos para assinatura via API REST:
+                        </p>
+                        <code className="block bg-white border border-blue-200 rounded p-2 text-[11px] text-gray-700 mb-2">
+                            POST {baseUrl}/api/integracoes/documentos<br />
+                            Header: Authorization: Bearer {'{token}'}
+                        </code>
+                        <p className="text-[11px] text-blue-700">
+                            Documentacao completa cobre: endpoints, payload, eventos de webhook (individual,
+                            recusada, todas_concluidas), validacao HMAC-SHA256, exemplos em PHP e Node.js,
+                            fluxo de uso e limitacoes.
+                        </p>
+                    </div>
+                    <div className="flex flex-col gap-2 shrink-0">
+                        <a href="/docs/integracao-externa.md" download
+                            className="ds-btn ds-btn-primary text-xs whitespace-nowrap">
+                            <i className="fas fa-download mr-1" />Baixar documentacao (.md)
+                        </a>
+                        <a href="/docs/integracao-externa" target="_blank" rel="noopener"
+                            className="ds-btn ds-btn-outline text-xs whitespace-nowrap">
+                            <i className="fas fa-external-link-alt mr-1" />Abrir online
+                        </a>
+                    </div>
+                </div>
             </div>
             )}
 

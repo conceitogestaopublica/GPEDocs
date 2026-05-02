@@ -28,6 +28,22 @@ use Illuminate\Support\Facades\Route;
 // Rastreio de oficio (publico, sem auth)
 Route::get('oficios/rastrear/{token}', [OficioController::class, 'rastrear'])->name('oficios.rastrear');
 
+// Documentacao da API de integracao (publica, leitura)
+Route::get('docs/integracao-externa.md', function () {
+    $path = base_path('docs/integracao-externa.md');
+    if (! is_file($path)) abort(404);
+    return response()->download($path, 'gpedocs-integracao-externa.md', [
+        'Content-Type' => 'text/markdown; charset=utf-8',
+    ]);
+})->name('docs.integracao');
+
+Route::get('docs/integracao-externa', function () {
+    $path = base_path('docs/integracao-externa.md');
+    if (! is_file($path)) abort(404);
+    return response(file_get_contents($path))
+        ->header('Content-Type', 'text/markdown; charset=utf-8');
+})->name('docs.integracao.view');
+
 // API de integracao com sistemas externos (GPE, RH, etc) — auth por Bearer token.
 // Stateless: pula middlewares de sessao/auth/inertia/UG (so usa o middleware
 // proprio sistema.api que valida o token de API).
