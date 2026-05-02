@@ -10,7 +10,7 @@ import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
 import AssinarModal from '../../../Components/AssinarModal';
 
-export default function Assinaturas({ pendentes, assinadas, filtros = {} }) {
+export default function Assinaturas({ pendentes, assinadas, filtros = {}, sistemas_origem = [] }) {
     const [activeTab, setActiveTab] = useState(
         (assinadas?.data?.length || assinadas?.length) > 0 && (pendentes || []).length === 0 ? 'assinadas' : 'pendentes'
     );
@@ -44,6 +44,34 @@ export default function Assinaturas({ pendentes, assinadas, filtros = {} }) {
                 </a>
             </div>
 
+            {/* Filtro de origem (sistema integrado) — visivel em ambas as tabs */}
+            {sistemas_origem.length > 0 && (
+                <div className="bg-white rounded-xl border border-gray-200 p-2 mb-3 flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold ml-2">Origem:</span>
+                    <button onClick={() => router.get('/assinaturas', {}, { preserveState: true })}
+                        className={`text-[11px] px-3 py-1 rounded-full transition-colors ${
+                            ! filtros.origem ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}>
+                        Todos
+                    </button>
+                    <button onClick={() => router.get('/assinaturas', { origem: 'interno' }, { preserveState: true })}
+                        className={`text-[11px] px-3 py-1 rounded-full transition-colors ${
+                            filtros.origem === 'interno' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}>
+                        <i className="fas fa-home mr-1" />Internos
+                    </button>
+                    {sistemas_origem.map(s => (
+                        <button key={s.codigo}
+                            onClick={() => router.get('/assinaturas', { origem: s.codigo }, { preserveState: true })}
+                            className={`text-[11px] px-3 py-1 rounded-full transition-colors ${
+                                filtros.origem === s.codigo ? 'bg-violet-600 text-white' : 'bg-violet-50 text-violet-700 hover:bg-violet-100'
+                            }`} title={s.nome}>
+                            <i className="fas fa-plug mr-1" />{s.codigo}
+                        </button>
+                    ))}
+                </div>
+            )}
+
             {activeTab === 'pendentes' && (
                 <Card padding={false}>
                     {(pendentes || []).length === 0 ? (
@@ -53,37 +81,9 @@ export default function Assinaturas({ pendentes, assinadas, filtros = {} }) {
                         </div>
                     ) : (
                         <div className="divide-y divide-gray-100">
-                            {(pendentes || []).map(a => (
-                                <div key={a.id} className="flex items-center justify-between px-5 py-4 hover:bg-gray-50">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-                                            <i className="fas fa-file-signature text-amber-600 text-sm" />
-                                        </div>
-                                        <div>
-                                            <Link href={`/documentos/${a.documento?.id}`} className="text-sm font-medium text-gray-800 hover:text-blue-600">
-                                                {a.documento?.nome}
-                                            </Link>
-                                            <p className="text-xs text-gray-400">
-                                                Solicitado por {a.solicitacao?.solicitante?.name} em {new Date(a.created_at).toLocaleDateString('pt-BR')}
-                                            </p>
-                                            {a.solicitacao?.prazo && (
-                                                <p className="text-[10px] text-orange-500">
-                                                    <i className="fas fa-clock mr-1" />
-                                                    Prazo: {new Date(a.solicitacao.prazo).toLocaleDateString('pt-BR')}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Button size="sm" icon="fas fa-pen-nib" onClick={() => setAssinarModal(a)}>
-                                            Assinar
-                                        </Button>
-                                        <Button size="sm" variant="ghost" onClick={() => setRecusarModal(a)}>
-                                            Recusar
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
+                            {(pendentes || []).map(a => <PendenteRow key={a.id} a={a}
+                                onAssinar={() => setAssinarModal(a)}
+                                onRecusar={() => setRecusarModal(a)} />)}
                         </div>
                     )}
                 </Card>
@@ -261,6 +261,82 @@ function AssinadaRow({ a }) {
             </div>
         </div>
     );
+}
+
+function PendenteRow({ a, onAssinar, onRecusar }) {
+    const ehExterno = !! a.documento?.sistema_origem;
+    const meta = a.documento?.metadados_externos || {};
+    const metaEntries = Object.entries(meta).filter(([, v]) => v !== null && v !== '');
+
+    return (
+        <div className="px-5 py-4 hover:bg-gray-50">
+            <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className={`w-10 h-10 ${ehExterno ? 'bg-violet-100' : 'bg-amber-100'} rounded-lg flex items-center justify-center shrink-0`}>
+                        <i className={`fas fa-${ehExterno ? 'plug' : 'file-signature'} ${ehExterno ? 'text-violet-600' : 'text-amber-600'} text-sm`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <Link href={`/documentos/${a.documento?.id}`} className="text-sm font-medium text-gray-800 hover:text-blue-600 truncate">
+                                {a.documento?.nome}
+                            </Link>
+                            {a.documento?.tipo_documental?.nome && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-bold uppercase">
+                                    {a.documento.tipo_documental.nome}
+                                </span>
+                            )}
+                            {ehExterno && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-bold uppercase" title="Documento de sistema externo">
+                                    <i className="fas fa-plug mr-1" />{a.documento.sistema_origem}
+                                </span>
+                            )}
+                            {a.documento?.numero_externo && (
+                                <span className="text-[10px] font-mono text-gray-500">{a.documento.numero_externo}</span>
+                            )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            Solicitado por <strong>{a.solicitacao?.solicitante?.name}</strong> em {new Date(a.created_at).toLocaleDateString('pt-BR')}
+                        </p>
+                        {a.solicitacao?.mensagem && (
+                            <p className="text-[11px] text-gray-500 italic mt-0.5">"{a.solicitacao.mensagem}"</p>
+                        )}
+                        {metaEntries.length > 0 && (
+                            <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-1 bg-violet-50 border border-violet-100 rounded-lg p-2">
+                                {metaEntries.slice(0, 6).map(([k, v]) => (
+                                    <div key={k} className="text-[11px]">
+                                        <span className="text-gray-500 mr-1">{formatarLabel(k)}:</span>
+                                        <span className="text-gray-800 font-medium">{formatarValor(k, v)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {a.solicitacao?.prazo && (
+                            <p className="text-[10px] text-orange-500 mt-1">
+                                <i className="fas fa-clock mr-1" />Prazo: {new Date(a.solicitacao.prazo).toLocaleDateString('pt-BR')}
+                            </p>
+                        )}
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                    <Button size="sm" icon="fas fa-pen-nib" onClick={onAssinar}>Assinar</Button>
+                    <Button size="sm" variant="ghost" onClick={onRecusar}>Recusar</Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function formatarLabel(k) {
+    return k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+function formatarValor(k, v) {
+    if (typeof v === 'number' && (k.includes('valor') || k.includes('preco') || k.includes('total'))) {
+        return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) {
+        return new Date(v).toLocaleDateString('pt-BR');
+    }
+    return String(v);
 }
 
 function mascararCpf(cpf) {

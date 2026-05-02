@@ -130,6 +130,16 @@ Route::middleware('auth')->group(function () {
         Route::put('ugs/{ug}/organograma/nodes/{node}', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'updateNode'])->name('ugs.organograma.nodes.update');
         Route::delete('ugs/{ug}/organograma/nodes/{node}', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'destroyNode'])->name('ugs.organograma.nodes.destroy');
         Route::post('ugs/{ug}/organograma/nodes/{node}/toggle-ativo', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'toggleAtivoNode'])->name('ugs.organograma.nodes.toggle-ativo');
+
+        // Sistemas integrados (API tokens para sistemas externos)
+        Route::resource('sistemas-integrados', \App\Http\Controllers\Configuracao\SistemaIntegradoController::class)
+            ->except(['create', 'edit', 'show']);
+        Route::post('sistemas-integrados/{id}/regenerar-token', [\App\Http\Controllers\Configuracao\SistemaIntegradoController::class, 'regenerarToken'])
+            ->name('sistemas-integrados.regenerar-token');
+        Route::post('sistemas-integrados/{id}/regenerar-webhook-secret', [\App\Http\Controllers\Configuracao\SistemaIntegradoController::class, 'regenerarWebhookSecret'])
+            ->name('sistemas-integrados.regenerar-webhook-secret');
+        Route::post('sistemas-integrados/{id}/toggle-ativo', [\App\Http\Controllers\Configuracao\SistemaIntegradoController::class, 'toggleAtivo'])
+            ->name('sistemas-integrados.toggle-ativo');
     });
 
     // Admin (apenas tipos documentais e tipos de processo permanecem aqui)

@@ -32,6 +32,8 @@ const MENU_CONFIGURACOES = [
     { section: 'label', label: 'Acessos' },
     { title: 'Usuarios', icon: 'fas fa-users', href: '/configuracoes/usuarios', color: 'text-red-600 bg-red-100' },
     { title: 'Perfis e Permissoes', icon: 'fas fa-shield-alt', href: '/configuracoes/perfis', color: 'text-slate-600 bg-slate-100' },
+    { section: 'label', label: 'Integracoes' },
+    { title: 'Sistemas Integrados', icon: 'fas fa-plug', href: '/configuracoes/sistemas-integrados', color: 'text-violet-600 bg-violet-100' },
 ];
 
 const MENU_GEPSP = [

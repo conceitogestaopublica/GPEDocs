@@ -30,23 +30,35 @@ class AssinaturaController extends Controller
         $tipoFiltro = $request->input('tipo_filtro');     // null | simples | qualificada
         $dataDe   = $request->input('data_de');
         $dataAte  = $request->input('data_ate');
+        $origem   = $request->input('origem');            // null | codigo do sistema (ex: gpe)
 
-        // Pendentes — sem filtro, sao poucas
-        $pendentes = Assinatura::with(['documento', 'solicitacao.solicitante'])
+        // Filtra documentos por sistema de origem (integracao externa)
+        $filtroOrigem = function ($q) use ($origem) {
+            if ($origem === 'interno') {
+                $q->whereHas('documento', fn ($d) => $d->whereNull('sistema_origem'));
+            } elseif ($origem) {
+                $q->whereHas('documento', fn ($d) => $d->where('sistema_origem', $origem));
+            }
+        };
+
+        // Pendentes
+        $pendentes = Assinatura::with(['documento.tipoDocumental', 'solicitacao.solicitante'])
             ->where('signatario_id', Auth::id())
             ->where('status', 'pendente')
+            ->when($origem, $filtroOrigem)
             ->orderByDesc('created_at')
             ->get();
 
-        // Assinadas — com busca + filtros + paginacao
-        $assinadas = Assinatura::with(['documento', 'solicitacao.solicitante', 'certificado'])
+        // Assinadas
+        $assinadas = Assinatura::with(['documento.tipoDocumental', 'solicitacao.solicitante', 'certificado'])
             ->where('signatario_id', Auth::id())
             ->where('status', 'assinado')
             ->when($busca !== '', function ($q) use ($busca) {
                 $termo = "%{$busca}%";
                 $cpfDigits = preg_replace('/\D/', '', $busca);
                 $q->where(function ($q) use ($termo, $cpfDigits) {
-                    $q->whereHas('documento', fn ($q2) => $q2->where('nome', 'like', $termo))
+                    $q->whereHas('documento', fn ($q2) => $q2->where('nome', 'like', $termo)
+                                                            ->orWhere('numero_externo', 'like', $termo))
                       ->orWhereHas('solicitacao', fn ($q2) => $q2->where('mensagem', 'like', $termo))
                       ->orWhere('email_signatario', 'like', $termo);
                     if ($cpfDigits !== '') {
@@ -58,18 +70,30 @@ class AssinaturaController extends Controller
                 fn ($q) => $q->where('tipo_assinatura', $tipoFiltro))
             ->when($dataDe, fn ($q) => $q->whereDate('assinado_em', '>=', $dataDe))
             ->when($dataAte, fn ($q) => $q->whereDate('assinado_em', '<=', $dataAte))
+            ->when($origem, $filtroOrigem)
             ->orderByDesc('assinado_em')
             ->paginate(20)
             ->withQueryString();
 
+        // Sistemas que ja enviaram documentos (para popular o dropdown de origem)
+        $sistemasComDocs = \App\Models\SistemaIntegrado::where('ativo', true)
+            ->whereExists(function ($q) {
+                $q->select('id')->from('ged_documentos')
+                  ->whereColumn('sistema_origem', 'ged_sistemas_integrados.codigo');
+            })
+            ->orderBy('codigo')
+            ->get(['codigo', 'nome']);
+
         return Inertia::render('GED/Assinaturas/Index', [
             'pendentes' => $pendentes,
             'assinadas' => $assinadas,
+            'sistemas_origem' => $sistemasComDocs,
             'filtros'   => [
                 'busca'       => $busca,
                 'tipo_filtro' => $tipoFiltro,
                 'data_de'     => $dataDe,
                 'data_ate'    => $dataAte,
+                'origem'      => $origem,
             ],
         ]);
     }
@@ -296,18 +320,33 @@ class AssinaturaController extends Controller
         }
 
         try {
+            $payload = [
+                'sistema_origem'   => $documento->sistema_origem,
+                'numero_externo'   => $documento->numero_externo,
+                'documento_id'     => $documento->id,
+                'status'           => 'assinado',
+                'todas_assinadas'  => true,
+                'concluido_em'     => now()->toIso8601String(),
+                'pdf_assinado_url' => url("/documentos/{$documento->id}/download"),
+                'visualizacao_url' => url("/documentos/{$documento->id}"),
+            ];
+            $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+            // Localiza sistema e calcula assinatura HMAC do payload
+            $sistema = \App\Models\SistemaIntegrado::where('codigo', $documento->sistema_origem)->first();
+            $assinatura = $sistema?->webhook_secret
+                ? $sistema->assinarPayload($payloadJson)
+                : null;
+
             $resp = \Illuminate\Support\Facades\Http::timeout(10)
                 ->retry(2, 500)
-                ->post($documento->callback_url, [
-                    'sistema_origem'   => $documento->sistema_origem,
-                    'numero_externo'   => $documento->numero_externo,
-                    'documento_id'     => $documento->id,
-                    'status'           => 'assinado',
-                    'todas_assinadas'  => true,
-                    'concluido_em'     => now()->toIso8601String(),
-                    'pdf_assinado_url' => url("/documentos/{$documento->id}/download"),
-                    'visualizacao_url' => url("/documentos/{$documento->id}"),
-                ]);
+                ->withHeaders(array_filter([
+                    'Content-Type'      => 'application/json',
+                    'X-GpeDocs-Signature' => $assinatura,           // HMAC-SHA256 do body
+                    'X-GpeDocs-Sistema'   => $documento->sistema_origem,
+                ]))
+                ->withBody($payloadJson, 'application/json')
+                ->post($documento->callback_url);
 
             $documento->update([
                 'callback_executado'    => true,

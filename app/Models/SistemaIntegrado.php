@@ -22,10 +22,11 @@ class SistemaIntegrado extends Model
     protected $fillable = [
         'codigo', 'nome', 'descricao',
         'api_token_hash', 'api_token_prefix',
+        'webhook_secret',
         'ativo', 'ultimo_uso_em',
     ];
 
-    protected $hidden = ['api_token_hash'];
+    protected $hidden = ['api_token_hash', 'webhook_secret'];
 
     protected function casts(): array
     {
@@ -44,7 +45,31 @@ class SistemaIntegrado extends Model
         $tokenPuro = Str::random(64);
         $this->api_token_hash = hash('sha256', $tokenPuro);
         $this->api_token_prefix = substr($tokenPuro, 0, 8);
+        // Gera tambem secret HMAC (usado pra assinar payload do webhook).
+        // Diferente do API token: secret e armazenado em CLARO (nao hash) porque
+        // o servidor precisa dele para gerar a assinatura. Cliente armazena copia.
+        if (! $this->webhook_secret) {
+            $this->webhook_secret = Str::random(48);
+        }
         return $tokenPuro;
+    }
+
+    /**
+     * Regenera apenas o webhook_secret (independente do API token).
+     */
+    public function regenerarWebhookSecret(): string
+    {
+        $this->webhook_secret = Str::random(48);
+        return $this->webhook_secret;
+    }
+
+    /**
+     * Calcula assinatura HMAC-SHA256 de um payload JSON, no formato
+     * "sha256=<hex>". Cliente valida fazendo o mesmo calculo.
+     */
+    public function assinarPayload(string $payloadJson): string
+    {
+        return 'sha256=' . hash_hmac('sha256', $payloadJson, $this->webhook_secret ?? '');
     }
 
     /**

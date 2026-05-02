@@ -119,6 +119,14 @@ Consulta o status de um documento já enviado (útil pra polling antes do webhoo
 Se `callback_url` for fornecido no `POST /documentos`, o GPE Docs faz `POST` no callback
 quando **todas as assinaturas** forem concluídas.
 
+**Headers:**
+
+```
+Content-Type: application/json
+X-GpeDocs-Sistema: gpe
+X-GpeDocs-Signature: sha256=a3f8b2c4d5e6...    (HMAC-SHA256 do body)
+```
+
 **Body do webhook:**
 
 ```json
@@ -135,6 +143,35 @@ quando **todas as assinaturas** forem concluídas.
 ```
 
 O sistema externo deve responder com `2xx` em até 10s (com 2 retries de 500ms).
+
+**Validação da assinatura HMAC** (recomendado):
+
+```php
+// PHP
+$body = file_get_contents('php://input');
+$assinaturaEsperada = 'sha256=' . hash_hmac('sha256', $body, $WEBHOOK_SECRET);
+$assinaturaRecebida = $_SERVER['HTTP_X_GPEDOCS_SIGNATURE'] ?? '';
+if (! hash_equals($assinaturaEsperada, $assinaturaRecebida)) {
+    http_response_code(401);
+    exit('Assinatura invalida');
+}
+```
+
+```javascript
+// Node.js
+const crypto = require('crypto');
+const expected = 'sha256=' + crypto
+    .createHmac('sha256', WEBHOOK_SECRET)
+    .update(req.rawBody)
+    .digest('hex');
+if (! crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(req.headers['x-gpedocs-signature']))) {
+    return res.status(401).send('Assinatura invalida');
+}
+```
+
+O `WEBHOOK_SECRET` é exibido **uma única vez** no cadastro/regeneração do sistema —
+guarde com o mesmo cuidado que o API token. Pode ser regenerado independentemente do
+API token (`POST /sistemas-integrados/{id}/regenerar-webhook-secret`).
 
 ## Fluxo de uso
 
