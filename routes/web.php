@@ -55,19 +55,21 @@ Route::prefix('api/integracoes')
         \Illuminate\Session\Middleware\StartSession::class,
         \Illuminate\View\Middleware\ShareErrorsFromSession::class,
         \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
     ])
     ->middleware(['sistema.api'])
     ->group(function () {
         Route::post('documentos', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'store'])
             ->name('api.integracoes.documentos.store');
         Route::get('documentos/{numero}', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'show'])
-            ->where('numero', '[^/]+')
+            ->where('numero', '.+')
             ->name('api.integracoes.documentos.show');
         Route::post('documentos/{numero}/versao', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'novaVersao'])
-            ->where('numero', '[^/]+')
+            ->where('numero', '.+')
             ->name('api.integracoes.documentos.versao');
         Route::post('documentos/{numero}/reenviar-webhook', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'reenviarWebhook'])
-            ->where('numero', '[^/]+')
+            ->where('numero', '.+')
             ->name('api.integracoes.documentos.reenviar-webhook');
     });
 
@@ -248,6 +250,8 @@ Route::middleware('auth')->group(function () {
     Route::post('assinaturas/{id}/finalizar-icp-a3', [AssinaturaController::class, 'finalizarIcpA3'])->name('assinaturas.finalizar-icp-a3');
     Route::get('assinaturas/{id}/download-assinado', [AssinaturaController::class, 'downloadAssinado'])->name('assinaturas.download-assinado');
     Route::post('assinaturas/{id}/recusar', [AssinaturaController::class, 'recusar'])->name('assinaturas.recusar');
+    Route::post('assinaturas/{id}/simular-restantes', [AssinaturaController::class, 'simularAssinaturasRestantes'])
+        ->name('assinaturas.simular-restantes');
     Route::get('assinaturas/{id}/manifesto', [AssinaturaController::class, 'manifesto'])->name('assinaturas.manifesto');
 
     // Meus Certificados ICP-Brasil (perfil do usuario)

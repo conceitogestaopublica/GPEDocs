@@ -10,14 +10,22 @@ import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
 import AssinarModal from '../../../Components/AssinarModal';
 
-export default function Assinaturas({ pendentes, assinadas, filtros = {}, sistemas_origem = [] }) {
+export default function Assinaturas({ pendentes, aguardando_outros, concluidas, assinadas, filtros = {}, sistemas_origem = [] }) {
+    // Retro-compat: se backend antigo só mandar `assinadas`, usa ele como `concluidas`.
+    const aguardandoData = aguardando_outros ?? { data: [], total: 0 };
+    const concluidasData = concluidas ?? assinadas ?? { data: [], total: 0 };
+
+    const totalPendentes = (pendentes || []).length;
+    const totalAguardando = aguardandoData?.total ?? (Array.isArray(aguardandoData) ? aguardandoData.length : 0);
+    const totalConcluidas = concluidasData?.total ?? (Array.isArray(concluidasData) ? concluidasData.length : 0);
+
     const [activeTab, setActiveTab] = useState(
-        (assinadas?.data?.length || assinadas?.length) > 0 && (pendentes || []).length === 0 ? 'assinadas' : 'pendentes'
+        totalPendentes > 0 ? 'pendentes' :
+        totalAguardando > 0 ? 'aguardando' :
+        totalConcluidas > 0 ? 'concluidas' : 'pendentes'
     );
     const [assinarModal, setAssinarModal] = useState(null);
     const [recusarModal, setRecusarModal] = useState(null);
-
-    const totalAssinadas = assinadas?.total ?? (Array.isArray(assinadas) ? assinadas.length : 0);
 
     return (
         <AdminLayout>
@@ -27,8 +35,9 @@ export default function Assinaturas({ pendentes, assinadas, filtros = {}, sistem
             {/* Tabs */}
             <div className="flex gap-2 mb-6 items-center">
                 {[
-                    { key: 'pendentes', label: `Pendentes (${(pendentes || []).length})`, icon: 'fas fa-clock' },
-                    { key: 'assinadas', label: `Assinadas (${totalAssinadas})`, icon: 'fas fa-check' },
+                    { key: 'pendentes',  label: `Pendentes (${totalPendentes})`,            icon: 'fas fa-clock' },
+                    { key: 'aguardando', label: `Aguardando outros (${totalAguardando})`,   icon: 'fas fa-hourglass-half' },
+                    { key: 'concluidas', label: `Concluídas (${totalConcluidas})`,          icon: 'fas fa-check-circle' },
                 ].map(tab => (
                     <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors
@@ -89,8 +98,15 @@ export default function Assinaturas({ pendentes, assinadas, filtros = {}, sistem
                 </Card>
             )}
 
-            {activeTab === 'assinadas' && (
-                <AssinadasView assinadas={assinadas} filtrosIniciais={filtros} />
+            {activeTab === 'aguardando' && (
+                <AssinadasView assinadas={aguardandoData} filtrosIniciais={filtros}
+                               emptyText="Nenhum documento que você assinou está aguardando outras assinaturas."
+                               showAguardandoBadge={true} />
+            )}
+
+            {activeTab === 'concluidas' && (
+                <AssinadasView assinadas={concluidasData} filtrosIniciais={filtros}
+                               emptyText="Nenhum documento totalmente assinado." />
             )}
 
             <AssinarModal assinatura={assinarModal} onClose={() => setAssinarModal(null)} />
@@ -99,7 +115,7 @@ export default function Assinaturas({ pendentes, assinadas, filtros = {}, sistem
     );
 }
 
-function AssinadasView({ assinadas, filtrosIniciais }) {
+function AssinadasView({ assinadas, filtrosIniciais, emptyText, showAguardandoBadge = false }) {
     const items = assinadas?.data || (Array.isArray(assinadas) ? assinadas : []);
     const links = assinadas?.links || null;
 
@@ -163,11 +179,11 @@ function AssinadasView({ assinadas, filtrosIniciais }) {
                 {items.length === 0 ? (
                     <div className="py-12 text-center text-gray-400">
                         <i className="fas fa-file-signature text-3xl mb-2 block" />
-                        <p>Nenhuma assinatura encontrada</p>
+                        <p>{emptyText || 'Nenhuma assinatura encontrada'}</p>
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100">
-                        {items.map(a => <AssinadaRow key={a.id} a={a} />)}
+                        {items.map(a => <AssinadaRow key={a.id} a={a} showAguardandoBadge={showAguardandoBadge} />)}
                     </div>
                 )}
             </Card>
@@ -190,7 +206,7 @@ function AssinadasView({ assinadas, filtrosIniciais }) {
     );
 }
 
-function AssinadaRow({ a }) {
+function AssinadaRow({ a, showAguardandoBadge = false }) {
     const ehQualificada = a.tipo_assinatura === 'qualificada';
     const dataFmt = a.assinado_em
         ? new Date(a.assinado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -221,6 +237,11 @@ function AssinadaRow({ a }) {
                         {ehQualificada && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold">
                                 ICP-Brasil
+                            </span>
+                        )}
+                        {showAguardandoBadge && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold flex items-center gap-1">
+                                <i className="fas fa-hourglass-half" /> Aguardando outros
                             </span>
                         )}
                     </div>
@@ -257,10 +278,24 @@ function AssinadaRow({ a }) {
                             <i className="fas fa-file-pdf" />
                         </a>
                     )}
+                    {showAguardandoBadge && (
+                        <button onClick={() => simularRestantes(a.id)}
+                            className="text-[11px] px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors flex items-center gap-1"
+                            title="DEV: simular assinatura dos signatários pendentes e fechar o ciclo">
+                            <i className="fas fa-flask" /> Simular restantes
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
     );
+}
+
+function simularRestantes(assinaturaId) {
+    if (! confirm('DEV ONLY — Marcar todas as assinaturas pendentes desta solicitação como assinadas (sem certificado real) e disparar o webhook final?')) return;
+    router.post(`/assinaturas/${assinaturaId}/simular-restantes`, {}, {
+        preserveScroll: true,
+    });
 }
 
 function PendenteRow({ a, onAssinar, onRecusar }) {

@@ -49,31 +49,53 @@ class AssinaturaController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        // Assinadas
-        $assinadas = Assinatura::with(['documento.tipoDocumental', 'solicitacao.solicitante', 'certificado'])
-            ->where('signatario_id', Auth::id())
-            ->where('status', 'assinado')
-            ->when($busca !== '', function ($q) use ($busca) {
-                $termo = "%{$busca}%";
-                $cpfDigits = preg_replace('/\D/', '', $busca);
-                $q->where(function ($q) use ($termo, $cpfDigits) {
-                    $q->whereHas('documento', fn ($q2) => $q2->where('nome', 'like', $termo)
-                                                            ->orWhere('numero_externo', 'like', $termo))
-                      ->orWhereHas('solicitacao', fn ($q2) => $q2->where('mensagem', 'like', $termo))
-                      ->orWhere('email_signatario', 'like', $termo);
-                    if ($cpfDigits !== '') {
-                        $q->orWhere('cpf_signatario', 'like', "%{$cpfDigits}%");
-                    }
-                });
-            })
-            ->when(in_array($tipoFiltro, ['simples', 'qualificada'], true),
-                fn ($q) => $q->where('tipo_assinatura', $tipoFiltro))
-            ->when($dataDe, fn ($q) => $q->whereDate('assinado_em', '>=', $dataDe))
-            ->when($dataAte, fn ($q) => $q->whereDate('assinado_em', '<=', $dataAte))
-            ->when($origem, $filtroOrigem)
+        // Helper: aplica os filtros de busca/tipo/data/origem em ambas as queries de assinadas
+        $aplicarFiltrosAssinadas = function ($q) use ($busca, $tipoFiltro, $dataDe, $dataAte, $origem, $filtroOrigem) {
+            return $q
+                ->when($busca !== '', function ($q) use ($busca) {
+                    $termo = "%{$busca}%";
+                    $cpfDigits = preg_replace('/\D/', '', $busca);
+                    $q->where(function ($q) use ($termo, $cpfDigits) {
+                        $q->whereHas('documento', fn ($q2) => $q2->where('nome', 'like', $termo)
+                                                                ->orWhere('numero_externo', 'like', $termo))
+                          ->orWhereHas('solicitacao', fn ($q2) => $q2->where('mensagem', 'like', $termo))
+                          ->orWhere('email_signatario', 'like', $termo);
+                        if ($cpfDigits !== '') {
+                            $q->orWhere('cpf_signatario', 'like', "%{$cpfDigits}%");
+                        }
+                    });
+                })
+                ->when(in_array($tipoFiltro, ['simples', 'qualificada'], true),
+                    fn ($q) => $q->where('tipo_assinatura', $tipoFiltro))
+                ->when($dataDe, fn ($q) => $q->whereDate('assinado_em', '>=', $dataDe))
+                ->when($dataAte, fn ($q) => $q->whereDate('assinado_em', '<=', $dataAte))
+                ->when($origem, $filtroOrigem);
+        };
+
+        // Aguardando outros: eu assinei, mas a solicitação ainda tem outros pendentes.
+        $aguardandoOutros = $aplicarFiltrosAssinadas(
+            Assinatura::with(['documento.tipoDocumental', 'solicitacao.solicitante', 'certificado'])
+                ->where('signatario_id', Auth::id())
+                ->where('status', 'assinado')
+                ->whereHas('solicitacao', fn ($q) => $q->whereIn('status', ['em_andamento', 'pendente']))
+        )
+            ->orderByDesc('assinado_em')
+            ->paginate(20, ['*'], 'aguardando_page')
+            ->withQueryString();
+
+        // Concluidas: a solicitação inteira foi finalizada (todos assinaram).
+        $concluidas = $aplicarFiltrosAssinadas(
+            Assinatura::with(['documento.tipoDocumental', 'solicitacao.solicitante', 'certificado'])
+                ->where('signatario_id', Auth::id())
+                ->where('status', 'assinado')
+                ->whereHas('solicitacao', fn ($q) => $q->where('status', 'concluida'))
+        )
             ->orderByDesc('assinado_em')
             ->paginate(20)
             ->withQueryString();
+
+        // Mantém compatibilidade com código anterior que usa "assinadas" — agrega ambos.
+        $assinadas = $concluidas;
 
         // Sistemas que ja enviaram documentos (para popular o dropdown de origem)
         $sistemasComDocs = \App\Models\SistemaIntegrado::where('ativo', true)
@@ -85,10 +107,12 @@ class AssinaturaController extends Controller
             ->get(['codigo', 'nome']);
 
         return Inertia::render('GED/Assinaturas/Index', [
-            'pendentes' => $pendentes,
-            'assinadas' => $assinadas,
-            'sistemas_origem' => $sistemasComDocs,
-            'filtros'   => [
+            'pendentes'         => $pendentes,
+            'aguardando_outros' => $aguardandoOutros,
+            'concluidas'        => $concluidas,
+            'assinadas'         => $assinadas, // alias retro-compat
+            'sistemas_origem'   => $sistemasComDocs,
+            'filtros'           => [
                 'busca'       => $busca,
                 'tipo_filtro' => $tipoFiltro,
                 'data_de'     => $dataDe,
@@ -779,6 +803,72 @@ class AssinaturaController extends Controller
     private function buscarCertNoResultado(array $resultado): ?string
     {
         return null; // helper placeholder; cert vive no PKCS7 binario
+    }
+
+    /**
+     * DEV ONLY — Simula a assinatura de TODOS os signatários ainda pendentes
+     * de uma solicitação, fechando o ciclo. Útil para testar webhook final
+     * quando não se tem certificado dos outros signatários.
+     *
+     * Bloqueado fora de ambiente local.
+     */
+    public function simularAssinaturasRestantes(Request $request, $id)
+    {
+        if (! app()->environment(['local', 'development'])) {
+            return redirect()->back()->with('error',
+                'Simulação de assinatura disponível apenas em ambiente local/dev.');
+        }
+
+        $assinaturaRef = Assinatura::with('solicitacao')->findOrFail($id);
+        $solicitacao   = $assinaturaRef->solicitacao;
+
+        $pendentes = $solicitacao->assinaturas()->where('status', 'pendente')->get();
+        if ($pendentes->isEmpty()) {
+            return redirect()->back()->with('info', 'Não há assinaturas pendentes para simular.');
+        }
+
+        foreach ($pendentes as $a) {
+            $a->update([
+                'status'         => 'assinado',
+                'cpf_signatario' => $a->cpf_signatario ?: null,
+                'assinado_em'    => now(),
+                'tipo_assinatura'=> 'simples',
+                'ip'             => $request->ip(),
+                'user_agent'     => '(simulação dev) ' . $request->userAgent(),
+            ]);
+
+            $this->dispararWebhook($solicitacao, 'assinatura.individual', [
+                'tipo_assinatura' => 'simples',
+                'signatario_id'   => $a->signatario_id,
+                'cpf'             => $a->cpf_signatario,
+                'assinado_em'     => $a->assinado_em?->toIso8601String(),
+                'todas_assinadas' => false, // só atualiza no final
+                'simulado'        => true,
+            ]);
+        }
+
+        $solicitacao->update(['status' => 'concluida']);
+        $this->finalizarProcessoSeVinculado($solicitacao);
+
+        $this->dispararWebhook($solicitacao, 'assinatura.todas_concluidas', [
+            'concluido_em' => now()->toIso8601String(),
+            'simulado'     => true,
+        ]);
+
+        AuditLog::create([
+            'documento_id' => $assinaturaRef->documento_id,
+            'usuario_id'   => Auth::id(),
+            'acao'         => 'simulacao_assinatura_dev',
+            'detalhes'     => [
+                'solicitacao_id'  => $solicitacao->id,
+                'qtd_simuladas'   => $pendentes->count(),
+            ],
+            'ip'           => $request->ip(),
+            'user_agent'   => $request->userAgent(),
+        ]);
+
+        return redirect()->back()->with('success',
+            "Ciclo fechado: {$pendentes->count()} assinatura(s) simulada(s). Webhook final disparado.");
     }
 
     /**
