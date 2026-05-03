@@ -242,6 +242,7 @@ Route::middleware('auth')->group(function () {
 
     // Assinaturas
     Route::get('assinaturas', [AssinaturaController::class, 'index'])->name('assinaturas');
+    Route::post('assinaturas/classificar-arquivar', [AssinaturaController::class, 'classificarArquivar'])->name('assinaturas.classificar-arquivar');
     Route::post('documentos/{id}/solicitar-assinatura', [AssinaturaController::class, 'solicitar'])->name('assinaturas.solicitar');
     Route::post('assinaturas/solicitar-lote', [AssinaturaController::class, 'solicitarLote'])->name('assinaturas.solicitar-lote');
     Route::post('assinaturas/{id}/assinar', [AssinaturaController::class, 'assinar'])->name('assinaturas.assinar');

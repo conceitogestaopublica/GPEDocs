@@ -84,11 +84,16 @@ class AssinaturaController extends Controller
             ->withQueryString();
 
         // Concluidas: a solicitação inteira foi finalizada (todos assinaram).
+        // Exclui documentos ja arquivados em pasta do GPE Docs (ciclo completo —
+        // ficam disponiveis para consulta historica em /repositorio).
         $concluidas = $aplicarFiltrosAssinadas(
             Assinatura::with(['documento.tipoDocumental', 'solicitacao.solicitante', 'certificado'])
                 ->where('signatario_id', Auth::id())
                 ->where('status', 'assinado')
                 ->whereHas('solicitacao', fn ($q) => $q->where('status', 'concluida'))
+                ->whereHas('documento', fn ($q) => $q->where(function ($q2) {
+                    $q2->where('status', '!=', 'arquivado')->orWhereNull('pasta_id');
+                }))
         )
             ->orderByDesc('assinado_em')
             ->paginate(20)
@@ -96,6 +101,16 @@ class AssinaturaController extends Controller
 
         // Mantém compatibilidade com código anterior que usa "assinadas" — agrega ambos.
         $assinadas = $concluidas;
+
+        // Tipos documentais e pastas para o modal "Classificar e Arquivar"
+        $ugId = session('ug_id');
+        $tiposDocumentais = \DB::table('ged_tipos_documentais')
+            ->where('ativo', true)->orderBy('nome')->get(['id', 'nome']);
+        $pastas = \DB::table('ged_pastas')
+            ->when($ugId, fn ($q) => $q->where('ug_id', $ugId))
+            ->where('ativo', true)
+            ->orderBy('parent_id')->orderBy('nome')
+            ->get(['id', 'nome', 'parent_id', 'descricao']);
 
         // Sistemas que ja enviaram documentos (para popular o dropdown de origem)
         $sistemasComDocs = \App\Models\SistemaIntegrado::where('ativo', true)
@@ -112,6 +127,8 @@ class AssinaturaController extends Controller
             'concluidas'        => $concluidas,
             'assinadas'         => $assinadas, // alias retro-compat
             'sistemas_origem'   => $sistemasComDocs,
+            'tipos_documentais' => $tiposDocumentais,
+            'pastas'            => $pastas,
             'filtros'           => [
                 'busca'       => $busca,
                 'tipo_filtro' => $tipoFiltro,
@@ -360,6 +377,76 @@ class AssinaturaController extends Controller
         }
 
         app(\App\Services\WebhookDispatcher::class)->disparar($documento, $evento, $extra);
+    }
+
+    /**
+     * Classifica e arquiva um ou varios documentos em uma pasta do GPE Docs.
+     * Atualiza tipo_documental_id (se enviado) + pasta_id + status='arquivado'.
+     * Aceita lote via array de IDs.
+     *
+     * Permissao: usuario precisa ter assinado pelo menos uma assinatura
+     * concluida do documento (ou ser autor).
+     */
+    public function classificarArquivar(Request $request)
+    {
+        $validated = $request->validate([
+            'documento_ids'      => ['required', 'array', 'min:1'],
+            'documento_ids.*'    => ['integer', 'exists:ged_documentos,id'],
+            'tipo_documental_id' => ['nullable', 'integer', 'exists:ged_tipos_documentais,id'],
+            'pasta_id'           => ['required', 'integer', 'exists:ged_pastas,id'],
+        ]);
+
+        $userId = Auth::id();
+        $pasta = \DB::table('ged_pastas')->where('id', $validated['pasta_id'])->first();
+
+        $atualizados = 0;
+        $erros = [];
+
+        foreach ($validated['documento_ids'] as $docId) {
+            $doc = Documento::find($docId);
+            if (! $doc) {
+                $erros[] = "Documento #{$docId} nao encontrado.";
+                continue;
+            }
+
+            // Valida UG da pasta
+            if ($pasta && $pasta->ug_id !== $doc->ug_id) {
+                $erros[] = "Documento {$doc->nome}: pasta nao pertence a UG.";
+                continue;
+            }
+
+            // Permissao: o usuario assinou OU criou
+            $podeArquivar = $doc->autor_id === $userId
+                || \App\Models\Assinatura::where('documento_id', $doc->id)
+                    ->where('signatario_id', $userId)
+                    ->where('status', 'assinado')->exists();
+            if (! $podeArquivar) {
+                $erros[] = "Documento {$doc->nome}: sem permissao.";
+                continue;
+            }
+
+            $update = [
+                'pasta_id' => $validated['pasta_id'],
+                'status'   => 'arquivado',
+            ];
+            // Atualiza tipo apenas se enviado e o doc nao tem ainda
+            if (! empty($validated['tipo_documental_id']) && empty($doc->tipo_documental_id)) {
+                $update['tipo_documental_id'] = $validated['tipo_documental_id'];
+            }
+
+            $doc->update($update);
+            $atualizados++;
+        }
+
+        $msg = $atualizados === 1
+            ? "1 documento arquivado em \"{$pasta?->nome}\"."
+            : "{$atualizados} documentos arquivados em \"{$pasta?->nome}\".";
+
+        if (! empty($erros)) {
+            return redirect()->back()
+                ->with('warning', $msg . ' Avisos: ' . implode(' ', $erros));
+        }
+        return redirect()->back()->with('success', $msg);
     }
 
     public function recusar(Request $request, $id)

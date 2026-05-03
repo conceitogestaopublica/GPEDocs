@@ -2,7 +2,7 @@
  * Assinaturas Pendentes — GED
  */
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
@@ -10,7 +10,7 @@ import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
 import AssinarModal from '../../../Components/AssinarModal';
 
-export default function Assinaturas({ pendentes, aguardando_outros, concluidas, assinadas, filtros = {}, sistemas_origem = [] }) {
+export default function Assinaturas({ pendentes, aguardando_outros, concluidas, assinadas, filtros = {}, sistemas_origem = [], tipos_documentais = [], pastas = [] }) {
     // Retro-compat: se backend antigo só mandar `assinadas`, usa ele como `concluidas`.
     const aguardandoData = aguardando_outros ?? { data: [], total: 0 };
     const concluidasData = concluidas ?? assinadas ?? { data: [], total: 0 };
@@ -106,7 +106,10 @@ export default function Assinaturas({ pendentes, aguardando_outros, concluidas, 
 
             {activeTab === 'concluidas' && (
                 <AssinadasView assinadas={concluidasData} filtrosIniciais={filtros}
-                               emptyText="Nenhum documento totalmente assinado." />
+                               emptyText="Nenhum documento totalmente assinado."
+                               permitirArquivar={true}
+                               tipos_documentais={tipos_documentais}
+                               pastas={pastas} />
             )}
 
             <AssinarModal assinatura={assinarModal} onClose={() => setAssinarModal(null)} />
@@ -115,7 +118,7 @@ export default function Assinaturas({ pendentes, aguardando_outros, concluidas, 
     );
 }
 
-function AssinadasView({ assinadas, filtrosIniciais, emptyText, showAguardandoBadge = false }) {
+function AssinadasView({ assinadas, filtrosIniciais, emptyText, showAguardandoBadge = false, permitirArquivar = false, tipos_documentais = [], pastas = [] }) {
     const items = assinadas?.data || (Array.isArray(assinadas) ? assinadas : []);
     const links = assinadas?.links || null;
 
@@ -123,6 +126,31 @@ function AssinadasView({ assinadas, filtrosIniciais, emptyText, showAguardandoBa
     const [tipo, setTipo]     = useState(filtrosIniciais?.tipo_filtro || '');
     const [dataDe, setDataDe] = useState(filtrosIniciais?.data_de || '');
     const [dataAte, setDataAte] = useState(filtrosIniciais?.data_ate || '');
+
+    // Selecao em lote (apenas quando permitirArquivar)
+    const [selecionados, setSelecionados] = useState(new Set());
+    const [arquivarTarget, setArquivarTarget] = useState(null); // {ids:[], docs:[]}
+
+    const toggleSel = (id) => {
+        const novo = new Set(selecionados);
+        novo.has(id) ? novo.delete(id) : novo.add(id);
+        setSelecionados(novo);
+    };
+    const toggleSelAll = () => {
+        if (selecionados.size === items.length) setSelecionados(new Set());
+        else setSelecionados(new Set(items.map(a => a.documento?.id).filter(Boolean)));
+    };
+
+    const abrirArquivarLote = () => {
+        const docs = items.filter(a => selecionados.has(a.documento?.id))
+                          .map(a => a.documento)
+                          .filter(Boolean);
+        if (docs.length === 0) return;
+        setArquivarTarget({ ids: docs.map(d => d.id), docs });
+    };
+    const abrirArquivarUm = (doc) => {
+        setArquivarTarget({ ids: [doc.id], docs: [doc] });
+    };
 
     const aplicar = (e) => {
         e?.preventDefault();
@@ -175,6 +203,36 @@ function AssinadasView({ assinadas, filtrosIniciais, emptyText, showAguardandoBa
                 </form>
             </div>
 
+            {/* Barra de selecao em lote (so quando permitirArquivar) */}
+            {permitirArquivar && items.length > 0 && (
+                <div className="bg-white rounded-xl border border-gray-200 px-4 py-2 mb-3 flex items-center justify-between gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
+                        <input type="checkbox"
+                            checked={selecionados.size === items.length && items.length > 0}
+                            ref={el => { if (el) el.indeterminate = selecionados.size > 0 && selecionados.size < items.length; }}
+                            onChange={toggleSelAll}
+                            className="rounded border-gray-300 text-blue-600" />
+                        {selecionados.size > 0
+                            ? <span><strong>{selecionados.size}</strong> selecionado(s)</span>
+                            : <span>Selecionar todos</span>
+                        }
+                    </label>
+                    {selecionados.size > 0 && (
+                        <div className="flex items-center gap-2">
+                            <button onClick={abrirArquivarLote}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                                <i className="fas fa-folder-plus mr-1" />
+                                Classificar e Arquivar ({selecionados.size})
+                            </button>
+                            <button onClick={() => setSelecionados(new Set())}
+                                className="text-xs text-gray-500 hover:text-gray-800">
+                                <i className="fas fa-times mr-1" />Limpar selecao
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
             <Card padding={false}>
                 {items.length === 0 ? (
                     <div className="py-12 text-center text-gray-400">
@@ -183,10 +241,25 @@ function AssinadasView({ assinadas, filtrosIniciais, emptyText, showAguardandoBa
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100">
-                        {items.map(a => <AssinadaRow key={a.id} a={a} showAguardandoBadge={showAguardandoBadge} />)}
+                        {items.map(a => <AssinadaRow key={a.id} a={a}
+                            showAguardandoBadge={showAguardandoBadge}
+                            permitirArquivar={permitirArquivar}
+                            selecionado={selecionados.has(a.documento?.id)}
+                            onToggleSel={() => toggleSel(a.documento?.id)}
+                            onArquivar={() => abrirArquivarUm(a.documento)} />)}
                     </div>
                 )}
             </Card>
+
+            {/* Modal Classificar e Arquivar */}
+            {arquivarTarget && (
+                <ClassificarArquivarModal
+                    target={arquivarTarget}
+                    tiposDocumentais={tipos_documentais}
+                    pastas={pastas}
+                    onClose={() => { setArquivarTarget(null); setSelecionados(new Set()); }}
+                />
+            )}
 
             {links && (
                 <div className="mt-3 flex justify-center gap-1 flex-wrap">
@@ -206,15 +279,19 @@ function AssinadasView({ assinadas, filtrosIniciais, emptyText, showAguardandoBa
     );
 }
 
-function AssinadaRow({ a, showAguardandoBadge = false }) {
+function AssinadaRow({ a, showAguardandoBadge = false, permitirArquivar = false, selecionado = false, onToggleSel, onArquivar }) {
     const ehQualificada = a.tipo_assinatura === 'qualificada';
     const dataFmt = a.assinado_em
         ? new Date(a.assinado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
         : '-';
 
     return (
-        <div className="px-5 py-4 hover:bg-gray-50 transition-colors">
+        <div className={`px-5 py-4 hover:bg-gray-50 transition-colors ${selecionado ? 'bg-blue-50/40' : ''}`}>
             <div className="flex items-start gap-3">
+                {permitirArquivar && (
+                    <input type="checkbox" checked={selecionado} onChange={onToggleSel}
+                        className="mt-3 rounded border-gray-300 text-blue-600 shrink-0" />
+                )}
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
                     ehQualificada ? 'bg-green-100' : 'bg-blue-100'
                 }`}>
@@ -285,6 +362,13 @@ function AssinadaRow({ a, showAguardandoBadge = false }) {
                             <i className="fas fa-flask" /> Simular restantes
                         </button>
                     )}
+                    {permitirArquivar && (
+                        <button onClick={onArquivar}
+                            className="text-[11px] px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center gap-1"
+                            title="Classificar e arquivar este documento em uma pasta">
+                            <i className="fas fa-folder-plus" /> Arquivar
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -296,6 +380,136 @@ function simularRestantes(assinaturaId) {
     router.post(`/assinaturas/${assinaturaId}/simular-restantes`, {}, {
         preserveScroll: true,
     });
+}
+
+function ClassificarArquivarModal({ target, tiposDocumentais = [], pastas = [], onClose }) {
+    const docs = target?.docs || [];
+    const ids = target?.ids || [];
+
+    // Quantos dos selecionados ainda nao tem tipo documental
+    const semTipo = docs.filter(d => ! d.tipo_documental_id).length;
+
+    // Hierarquia de pastas (filhos sob o pai)
+    const pastasTree = useMemo(() => {
+        const filhosPor = new Map();
+        (pastas || []).forEach(p => {
+            const pid = p.parent_id ?? null;
+            if (! filhosPor.has(pid)) filhosPor.set(pid, []);
+            filhosPor.get(pid).push(p);
+        });
+        for (const [, l] of filhosPor) l.sort((a, b) => a.nome.localeCompare(b.nome));
+        const out = [];
+        const visit = (pid, nivel) => {
+            for (const p of (filhosPor.get(pid) || [])) {
+                out.push({ ...p, nivel });
+                visit(p.id, nivel + 1);
+            }
+        };
+        visit(null, 0);
+        return out;
+    }, [pastas]);
+
+    const { data, setData, post, processing, errors } = useForm({
+        documento_ids:      ids,
+        tipo_documental_id: '',
+        pasta_id:           '',
+    });
+
+    const submit = (e) => {
+        e.preventDefault();
+        post('/assinaturas/classificar-arquivar', {
+            preserveScroll: true,
+            onSuccess: () => onClose(),
+        });
+    };
+
+    const pastaSel = pastasTree.find(p => String(p.id) === String(data.pasta_id));
+
+    return (
+        <Modal show={!! target} onClose={onClose}
+            title={ids.length === 1 ? 'Classificar e Arquivar' : `Classificar e Arquivar (${ids.length})`}>
+            <form onSubmit={submit} className="space-y-4">
+                {/* Lista de docs selecionados */}
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 max-h-32 overflow-y-auto">
+                    <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">Documentos ({ids.length})</p>
+                    <ul className="space-y-0.5">
+                        {docs.slice(0, 10).map(d => (
+                            <li key={d.id} className="text-xs text-gray-700 flex items-center gap-2">
+                                <i className="fas fa-file-pdf text-red-400 text-[10px]" />
+                                <span className="truncate">{d.nome}</span>
+                                {d.tipo_documental_id && (
+                                    <span className="text-[9px] px-1 rounded bg-blue-100 text-blue-700 ml-auto">com tipo</span>
+                                )}
+                            </li>
+                        ))}
+                        {docs.length > 10 && (
+                            <li className="text-[10px] text-gray-400 italic">...e mais {docs.length - 10} documento(s)</li>
+                        )}
+                    </ul>
+                </div>
+
+                {/* Tipo Documental — opcional ou obrigatorio dependendo do estado */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Tipo Documental
+                        {semTipo > 0 && <span className="text-amber-600 text-xs ml-1">({semTipo} sem tipo)</span>}
+                        {semTipo === 0 && <span className="text-gray-400 text-xs ml-1">(opcional — todos ja tem)</span>}
+                    </label>
+                    <select value={data.tipo_documental_id}
+                        onChange={(e) => setData('tipo_documental_id', e.target.value)}
+                        className="ds-input">
+                        <option value="">— {semTipo > 0 ? 'Selecione (sera aplicado nos sem tipo)' : 'Manter o existente'} —</option>
+                        {tiposDocumentais.map(t => (
+                            <option key={t.id} value={t.id}>{t.nome}</option>
+                        ))}
+                    </select>
+                    <p className="mt-1 text-[10px] text-gray-400">
+                        Documentos que ja tem tipo nao serao alterados. So preenche os que estao sem.
+                    </p>
+                    {errors.tipo_documental_id && <p className="mt-1 text-xs text-red-600">{errors.tipo_documental_id}</p>}
+                </div>
+
+                {/* Pasta */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Pasta de destino <span className="text-red-500">*</span>
+                    </label>
+                    {pastasTree.length === 0 ? (
+                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                            Nenhuma pasta cadastrada. Crie no Repositorio antes de arquivar.
+                        </p>
+                    ) : (
+                        <>
+                            <select value={data.pasta_id}
+                                onChange={(e) => setData('pasta_id', e.target.value)}
+                                className="ds-input">
+                                <option value="">— Selecione a pasta —</option>
+                                {pastasTree.map(p => (
+                                    <option key={p.id} value={p.id}>
+                                        {'— '.repeat(p.nivel)}{p.nome}{p.descricao ? ` — ${p.descricao}` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            {pastaSel?.descricao && (
+                                <p className="mt-1 text-[11px] text-gray-500 italic">
+                                    <i className="fas fa-info-circle mr-1" />{pastaSel.descricao}
+                                </p>
+                            )}
+                        </>
+                    )}
+                    {errors.pasta_id && <p className="mt-1 text-xs text-red-600">{errors.pasta_id}</p>}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                    <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
+                    <Button type="submit" loading={processing} icon="fas fa-folder-plus"
+                        disabled={! data.pasta_id || pastasTree.length === 0}>
+                        Arquivar {ids.length > 1 ? `${ids.length} docs` : ''}
+                    </Button>
+                </div>
+            </form>
+        </Modal>
+    );
 }
 
 function PendenteRow({ a, onAssinar, onRecusar }) {
