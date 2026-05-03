@@ -104,6 +104,7 @@ Route::middleware('auth')->group(function () {
 
     // Documentos
     Route::resource('documentos', DocumentoController::class)->except(['create', 'edit']);
+    Route::post('documentos/mover-pasta', [DocumentoController::class, 'moverPasta'])->name('documentos.mover-pasta');
     Route::get('documentos/{id}/download', [DocumentoController::class, 'download'])->name('documentos.download');
     Route::get('documentos/{id}/preview', [DocumentoController::class, 'preview'])->name('documentos.preview');
     Route::post('documentos/{id}/favorito', [DocumentoController::class, 'toggleFavorito'])->name('documentos.favorito');

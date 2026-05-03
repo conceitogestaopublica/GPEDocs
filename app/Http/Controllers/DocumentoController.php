@@ -228,6 +228,51 @@ class DocumentoController extends Controller
         }
     }
 
+    /**
+     * Move um ou varios documentos para uma pasta (ou para a raiz, com pasta_id=null).
+     * Aceita lote via array de IDs.
+     */
+    public function moverPasta(Request $request)
+    {
+        $validated = $request->validate([
+            'documento_ids'   => ['required', 'array', 'min:1'],
+            'documento_ids.*' => ['integer', 'exists:ged_documentos,id'],
+            'pasta_id'        => ['nullable', 'integer', 'exists:ged_pastas,id'],
+        ]);
+
+        $pasta = null;
+        if ($validated['pasta_id']) {
+            $pasta = \DB::table('ged_pastas')->where('id', $validated['pasta_id'])->first();
+        }
+
+        $atualizados = 0;
+        $erros = [];
+
+        foreach ($validated['documento_ids'] as $docId) {
+            $doc = Documento::find($docId);
+            if (! $doc) {
+                $erros[] = "Documento #{$docId} nao encontrado.";
+                continue;
+            }
+            if ($pasta && $pasta->ug_id !== $doc->ug_id) {
+                $erros[] = "Documento {$doc->nome}: pasta nao pertence a UG.";
+                continue;
+            }
+            $doc->update(['pasta_id' => $validated['pasta_id'] ?? null]);
+            $atualizados++;
+        }
+
+        $destino = $pasta?->nome ?: 'Raiz';
+        $msg = $atualizados === 1
+            ? "1 documento movido para \"{$destino}\"."
+            : "{$atualizados} documentos movidos para \"{$destino}\".";
+
+        if (! empty($erros)) {
+            return redirect()->back()->with('warning', $msg . ' Avisos: ' . implode(' ', $erros));
+        }
+        return redirect()->back()->with('success', $msg);
+    }
+
     public function download($id, Request $request)
     {
         $documento = Documento::with('versaoAtual')->findOrFail($id);

@@ -26,9 +26,31 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
     const [deletePasta, setDeletePasta] = useState(null);
     const [inativarPasta, setInativarPasta] = useState(null);
 
+    // Selecao em lote + modal mover
+    const [selecionados, setSelecionados] = useState(new Set());
+    const [moverTarget, setMoverTarget] = useState(null); // { ids: [], docs: [] }
+
     const docs = documentos?.data || documentos || [];
     const folders = pastas || [];
     const crumbs = breadcrumb || [];
+
+    const toggleSel = (id) => {
+        const novo = new Set(selecionados);
+        novo.has(id) ? novo.delete(id) : novo.add(id);
+        setSelecionados(novo);
+    };
+    const toggleSelAll = () => {
+        if (selecionados.size === docs.length) setSelecionados(new Set());
+        else setSelecionados(new Set(docs.map(d => d.id)));
+    };
+    const abrirMoverLote = () => {
+        const docsSelecionados = docs.filter(d => selecionados.has(d.id));
+        if (docsSelecionados.length === 0) return;
+        setMoverTarget({ ids: docsSelecionados.map(d => d.id), docs: docsSelecionados });
+    };
+    const abrirMoverUm = (doc) => {
+        setMoverTarget({ ids: [doc.id], docs: [doc] });
+    };
 
     const aplicarFiltros = (e) => {
         e?.preventDefault();
@@ -194,11 +216,48 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                             ))}
                         </div>
                     ) : (
+                        <>
+                        {/* Barra de selecao */}
+                        {docs.length > 0 && (
+                            <div className="bg-white rounded-xl border border-gray-200 px-4 py-2 mb-3 flex items-center justify-between gap-3">
+                                <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
+                                    <input type="checkbox"
+                                        checked={selecionados.size === docs.length && docs.length > 0}
+                                        ref={el => { if (el) el.indeterminate = selecionados.size > 0 && selecionados.size < docs.length; }}
+                                        onChange={toggleSelAll}
+                                        className="rounded border-gray-300 text-blue-600" />
+                                    {selecionados.size > 0
+                                        ? <span><strong>{selecionados.size}</strong> selecionado(s)</span>
+                                        : <span>Selecionar todos</span>
+                                    }
+                                </label>
+                                {selecionados.size > 0 && (
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={abrirMoverLote}
+                                            className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                                            <i className="fas fa-folder-tree mr-1" />
+                                            Mover para pasta ({selecionados.size})
+                                        </button>
+                                        <button onClick={() => setSelecionados(new Set())}
+                                            className="text-xs text-gray-500 hover:text-gray-800">
+                                            <i className="fas fa-times mr-1" />Limpar
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead className="bg-gray-50 text-gray-500 uppercase text-[10px]">
                                         <tr>
+                                            <th className="px-3 py-2.5 w-8">
+                                                <input type="checkbox"
+                                                    checked={selecionados.size === docs.length && docs.length > 0}
+                                                    ref={el => { if (el) el.indeterminate = selecionados.size > 0 && selecionados.size < docs.length; }}
+                                                    onChange={toggleSelAll}
+                                                    className="rounded border-gray-300 text-blue-600" />
+                                            </th>
                                             <th className="px-3 py-2.5 text-left font-semibold">Nome</th>
                                             <th className="px-3 py-2.5 text-left font-semibold">Tipo</th>
                                             {! pasta_atual && (
@@ -209,12 +268,17 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                                             <th className="px-3 py-2.5 text-left font-semibold">Status</th>
                                             <th className="px-3 py-2.5 text-left font-semibold">Criado em</th>
                                             <th className="px-3 py-2.5 text-left font-semibold">Modificado</th>
-                                            <th className="px-3 py-2.5 text-center font-semibold w-32">Acoes</th>
+                                            <th className="px-3 py-2.5 text-center font-semibold w-40">Acoes</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
                                         {docs.map(doc => (
-                                            <tr key={doc.id} className="hover:bg-gray-50">
+                                            <tr key={doc.id} className={`hover:bg-gray-50 ${selecionados.has(doc.id) ? 'bg-blue-50/40' : ''}`}>
+                                                <td className="px-3 py-2.5">
+                                                    <input type="checkbox" checked={selecionados.has(doc.id)}
+                                                        onChange={() => toggleSel(doc.id)}
+                                                        className="rounded border-gray-300 text-blue-600" />
+                                                </td>
                                                 <td className="px-3 py-2.5">
                                                     <Link href={`/documentos/${doc.id}`} className="flex items-center gap-2 text-gray-700 hover:text-blue-600 group">
                                                         <i className={`${getFileIcon(doc.mime_type)} shrink-0`} />
@@ -252,6 +316,11 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                                                             title="Abrir">
                                                             <i className="fas fa-eye" />
                                                         </Link>
+                                                        <button onClick={() => abrirMoverUm(doc)}
+                                                            className="text-[11px] px-2 py-1 rounded bg-white border border-amber-300 text-amber-700 hover:bg-amber-50"
+                                                            title="Mover para outra pasta">
+                                                            <i className="fas fa-folder-tree" />
+                                                        </button>
                                                         <a href={`/documentos/${doc.id}/download`}
                                                             className="text-[11px] px-2 py-1 rounded bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
                                                             title="Baixar">
@@ -276,6 +345,7 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                                 </div>
                             )}
                         </div>
+                        </>
                     )}
 
                     {/* Pagination */}
@@ -296,6 +366,12 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
             <RenameFolderModal pasta={renamePasta} onClose={() => setRenamePasta(null)} />
             <DeleteFolderModal pasta={deletePasta} onClose={() => setDeletePasta(null)} />
             <InativarFolderModal pasta={inativarPasta} onClose={() => setInativarPasta(null)} />
+
+            {/* Modal: Mover para pasta */}
+            {moverTarget && (
+                <MoverPastaModal target={moverTarget} pastas={folders}
+                    onClose={() => { setMoverTarget(null); setSelecionados(new Set()); }} />
+            )}
         </AdminLayout>
     );
 }
@@ -448,6 +524,105 @@ function FolderItem({ folder, currentPastaId, level, onRename, onDelete, onInati
                     onRename={onRename} onDelete={onDelete} onInativar={onInativar} />
             ))}
         </div>
+    );
+}
+
+/* ── Modal: Mover para outra pasta (lote ou individual) ── */
+function MoverPastaModal({ target, pastas = [], onClose }) {
+    const docs = target?.docs || [];
+    const ids = target?.ids || [];
+
+    // Hierarquia
+    const pastasTree = (() => {
+        const filhosPor = new Map();
+        pastas.forEach(p => {
+            const pid = p.parent_id ?? null;
+            if (! filhosPor.has(pid)) filhosPor.set(pid, []);
+            filhosPor.get(pid).push(p);
+        });
+        for (const [, l] of filhosPor) l.sort((a, b) => a.nome.localeCompare(b.nome));
+        const out = [];
+        const visit = (pid, nivel) => {
+            for (const p of (filhosPor.get(pid) || [])) {
+                out.push({ ...p, nivel });
+                visit(p.id, nivel + 1);
+            }
+        };
+        visit(null, 0);
+        return out;
+    })();
+
+    const { data, setData, post, processing, errors } = useForm({
+        documento_ids: ids,
+        pasta_id:      '',
+    });
+
+    const submit = (e) => {
+        e.preventDefault();
+        post('/documentos/mover-pasta', {
+            preserveScroll: true,
+            onSuccess: () => onClose(),
+        });
+    };
+
+    const pastaSel = pastasTree.find(p => String(p.id) === String(data.pasta_id));
+
+    return (
+        <Modal show={!! target} onClose={onClose}
+            title={ids.length === 1 ? 'Mover para pasta' : `Mover para pasta (${ids.length})`}>
+            <form onSubmit={submit} className="space-y-4">
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 max-h-32 overflow-y-auto">
+                    <p className="text-[10px] uppercase font-semibold text-gray-500 mb-1">
+                        Documentos ({ids.length})
+                    </p>
+                    <ul className="space-y-0.5">
+                        {docs.slice(0, 10).map(d => (
+                            <li key={d.id} className="text-xs text-gray-700 flex items-center gap-2">
+                                <i className={`${getFileIcon(d.mime_type)} text-[10px]`} />
+                                <span className="truncate">{d.nome}</span>
+                                {d.pasta_nome && (
+                                    <span className="text-[9px] text-gray-400 ml-auto whitespace-nowrap">
+                                        agora em {d.pasta_nome}
+                                    </span>
+                                )}
+                            </li>
+                        ))}
+                        {docs.length > 10 && (
+                            <li className="text-[10px] text-gray-400 italic">...e mais {docs.length - 10}</li>
+                        )}
+                    </ul>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Mover para <span className="text-red-500">*</span>
+                    </label>
+                    <select value={data.pasta_id}
+                        onChange={(e) => setData('pasta_id', e.target.value)}
+                        className="ds-input">
+                        <option value="">— Raiz (sem pasta) —</option>
+                        {pastasTree.map(p => (
+                            <option key={p.id} value={p.id}>
+                                {'— '.repeat(p.nivel)}{p.nome}{p.descricao ? ` — ${p.descricao}` : ''}
+                            </option>
+                        ))}
+                    </select>
+                    {pastaSel?.descricao && (
+                        <p className="mt-1 text-[11px] text-gray-500 italic">
+                            <i className="fas fa-info-circle mr-1" />{pastaSel.descricao}
+                        </p>
+                    )}
+                    {errors.pasta_id && <p className="mt-1 text-xs text-red-600">{errors.pasta_id}</p>}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                    <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
+                    <Button type="submit" loading={processing} icon="fas fa-folder-tree">
+                        Mover {ids.length > 1 ? `${ids.length} docs` : ''}
+                    </Button>
+                </div>
+            </form>
+        </Modal>
     );
 }
 
