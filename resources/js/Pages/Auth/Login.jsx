@@ -3,12 +3,31 @@
  * Layout estilo GPE Cloud: form a esquerda, imagem a direita
  */
 import { Head, useForm } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
+
+const PROMO_IMAGES = [
+    '/images/login/promo-1.png',
+    '/images/login/promo-2.png',
+    '/images/login/promo-3.png',
+];
+const PROMO_INTERVAL_MS = 6000;
 
 export default function Login() {
     const { data, setData, post, processing, errors } = useForm({
         email: '',
         password: '',
     });
+
+    const [promoIdx, setPromoIdx] = useState(0);
+    const [paused, setPaused] = useState(false);
+
+    useEffect(() => {
+        if (paused) return;
+        const id = setInterval(() => {
+            setPromoIdx((i) => (i + 1) % PROMO_IMAGES.length);
+        }, PROMO_INTERVAL_MS);
+        return () => clearInterval(id);
+    }, [paused]);
 
     const submit = (e) => {
         e.preventDefault();
@@ -113,15 +132,34 @@ export default function Login() {
                     </small>
                 </div>
 
-                {/* COLUNA DIREITA - Imagem/Conteudo */}
+                {/* COLUNA DIREITA - Carrossel promocional (cartao centralizado) */}
                 <div className="hidden lg:flex w-full lg:w-7/12 bg-gray-50 items-center justify-center p-8">
-                    <div className="text-center max-w-2xl">
-                        {/* Placeholder para imagem futura */}
-                        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-3xl p-12 shadow-xl">
-                            <i className="fas fa-image text-6xl text-blue-300 mb-4 block" />
-                            <h2 className="text-2xl font-bold text-gray-700 mb-2">Plataforma Digital Integrada</h2>
-                            <p className="text-gray-500">Espaço reservado para imagem promocional</p>
-                            <p className="text-xs text-gray-400 mt-4">A definir...</p>
+                    <div
+                        className="relative w-full max-w-3xl aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-blue-50 to-indigo-100"
+                        onMouseEnter={() => setPaused(true)}
+                        onMouseLeave={() => setPaused(false)}
+                    >
+                        {PROMO_IMAGES.map((src, i) => (
+                            <img
+                                key={src}
+                                src={src}
+                                alt={`GPE Docs - cena ${i + 1}`}
+                                loading={i === 0 ? 'eager' : 'lazy'}
+                                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${i === promoIdx ? 'opacity-100' : 'opacity-0'}`}
+                            />
+                        ))}
+
+                        {/* Indicadores */}
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                            {PROMO_IMAGES.map((_, i) => (
+                                <button
+                                    key={i}
+                                    type="button"
+                                    onClick={() => setPromoIdx(i)}
+                                    aria-label={`Imagem ${i + 1}`}
+                                    className={`h-2 rounded-full transition-all ${i === promoIdx ? 'w-8 bg-white' : 'w-2 bg-white/60 hover:bg-white/80'}`}
+                                />
+                            ))}
                         </div>
                     </div>
                 </div>
