@@ -1,12 +1,4 @@
-# Assinatura Digital no GED
-
-Manual técnico-operacional do módulo de assinatura eletrônica do GED.
-Cobre os três níveis previstos pela **Lei 14.063/2020** (Simples,
-Avançada conceitualmente, e Qualificada ICP-Brasil), o fluxo de
-validação independente e a operação da truststore.
-
----
-
+onde
 ## 1. Base legal
 
 | Lei 14.063/2020 | Tipo | Mecanismo | Implementado |
