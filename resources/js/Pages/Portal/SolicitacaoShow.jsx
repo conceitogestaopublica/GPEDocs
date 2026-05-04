@@ -23,7 +23,7 @@ const TIPO_ICONE = {
 
 const STATUS_FINAIS = ['atendida', 'recusada', 'cancelada'];
 
-export default function SolicitacaoShow({ ug, solicitacao, anexos = [], statusList }) {
+export default function SolicitacaoShow({ ug, solicitacao, anexos = [], decisaoPdf = null, statusList }) {
     const cancelar = () => {
         if (! confirm('Cancelar esta solicitacao? Esta acao nao pode ser desfeita.')) return;
         router.post(`/minhas-solicitacoes/${solicitacao.id}/cancelar`);
@@ -68,7 +68,7 @@ export default function SolicitacaoShow({ ug, solicitacao, anexos = [], statusLi
                     </div>
 
                     {/* Resposta do atendente */}
-                    {(solicitacao.resposta || anexos.length > 0) && (
+                    {(solicitacao.resposta || anexos.length > 0 || decisaoPdf) && (
                         <div className="bg-white rounded-2xl border border-gray-200 p-6">
                             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
                                 <i className="fas fa-reply text-blue-600" />
@@ -87,6 +87,44 @@ export default function SolicitacaoShow({ ug, solicitacao, anexos = [], statusLi
                                             )}
                                         </p>
                                     )}
+                                </div>
+                            )}
+
+                            {decisaoPdf && (
+                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                                        <i className="fas fa-file-signature mr-1" /> Documento oficial da decisao
+                                    </p>
+                                    <a href={`/minhas-solicitacoes/${solicitacao.id}/decisao`} target="_blank" rel="noreferrer"
+                                        className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-colors group
+                                            ${decisaoPdf.assinado
+                                                ? 'border-green-300 bg-green-50 hover:bg-green-100'
+                                                : 'border-amber-300 bg-amber-50 hover:bg-amber-100'}`}>
+                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0
+                                            ${decisaoPdf.assinado ? 'bg-green-200 text-green-700' : 'bg-amber-200 text-amber-700'}`}>
+                                            <i className="fas fa-file-pdf text-xl" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-gray-800">
+                                                Decisao — {decisaoPdf.numero}
+                                            </p>
+                                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                {decisaoPdf.assinado ? (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-0.5 bg-green-200 text-green-800 rounded-full font-bold">
+                                                        <i className="fas fa-shield-alt" /> Assinado digitalmente — ICP-Brasil
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 bg-amber-200 text-amber-800 rounded-full font-bold">
+                                                        Aguardando assinatura
+                                                    </span>
+                                                )}
+                                                {decisaoPdf.tamanho && (
+                                                    <span className="text-xs text-gray-500">{(decisaoPdf.tamanho / 1024).toFixed(0)} KB</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <i className="fas fa-download text-gray-400 group-hover:text-gray-600 text-lg" />
+                                    </a>
                                 </div>
                             )}
 

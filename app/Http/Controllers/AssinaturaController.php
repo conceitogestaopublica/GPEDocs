@@ -356,6 +356,11 @@ class AssinaturaController extends Controller
                 'solicitacao_id' => $solicitacao->id,
             ],
         ]);
+
+        // Se este processo veio do Portal do Cidadao, agora que o documento foi assinado,
+        // notifica o cidadao com o PDF assinado em anexo (Lei 14.063/2020).
+        app(\App\Services\SincronizarPortalCidadaoService::class)
+            ->sincronizar($processo->fresh(), $processo->decisao, $processo->observacao_conclusao, true);
     }
 
     /**

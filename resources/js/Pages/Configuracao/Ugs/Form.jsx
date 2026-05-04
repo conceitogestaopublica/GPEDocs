@@ -1,7 +1,7 @@
 /**
  * Cadastro de Unidade Gestora — tela dedicada (padrao "wizard com resumo lateral")
  */
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import CadastroLayout, { CadastroSecao } from '../../../Components/CadastroLayout';
@@ -27,6 +27,13 @@ export default function UgForm({ ug }) {
         site:                ug?.site || '',
         brasao:              null, // arquivo novo (File) — opcional
         remover_brasao:      false,
+        banner:              null,
+        remover_banner:      false,
+        banner_titulo:       ug?.banner_titulo || '',
+        banner_subtitulo:    ug?.banner_subtitulo || '',
+        banner_link_url:     ug?.banner_link_url || '',
+        banner_link_label:   ug?.banner_link_label || '',
+        banner_ativo:        ug?.banner_ativo ?? true,
         nivel_1_label: ug?.nivel_1_label || 'Órgão',
         nivel_2_label: ug?.nivel_2_label || 'Unidade',
         nivel_3_label: ug?.nivel_3_label || 'Setor',
@@ -34,6 +41,7 @@ export default function UgForm({ ug }) {
     });
 
     const [brasaoPreview, setBrasaoPreview] = useState(null);
+    const [bannerPreview, setBannerPreview] = useState(null);
 
     const handleBrasaoChange = (e) => {
         const file = e.target.files?.[0] ?? null;
@@ -44,6 +52,18 @@ export default function UgForm({ ug }) {
             reader.readAsDataURL(file);
         } else {
             setBrasaoPreview(null);
+        }
+    };
+
+    const handleBannerChange = (e) => {
+        const file = e.target.files?.[0] ?? null;
+        setData(d => ({ ...d, banner: file, remover_banner: false }));
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = ev => setBannerPreview(ev.target.result);
+            reader.readAsDataURL(file);
+        } else {
+            setBannerPreview(null);
         }
     };
 
@@ -61,6 +81,8 @@ export default function UgForm({ ug }) {
         Object.entries(data).forEach(([k, v]) => {
             if (k === 'brasao') {
                 if (v instanceof File) fd.append('brasao', v);
+            } else if (k === 'banner') {
+                if (v instanceof File) fd.append('banner', v);
             } else if (typeof v === 'boolean') {
                 fd.append(k, v ? '1' : '0');
             } else if (v !== null && v !== undefined) {
@@ -206,7 +228,7 @@ export default function UgForm({ ug }) {
                             )}
                         </div>
                         <div className="flex-1 space-y-2">
-                            <label className="block text-xs font-medium text-gray-700">Enviar imagem (PNG ou JPG, recomendado &lt; 200KB)</label>
+                            <label className="block text-xs font-medium text-gray-700">Enviar imagem (PNG ou JPG, ate 5MB)</label>
                             <input type="file" accept="image/png,image/jpeg,image/jpg"
                                 onChange={handleBrasaoChange}
                                 className="block w-full text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
@@ -226,6 +248,29 @@ export default function UgForm({ ug }) {
                         </div>
                     </div>
                 </CadastroSecao>
+
+                {isEdit && (
+                    <CadastroSecao
+                        icone="fa-bullhorn"
+                        titulo="Banners do Portal do Cidadao"
+                        descricao="Carrossel de imagens promocionais na home do portal"
+                    >
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-4">
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shrink-0">
+                                <i className="fas fa-images text-xl" />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm font-bold text-gray-800">Gerenciar banners</p>
+                                <p className="text-xs text-gray-600">Adicione, edite, reordene e ative/desative os banners do carrossel.</p>
+                            </div>
+                            <Link href={`/configuracoes/ugs/${ug.id}/banners`}
+                                className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
+                                Abrir
+                                <i className="fas fa-arrow-right ml-2 text-xs" />
+                            </Link>
+                        </div>
+                    </CadastroSecao>
+                )}
 
                 <CadastroSecao
                     icone="fa-phone"

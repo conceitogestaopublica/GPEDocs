@@ -2,7 +2,61 @@
  * Portal — Home da Carta de Servicos de uma UG.
  */
 import { Head, Link, usePage } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 import PortalLayout from '../../Layouts/PortalLayout';
+
+function BannerCarrossel({ banners }) {
+    const [idx, setIdx] = useState(0);
+    const [paused, setPaused] = useState(false);
+    const total = banners.length;
+
+    useEffect(() => {
+        if (paused || total <= 1) return;
+        const id = setInterval(() => setIdx(i => (i + 1) % total), 6000);
+        return () => clearInterval(id);
+    }, [paused, total]);
+
+    return (
+        <div
+            className="relative rounded-2xl overflow-hidden shadow-lg"
+            style={{ aspectRatio: '5 / 1', minHeight: '160px' }}
+            onMouseEnter={() => setPaused(true)}
+            onMouseLeave={() => setPaused(false)}
+        >
+            {banners.map((b, i) => (
+                <div key={b.id}
+                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${i === idx ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
+                    <img src={b.imagem} alt={b.titulo || `Banner ${i + 1}`} className="absolute inset-0 w-full h-full object-cover" loading={i === 0 ? 'eager' : 'lazy'} />
+                    {(b.titulo || b.subtitulo || b.link_url) && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent flex items-center">
+                            <div className="px-6 lg:px-10 max-w-2xl text-white">
+                                {b.titulo && <h2 className="text-2xl lg:text-3xl font-bold drop-shadow-lg">{b.titulo}</h2>}
+                                {b.subtitulo && <p className="text-sm lg:text-base text-white/90 mt-2 drop-shadow">{b.subtitulo}</p>}
+                                {b.link_url && (
+                                    <a href={b.link_url} target="_blank" rel="noreferrer"
+                                        className="inline-block mt-4 px-5 py-2.5 rounded-xl bg-white text-blue-700 font-bold text-sm hover:bg-blue-50 transition-colors shadow-md">
+                                        {b.link_label || 'Saiba mais'}
+                                        <i className="fas fa-arrow-right ml-2 text-xs" />
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            ))}
+
+            {total > 1 && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+                    {banners.map((_, i) => (
+                        <button key={i} type="button" onClick={() => setIdx(i)}
+                            aria-label={`Banner ${i + 1}`}
+                            className={`h-2 rounded-full transition-all shadow-md ${i === idx ? 'w-8 bg-white' : 'w-2 bg-white/60 hover:bg-white/90'}`} />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
 
 const COR_BG = {
     red:    'from-red-500 to-rose-600',
@@ -31,6 +85,12 @@ export default function PortalHome({ ug, categorias, maisAcessados, totalServico
     return (
         <PortalLayout ug={ug}>
             <Head title={`${ug.nome} — Carta de Servicos`} />
+
+            {ug?.banners?.length > 0 && (
+                <div className="mb-8 -mt-4">
+                    <BannerCarrossel banners={ug.banners} />
+                </div>
+            )}
 
             {cidadao && totalMinhas > 0 && (
                 <div className="mb-8">

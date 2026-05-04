@@ -49,6 +49,15 @@
                 </tr>
             </table>
 
+            @if ($temPdfAssinado ?? false)
+                <div style="background:#dcfce7; border:1px solid #86efac; border-radius:8px; padding:12px 16px; margin-top:16px; font-size:13px; color:#166534;">
+                    <strong><i>📎 Documento assinado digitalmente em anexo</i></strong>
+                    <p style="margin:4px 0 0; font-size:12px; color:#15803d;">
+                        A decisao foi assinada com certificado digital ICP-Brasil (Lei 14.063/2020) e esta anexa a este e-mail.
+                    </p>
+                </div>
+            @endif
+
             <div style="text-align:center; margin:24px 0 8px;">
                 <a href="{{ $urlPortal }}/minhas-solicitacoes/{{ $solicitacao->id }}"
                    style="display:inline-block; background:#2563eb; color:#fff; padding:12px 28px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:14px;">

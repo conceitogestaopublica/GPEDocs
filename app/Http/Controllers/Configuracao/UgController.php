@@ -31,8 +31,15 @@ class UgController extends Controller
             'telefone'            => ['nullable', 'string', 'max:50'],
             'email_institucional' => ['nullable', 'email', 'max:150'],
             'site'                => ['nullable', 'string', 'max:150'],
-            'brasao'              => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:2048'], // 2MB
+            'brasao'              => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:5120'], // 5MB
             'remover_brasao'      => ['nullable', 'boolean'],
+            'banner'              => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:10240'], // 10MB
+            'remover_banner'      => ['nullable', 'boolean'],
+            'banner_titulo'       => ['nullable', 'string', 'max:200'],
+            'banner_subtitulo'    => ['nullable', 'string'],
+            'banner_link_url'     => ['nullable', 'string', 'max:500'],
+            'banner_link_label'   => ['nullable', 'string', 'max:60'],
+            'banner_ativo'        => ['nullable', 'boolean'],
             'nivel_1_label'       => ['required', 'string', 'max:60'],
             'nivel_2_label'       => ['required', 'string', 'max:60'],
             'nivel_3_label'       => ['required', 'string', 'max:60'],
@@ -65,6 +72,9 @@ class UgController extends Controller
         $payload['brasao_url'] = $ug->brasao_path
             ? route('configuracoes.ug.brasao', ['id' => $ug->id])
             : null;
+        $payload['banner_url'] = $ug->banner_path
+            ? route('configuracoes.ug.banner', ['id' => $ug->id])
+            : null;
 
         return Inertia::render('Configuracao/Ugs/Form', ['ug' => $payload]);
     }
@@ -81,10 +91,16 @@ class UgController extends Controller
             $brasaoPath = $this->salvarBrasao($request->file('brasao'), $request->input('codigo'));
         }
 
+        $bannerPath = null;
+        if ($request->hasFile('banner')) {
+            $bannerPath = $this->salvarBanner($request->file('banner'), $request->input('codigo'));
+        }
+
         $dados = collect($validated)
-            ->except(['brasao', 'remover_brasao'])
+            ->except(['brasao', 'remover_brasao', 'banner', 'remover_banner'])
             ->all();
         $dados['brasao_path'] = $brasaoPath;
+        $dados['banner_path'] = $bannerPath;
         $dados['ativo'] = true;
 
         Ug::create($dados);
@@ -100,7 +116,7 @@ class UgController extends Controller
             + $this->regrasComuns($ug->id);
         $validated = $request->validate($rules);
 
-        $dados = collect($validated)->except(['brasao', 'remover_brasao'])->all();
+        $dados = collect($validated)->except(['brasao', 'remover_brasao', 'banner', 'remover_banner'])->all();
 
         // Remover brasao
         if ($request->boolean('remover_brasao') && $ug->brasao_path) {
@@ -114,6 +130,20 @@ class UgController extends Controller
                 Storage::disk('documentos')->delete($ug->brasao_path);
             }
             $dados['brasao_path'] = $this->salvarBrasao($request->file('brasao'), $request->input('codigo'));
+        }
+
+        // Remover banner
+        if ($request->boolean('remover_banner') && $ug->banner_path) {
+            Storage::disk('documentos')->delete($ug->banner_path);
+            $dados['banner_path'] = null;
+        }
+
+        // Novo banner (substitui o anterior)
+        if ($request->hasFile('banner')) {
+            if ($ug->banner_path) {
+                Storage::disk('documentos')->delete($ug->banner_path);
+            }
+            $dados['banner_path'] = $this->salvarBanner($request->file('banner'), $request->input('codigo'));
         }
 
         $ug->update($dados);
@@ -167,6 +197,30 @@ class UgController extends Controller
         $slug = $codigo ? preg_replace('/[^a-z0-9]/', '-', strtolower($codigo)) : uniqid();
         $ext = $file->getClientOriginalExtension();
         $path = 'brasoes/' . $slug . '-' . substr(md5(uniqid()), 0, 6) . '.' . $ext;
+        Storage::disk('documentos')->put($path, file_get_contents($file->getRealPath()));
+        return $path;
+    }
+
+    /**
+     * Serve o banner do portal cidadao como imagem (privado, no admin).
+     * O banner publico no portal e servido via PortalController@banner.
+     */
+    public function banner($id)
+    {
+        $ug = Ug::findOrFail($id);
+
+        if (! $ug->banner_path || ! Storage::disk('documentos')->exists($ug->banner_path)) {
+            abort(404);
+        }
+
+        return Storage::disk('documentos')->response($ug->banner_path);
+    }
+
+    private function salvarBanner(\Illuminate\Http\UploadedFile $file, ?string $codigo): string
+    {
+        $slug = $codigo ? preg_replace('/[^a-z0-9]/', '-', strtolower($codigo)) : uniqid();
+        $ext = $file->getClientOriginalExtension();
+        $path = 'banners/' . $slug . '-' . substr(md5(uniqid()), 0, 6) . '.' . $ext;
         Storage::disk('documentos')->put($path, file_get_contents($file->getRealPath()));
         return $path;
     }

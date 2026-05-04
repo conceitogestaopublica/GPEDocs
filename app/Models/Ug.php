@@ -31,6 +31,12 @@ class Ug extends Model
         'ativo',
         'observacoes',
         'brasao_path',
+        'banner_path',
+        'banner_titulo',
+        'banner_subtitulo',
+        'banner_link_url',
+        'banner_link_label',
+        'banner_ativo',
         'telefone',
         'email_institucional',
         'site',
@@ -39,7 +45,8 @@ class Ug extends Model
     protected function casts(): array
     {
         return [
-            'ativo' => 'boolean',
+            'ativo'        => 'boolean',
+            'banner_ativo' => 'boolean',
         ];
     }
 

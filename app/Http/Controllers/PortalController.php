@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Portal\Banner;
 use App\Models\Portal\CategoriaServico;
 use App\Models\Portal\Servico;
 use App\Models\Portal\Solicitacao;
@@ -206,6 +207,29 @@ class PortalController extends Controller
         return Storage::disk('documentos')->response($ugModel->brasao_path);
     }
 
+    public function banner(string $ug, int $id)
+    {
+        $ugModel = $this->resolverUg($ug);
+        if ($ugModel->id !== $id || ! $ugModel->banner_path || ! Storage::disk('documentos')->exists($ugModel->banner_path)) {
+            abort(404);
+        }
+        return Storage::disk('documentos')->response($ugModel->banner_path);
+    }
+
+    /**
+     * Serve a imagem de um banner do carrossel (portal_banners).
+     * Verifica que o banner pertence a UG do subdominio atual.
+     */
+    public function bannerImagem(string $ug, int $id)
+    {
+        $ugModel = $this->resolverUg($ug);
+        $banner = Banner::where('ug_id', $ugModel->id)->where('ativo', true)->find($id);
+        if (! $banner || ! Storage::disk('documentos')->exists($banner->imagem_path)) {
+            abort(404);
+        }
+        return Storage::disk('documentos')->response($banner->imagem_path);
+    }
+
     private function resolverUg(string $slug): Ug
     {
         return Ug::query()
@@ -216,6 +240,22 @@ class PortalController extends Controller
 
     private function ugPublica(Ug $ug): array
     {
+        $banners = Banner::where('ug_id', $ug->id)
+            ->where('ativo', true)
+            ->orderBy('ordem')
+            ->orderBy('id')
+            ->get(['id', 'titulo', 'subtitulo', 'link_url', 'link_label'])
+            ->map(fn ($b) => [
+                'id'         => $b->id,
+                'imagem'     => "/_banner-img/{$b->id}",
+                'titulo'     => $b->titulo,
+                'subtitulo'  => $b->subtitulo,
+                'link_url'   => $b->link_url,
+                'link_label' => $b->link_label,
+            ])
+            ->values()
+            ->all();
+
         return [
             'id'       => $ug->id,
             'codigo'   => $ug->codigo,
@@ -227,6 +267,7 @@ class PortalController extends Controller
             'site'     => $ug->site,
             'email'    => $ug->email_institucional,
             'telefone' => $ug->telefone,
+            'banners'  => $banners,
         ];
     }
 }

@@ -43,12 +43,17 @@ class CartaServicosController extends Controller
             ->orderBy('nome')
             ->get();
 
+        // Organograma e multi-tenant: so mostra setores da UG ativa
+        $ugAtual = session('ug_id');
+
         $setores = UgOrganograma::query()
+            ->when($ugAtual, fn ($q) => $q->where('ug_id', $ugAtual))
             ->where('ativo', true)
             ->orderBy('nivel')
             ->orderBy('nome')
             ->get(['id', 'nome', 'nivel']);
 
+        // TipoProcesso e global (sem ug_id) — todas UGs compartilham
         $tiposProcesso = TipoProcesso::query()
             ->where('ativo', true)
             ->orderBy('nome')

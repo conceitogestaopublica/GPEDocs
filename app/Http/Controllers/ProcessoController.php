@@ -7,9 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Assinatura;
 use App\Models\Documento;
 use App\Models\Notificacao;
-use App\Mail\NotificacaoSolicitacaoCidadao;
 use App\Models\Portal\Solicitacao as PortalSolicitacao;
-use App\Models\Portal\SolicitacaoEvento as PortalEvento;
 use App\Models\Processo\Processo;
 use App\Models\Processo\ProcessoAnexo;
 use App\Models\Processo\ProcessoHistorico;
@@ -508,8 +506,13 @@ class ProcessoController extends Controller
                 'user_agent' => $request->userAgent(),
             ]);
 
-            // Sincroniza com Portal Cidadao (se este processo veio de uma solicitacao)
-            $this->sincronizarSolicitacaoPortal($processo, $decisao, $request->input('observacao_conclusao'));
+            // Sincroniza com Portal Cidadao (se este processo veio de uma solicitacao).
+            // Quando exige assinatura ICP-Brasil, NAO sincroniza agora — espera ate a assinatura
+            // ser concluida (AssinaturaController@finalizarProcessoSeVinculado dispara o sync).
+            if (! $exigeAssinatura) {
+                app(\App\Services\SincronizarPortalCidadaoService::class)
+                    ->sincronizar($processo->refresh(), $decisao, $request->input('observacao_conclusao'), false);
+            }
 
             DB::commit();
 
@@ -652,59 +655,4 @@ class ProcessoController extends Controller
         }
     }
 
-    /**
-     * Quando um processo originado do Portal Cidadao for decidido/arquivado,
-     * atualiza a solicitacao vinculada e dispara email para o cidadao.
-     */
-    private function sincronizarSolicitacaoPortal(Processo $processo, ?string $decisao, ?string $observacao): void
-    {
-        $solicitacao = PortalSolicitacao::query()->withoutGlobalScope('ug')
-            ->where('processo_id', $processo->id)
-            ->with(['servico', 'cidadao', 'ug'])
-            ->first();
-
-        if (! $solicitacao) {
-            return;
-        }
-
-        $statusAnterior = $solicitacao->status;
-        $statusNovo = match ($decisao) {
-            'deferido', 'parcial'  => 'atendida',
-            'indeferido'           => 'recusada',
-            'arquivado'            => 'cancelada',
-            default                => 'atendida',
-        };
-
-        $solicitacao->update([
-            'status'        => $statusNovo,
-            'atendente_id'  => Auth::id(),
-            'resposta'      => $observacao,
-            'respondida_em' => now(),
-        ]);
-
-        $autor = User::find(Auth::id());
-        PortalEvento::create([
-            'solicitacao_id'  => $solicitacao->id,
-            'tipo'            => $statusNovo === 'atendida' ? 'atendida' : ($statusNovo === 'recusada' ? 'recusada' : 'status_alterado'),
-            'autor_tipo'      => 'atendente',
-            'autor_nome'      => $autor?->name ?? 'Sistema',
-            'autor_user_id'   => Auth::id(),
-            'status_anterior' => $statusAnterior,
-            'status_novo'     => $statusNovo,
-            'mensagem'        => "Decisao no GPE Flow ({$decisao}): ".($observacao ?: '(sem parecer)'),
-        ]);
-
-        // Email — so para solicitacoes identificadas
-        if (! $solicitacao->anonima) {
-            $email = $solicitacao->email_contato ?? $solicitacao->cidadao?->email;
-            if ($email) {
-                Mail::to($email)->send(new NotificacaoSolicitacaoCidadao(
-                    $solicitacao->fresh(),
-                    $solicitacao->servico,
-                    $solicitacao->ug,
-                    'status_alterado'
-                ));
-            }
-        }
-    }
 }

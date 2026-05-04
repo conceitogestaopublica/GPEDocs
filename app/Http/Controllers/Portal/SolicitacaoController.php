@@ -168,20 +168,114 @@ class SolicitacaoController extends Controller
 
         // Anexos do processo vinculado (resposta do servidor) — visivel ao cidadao
         $anexos = collect();
+        $decisaoPdf = null;
         if ($solicitacao->processo_id) {
             $anexos = ProcessoAnexo::query()
                 ->withoutGlobalScope('ug')
                 ->where('processo_id', $solicitacao->processo_id)
                 ->orderByDesc('id')
                 ->get(['id', 'nome', 'tamanho', 'mime_type', 'created_at']);
+
+            // PDF da decisao: prefere o ARQUIVO ASSINADO (em ged_assinaturas.arquivo_assinado_path)
+            // Se ainda nao foi assinado, mostra o PDF original (versao 1) com aviso de "Aguardando".
+            $processo = \App\Models\Processo\Processo::query()->withoutGlobalScope('ug')
+                ->find($solicitacao->processo_id, ['id', 'numero_protocolo', 'documento_decisao_id', 'status']);
+            if ($processo && $processo->documento_decisao_id) {
+                $assinaturaAssinada = \App\Models\Assinatura::query()
+                    ->where('documento_id', $processo->documento_decisao_id)
+                    ->where('status', 'assinado')
+                    ->whereNotNull('arquivo_assinado_path')
+                    ->orderByDesc('assinado_em')
+                    ->first(['id', 'arquivo_assinado_path', 'assinado_em']);
+
+                if ($assinaturaAssinada && \Illuminate\Support\Facades\Storage::disk('documentos')->exists($assinaturaAssinada->arquivo_assinado_path)) {
+                    $decisaoPdf = [
+                        'numero'      => $processo->numero_protocolo,
+                        'tamanho'     => \Illuminate\Support\Facades\Storage::disk('documentos')->size($assinaturaAssinada->arquivo_assinado_path),
+                        'criado_em'   => $assinaturaAssinada->assinado_em,
+                        'assinado'    => true,
+                    ];
+                } else {
+                    $versaoAtual = \App\Models\Versao::query()
+                        ->where('documento_id', $processo->documento_decisao_id)
+                        ->orderByDesc('versao')
+                        ->first(['id', 'versao', 'tamanho', 'created_at']);
+                    if ($versaoAtual) {
+                        $decisaoPdf = [
+                            'numero'    => $processo->numero_protocolo,
+                            'tamanho'   => $versaoAtual->tamanho,
+                            'criado_em' => $versaoAtual->created_at,
+                            'assinado'  => false,
+                        ];
+                    }
+                }
+            }
         }
 
         return Inertia::render('Portal/SolicitacaoShow', [
             'ug'          => $this->ugPublica($ugModel),
             'solicitacao' => $solicitacao,
             'anexos'      => $anexos,
+            'decisaoPdf'  => $decisaoPdf,
             'statusList'  => Solicitacao::STATUS,
         ]);
+    }
+
+    /**
+     * Download do PDF da decisao (versao mais recente — assinada se ja foi).
+     * Acessivel apenas pelo cidadao dono da solicitacao.
+     */
+    public function baixarDecisao(Request $request, string $ug, int $id)
+    {
+        $ugModel = $this->resolverUg($ug);
+        $cidadao = Auth::guard('cidadao')->user();
+
+        $solicitacao = Solicitacao::query()->withoutGlobalScope('ug')
+            ->where('ug_id', $ugModel->id)
+            ->where('cidadao_id', $cidadao->id)
+            ->where('id', $id)
+            ->firstOrFail(['id', 'codigo', 'processo_id']);
+
+        if (! $solicitacao->processo_id) {
+            abort(404);
+        }
+
+        $processo = \App\Models\Processo\Processo::query()->withoutGlobalScope('ug')
+            ->find($solicitacao->processo_id, ['id', 'documento_decisao_id', 'numero_protocolo']);
+
+        if (! $processo?->documento_decisao_id) {
+            abort(404);
+        }
+
+        // Prefere o PDF ASSINADO (ged_assinaturas.arquivo_assinado_path); fallback pro original
+        $assinada = \App\Models\Assinatura::query()
+            ->where('documento_id', $processo->documento_decisao_id)
+            ->where('status', 'assinado')
+            ->whereNotNull('arquivo_assinado_path')
+            ->orderByDesc('assinado_em')
+            ->first();
+
+        $path = null;
+        $sufixo = '';
+        if ($assinada && Storage::disk('documentos')->exists($assinada->arquivo_assinado_path)) {
+            $path = $assinada->arquivo_assinado_path;
+            $sufixo = '-assinado';
+        } else {
+            $versao = \App\Models\Versao::query()
+                ->where('documento_id', $processo->documento_decisao_id)
+                ->orderByDesc('versao')
+                ->first();
+            if ($versao && Storage::disk('documentos')->exists($versao->arquivo_path)) {
+                $path = $versao->arquivo_path;
+            }
+        }
+
+        if (! $path) {
+            abort(404);
+        }
+
+        $nome = 'decisao-'.str_replace(['/', '\\'], '-', $processo->numero_protocolo).$sufixo.'.pdf';
+        return Storage::disk('documentos')->download($path, $nome);
     }
 
     /**

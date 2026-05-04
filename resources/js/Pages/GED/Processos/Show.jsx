@@ -900,9 +900,10 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                 Indeferir e responder direto
                                             </Button>
                                             <div className="w-full border-t border-gray-200 my-2" />
-                                            <p className="text-[11px] text-gray-500 w-full">
-                                                Ou siga o fluxo formal com assinatura digital ICP-Brasil:
-                                            </p>
+                                            <div className="w-full bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[11px] text-amber-800">
+                                                <p className="font-semibold"><i className="fas fa-info-circle mr-1" /> Fluxo formal (Lei 14.063/2020):</p>
+                                                <p className="mt-0.5">O cidadao sera notificado <strong>somente apos a assinatura digital</strong> ser concluida, com o PDF assinado em anexo no email.</p>
+                                            </div>
                                         </>
                                     ) : null}
                                     <Button type="button" variant={solicitacao_portal ? "secondary" : "success"} icon="fas fa-check-circle"

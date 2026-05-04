@@ -83,6 +83,8 @@ Route::domain(config('portal.domain'))->name('portal.')->group(function () {
     Route::get('/categoria/{slug}',  [\App\Http\Controllers\PortalController::class, 'categoria'])->name('categoria');
     Route::get('/servico/{slug}',    [\App\Http\Controllers\PortalController::class, 'servico'])->name('servico');
     Route::get('/_brasao/{id}',      [\App\Http\Controllers\PortalController::class, 'brasao'])->name('brasao');
+    Route::get('/_banner/{id}',      [\App\Http\Controllers\PortalController::class, 'banner'])->name('banner');
+    Route::get('/_banner-img/{id}',  [\App\Http\Controllers\PortalController::class, 'bannerImagem'])->name('banner-img');
 
     // Auth do cidadao
     Route::get('/cadastrar',         [\App\Http\Controllers\Portal\CidadaoAuthController::class, 'showRegister'])->name('cadastrar');
@@ -102,6 +104,7 @@ Route::domain(config('portal.domain'))->name('portal.')->group(function () {
         Route::get('/minhas-solicitacoes/{id}',  [\App\Http\Controllers\Portal\SolicitacaoController::class, 'show'])->name('solicitacao-show');
         Route::post('/minhas-solicitacoes/{id}/cancelar', [\App\Http\Controllers\Portal\SolicitacaoController::class, 'cancelar'])->name('solicitacao-cancelar');
         Route::get('/anexo/{anexoId}',           [\App\Http\Controllers\Portal\SolicitacaoController::class, 'baixarAnexo'])->name('anexo');
+        Route::get('/minhas-solicitacoes/{id}/decisao', [\App\Http\Controllers\Portal\SolicitacaoController::class, 'baixarDecisao'])->name('decisao');
     });
 });
 
@@ -175,6 +178,15 @@ Route::middleware('auth')->group(function () {
         Route::resource('ugs', \App\Http\Controllers\Configuracao\UgController::class)->except(['show']);
         Route::post('ugs/{id}/toggle-ativo', [\App\Http\Controllers\Configuracao\UgController::class, 'toggleAtivo'])->name('ugs.toggle-ativo');
         Route::get('ugs/{id}/brasao', [\App\Http\Controllers\Configuracao\UgController::class, 'brasao'])->name('ug.brasao');
+        Route::get('ugs/{id}/banner', [\App\Http\Controllers\Configuracao\UgController::class, 'banner'])->name('ug.banner');
+
+        // Banners do Portal Cidadao (carrossel)
+        Route::get('ugs/{ug}/banners',                [\App\Http\Controllers\Configuracao\BannerPortalController::class, 'index'])->name('ug.banners.index');
+        Route::post('ugs/{ug}/banners',               [\App\Http\Controllers\Configuracao\BannerPortalController::class, 'store'])->name('ug.banners.store');
+        Route::put('ugs/{ug}/banners/{banner}',       [\App\Http\Controllers\Configuracao\BannerPortalController::class, 'update'])->name('ug.banners.update');
+        Route::delete('ugs/{ug}/banners/{banner}',    [\App\Http\Controllers\Configuracao\BannerPortalController::class, 'destroy'])->name('ug.banners.destroy');
+        Route::post('ugs/{ug}/banners/{banner}/move/{direcao}', [\App\Http\Controllers\Configuracao\BannerPortalController::class, 'move'])->name('ug.banners.move');
+        Route::get('ugs/{ug}/banners/{banner}/imagem', [\App\Http\Controllers\Configuracao\BannerPortalController::class, 'imagem'])->name('ug.banners.imagem');
 
         Route::get('ugs/{ug}/organograma', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'show'])->name('ugs.organograma');
         Route::post('ugs/{ug}/organograma/labels', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'updateLabels'])->name('ugs.organograma.labels');
