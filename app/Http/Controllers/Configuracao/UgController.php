@@ -14,9 +14,11 @@ use Inertia\Response;
 class UgController extends Controller
 {
     /** @var array<int,string> Regras comuns entre store e update (com excecao do unique do codigo) */
-    private function regrasComuns(): array
+    private function regrasComuns(?int $ignoreId = null): array
     {
+        $portalSlugUnique = 'unique:ugs,portal_slug'.($ignoreId ? ",{$ignoreId}" : '');
         return [
+            'portal_slug'         => ['nullable', 'string', 'max:80', 'regex:/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/', $portalSlugUnique],
             'nome'                => ['required', 'string', 'max:200'],
             'cnpj'                => ['nullable', 'string', 'max:18'],
             'cep'                 => ['nullable', 'string', 'max:9'],
@@ -72,6 +74,7 @@ class UgController extends Controller
         $rules = ['codigo' => ['required', 'string', 'max:20', 'unique:ugs,codigo']]
             + $this->regrasComuns();
         $validated = $request->validate($rules);
+        $validated['portal_slug'] = $validated['portal_slug'] ?? null;
 
         $brasaoPath = null;
         if ($request->hasFile('brasao')) {
@@ -94,7 +97,7 @@ class UgController extends Controller
         $ug = Ug::findOrFail($id);
 
         $rules = ['codigo' => ['required', 'string', 'max:20', 'unique:ugs,codigo,' . $ug->id]]
-            + $this->regrasComuns();
+            + $this->regrasComuns($ug->id);
         $validated = $request->validate($rules);
 
         $dados = collect($validated)->except(['brasao', 'remover_brasao'])->all();

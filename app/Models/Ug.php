@@ -14,6 +14,7 @@ class Ug extends Model
 
     protected $fillable = [
         'codigo',
+        'portal_slug',
         'legado_orgao_id',
         'nome',
         'cnpj',

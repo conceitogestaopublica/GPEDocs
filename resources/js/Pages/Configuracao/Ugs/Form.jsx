@@ -12,6 +12,7 @@ export default function UgForm({ ug }) {
 
     const { data, setData, post, processing, errors } = useForm({
         codigo:        ug?.codigo || '',
+        portal_slug:   ug?.portal_slug || '',
         nome:          ug?.nome || '',
         cnpj:          ug?.cnpj || '',
         cep:           ug?.cep || '',
@@ -125,11 +126,31 @@ export default function UgForm({ ug }) {
                             {errors.nome && <p className="mt-1 text-xs text-red-600">{errors.nome}</p>}
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">CNPJ</label>
-                        <input type="text" value={data.cnpj} onChange={(e) => setData('cnpj', e.target.value)}
-                            className="ds-input max-w-xs" maxLength={18} placeholder="00.000.000/0000-00" />
-                        {errors.cnpj && <p className="mt-1 text-xs text-red-600">{errors.cnpj}</p>}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">CNPJ</label>
+                            <input type="text" value={data.cnpj} onChange={(e) => setData('cnpj', e.target.value)}
+                                className="ds-input" maxLength={18} placeholder="00.000.000/0000-00" />
+                            {errors.cnpj && <p className="mt-1 text-xs text-red-600">{errors.cnpj}</p>}
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Subdominio do Portal Cidadao
+                            </label>
+                            <div className="flex items-center gap-1">
+                                <input
+                                    type="text"
+                                    value={data.portal_slug}
+                                    onChange={(e) => setData('portal_slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                                    className="ds-input flex-1 font-mono"
+                                    maxLength={80}
+                                    placeholder="ex: pmparaguacu"
+                                />
+                                <span className="text-xs text-gray-400 whitespace-nowrap">.gpedocs.com.br</span>
+                            </div>
+                            <p className="text-[11px] text-gray-400 mt-1">Endereco publico da Carta de Servicos. Letras minusculas, numeros e hifen.</p>
+                            {errors.portal_slug && <p className="mt-1 text-xs text-red-600">{errors.portal_slug}</p>}
+                        </div>
                     </div>
                 </CadastroSecao>
 

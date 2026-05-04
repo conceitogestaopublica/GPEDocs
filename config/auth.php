@@ -42,6 +42,10 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        'cidadao' => [
+            'driver' => 'session',
+            'provider' => 'cidadaos',
+        ],
     ],
 
     /*
@@ -66,11 +70,10 @@ return [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
         ],
-
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
+        'cidadaos' => [
+            'driver' => 'eloquent',
+            'model' => \App\Models\Portal\Cidadao::class,
+        ],
     ],
 
     /*

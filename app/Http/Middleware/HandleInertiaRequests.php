@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -43,6 +44,12 @@ class HandleInertiaRequests extends Middleware
             ],
             'notificacoes_pendentes' => $notificacoesPendentes,
             'tenant' => $tenant,
+            'cidadao' => Auth::guard('cidadao')->check() ? [
+                'id'       => Auth::guard('cidadao')->user()->id,
+                'nome'     => Auth::guard('cidadao')->user()->nome,
+                'email'    => Auth::guard('cidadao')->user()->email,
+                'telefone' => Auth::guard('cidadao')->user()->telefone,
+            ] : null,
         ]);
     }
 

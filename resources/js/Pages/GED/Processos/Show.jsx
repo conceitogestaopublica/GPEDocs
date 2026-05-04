@@ -63,7 +63,7 @@ const tabList = [
     { key: 'comentarios', label: 'Comentarios', icon: 'fas fa-comments' },
 ];
 
-export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [] }) {
+export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null }) {
     const proc = processo || {};
     const tramitacoes = proc.tramitacoes || [];
     const comentarios = proc.comentarios || [];
@@ -137,7 +137,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     const [acaoMode, setAcaoMode] = useState('encaminhar');
 
     // Form: Concluir / Decidir
-    const concluirForm = useForm({ observacao_conclusao: '', decisao: '' });
+    const concluirForm = useForm({ observacao_conclusao: '', decisao: '', anexo: null, pular_assinatura: false });
 
     // Form: Despachar
     const despacharForm = useForm({
@@ -172,13 +172,13 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     };
 
     // Decidir e Encerrar — usa /concluir passando decisao
-    const handleDecidir = (decisao) => {
+    const handleDecidir = (decisao, pularAssinatura = false) => {
         if (! concluirForm.data.observacao_conclusao.trim()) {
             alert('Informe a observacao/parecer da decisao.');
             return;
         }
-        concluirForm.setData('decisao', decisao);
-        concluirForm.transform((data) => ({ ...data, decisao }));
+        concluirForm.setData(d => ({ ...d, decisao, pular_assinatura: pularAssinatura }));
+        concluirForm.transform((data) => ({ ...data, decisao, pular_assinatura: pularAssinatura }));
         concluirForm.post(`/processos/${proc.id}/concluir`, {
             preserveScroll: true,
             onSuccess: () => concluirForm.reset(),
@@ -848,22 +848,87 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                         <p className="mt-1 text-xs text-red-600">{concluirForm.errors.observacao_conclusao}</p>
                                     )}
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Anexar documento <span className="text-gray-400 font-normal">(opcional, ate 50MB)</span>
+                                    </label>
+                                    {concluirForm.data.anexo ? (
+                                        <div className="flex items-center gap-2 p-2 bg-gray-50 border border-gray-200 rounded-lg">
+                                            <i className="fas fa-paperclip text-gray-400" />
+                                            <span className="text-sm text-gray-700 flex-1 truncate">{concluirForm.data.anexo.name}</span>
+                                            <span className="text-xs text-gray-400">{(concluirForm.data.anexo.size / 1024).toFixed(0)} KB</span>
+                                            <button type="button" onClick={() => concluirForm.setData('anexo', null)}
+                                                className="text-gray-400 hover:text-red-600">
+                                                <i className="fas fa-times" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-blue-300 hover:bg-blue-50 text-sm text-gray-500">
+                                            <i className="fas fa-paperclip" />
+                                            <span>Selecionar arquivo (PDF, imagem, etc)</span>
+                                            <input type="file" className="hidden"
+                                                onChange={(e) => concluirForm.setData('anexo', e.target.files?.[0] || null)} />
+                                        </label>
+                                    )}
+                                    {concluirForm.errors.anexo && (
+                                        <p className="mt-1 text-xs text-red-600">{concluirForm.errors.anexo}</p>
+                                    )}
+                                </div>
+                                {solicitacao_portal && (
+                                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                                        <p className="text-xs text-blue-900 font-bold mb-1 flex items-center gap-2">
+                                            <i className="fas fa-user-circle" />
+                                            Origem: Portal do Cidadao ({solicitacao_portal.codigo})
+                                        </p>
+                                        <p className="text-[11px] text-blue-700">
+                                            Voce pode <strong>responder direto ao cidadao</strong> (sem assinatura ICP-Brasil) ou seguir o fluxo formal com assinatura digital.
+                                        </p>
+                                    </div>
+                                )}
+
                                 <div className="flex flex-wrap items-center gap-2 pt-2">
-                                    <Button type="button" variant="success" icon="fas fa-check-circle"
+                                    {solicitacao_portal ? (
+                                        <>
+                                            <Button type="button" variant="success" icon="fas fa-paper-plane"
+                                                loading={concluirForm.processing}
+                                                onClick={() => handleDecidir('deferido', true)}>
+                                                Deferir e responder direto
+                                            </Button>
+                                            <Button type="button" variant="danger" icon="fas fa-times-circle"
+                                                loading={concluirForm.processing}
+                                                onClick={() => handleDecidir('indeferido', true)}>
+                                                Indeferir e responder direto
+                                            </Button>
+                                            <div className="w-full border-t border-gray-200 my-2" />
+                                            <p className="text-[11px] text-gray-500 w-full">
+                                                Ou siga o fluxo formal com assinatura digital ICP-Brasil:
+                                            </p>
+                                        </>
+                                    ) : null}
+                                    <Button type="button" variant={solicitacao_portal ? "secondary" : "success"} icon="fas fa-check-circle"
                                         loading={concluirForm.processing}
                                         onClick={() => handleDecidir('deferido')}>
-                                        Deferir
+                                        {solicitacao_portal ? 'Deferir e assinar' : 'Deferir'}
                                     </Button>
                                     <Button type="button" variant="warning" icon="fas fa-balance-scale"
                                         loading={concluirForm.processing}
                                         onClick={() => handleDecidir('parcial')}>
-                                        Deferir Parcial
+                                        {solicitacao_portal ? 'Deferir Parcial e assinar' : 'Deferir Parcial'}
                                     </Button>
-                                    <Button type="button" variant="danger" icon="fas fa-times-circle"
-                                        loading={concluirForm.processing}
-                                        onClick={() => handleDecidir('indeferido')}>
-                                        Indeferir
-                                    </Button>
+                                    {!solicitacao_portal && (
+                                        <Button type="button" variant="danger" icon="fas fa-times-circle"
+                                            loading={concluirForm.processing}
+                                            onClick={() => handleDecidir('indeferido')}>
+                                            Indeferir
+                                        </Button>
+                                    )}
+                                    {solicitacao_portal && (
+                                        <Button type="button" variant="danger" icon="fas fa-times-circle"
+                                            loading={concluirForm.processing}
+                                            onClick={() => handleDecidir('indeferido')}>
+                                            Indeferir e assinar
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
                         )}

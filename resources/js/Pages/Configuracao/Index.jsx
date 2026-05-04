@@ -30,6 +30,22 @@ const ATALHOS = [
         cor: 'from-slate-500 to-gray-700',
         corLight: 'bg-slate-50 text-slate-600',
     },
+    {
+        titulo: 'Carta de Servicos',
+        desc: 'Catalogo de servicos publicado no Portal do Cidadao',
+        icon: 'fas fa-clipboard-list',
+        href: '/configuracoes/carta-servicos',
+        cor: 'from-blue-500 to-indigo-600',
+        corLight: 'bg-blue-50 text-blue-600',
+    },
+    {
+        titulo: 'Solicitacoes do Portal',
+        desc: 'Atender pedidos feitos pelos cidadaos via Portal',
+        icon: 'fas fa-inbox',
+        href: '/configuracoes/solicitacoes-portal',
+        cor: 'from-indigo-500 to-purple-600',
+        corLight: 'bg-indigo-50 text-indigo-600',
+    },
 ];
 
 export default function Configuracoes() {

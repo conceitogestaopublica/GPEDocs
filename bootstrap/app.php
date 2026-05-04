@@ -18,7 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Aliases para uso em rotas
         $middleware->alias([
-            'sistema.api' => \App\Http\Middleware\AutenticaSistemaIntegrado::class,
+            'sistema.api'    => \App\Http\Middleware\AutenticaSistemaIntegrado::class,
+            'auth.cidadao'   => \App\Http\Middleware\AutenticarCidadao::class,
         ]);
 
         // API stateless: ignora CSRF nas rotas /api/integracoes/*

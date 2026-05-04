@@ -73,6 +73,38 @@ Route::prefix('api/integracoes')
             ->name('api.integracoes.documentos.reenviar-webhook');
     });
 
+// Portal Cidadao — Carta de Servicos (publico, sem auth)
+// Roteado por subdominio: ex. pmparaguacu.gpedocs.com.br (prod) ou pmparaguacu.lvh.me:8000 (dev)
+// O parametro {ug} vem do subdominio e bate com `portal_slug` da UG.
+Route::domain(config('portal.domain'))->name('portal.')->group(function () {
+    // Catalogo publico
+    Route::get('/',                  [\App\Http\Controllers\PortalController::class, 'home'])->name('home');
+    Route::get('/buscar',            [\App\Http\Controllers\PortalController::class, 'buscar'])->name('buscar');
+    Route::get('/categoria/{slug}',  [\App\Http\Controllers\PortalController::class, 'categoria'])->name('categoria');
+    Route::get('/servico/{slug}',    [\App\Http\Controllers\PortalController::class, 'servico'])->name('servico');
+    Route::get('/_brasao/{id}',      [\App\Http\Controllers\PortalController::class, 'brasao'])->name('brasao');
+
+    // Auth do cidadao
+    Route::get('/cadastrar',         [\App\Http\Controllers\Portal\CidadaoAuthController::class, 'showRegister'])->name('cadastrar');
+    Route::post('/cadastrar',        [\App\Http\Controllers\Portal\CidadaoAuthController::class, 'register']);
+    Route::get('/entrar',            [\App\Http\Controllers\Portal\CidadaoAuthController::class, 'showLogin'])->name('entrar');
+    Route::post('/entrar',           [\App\Http\Controllers\Portal\CidadaoAuthController::class, 'login']);
+    Route::post('/sair',             [\App\Http\Controllers\Portal\CidadaoAuthController::class, 'logout'])->name('sair');
+
+    // Solicitacao — abre publicamente; o controller decide se exige login
+    // (servicos com permite_anonimo aceitam denuncia anonima sem auth)
+    Route::get('/servico/{slug}/solicitar',  [\App\Http\Controllers\Portal\SolicitacaoController::class, 'create'])->name('solicitar');
+    Route::post('/servico/{slug}/solicitar', [\App\Http\Controllers\Portal\SolicitacaoController::class, 'store']);
+
+    // Acompanhamento — apenas cidadao logado
+    Route::middleware('auth.cidadao')->group(function () {
+        Route::get('/minhas-solicitacoes',       [\App\Http\Controllers\Portal\SolicitacaoController::class, 'minhasSolicitacoes'])->name('minhas-solicitacoes');
+        Route::get('/minhas-solicitacoes/{id}',  [\App\Http\Controllers\Portal\SolicitacaoController::class, 'show'])->name('solicitacao-show');
+        Route::post('/minhas-solicitacoes/{id}/cancelar', [\App\Http\Controllers\Portal\SolicitacaoController::class, 'cancelar'])->name('solicitacao-cancelar');
+        Route::get('/anexo/{anexoId}',           [\App\Http\Controllers\Portal\SolicitacaoController::class, 'baixarAnexo'])->name('anexo');
+    });
+});
+
 // Verificacao publica de documento (sem auth)
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
 
@@ -167,6 +199,26 @@ Route::middleware('auth')->group(function () {
             ->name('sistemas-integrados.reenviar-webhook');
         Route::post('sistemas-integrados/{id}/toggle-ativo', [\App\Http\Controllers\Configuracao\SistemaIntegradoController::class, 'toggleAtivo'])
             ->name('sistemas-integrados.toggle-ativo');
+
+        // Solicitacoes do Portal Cidadao (atendimento pelos servidores)
+        Route::prefix('solicitacoes-portal')->name('solicitacoes-portal.')->group(function () {
+            Route::get('/',                       [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'index'])->name('index');
+            Route::get('/{id}',                   [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'show'])->name('show');
+            Route::post('/{id}/status',           [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'alterarStatus'])->name('status');
+            Route::post('/{id}/comentar',         [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'comentar'])->name('comentar');
+        });
+
+        // Carta de Servicos (admin) — gestor da UG mantem catalogo publicado no /portal
+        Route::prefix('carta-servicos')->name('carta-servicos.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'index'])->name('index');
+            Route::post('categorias',           [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'storeCategoria'])->name('categorias.store');
+            Route::put('categorias/{id}',       [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'updateCategoria'])->name('categorias.update');
+            Route::delete('categorias/{id}',    [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'destroyCategoria'])->name('categorias.destroy');
+            Route::post('servicos',             [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'storeServico'])->name('servicos.store');
+            Route::put('servicos/{id}',         [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'updateServico'])->name('servicos.update');
+            Route::delete('servicos/{id}',      [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'destroyServico'])->name('servicos.destroy');
+            Route::post('servicos/{id}/toggle-publicado', [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'togglePublicado'])->name('servicos.toggle-publicado');
+        });
     });
 
     // Admin (apenas tipos documentais e tipos de processo permanecem aqui)

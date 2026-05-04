@@ -7,6 +7,9 @@ namespace App\Http\Controllers;
 use App\Models\Assinatura;
 use App\Models\Documento;
 use App\Models\Notificacao;
+use App\Mail\NotificacaoSolicitacaoCidadao;
+use App\Models\Portal\Solicitacao as PortalSolicitacao;
+use App\Models\Portal\SolicitacaoEvento as PortalEvento;
 use App\Models\Processo\Processo;
 use App\Models\Processo\ProcessoAnexo;
 use App\Models\Processo\ProcessoHistorico;
@@ -20,6 +23,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -345,6 +349,11 @@ class ProcessoController extends Controller
             ->orderBy('nome')
             ->get(['id', 'nome', 'parent_id', 'descricao']);
 
+        // Detecta se o processo veio do Portal do Cidadao (vinculado a uma solicitacao)
+        $solicitacaoPortal = PortalSolicitacao::query()->withoutGlobalScope('ug')
+            ->where('processo_id', $processo->id)
+            ->first(['id', 'codigo', 'cidadao_id', 'anonima', 'email_contato']);
+
         return Inertia::render('GED/Processos/Show', [
             'processo'             => $processo,
             'usuarios'             => $usuarios,
@@ -355,6 +364,7 @@ class ProcessoController extends Controller
             'assinatura_pendente'  => $assinaturaPendente,
             'decisao_assinada'     => $decisaoAssinada,
             'pastas'               => $pastas,
+            'solicitacao_portal'   => $solicitacaoPortal,
         ]);
     }
 
@@ -363,6 +373,8 @@ class ProcessoController extends Controller
         $request->validate([
             'observacao_conclusao' => ['nullable', 'string'],
             'decisao'              => ['nullable', 'string', 'in:deferido,indeferido,parcial,arquivado'],
+            'anexo'                => ['nullable', 'file', 'max:51200'],
+            'pular_assinatura'     => ['nullable', 'boolean'],
         ]);
 
         try {
@@ -370,7 +382,12 @@ class ProcessoController extends Controller
 
             $processo = Processo::with(['tipoProcesso', 'abertoPor', 'tramitacoes.remetente'])->findOrFail($id);
             $decisao = $request->input('decisao');
-            $exigeAssinatura = in_array($decisao, ['deferido', 'indeferido', 'parcial'], true);
+            $pularAssinatura = (bool) $request->input('pular_assinatura', false);
+            // So permite pular assinatura se processo for do Portal Cidadao (resposta informal)
+            if ($pularAssinatura && $processo->setor_origem !== 'Portal do Cidadao') {
+                $pularAssinatura = false;
+            }
+            $exigeAssinatura = in_array($decisao, ['deferido', 'indeferido', 'parcial'], true) && ! $pularAssinatura;
 
             // Decisoes formais (deferido/indeferido/parcial) ficam aguardando assinatura digital
             // (Lei 14.063/2020 art. 4 III). Arquivamento simples nao precisa.
@@ -463,6 +480,22 @@ class ProcessoController extends Controller
                 $processo->update(['solicitacao_assinatura_id' => $solicitacao->id]);
             }
 
+            // Anexo opcional do parecer (anexa ao processo)
+            if ($request->hasFile('anexo')) {
+                $file = $request->file('anexo');
+                $anexoPath = $file->store('processos', 'documentos');
+                ProcessoAnexo::create([
+                    'processo_id'   => $processo->id,
+                    'tramitacao_id' => $processo->etapa_atual_id,
+                    'nome'          => $file->getClientOriginalName(),
+                    'arquivo_path'  => $anexoPath,
+                    'tamanho'       => $file->getSize(),
+                    'mime_type'     => $file->getMimeType(),
+                    'hash_sha256'   => hash_file('sha256', $file->getRealPath()),
+                    'enviado_por'   => Auth::id(),
+                ]);
+            }
+
             ProcessoHistorico::create([
                 'processo_id' => $processo->id,
                 'usuario_id'  => Auth::id(),
@@ -475,11 +508,18 @@ class ProcessoController extends Controller
                 'user_agent' => $request->userAgent(),
             ]);
 
+            // Sincroniza com Portal Cidadao (se este processo veio de uma solicitacao)
+            $this->sincronizarSolicitacaoPortal($processo, $decisao, $request->input('observacao_conclusao'));
+
             DB::commit();
 
             if ($exigeAssinatura) {
                 return redirect()->back()->with('success',
                     'Decisao registrada. Para tornar oficial, assine digitalmente o documento de decisao (Lei 14.063/2020).');
+            }
+
+            if ($pularAssinatura) {
+                return redirect()->back()->with('success', 'Resposta enviada ao cidadao. Processo encerrado.');
             }
 
             return redirect()->back()->with('success', 'Processo arquivado.');
@@ -609,6 +649,62 @@ class ProcessoController extends Controller
             DB::rollBack();
 
             return redirect()->back()->with('error', 'Erro ao cancelar processo: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Quando um processo originado do Portal Cidadao for decidido/arquivado,
+     * atualiza a solicitacao vinculada e dispara email para o cidadao.
+     */
+    private function sincronizarSolicitacaoPortal(Processo $processo, ?string $decisao, ?string $observacao): void
+    {
+        $solicitacao = PortalSolicitacao::query()->withoutGlobalScope('ug')
+            ->where('processo_id', $processo->id)
+            ->with(['servico', 'cidadao', 'ug'])
+            ->first();
+
+        if (! $solicitacao) {
+            return;
+        }
+
+        $statusAnterior = $solicitacao->status;
+        $statusNovo = match ($decisao) {
+            'deferido', 'parcial'  => 'atendida',
+            'indeferido'           => 'recusada',
+            'arquivado'            => 'cancelada',
+            default                => 'atendida',
+        };
+
+        $solicitacao->update([
+            'status'        => $statusNovo,
+            'atendente_id'  => Auth::id(),
+            'resposta'      => $observacao,
+            'respondida_em' => now(),
+        ]);
+
+        $autor = User::find(Auth::id());
+        PortalEvento::create([
+            'solicitacao_id'  => $solicitacao->id,
+            'tipo'            => $statusNovo === 'atendida' ? 'atendida' : ($statusNovo === 'recusada' ? 'recusada' : 'status_alterado'),
+            'autor_tipo'      => 'atendente',
+            'autor_nome'      => $autor?->name ?? 'Sistema',
+            'autor_user_id'   => Auth::id(),
+            'status_anterior' => $statusAnterior,
+            'status_novo'     => $statusNovo,
+            'mensagem'        => "Decisao no GPE Flow ({$decisao}): ".($observacao ?: '(sem parecer)'),
+        ]);
+
+        // Email — so para solicitacoes identificadas
+        if (! $solicitacao->anonima) {
+            $email = $solicitacao->email_contato ?? $solicitacao->cidadao?->email;
+            if ($email) {
+                Mail::to($email)->send(new NotificacaoSolicitacaoCidadao(
+                    $solicitacao->fresh(),
+                    $solicitacao->servico,
+                    $solicitacao->ug,
+                    'status_alterado'
+                ));
+            }
         }
     }
 }
