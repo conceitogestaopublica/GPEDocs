@@ -64,6 +64,12 @@ class IntegracaoDocumentoController extends Controller
             'signatarios.*.cpf'   => ['required', 'string', 'min:11', 'max:14'],
             'signatarios.*.ordem' => ['nullable', 'integer', 'min:1'],
             'signatarios.*.email' => ['nullable', 'email', 'max:200'],
+            'signatarios.*.signature_position'        => ['nullable', 'array'],
+            'signatarios.*.signature_position.page'   => ['nullable', 'integer'],
+            'signatarios.*.signature_position.x'      => ['nullable', 'numeric'],
+            'signatarios.*.signature_position.y'      => ['nullable', 'numeric'],
+            'signatarios.*.signature_position.w'      => ['nullable', 'numeric'],
+            'signatarios.*.signature_position.h'      => ['nullable', 'numeric'],
             'callback_url'   => ['nullable', 'url', 'max:500'],
             'pasta_codigo'   => ['nullable', 'string', 'max:100'],
         ]);
@@ -122,6 +128,7 @@ class IntegracaoDocumentoController extends Controller
                 $assinaturasParaCriar[] = [
                     'user'  => $user,
                     'ordem' => $sig['ordem'] ?? ($idx + 1),
+                    'signature_position' => $sig['signature_position'] ?? null,
                 ];
             }
 
@@ -136,6 +143,8 @@ class IntegracaoDocumentoController extends Controller
             Storage::disk('documentos')->put($path, $pdfBytes);
 
             // 6. Cria Documento
+            // Status `em_assinatura` indica que o doc tem signatarios pre-estabelecidos
+            // pela integracao — nao precisa de etapa manual de "Solicitar Assinatura".
             $documento = Documento::create([
                 'ug_id'              => $ug->id,
                 'nome'               => $validated['nome'],
@@ -146,7 +155,7 @@ class IntegracaoDocumentoController extends Controller
                 'tamanho'            => strlen($pdfBytes),
                 'mime_type'          => 'application/pdf',
                 'autor_id'           => $assinaturasParaCriar[0]['user']->id,
-                'status'             => 'rascunho',
+                'status'             => 'em_assinatura',
                 'sistema_origem'     => $sistema->codigo,
                 'numero_externo'     => $validated['numero'],
                 'metadados_externos' => $validated['metadados'] ?? null,
@@ -175,12 +184,13 @@ class IntegracaoDocumentoController extends Controller
             $assinaturasResp = [];
             foreach ($assinaturasParaCriar as $a) {
                 $ass = Assinatura::create([
-                    'solicitacao_id'   => $solicitacao->id,
-                    'documento_id'     => $documento->id,
-                    'signatario_id'    => $a['user']->id,
-                    'ordem'            => $a['ordem'],
-                    'status'           => 'pendente',
-                    'email_signatario' => $a['user']->email,
+                    'solicitacao_id'     => $solicitacao->id,
+                    'documento_id'       => $documento->id,
+                    'signatario_id'      => $a['user']->id,
+                    'ordem'              => $a['ordem'],
+                    'status'             => 'pendente',
+                    'email_signatario'   => $a['user']->email,
+                    'signature_position' => $a['signature_position'] ?? null,
                 ]);
                 $assinaturasResp[] = [
                     'id'    => $ass->id,
@@ -227,8 +237,14 @@ class IntegracaoDocumentoController extends Controller
         $sistema = $request->attributes->get('sistema_integrado');
 
         $request->validate([
-            'pdf_base64' => ['required', 'string'],
-            'comentario' => ['nullable', 'string', 'max:500'],
+            'pdf_base64'          => ['required', 'string'],
+            'comentario'          => ['nullable', 'string', 'max:500'],
+            // Signatarios opcionais — se enviados, substituem os pendentes
+            'signatarios'         => ['nullable', 'array', 'min:1'],
+            'signatarios.*.cpf'   => ['required_with:signatarios', 'string', 'min:11', 'max:14'],
+            'signatarios.*.ordem' => ['nullable', 'integer', 'min:1'],
+            'signatarios.*.email' => ['nullable', 'email', 'max:200'],
+            'signatarios.*.signature_position' => ['nullable', 'array'],
         ]);
 
         $documento = Documento::with('versoes')
@@ -255,6 +271,8 @@ class IntegracaoDocumentoController extends Controller
             return response()->json(['erro' => 'pdf_base64 invalido.'], 422);
         }
 
+        $novosSigs = $request->input('signatarios', []);
+
         try {
             DB::beginTransaction();
 
@@ -278,13 +296,71 @@ class IntegracaoDocumentoController extends Controller
                 'tamanho'      => strlen($pdfBytes),
             ]);
 
+            // Substitui signatarios pendentes se o sistema externo enviou nova lista
+            $signatariosResp = [];
+            $substituidos = false;
+            if (! empty($novosSigs)) {
+                $solicitacao = $documento->solicitacoesAssinatura()
+                    ->whereIn('status', ['pendente', 'em_andamento'])
+                    ->latest('id')
+                    ->first();
+
+                if ($solicitacao) {
+                    // Apaga assinaturas pendentes (nao mexe nas ja assinadas — bloqueio acima garante que nao ha)
+                    \App\Models\Assinatura::where('solicitacao_id', $solicitacao->id)
+                        ->where('status', 'pendente')
+                        ->delete();
+
+                    // Resolve users e cria novas
+                    $assinaturasParaCriar = [];
+                    foreach ($novosSigs as $idx => $sig) {
+                        $cpf = preg_replace('/\D/', '', $sig['cpf']);
+                        $user = User::where('cpf', $cpf)->first();
+                        if (! $user) {
+                            $user = User::create([
+                                'name'     => 'Signatario ' . substr($cpf, 0, 3) . '...' . substr($cpf, -2),
+                                'email'    => $sig['email'] ?? "ext-{$cpf}@externo.local",
+                                'cpf'      => $cpf,
+                                'password' => bcrypt(Str::random(32)),
+                                'tipo'     => 'externo',
+                                'ug_id'    => $documento->ug_id,
+                            ]);
+                        }
+                        $assinaturasParaCriar[] = [
+                            'user'  => $user,
+                            'ordem' => $sig['ordem'] ?? ($idx + 1),
+                            'signature_position' => $sig['signature_position'] ?? null,
+                        ];
+                    }
+
+                    foreach ($assinaturasParaCriar as $a) {
+                        $ass = \App\Models\Assinatura::create([
+                            'solicitacao_id'     => $solicitacao->id,
+                            'documento_id'       => $documento->id,
+                            'signatario_id'      => $a['user']->id,
+                            'ordem'              => $a['ordem'],
+                            'status'             => 'pendente',
+                            'email_signatario'   => $a['user']->email,
+                            'signature_position' => $a['signature_position'] ?? null,
+                        ]);
+                        $signatariosResp[] = ['id' => $ass->id, 'cpf' => $a['user']->cpf, 'ordem' => $a['ordem']];
+                    }
+
+                    // Solicitacao pode voltar pra "pendente" (nenhuma assinatura ainda)
+                    $solicitacao->update(['status' => 'pendente']);
+                    $substituidos = true;
+                }
+            }
+
             DB::commit();
 
             return response()->json([
-                'numero_externo' => $documento->numero_externo,
-                'versao_atual'   => $proximaVersao,
-                'tamanho'        => strlen($pdfBytes),
-                'visualizacao_url' => url("/documentos/{$documento->id}"),
+                'numero_externo'           => $documento->numero_externo,
+                'versao_atual'             => $proximaVersao,
+                'tamanho'                  => strlen($pdfBytes),
+                'visualizacao_url'         => url("/documentos/{$documento->id}"),
+                'signatarios_substituidos' => $substituidos,
+                'signatarios'              => $signatariosResp,
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -375,5 +451,151 @@ class IntegracaoDocumentoController extends Controller
             'pdf_assinado_url'   => url("/documentos/{$documento->id}/download"),
             'visualizacao_url'   => url("/documentos/{$documento->id}"),
         ]);
+    }
+
+    /**
+     * GET /api/integracoes/documentos/{numero}/pdf-assinado
+     * Devolve o PDF cumulativamente assinado (com todas as assinaturas ICP
+     * embutidas em PAdES-BES). O arquivo fica em Assinatura.arquivo_assinado_path
+     * — pega-se da assinatura mais recente, que é a que contém todas anteriores.
+     * Bloqueia se ainda houver assinaturas pendentes.
+     */
+    public function downloadPdfAssinado(Request $request, string $numeroExterno)
+    {
+        $sistema = $request->attributes->get('sistema_integrado');
+
+        $documento = Documento::where('sistema_origem', $sistema->codigo)
+            ->where('numero_externo', $numeroExterno)
+            ->first();
+
+        if (! $documento) {
+            return response()->json(['erro' => 'Documento nao encontrado.'], 404);
+        }
+
+        if ($documento->status === 'cancelado') {
+            return response()->json([
+                'erro' => 'Documento cancelado. PDF assinado nao disponivel para download.',
+            ], 410); // 410 Gone — recurso intencionalmente removido
+        }
+
+        $solicitacao = $documento->solicitacoesAssinatura()->latest('id')->first();
+        $temPendente = $solicitacao
+            ? $solicitacao->assinaturas()->where('status', 'pendente')->exists()
+            : true;
+        if ($temPendente) {
+            return response()->json([
+                'erro' => 'Documento ainda tem assinaturas pendentes.',
+            ], 409);
+        }
+
+        // Pega o PDF cumulativamente assinado da ULTIMA assinatura
+        $ultimaAssinatura = \App\Models\Assinatura::where('documento_id', $documento->id)
+            ->where('status', 'assinado')
+            ->whereNotNull('arquivo_assinado_path')
+            ->orderByDesc('assinado_em')
+            ->first();
+
+        if (! $ultimaAssinatura) {
+            return response()->json([
+                'erro' => 'PDF assinado nao encontrado (assinaturas sem arquivo).',
+            ], 404);
+        }
+
+        $path = Storage::disk('documentos')->path($ultimaAssinatura->arquivo_assinado_path);
+        if (! is_file($path)) {
+            return response()->json([
+                'erro' => 'Arquivo assinado nao encontrado no storage: ' . $ultimaAssinatura->arquivo_assinado_path,
+            ], 404);
+        }
+
+        $filename = 'empenho-assinado-' . str_replace(['/', '\\'], '-', $numeroExterno) . '.pdf';
+        return response()->file($path, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+        ]);
+    }
+
+    /**
+     * POST /api/integracoes/documentos/{numero}/cancelar
+     *   Body: { "motivo": "Empenho editado/anulado em XYZ" }
+     *
+     * Marca o documento como cancelado, retira da pasta de arquivamento
+     * (caso ja tivesse sido arquivado), cancela solicitacoes ativas e mantem
+     * todo o historico de assinaturas + audit log preservado pra auditoria.
+     */
+    public function cancelar(Request $request, string $numeroExterno): JsonResponse
+    {
+        $sistema = $request->attributes->get('sistema_integrado');
+        $request->validate(['motivo' => ['required', 'string', 'max:1000']]);
+
+        $documento = Documento::where('sistema_origem', $sistema->codigo)
+            ->where('numero_externo', $numeroExterno)
+            ->first();
+
+        if (! $documento) {
+            return response()->json(['erro' => 'Documento nao encontrado.'], 404);
+        }
+
+        if ($documento->status === 'cancelado') {
+            return response()->json(['erro' => 'Documento ja esta cancelado.'], 409);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $pastaAnterior = $documento->pasta_id;
+            $statusAnterior = $documento->status;
+
+            // Cancela TODAS as solicitacoes do documento (inclusive 'concluida')
+            // pra que ele saia do fluxo de assinaturas/concluidas no GED.
+            // Assinaturas individuais já feitas (status='assinado') ficam preservadas.
+            $documento->solicitacoesAssinatura()
+                ->whereIn('status', ['pendente', 'em_andamento', 'concluida'])
+                ->update(['status' => 'cancelada']);
+
+            // Cancela assinaturas pendentes (signatarios que ainda nao assinaram)
+            \App\Models\Assinatura::whereIn('solicitacao_id',
+                    $documento->solicitacoesAssinatura()->pluck('id')
+                )
+                ->where('status', 'pendente')
+                ->update(['status' => 'cancelada']);
+
+            // Marca documento como cancelado e retira da pasta de arquivamento
+            $documento->update([
+                'status'   => 'cancelado',
+                'pasta_id' => null,
+            ]);
+
+            // Audit log com snapshot do estado anterior
+            \App\Models\AuditLog::create([
+                'documento_id' => $documento->id,
+                'usuario_id'   => null, // origem externa (sistema integrado)
+                'acao'         => 'cancelado_via_integracao',
+                'detalhes'     => [
+                    'sistema'           => $sistema->codigo,
+                    'motivo'            => $request->input('motivo'),
+                    'status_anterior'   => $statusAnterior,
+                    'pasta_anterior_id' => $pastaAnterior,
+                    'numero_externo'    => $numeroExterno,
+                ],
+                'ip'         => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'numero_externo' => $documento->numero_externo,
+                'status'         => 'cancelado',
+                'cancelado_em'   => now()->toIso8601String(),
+                'mensagem'       => 'Documento cancelado, retirado da pasta de arquivamento e auditado. Assinaturas e historico preservados.',
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'erro'    => 'Falha ao cancelar documento.',
+                'detalhe' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

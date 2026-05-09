@@ -282,6 +282,12 @@ class DocumentoController extends Controller
             return redirect()->back()->with('error', 'Arquivo nao encontrado.');
         }
 
+        if ($documento->status === 'cancelado') {
+            return redirect()->back()->with('error',
+                'Documento cancelado pela origem (sistema externo). Download nao disponivel.'
+            );
+        }
+
         // Quando ?original=1, ignora assinatura e retorna o PDF pre-assinatura
         $caminho = $request->boolean('original')
             ? $versao->arquivo_path

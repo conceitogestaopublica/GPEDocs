@@ -81,6 +81,8 @@ class AssinaturaIcpService
             local: $razao['local']   ?? 'Brasil',
             contato: $razao['contato'] ?? ($meta['subject_cn'] ?? ''),
             meta: $meta,
+            position: $razao['position'] ?? null,
+            previousStamps: $razao['previous_stamps'] ?? [],
         );
 
         // Persiste o resultado
@@ -160,6 +162,8 @@ class AssinaturaIcpService
         string $local,
         string $contato,
         array $meta = [],
+        ?array $position = null,
+        array $previousStamps = [],
     ): string {
         // signing_cert e private_key sao passados como PEM inline porque
         // openssl_pkcs7_sign no Windows com PHP 8.3 + OpenSSL 3 falha ao
@@ -189,9 +193,50 @@ class AssinaturaIcpService
                 $pdf->useTemplate($tplId);
             }
 
-            // Carimbo visual NA ultima pagina do documento original (rodape)
-            $pdf->setPage($totalPaginas);
-            $this->desenharCarimboAssinatura($pdf, $meta);
+            // Primeiro, redesenha carimbos das assinaturas ICP anteriores (visualmente
+            // — não preserva criptografia, que é trabalho do PAdES Part 2; mantemos
+            // o registro auditável no banco e nos PDFs anteriores). Cada uma na sua
+            // própria posição.
+            foreach ($previousStamps as $prev) {
+                if (empty($prev['position']) || empty($prev['meta'])) continue;
+                $pos = $prev['position'];
+                if (!isset($pos['x'], $pos['y'], $pos['w'], $pos['h'])) continue;
+                $pageAlvo = (int) ($pos['page'] ?? -1);
+                if ($pageAlvo === -1 || $pageAlvo > $totalPaginas) $pageAlvo = $totalPaginas;
+                if ($pageAlvo < 1) $pageAlvo = 1;
+                $pdf->setPage($pageAlvo);
+                // Usa data anterior em vez da data atual
+                $metaPrev = $prev['meta'];
+                if (!empty($prev['assinado_em'])) {
+                    $metaPrev['_data_override'] = $prev['assinado_em'];
+                }
+                $this->desenharCarimboAssinatura($pdf, $metaPrev, [
+                    'x' => (float) $pos['x'],
+                    'y' => (float) $pos['y'],
+                    'w' => (float) $pos['w'],
+                    'h' => (float) $pos['h'],
+                ]);
+            }
+
+            // Carimbo da assinatura ATUAL — usa posição customizada quando o sistema externo
+            // forneceu (signature_position por role); senão cai no padrão (rodapé última pág).
+            if ($position && isset($position['x'], $position['y'], $position['w'], $position['h'])) {
+                $pageAlvo = (int) ($position['page'] ?? -1);
+                if ($pageAlvo === -1 || $pageAlvo > $totalPaginas) {
+                    $pageAlvo = $totalPaginas;
+                }
+                if ($pageAlvo < 1) $pageAlvo = 1;
+                $pdf->setPage($pageAlvo);
+                $this->desenharCarimboAssinatura($pdf, $meta, [
+                    'x' => (float) $position['x'],
+                    'y' => (float) $position['y'],
+                    'w' => (float) $position['w'],
+                    'h' => (float) $position['h'],
+                ]);
+            } else {
+                $pdf->setPage($totalPaginas);
+                $this->desenharCarimboAssinatura($pdf, $meta);
+            }
 
             // Pagina extra de Termo de Assinatura (auditoria completa)
             $this->adicionarPaginaTermo($pdf, $meta, $razao, $local);
@@ -276,21 +321,32 @@ class AssinaturaIcpService
      * sistemas como FlowDocs / SEI / GPE Cloud aplicam visualmente. Vai no
      * canto inferior direito da pagina para nao poluir o conteudo.
      */
-    private function desenharCarimboAssinatura(Fpdi $pdf, array $meta): void
+    private function desenharCarimboAssinatura(Fpdi $pdf, array $meta, ?array $rect = null): void
     {
         $cn  = $meta['subject_cn']  ?? '?';
         $cpf = $meta['subject_cpf'] ?? null;
         $cpfFmt = $cpf ? $this->formatarCpf($cpf) : '';
         $serial = isset($meta['serial_number']) ? substr($meta['serial_number'], 0, 16) . '...' : '';
-        $timestamp = date('d/m/Y H:i:s');
+        // Permite override do timestamp quando estamos redesenhando carimbos
+        // de assinaturas anteriores (preserva o momento original de cada firma).
+        $timestamp = $meta['_data_override'] ?? date('d/m/Y H:i:s');
 
-        // Posicao no rodape (mm) — ajusta para nao bater com conteudo
-        $pageHeight = $pdf->getPageHeight();
-        $pageWidth  = $pdf->getPageWidth();
-        $largura = 75;
-        $altura  = 22;
-        $x = $pageWidth - $largura - 10;
-        $y = $pageHeight - $altura - 10;
+        // Posição: usa rect customizado quando fornecido (sistema externo definiu
+        // onde o carimbo deve ir, p.ex. dentro do quadro do ORDENADOR no empenho);
+        // senão cai no padrão (rodapé canto inferior direito da página atual).
+        if ($rect) {
+            $x = $rect['x'];
+            $y = $rect['y'];
+            $largura = $rect['w'];
+            $altura  = $rect['h'];
+        } else {
+            $pageHeight = $pdf->getPageHeight();
+            $pageWidth  = $pdf->getPageWidth();
+            $largura = 75;
+            $altura  = 22;
+            $x = $pageWidth - $largura - 10;
+            $y = $pageHeight - $altura - 10;
+        }
 
         // Caixa
         $pdf->SetDrawColor(30, 64, 175);    // azul ICP-Brasil

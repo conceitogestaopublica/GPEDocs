@@ -35,6 +35,7 @@ class Assinatura extends Model
         'versao_id',
         'motivo_recusa',
         'assinado_em',
+        'signature_position',
     ];
 
     protected function casts(): array
@@ -43,6 +44,7 @@ class Assinatura extends Model
             'assinado_em'          => 'datetime',
             'timestamp_assinatura' => 'datetime',
             'cadeia_certificados'  => 'array',
+            'signature_position'   => 'array',
         ];
     }
 

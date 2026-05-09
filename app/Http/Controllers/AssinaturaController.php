@@ -73,27 +73,33 @@ class AssinaturaController extends Controller
         };
 
         // Aguardando outros: eu assinei, mas a solicitação ainda tem outros pendentes.
+        // Exclui documentos cancelados (via integração externa, p.ex. quando o
+        // empenho de origem foi editado/anulado).
         $aguardandoOutros = $aplicarFiltrosAssinadas(
             Assinatura::with(['documento.tipoDocumental', 'solicitacao.solicitante', 'certificado'])
                 ->where('signatario_id', Auth::id())
                 ->where('status', 'assinado')
                 ->whereHas('solicitacao', fn ($q) => $q->whereIn('status', ['em_andamento', 'pendente']))
+                ->whereHas('documento', fn ($q) => $q->where('status', '!=', 'cancelado'))
         )
             ->orderByDesc('assinado_em')
             ->paginate(20, ['*'], 'aguardando_page')
             ->withQueryString();
 
         // Concluidas: a solicitação inteira foi finalizada (todos assinaram).
-        // Exclui documentos ja arquivados em pasta do GPE Docs (ciclo completo —
-        // ficam disponiveis para consulta historica em /repositorio).
+        // Exclui documentos arquivados (ciclo completo) e cancelados (invalidados
+        // por edição na origem). Cancelados nunca aparecem em nenhuma aba — fluxo
+        // de assinatura considerado morto pra fins operacionais (mas o histórico
+        // permanece em audit_logs e nas próprias assinaturas individuais).
         $concluidas = $aplicarFiltrosAssinadas(
             Assinatura::with(['documento.tipoDocumental', 'solicitacao.solicitante', 'certificado'])
                 ->where('signatario_id', Auth::id())
                 ->where('status', 'assinado')
                 ->whereHas('solicitacao', fn ($q) => $q->where('status', 'concluida'))
-                ->whereHas('documento', fn ($q) => $q->where(function ($q2) {
-                    $q2->where('status', '!=', 'arquivado')->orWhereNull('pasta_id');
-                }))
+                ->whereHas('documento', fn ($q) => $q
+                    ->where('status', '!=', 'cancelado')
+                    ->where(fn ($q2) => $q2->where('status', '!=', 'arquivado')->orWhereNull('pasta_id'))
+                )
         )
             ->orderByDesc('assinado_em')
             ->paginate(20)
@@ -536,7 +542,33 @@ class AssinaturaController extends Controller
             return redirect()->back()->with('error', 'Apenas arquivos PDF podem receber assinatura ICP-Brasil nesta versão.');
         }
 
-        $pfxBinary = (string) file_get_contents($request->file('pfx')->getRealPath());
+        $pfxFile = $request->file('pfx');
+        if (! $pfxFile || ! $pfxFile->isValid()) {
+            \Log::warning('Assinatura ICP: arquivo pfx inválido', [
+                'has_file'  => (bool) $pfxFile,
+                'valid'     => $pfxFile?->isValid(),
+                'error_code'=> $pfxFile?->getError(),
+            ]);
+            return redirect()->back()->with('error', 'Arquivo .pfx não foi recebido corretamente. Tente novamente.');
+        }
+        // Tenta primeiro getRealPath, fallback pra getPathname (Symfony preserva o pathname temp mesmo se realpath falhar).
+        $pfxPath = $pfxFile->getRealPath();
+        if ($pfxPath === false || ! is_file($pfxPath)) {
+            $pfxPath = $pfxFile->getPathname();
+        }
+        if (! $pfxPath || ! is_file($pfxPath)) {
+            \Log::warning('Assinatura ICP: caminho temp do pfx não acessível', [
+                'realpath' => $pfxFile->getRealPath(),
+                'pathname' => $pfxFile->getPathname(),
+                'size'     => $pfxFile->getSize(),
+                'origname' => $pfxFile->getClientOriginalName(),
+            ]);
+            return redirect()->back()->with('error', 'Não foi possível acessar o arquivo .pfx enviado. Tente novamente.');
+        }
+        $pfxBinary = (string) @file_get_contents($pfxPath);
+        if ($pfxBinary === '') {
+            return redirect()->back()->with('error', 'Arquivo .pfx vazio ou ilegível.');
+        }
         $senha     = (string) $request->input('senha');
 
         try {
@@ -576,15 +608,43 @@ class AssinaturaController extends Controller
                 $material['extracerts']
             );
 
+            // Coleta carimbos das assinaturas ICP já feitas (antes desta) para
+            // desenhá-los visualmente também — a versão livre do FPDI não
+            // preserva assinaturas criptográficas anteriores ao re-renderizar
+            // o PDF, mas pelo menos os carimbos VISUAIS permanecem.
+            $assinaturasAnteriores = Assinatura::with('certificado')
+                ->where('documento_id', $assinatura->documento_id)
+                ->where('id', '!=', $assinatura->id)
+                ->where('status', 'assinado')
+                ->where('tipo_assinatura', 'qualificada')
+                ->whereNotNull('signature_position')
+                ->orderBy('assinado_em')
+                ->get()
+                ->map(fn ($a) => [
+                    'position' => $a->signature_position,
+                    'meta'     => [
+                        'subject_cn'    => $a->certificado?->subject_cn ?? '',
+                        'subject_cpf'   => $a->cpf_signatario,
+                        'serial_number' => $a->certificado?->serial_number ?? '',
+                    ],
+                    'assinado_em' => optional($a->assinado_em)->format('d/m/Y H:i:s'),
+                ])->all();
+
             // 4) Gera PDF assinado em PAdES-BES
+            //    Se o sistema externo forneceu signature_position, usa-a pra
+            //    posicionar o carimbo visual no quadro de assinatura correto
+            //    (ex.: ORDENADOR/CONTADOR no empenho). Carimbos das assinaturas
+            //    anteriores também são desenhados pra evidenciar todas as firmas.
             $resultado = $assinaturaIcpService->assinarPdf(
                 $pdfAbsoluto,
                 $pfxBinary,
                 $senha,
                 [
-                    'razao'   => $request->input('razao', 'Assinatura Eletrônica Qualificada (Lei 14.063/2020)'),
-                    'local'   => $request->input('local', 'Brasil'),
-                    'contato' => $meta['subject_cn'],
+                    'razao'    => $request->input('razao', 'Assinatura Eletrônica Qualificada (Lei 14.063/2020)'),
+                    'local'    => $request->input('local', 'Brasil'),
+                    'contato'  => $meta['subject_cn'],
+                    'position' => $assinatura->signature_position,
+                    'previous_stamps' => $assinaturasAnteriores,
                 ]
             );
 
@@ -974,6 +1034,10 @@ class AssinaturaController extends Controller
             && $assinatura->solicitacao->solicitante_id !== Auth::id()
             && $assinatura->documento->autor_id !== Auth::id()) {
             abort(403);
+        }
+
+        if ($assinatura->documento->status === 'cancelado') {
+            abort(403, 'Documento cancelado pela origem. Download não disponível.');
         }
 
         if (! $assinatura->arquivo_assinado_path) {

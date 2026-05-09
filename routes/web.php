@@ -62,15 +62,25 @@ Route::prefix('api/integracoes')
     ->group(function () {
         Route::post('documentos', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'store'])
             ->name('api.integracoes.documentos.store');
-        Route::get('documentos/{numero}', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'show'])
-            ->where('numero', '.+')
-            ->name('api.integracoes.documentos.show');
+        // Rotas mais especificas vem ANTES da generica `documentos/{numero}` pra
+        // evitar que a regex `.+` engula segmentos (ex.: `1-2026-2770-r2/pdf-assinado`).
+        // Tambem restringimos `numero` a `[^/]+` (sem barras) — nosso formato e
+        // gestoraId-exercicio-numero[-rN], sempre com hifens.
         Route::post('documentos/{numero}/versao', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'novaVersao'])
-            ->where('numero', '.+')
+            ->where('numero', '[^/]+')
             ->name('api.integracoes.documentos.versao');
         Route::post('documentos/{numero}/reenviar-webhook', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'reenviarWebhook'])
-            ->where('numero', '.+')
+            ->where('numero', '[^/]+')
             ->name('api.integracoes.documentos.reenviar-webhook');
+        Route::get('documentos/{numero}/pdf-assinado', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'downloadPdfAssinado'])
+            ->where('numero', '[^/]+')
+            ->name('api.integracoes.documentos.pdf-assinado');
+        Route::post('documentos/{numero}/cancelar', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'cancelar'])
+            ->where('numero', '[^/]+')
+            ->name('api.integracoes.documentos.cancelar');
+        Route::get('documentos/{numero}', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'show'])
+            ->where('numero', '[^/]+')
+            ->name('api.integracoes.documentos.show');
     });
 
 // Portal Cidadao — Carta de Servicos (publico, sem auth)
