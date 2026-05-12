@@ -193,6 +193,15 @@ class AssinaturaIcpService
                 $pdf->useTemplate($tplId);
             }
 
+            // Conta total de signatarios (anteriores + atual) para a tarja lateral
+            $totalSignatarios = count($previousStamps) + 1;
+
+            // Tarja vertical na margem direita de cada pagina (estilo 1doc)
+            for ($p = 1; $p <= $totalPaginas; $p++) {
+                $pdf->setPage($p);
+                $this->desenharTarjaLateral($pdf, $totalSignatarios);
+            }
+
             // Primeiro, redesenha carimbos das assinaturas ICP anteriores (visualmente
             // — não preserva criptografia, que é trabalho do PAdES Part 2; mantemos
             // o registro auditável no banco e nos PDFs anteriores). Cada uma na sua
@@ -239,7 +248,9 @@ class AssinaturaIcpService
             }
 
             // Pagina extra de Termo de Assinatura (auditoria completa)
-            $this->adicionarPaginaTermo($pdf, $meta, $razao, $local);
+            // Passa TODAS as assinaturas (anteriores + atual) para gerar uma tabela
+            // consolidada em vez de uma pagina por signatario.
+            $this->adicionarPaginaTermo($pdf, $meta, $razao, $local, $previousStamps);
 
             $pdf->setSignature(
                 signing_cert: $certPem,
@@ -316,24 +327,21 @@ class AssinaturaIcpService
     }
 
     /**
-     * Desenha um pequeno carimbo na pagina atual com os dados essenciais da
-     * assinatura — equivalente ao "Documento assinado digitalmente" que
-     * sistemas como FlowDocs / SEI / GPE Cloud aplicam visualmente. Vai no
-     * canto inferior direito da pagina para nao poluir o conteudo.
+     * Linha de assinatura discreta — substitui o "nome do responsavel" pela
+     * indicacao de assinatura digital com codigo de verificacao.
+     *
+     * Formato:
+     *   Assinado digitalmente por NOME
+     *   Codigo: XXXXXXXX   Data: 12/05/2026 09:40
      */
     private function desenharCarimboAssinatura(Fpdi $pdf, array $meta, ?array $rect = null): void
     {
-        $cn  = $meta['subject_cn']  ?? '?';
-        $cpf = $meta['subject_cpf'] ?? null;
-        $cpfFmt = $cpf ? $this->formatarCpf($cpf) : '';
-        $serial = isset($meta['serial_number']) ? substr($meta['serial_number'], 0, 16) . '...' : '';
-        // Permite override do timestamp quando estamos redesenhando carimbos
-        // de assinaturas anteriores (preserva o momento original de cada firma).
+        $cn     = $meta['subject_cn']  ?? '?';
+        $cpf    = $meta['subject_cpf'] ?? null;
+        $serial = $meta['serial_number'] ?? '';
+        $codigo = $this->gerarCodigoAssinatura($serial);
         $timestamp = $meta['_data_override'] ?? date('d/m/Y H:i:s');
 
-        // Posição: usa rect customizado quando fornecido (sistema externo definiu
-        // onde o carimbo deve ir, p.ex. dentro do quadro do ORDENADOR no empenho);
-        // senão cai no padrão (rodapé canto inferior direito da página atual).
         if ($rect) {
             $x = $rect['x'];
             $y = $rect['y'];
@@ -342,62 +350,109 @@ class AssinaturaIcpService
         } else {
             $pageHeight = $pdf->getPageHeight();
             $pageWidth  = $pdf->getPageWidth();
-            $largura = 75;
-            $altura  = 22;
+            $largura = 90;
+            $altura  = 14;
             $x = $pageWidth - $largura - 10;
             $y = $pageHeight - $altura - 10;
         }
 
-        // Caixa
-        $pdf->SetDrawColor(30, 64, 175);    // azul ICP-Brasil
+        // Linha superior fina (linha de assinatura)
+        $pdf->SetDrawColor(69, 181, 187);   // turquesa GPE Docs
         $pdf->SetLineWidth(0.3);
-        $pdf->SetFillColor(245, 247, 252);  // azul muito claro
-        $pdf->Rect($x, $y, $largura, $altura, 'DF');
+        $pdf->Line($x, $y, $x + $largura, $y);
 
-        // Faixa lateral azul escura
-        $pdf->SetFillColor(30, 64, 175);
-        $pdf->Rect($x, $y, 4, $altura, 'F');
-
-        // Selo "ICP" vertical na faixa
-        $pdf->SetTextColor(255, 255, 255);
-        $pdf->SetFont('helvetica', 'B', 6);
-        $pdf->StartTransform();
-        $pdf->Rotate(90, $x + 2, $y + $altura / 2);
-        $pdf->SetXY($x - $altura / 2 + 2, $y + $altura / 2 - 1.5);
-        $pdf->Cell($altura, 3, 'ICP-BRASIL', 0, 0, 'C');
-        $pdf->StopTransform();
-
-        // Conteudo
-        $pdf->SetTextColor(30, 64, 175);
+        // Texto: "Assinado digitalmente por NOME"
+        $pdf->SetTextColor(69, 181, 187);
         $pdf->SetFont('helvetica', 'B', 7);
-        $pdf->SetXY($x + 6, $y + 2);
-        $pdf->Cell($largura - 8, 3, 'Documento assinado digitalmente', 0, 1, 'L');
+        $pdf->SetXY($x, $y + 1);
+        $pdf->Cell($largura, 3, 'Assinado digitalmente por:', 0, 1, 'L');
 
         $pdf->SetTextColor(40, 40, 40);
-        $pdf->SetFont('helvetica', 'B', 7.5);
-        $pdf->SetXY($x + 6, $y + 6);
-        $pdf->Cell($largura - 8, 3.5, mb_strimwidth($cn, 0, 38, '...'), 0, 1, 'L');
+        $pdf->SetFont('helvetica', 'B', 8);
+        $pdf->SetXY($x, $y + 4);
+        $pdf->Cell($largura, 3.5, mb_strimwidth($cn, 0, 50, '...'), 0, 1, 'L');
 
+        // Codigo + data
+        $pdf->SetTextColor(100, 100, 100);
         $pdf->SetFont('helvetica', '', 6.5);
-        $pdf->SetTextColor(80, 80, 80);
-        if ($cpfFmt) {
-            $pdf->SetXY($x + 6, $y + 9.5);
-            $pdf->Cell($largura - 8, 2.8, 'CPF: ' . $this->mascararCpf($cpfFmt), 0, 1, 'L');
-        }
-        $pdf->SetXY($x + 6, $y + 12.5);
-        $pdf->Cell($largura - 8, 2.8, 'Data: ' . $timestamp, 0, 1, 'L');
+        $pdf->SetXY($x, $y + 7.5);
+        $pdf->Cell($largura, 2.8, 'Codigo: ' . $codigo . '   |   ' . $timestamp, 0, 1, 'L');
 
-        if ($serial) {
-            $pdf->SetXY($x + 6, $y + 15.5);
-            $pdf->SetFont('helvetica', '', 5.5);
-            $pdf->SetTextColor(120, 120, 120);
-            $pdf->Cell($largura - 8, 2.5, 'Serial: ' . $serial, 0, 1, 'L');
-        }
-
-        $pdf->SetXY($x + 6, $y + 18);
+        // Texto pequeno de verificacao
         $pdf->SetFont('helvetica', 'I', 5.5);
-        $pdf->SetTextColor(120, 120, 120);
-        $pdf->Cell($largura - 8, 2.5, 'Verifique em /validar-assinatura', 0, 1, 'L');
+        $pdf->SetTextColor(140, 140, 140);
+        $pdf->SetXY($x, $y + 10.5);
+        $pdf->Cell($largura, 2.5, 'Validar em ' . rtrim((string) config('app.url'), '/') . '/validar-assinatura', 0, 1, 'L');
+    }
+
+    /**
+     * Tarja vertical na margem direita da pagina, estilo 1doc.
+     * Texto le-se naturalmente girando a cabeca para a DIREITA (rotacao +90,
+     * lendo de cima para baixo). Logo "GPE Docs" no rodape da tarja.
+     */
+    private function desenharTarjaLateral(Fpdi $pdf, int $totalSignatarios): void
+    {
+        $pageWidth  = $pdf->getPageWidth();
+        $pageHeight = $pdf->getPageHeight();
+
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $hostShort = preg_replace('#^https?://#', '', $appUrl);
+        $plural = $totalSignatarios === 1 ? 'pessoa' : 'pessoas';
+        $texto  = sprintf(
+            'Assinado digitalmente por %d %s. Para verificar a validade das assinaturas, acesse %s/validar-assinatura',
+            $totalSignatarios,
+            $plural,
+            $hostShort
+        );
+
+        // Posicao vertical da tarja: 8mm da margem direita
+        $xLinha = $pageWidth - 8;
+
+        // Texto principal — preto puro, lendo de cima para baixo (gire a cabeca pra DIREITA)
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetFont('helvetica', '', 7.5);
+
+        // O texto fica entre y=10 (topo) e y=pageHeight-30 (acima do logo)
+        $alturaTexto = $pageHeight - 40; // espaco disponivel
+        $centerY = ($pageHeight - 30) / 2 + 5;
+        $pdf->StartTransform();
+        $pdf->Rotate(90, $xLinha + 2, $centerY); // +90 = horario, le de cima pra baixo
+        $pdf->SetXY($xLinha + 2 - ($alturaTexto / 2), $centerY - 1.2);
+        $pdf->Cell($alturaTexto, 3, $texto, 0, 0, 'C');
+        $pdf->StopTransform();
+
+        // Logo "GPE Docs" no rodape da tarja (estilo "1D" do 1doc)
+        $logoX = $xLinha - 1;
+        $logoY = $pageHeight - 18;
+        $logoW = 9;
+        $logoH = 9;
+
+        // Quadrado arredondado turquesa
+        $pdf->SetFillColor(69, 181, 187);
+        $pdf->RoundedRect($logoX, $logoY, $logoW, $logoH, 1.5, '1111', 'F');
+
+        // Texto "GPE Docs" dentro do quadrado em 2 linhas
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 4.5);
+        $pdf->SetXY($logoX, $logoY + 1);
+        $pdf->Cell($logoW, 2.5, 'GPE', 0, 1, 'C');
+        $pdf->SetTextColor(255, 200, 100); // laranja claro
+        $pdf->SetFont('helvetica', 'B', 4.5);
+        $pdf->SetXY($logoX, $logoY + 4.5);
+        $pdf->Cell($logoW, 2.5, 'Docs', 0, 1, 'C');
+    }
+
+    /**
+     * Gera um codigo curto (8 chars hex) a partir do serial do certificado.
+     * Funciona como "id visivel" da assinatura para referencia rapida.
+     */
+    private function gerarCodigoAssinatura(string $serial): string
+    {
+        $hex = strtoupper(preg_replace('/[^0-9A-Fa-f]/', '', $serial));
+        if (strlen($hex) < 8) {
+            $hex = strtoupper(substr(md5($serial . microtime()), 0, 8));
+        }
+        return substr($hex, 0, 4) . '-' . substr($hex, 4, 4);
     }
 
     private function mascararCpf(string $cpf): string
@@ -413,127 +468,183 @@ class AssinaturaIcpService
      * qualificada (titular, AC, validade, hash, politica). Equivale ao
      * "termo de assinatura" exibido em sistemas como ITI Verificador / SEI.
      */
-    private function adicionarPaginaTermo(Fpdi $pdf, array $meta, string $razao, string $local): void
+    private function adicionarPaginaTermo(Fpdi $pdf, array $meta, string $razao, string $local, array $previousStamps = []): void
     {
         $pdf->AddPage('P', 'A4');
 
-        $azul     = [30, 64, 175];   // #1e40af
+        $azul     = [69, 181, 187];  // #45B5BB - turquesa GPE Docs
+        $azulClr  = [219, 240, 242]; // tom claro complementar
         $cinzaEsc = [50, 50, 50];
         $cinzaMed = [120, 120, 120];
 
         // Cabecalho azul
         $pdf->SetFillColor(...$azul);
-        $pdf->Rect(0, 0, 210, 28, 'F');
+        $pdf->Rect(0, 0, 210, 24, 'F');
 
         $pdf->SetTextColor(255, 255, 255);
-        $pdf->SetFont('helvetica', 'B', 16);
-        $pdf->SetXY(15, 8);
+        $pdf->SetFont('helvetica', 'B', 14);
+        $pdf->SetXY(15, 6);
         $pdf->Cell(0, 6, 'TERMO DE ASSINATURA ELETRONICA QUALIFICADA', 0, 1, 'L');
-        $pdf->SetFont('helvetica', '', 9);
+        $pdf->SetFont('helvetica', '', 8);
         $pdf->SetX(15);
-        $pdf->Cell(0, 5, 'ICP-Brasil  -  Lei 14.063/2020 art. 4, III  -  PAdES-BES', 0, 1, 'L');
+        $pdf->Cell(0, 4, 'ICP-Brasil - Lei 14.063/2020 art. 4, III - PAdES-BES', 0, 1, 'L');
 
-        // Selo a direita
-        $pdf->SetFont('helvetica', 'B', 11);
-        $pdf->SetXY(160, 8);
+        $pdf->SetFont('helvetica', 'B', 10);
+        $pdf->SetXY(165, 6);
         $pdf->Cell(35, 12, 'ICP-BRASIL', 1, 1, 'C');
 
-        // Conteudo
+        // Texto introdutorio
         $pdf->SetTextColor(...$cinzaEsc);
-        $pdf->SetY(38);
-        $pdf->SetFont('helvetica', '', 10);
-
+        $pdf->SetY(30);
+        $pdf->SetFont('helvetica', '', 9);
         $pdf->SetX(15);
-        $pdf->MultiCell(180, 5,
-            'Este documento foi assinado digitalmente com certificado ICP-Brasil. ' .
-            'A assinatura abaixo e juridicamente equivalente a uma assinatura manuscrita ' .
-            'em qualquer interacao com o poder publico brasileiro (Decreto 10.543/2020). ' .
-            'Para verificar a integridade da assinatura, abra o PDF em qualquer leitor compativel ' .
-            '(Adobe Reader, ITI Verificador) ou utilize o validador online do sistema.',
+        $pdf->MultiCell(180, 4.2,
+            'Este documento foi assinado digitalmente com certificado(s) ICP-Brasil. ' .
+            'As assinaturas abaixo sao juridicamente equivalentes a assinaturas manuscritas ' .
+            '(Decreto 10.543/2020). A integridade pode ser verificada em qualquer leitor compativel ' .
+            '(Adobe Reader, ITI Verificador) ou pela validacao online via QR Code.',
             0, 'J');
-        $pdf->Ln(4);
+        $pdf->Ln(3);
 
-        // Caixa com dados do signatario
-        $cn         = $meta['subject_cn']       ?? '?';
-        $cpf        = $meta['subject_cpf']      ?? null;
-        $issuer     = $meta['issuer_cn']        ?? '?';
-        $serial     = $meta['serial_number']    ?? '?';
-        $validoDe   = $meta['valido_de']        ?? null;
-        $validoAte  = $meta['valido_ate']       ?? null;
-        $thumb      = $meta['thumbprint_sha256']?? '?';
-        $politica   = self::POLITICA_NOME . ' (OID ' . self::POLITICA_OID . ')';
-        $algoritmo  = 'SHA-256 com RSA';
-        $timestamp  = date('d/m/Y H:i:s');
+        // Monta lista consolidada: anteriores + atual
+        $signatarios = [];
+        foreach ($previousStamps as $prev) {
+            $pm = $prev['meta'] ?? [];
+            $signatarios[] = [
+                'cn'     => $pm['subject_cn']    ?? '?',
+                'cpf'    => $pm['subject_cpf']   ?? null,
+                'serial' => $pm['serial_number'] ?? '?',
+                'data'   => $prev['assinado_em'] ?? date('d/m/Y H:i:s'),
+                'issuer' => $pm['issuer_cn']     ?? '',
+            ];
+        }
+        $signatarios[] = [
+            'cn'     => $meta['subject_cn']    ?? '?',
+            'cpf'    => $meta['subject_cpf']   ?? null,
+            'serial' => $meta['serial_number'] ?? '?',
+            'data'   => date('d/m/Y H:i:s'),
+            'issuer' => $meta['issuer_cn']     ?? '',
+        ];
 
-        $cpfFmt = $cpf ? $this->formatarCpf($cpf) : null;
-
-        $pdf->SetFont('helvetica', 'B', 11);
+        // Tabela compacta de signatarios
+        $pdf->SetFont('helvetica', 'B', 10);
         $pdf->SetTextColor(...$azul);
         $pdf->SetX(15);
-        $pdf->Cell(0, 6, 'Dados do Signatario', 0, 1);
+        $pdf->Cell(0, 6, 'Signatarios (' . count($signatarios) . ')', 0, 1);
+
+        // Cabecalho da tabela
+        $pdf->SetFillColor(...$azul);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 8);
+        $pdf->SetX(15);
+        $pdf->Cell(8,   6, '#',                 0, 0, 'C', true);
+        $pdf->Cell(72,  6, 'Titular',           0, 0, 'L', true);
+        $pdf->Cell(28,  6, 'CPF',               0, 0, 'L', true);
+        $pdf->Cell(40,  6, 'AC Emissora',       0, 0, 'L', true);
+        $pdf->Cell(32,  6, 'Data/Hora',         0, 1, 'L', true);
+
+        $pdf->SetTextColor(...$cinzaEsc);
+        $pdf->SetFont('helvetica', '', 8);
+
+        foreach ($signatarios as $i => $s) {
+            $cpfFmt = $s['cpf'] ? $this->mascararCpf($this->formatarCpf($s['cpf'])) : '-';
+            $acCurta = $this->resumirIssuer($s['issuer']);
+            $fill = ($i % 2 === 0);
+            if ($fill) {
+                $pdf->SetFillColor(...$azulClr);
+            }
+            $pdf->SetX(15);
+            $pdf->Cell(8,  5.5, (string) ($i + 1),         'B', 0, 'C', $fill);
+            $pdf->Cell(72, 5.5, $this->truncar($s['cn'], 45), 'B', 0, 'L', $fill);
+            $pdf->Cell(28, 5.5, $cpfFmt,                   'B', 0, 'L', $fill);
+            $pdf->Cell(40, 5.5, $this->truncar($acCurta, 26), 'B', 0, 'L', $fill);
+            $pdf->Cell(32, 5.5, $s['data'],                'B', 1, 'L', $fill);
+        }
+
+        $pdf->Ln(4);
+
+        // Caixa com dados gerais da assinatura
+        $pdf->SetFont('helvetica', 'B', 10);
+        $pdf->SetTextColor(...$azul);
+        $pdf->SetX(15);
+        $pdf->Cell(0, 6, 'Politica de Assinatura', 0, 1);
         $pdf->SetTextColor(...$cinzaEsc);
 
-        $linhas = [
-            ['Titular do certificado', $cn],
-        ];
-        if ($cpfFmt) {
-            $linhas[] = ['CPF', $cpfFmt];
-        }
-        $linhas = array_merge($linhas, [
-            ['Autoridade Certificadora', $issuer],
-            ['Numero de serie', $this->formatarSerial($serial)],
-            ['Validade do certificado',
-                ($validoDe ? date('d/m/Y', strtotime($validoDe)) : '?') . ' ate ' .
-                ($validoAte ? date('d/m/Y', strtotime($validoAte)) : '?')],
-            ['Thumbprint SHA-256', $this->formatarThumbprint($thumb)],
-        ]);
+        $politica  = self::POLITICA_NOME . ' (OID ' . self::POLITICA_OID . ')';
+        $algoritmo = 'SHA-256 com RSA';
 
+        $linhas = [
+            ['Razao',     $razao],
+            ['Local',     $local],
+            ['Politica',  $politica],
+            ['Algoritmo', $algoritmo],
+        ];
         foreach ($linhas as [$label, $valor]) {
             $pdf->SetFont('helvetica', '', 8);
             $pdf->SetTextColor(...$cinzaMed);
             $pdf->SetX(15);
-            $pdf->Cell(50, 5, mb_strtoupper($label), 0, 0);
-            $pdf->SetFont('helvetica', '', 10);
+            $pdf->Cell(35, 4.5, mb_strtoupper($label), 0, 0);
+            $pdf->SetFont('helvetica', '', 9);
             $pdf->SetTextColor(...$cinzaEsc);
-            $pdf->MultiCell(130, 5, (string) $valor, 0, 'L');
-            $pdf->Ln(0.5);
+            $pdf->MultiCell(145, 4.5, (string) $valor, 0, 'L');
         }
 
-        $pdf->Ln(4);
+        $pdf->Ln(3);
 
-        // Caixa com dados da assinatura
-        $pdf->SetFont('helvetica', 'B', 11);
+        // QR Code para validacao online (canto inferior direito)
+        $appUrl   = rtrim((string) config('app.url'), '/');
+        $hashDoc  = $meta['hash_documento'] ?? null;
+        $urlValid = $appUrl . '/validar-assinatura' . ($hashDoc ? '?hash=' . substr($hashDoc, 0, 16) : '');
+
+        $qrY = 220;
+        $pdf->write2DBarcode($urlValid, 'QRCODE,M', 150, $qrY, 45, 45, [
+            'border'        => false,
+            'padding'       => 0,
+            'fgcolor'       => [0, 0, 0],
+            'bgcolor'       => false,
+        ], 'N');
+
+        // Texto ao lado do QR
+        $pdf->SetXY(15, $qrY);
+        $pdf->SetFont('helvetica', 'B', 10);
         $pdf->SetTextColor(...$azul);
-        $pdf->SetX(15);
-        $pdf->Cell(0, 6, 'Dados da Assinatura', 0, 1);
-        $pdf->SetTextColor(...$cinzaEsc);
+        $pdf->Cell(0, 5, 'Validacao Online', 0, 1);
 
-        $linhas2 = [
-            ['Razao',           $razao],
-            ['Local',           $local],
-            ['Politica',        $politica],
-            ['Algoritmo',       $algoritmo],
-            ['Carimbo de tempo', $timestamp],
-        ];
-        foreach ($linhas2 as [$label, $valor]) {
-            $pdf->SetFont('helvetica', '', 8);
-            $pdf->SetTextColor(...$cinzaMed);
-            $pdf->SetX(15);
-            $pdf->Cell(50, 5, mb_strtoupper($label), 0, 0);
-            $pdf->SetFont('helvetica', '', 10);
-            $pdf->SetTextColor(...$cinzaEsc);
-            $pdf->MultiCell(130, 5, (string) $valor, 0, 'L');
-            $pdf->Ln(0.5);
-        }
+        $pdf->SetX(15);
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->SetTextColor(...$cinzaEsc);
+        $pdf->MultiCell(130, 4.2,
+            "Aponte a camera do celular para o QR Code ao lado para acessar:\n" .
+            "- Detalhamento completo de cada certificado\n" .
+            "- Verificacao em tempo real da integridade\n" .
+            "- Cadeia de certificacao ICP-Brasil\n" .
+            "- Status de revogacao\n\n" .
+            "Ou acesse: " . $urlValid,
+            0, 'L');
 
         // Rodape
         $pdf->SetY(275);
-        $pdf->SetFont('helvetica', '', 8);
+        $pdf->SetFont('helvetica', '', 7);
         $pdf->SetTextColor(...$cinzaMed);
         $pdf->SetX(15);
-        $pdf->Cell(0, 4, 'GPE Docs - Plataforma Digital Integrada - Conceito Gestao Publica', 0, 1, 'C');
+        $pdf->Cell(0, 3.5, 'GPE Docs - Plataforma Digital Integrada - Conceito Gestao Publica', 0, 1, 'C');
         $pdf->SetX(15);
-        $pdf->Cell(0, 4, 'A integridade desta assinatura pode ser verificada em /validar-assinatura ou em qualquer leitor PDF compativel.', 0, 1, 'C');
+        $pdf->Cell(0, 3.5, 'Documento assinado conforme Lei 14.063/2020 e Decreto 10.543/2020.', 0, 1, 'C');
+    }
+
+    /**
+     * Reduz o nome da AC ao essencial. Ex.:
+     *   "AC SyngularID Multipla v5" -> "AC SyngularID Multipla"
+     */
+    private function resumirIssuer(string $issuer): string
+    {
+        $issuer = preg_replace('/\s+v\d+(\.\d+)*\s*$/i', '', (string) $issuer);
+        return trim($issuer);
+    }
+
+    private function truncar(string $s, int $max): string
+    {
+        return mb_strlen($s) > $max ? mb_substr($s, 0, $max - 1) . '…' : $s;
     }
 
     private function formatarCpf(string $cpf): string
