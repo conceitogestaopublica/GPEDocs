@@ -4,11 +4,13 @@
  * Formulario de criacao de oficio para destinatario externo.
  */
 import { Head, router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 
-export default function OficiosCreate() {
+export default function OficiosCreate({ modelos = [] }) {
+    const [modeloId, setModeloId] = useState('');
     const { data, setData, post, processing, errors } = useForm({
         assunto: '',
         destinatario_nome: '',
@@ -148,17 +150,52 @@ export default function OficiosCreate() {
                                 {errors.setor_origem && <p className="text-xs text-red-500 mt-1">{errors.setor_origem}</p>}
                             </div>
 
-                            {/* Conteudo */}
+                            {/* Conteudo + selecao de modelo */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Conteudo <span className="text-red-500">*</span>
-                                </label>
+                                <div className="flex items-end justify-between mb-1 gap-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Conteudo <span className="text-red-500">*</span>
+                                    </label>
+                                    {modelos.length > 0 && (
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-[10px] text-gray-500 uppercase font-semibold tracking-wide">
+                                                Usar modelo:
+                                            </label>
+                                            <select
+                                                value={modeloId}
+                                                onChange={(e) => {
+                                                    const id = e.target.value;
+                                                    setModeloId(id);
+                                                    if (!id) return;
+                                                    const m = modelos.find(x => String(x.id) === String(id));
+                                                    if (!m) return;
+                                                    let txt = m.conteudo;
+                                                    // Substituicao de placeholders
+                                                    txt = txt
+                                                        .replaceAll('{{destinatario}}', data.destinatario_nome || '___')
+                                                        .replaceAll('{{cargo}}',        data.destinatario_cargo || '___')
+                                                        .replaceAll('{{orgao}}',        data.destinatario_orgao || '___')
+                                                        .replaceAll('{{assunto}}',      data.assunto || '___')
+                                                        .replaceAll('{{data}}',         new Date().toLocaleDateString('pt-BR'));
+                                                    setData('conteudo', txt);
+                                                }}
+                                                className="text-xs px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                                <option value="">-- selecionar --</option>
+                                                {modelos.map(m => (
+                                                    <option key={m.id} value={m.id}>
+                                                        {m.categoria ? `[${m.categoria}] ` : ''}{m.nome}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
                                 <textarea
                                     value={data.conteudo}
                                     onChange={(e) => setData('conteudo', e.target.value)}
                                     className="ds-input !h-auto"
                                     rows={12}
-                                    placeholder="Digite o conteudo do oficio..."
+                                    placeholder="Digite o conteudo do oficio (ou selecione um modelo acima)..."
                                     required
                                 />
                                 {errors.conteudo && <p className="text-xs text-red-500 mt-1">{errors.conteudo}</p>}

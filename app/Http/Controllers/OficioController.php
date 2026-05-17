@@ -49,9 +49,68 @@ class OficioController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
-        return Inertia::render('GED/Oficios/Create');
+        $ugId = (int) ($request->session()->get('ug_id') ?? 0);
+
+        $modelos = \App\Models\Processo\OficioModelo::where('ativo', true)
+            ->when($ugId, fn ($q) => $q->where(fn ($w) => $w->where('ug_id', $ugId)->orWhereNull('ug_id')))
+            ->orderBy('nome')
+            ->get(['id', 'nome', 'categoria', 'descricao', 'conteudo']);
+
+        return Inertia::render('GED/Oficios/Create', [
+            'modelos' => $modelos,
+        ]);
+    }
+
+    /**
+     * Livro de Controle - listagem enxuta para auditoria
+     */
+    public function controle(Request $request): Response
+    {
+        $ugId = (int) ($request->session()->get('ug_id') ?? 0);
+        $ano   = $request->input('ano');
+        $busca = $request->input('busca');
+
+        $query = \App\Models\Processo\Oficio::query()
+            ->when($ugId, fn ($q) => $q->where('ug_id', $ugId))
+            ->whereNotIn('status', ['rascunho']);
+
+        if ($ano) {
+            $query->whereYear('enviado_em', (int) $ano);
+        }
+        if ($busca) {
+            $b = "%{$busca}%";
+            $query->where(function ($q) use ($b) {
+                $q->where('assunto', 'ilike', $b)
+                  ->orWhere('destinatario_nome', 'ilike', $b)
+                  ->orWhere('destinatario_orgao', 'ilike', $b)
+                  ->orWhere('numero', 'ilike', $b);
+            });
+        }
+
+        $oficios = $query->select([
+                'id', 'numero', 'assunto', 'destinatario_nome', 'destinatario_orgao',
+                'status', 'enviado_em', 'lido_em', 'created_at',
+            ])
+            ->orderByDesc('enviado_em')
+            ->orderByDesc('id')
+            ->paginate(50)
+            ->withQueryString();
+
+        $anos = \App\Models\Processo\Oficio::query()
+            ->when($ugId, fn ($q) => $q->where('ug_id', $ugId))
+            ->whereNotNull('enviado_em')
+            ->selectRaw('EXTRACT(YEAR FROM enviado_em)::int AS ano')
+            ->distinct()
+            ->orderByDesc('ano')
+            ->pluck('ano');
+
+        return Inertia::render('GED/Oficios/Controle', [
+            'oficios' => $oficios,
+            'anos'    => $anos,
+            'filtros' => ['ano' => $ano, 'busca' => $busca],
+        ]);
     }
 
     public function store(Request $request)

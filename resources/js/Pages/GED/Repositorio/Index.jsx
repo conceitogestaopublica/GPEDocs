@@ -84,25 +84,38 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                 </Button>
             </PageHeader>
 
-            <div className="flex gap-5">
-                {/* Arvore de pastas */}
-                <div className="hidden lg:block w-64 shrink-0">
-                    <Card title="Pastas" padding={false}>
-                        <div className="p-3 max-h-[calc(100vh-250px)] overflow-y-auto">
-                            <FolderItem
-                                folder={{ id: null, nome: 'Raiz', children: buildTree(folders) }}
-                                currentPastaId={pasta_atual?.id}
-                                level={0}
-                                onRename={setRenamePasta}
-                                onDelete={setDeletePasta}
-                                onInativar={setInativarPasta}
-                            />
-                        </div>
-                    </Card>
-                </div>
+            {/* Faixa horizontal de pastas (substitui sidebar) */}
+            <div className="bg-white rounded-xl border border-gray-200 px-3 py-2 mb-3 flex items-center gap-2 overflow-x-auto">
+                <Link href="/repositorio"
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors
+                        ${!pasta_atual ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>
+                    <i className="fas fa-folder text-[10px]" />
+                    Raiz
+                </Link>
+                {folders.filter(f => f.parent_id === (pasta_atual?.id ?? null)).map(folder => {
+                    const isActive = pasta_atual?.id === folder.id;
+                    return (
+                        <Link key={folder.id} href={`/repositorio?pasta_id=${folder.id}`}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors
+                                ${isActive ? 'bg-blue-600 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>
+                            <i className="fas fa-folder text-[10px]" />
+                            {folder.nome}
+                        </Link>
+                    );
+                })}
+                {pasta_atual && (
+                    <>
+                        <div className="w-px h-5 bg-gray-200 mx-1 shrink-0" />
+                        <Link href={pasta_atual.parent_id ? `/repositorio?pasta_id=${pasta_atual.parent_id}` : '/repositorio'}
+                            className="text-xs text-gray-500 hover:text-gray-800 px-2 py-1 whitespace-nowrap">
+                            <i className="fas fa-arrow-left mr-1" />Voltar
+                        </Link>
+                    </>
+                )}
+            </div>
 
-                {/* Area principal */}
-                <div className="flex-1 min-w-0">
+            {/* Area principal — agora ocupa largura total */}
+            <div className="w-full">
                     {/* Breadcrumb + view mode */}
                     <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 mb-3 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-1 text-sm">
@@ -358,7 +371,6 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                             ))}
                         </div>
                     )}
-                </div>
             </div>
 
             {/* Modais */}

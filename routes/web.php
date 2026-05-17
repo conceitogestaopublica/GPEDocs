@@ -249,6 +249,7 @@ Route::middleware('auth')->group(function () {
         Route::post('tipos-documentais/{id}/toggle-ativo', [TipoDocumentalController::class, 'toggleAtivo'])->name('tipos-documentais.toggle-ativo');
         Route::resource('tipos-processo', TipoProcessoController::class)->except(['create', 'edit', 'show']);
         Route::post('tipos-processo/{id}/toggle-ativo', [TipoProcessoController::class, 'toggleAtivo'])->name('tipos-processo.toggle-ativo');
+        Route::resource('oficios-modelos', \App\Http\Controllers\Admin\OficioModeloController::class)->only(['index', 'store', 'update', 'destroy']);
 
         // Redirects das URLs antigas para o modulo Configuracoes
         Route::redirect('usuarios', '/configuracoes/usuarios');
@@ -265,6 +266,8 @@ Route::middleware('auth')->group(function () {
     Route::get('memorandos/{id}/pdf', [MemorandoController::class, 'downloadPdf'])->name('memorandos.pdf');
 
     // Oficios
+    Route::get('oficios/controle', [OficioController::class, 'controle'])->name('oficios.controle');
+    Route::get('oficios/modelos-disponiveis', [\App\Http\Controllers\Admin\OficioModeloController::class, 'disponiveis'])->name('oficios.modelos-disponiveis');
     Route::resource('oficios', OficioController::class)->only(['index', 'create', 'store', 'show']);
     Route::post('oficios/{id}/responder', [OficioController::class, 'responder'])->name('oficios.responder');
     Route::post('oficios/{id}/arquivar', [OficioController::class, 'arquivar'])->name('oficios.arquivar');

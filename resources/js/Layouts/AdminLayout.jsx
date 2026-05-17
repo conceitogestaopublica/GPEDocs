@@ -59,14 +59,16 @@ const MENU_GEPSP = [
     { section: 'label', label: 'Gestao' },
     { title: 'Painel', icon: 'fas fa-tachometer-alt', href: '/processos/dashboard', color: 'text-teal-600 bg-teal-100' },
     { title: 'Todos Processos', icon: 'fas fa-folder-open', href: '/processos', color: 'text-indigo-600 bg-indigo-100' },
+    { title: 'Controle de Oficios', icon: 'fas fa-book', href: '/oficios/controle', color: 'text-cyan-600 bg-cyan-100' },
     { section: 'label', label: 'Administracao' },
     { title: 'Tipos de Processo', icon: 'fas fa-cogs', href: '/admin/tipos-processo', color: 'text-teal-600 bg-teal-100' },
+    { title: 'Modelos de Oficio', icon: 'fas fa-file-signature', href: '/admin/oficios-modelos', color: 'text-cyan-600 bg-cyan-100' },
 ];
 
 // Detectar modulo pela URL
 function getModulo(url) {
     if (url.startsWith('/configuracoes') || url.startsWith('/perfil/certificados')) return 'configuracoes';
-    if (url.startsWith('/flow') || url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url.startsWith('/oficios') || url === '/admin/tipos-processo') return 'gepsp';
+    if (url.startsWith('/flow') || url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url.startsWith('/oficios') || url === '/admin/tipos-processo' || url.startsWith('/admin/oficios-modelos')) return 'gepsp';
     return 'ged';
 }
 
