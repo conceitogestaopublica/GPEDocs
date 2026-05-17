@@ -58,8 +58,20 @@ class OficioController extends Controller
             ->orderBy('nome')
             ->get(['id', 'nome', 'categoria', 'descricao', 'conteudo']);
 
+        // Organograma da UG ativa (orgaos -> unidades -> setores)
+        $setores = collect();
+        if ($ugId) {
+            $setores = \DB::table('ug_organograma')
+                ->where('ug_id', $ugId)
+                ->where('ativo', true)
+                ->orderBy('nivel')
+                ->orderBy('nome')
+                ->get(['id', 'parent_id', 'nivel', 'codigo', 'nome']);
+        }
+
         return Inertia::render('GED/Oficios/Create', [
             'modelos' => $modelos,
+            'setores' => $setores,
         ]);
     }
 
@@ -119,13 +131,20 @@ class OficioController extends Controller
             'assunto'             => ['required', 'string', 'max:255'],
             'conteudo'            => ['required', 'string'],
             'destinatario_nome'   => ['required', 'string', 'max:255'],
-            'destinatario_email'  => ['required', 'email', 'max:255'],
+            'destinatario_email'  => ['nullable', 'email', 'max:255'],
             'destinatario_cargo'  => ['nullable', 'string', 'max:255'],
             'destinatario_orgao'  => ['nullable', 'string', 'max:255'],
             'setor_origem'        => ['nullable', 'string', 'max:150'],
+            'modo_envio'          => ['nullable', 'string', 'in:eletronico,fisico'],
+            'data_envio'          => ['nullable', 'date'],
             'files'               => ['nullable', 'array'],
             'files.*'             => ['file', 'max:51200'],
         ]);
+
+        // Modo de envio: 'fisico' (registro no livro) ou 'eletronico' (envio por email)
+        // Se nao informado: deduz pelo email — se preenchido = eletronico, senao = fisico
+        $modoEnvio = $request->input('modo_envio')
+            ?? ($request->filled('destinatario_email') ? 'eletronico' : 'fisico');
 
         try {
             DB::beginTransaction();
@@ -138,6 +157,10 @@ class OficioController extends Controller
             $nextNum = ($lastNum ?? 0) + 1;
             $numero  = 'OF-' . $year . '/' . str_pad((string) $nextNum, 6, '0', STR_PAD_LEFT);
 
+            $dataEnvio = $request->filled('data_envio')
+                ? \Carbon\Carbon::parse($request->input('data_envio'))
+                : now();
+
             $oficio = Oficio::create([
                 'numero'             => $numero,
                 'assunto'            => $request->input('assunto'),
@@ -145,11 +168,11 @@ class OficioController extends Controller
                 'remetente_id'       => Auth::id(),
                 'setor_origem'       => $request->input('setor_origem'),
                 'destinatario_nome'  => $request->input('destinatario_nome'),
-                'destinatario_email' => $request->input('destinatario_email'),
+                'destinatario_email' => $request->input('destinatario_email') ?? '',
                 'destinatario_cargo' => $request->input('destinatario_cargo'),
                 'destinatario_orgao' => $request->input('destinatario_orgao'),
                 'status'             => 'enviado',
-                'enviado_em'         => now(),
+                'enviado_em'         => $dataEnvio,
             ]);
 
             if ($request->hasFile('files')) {
@@ -180,7 +203,11 @@ class OficioController extends Controller
 
             DB::commit();
 
-            return redirect("/oficios/{$oficio->id}")->with('success', 'Oficio enviado com sucesso. Numero: ' . $numero);
+            $msg = $modoEnvio === 'fisico'
+                ? "Oficio {$numero} registrado no livro de controle."
+                : "Oficio {$numero} enviado eletronicamente.";
+
+            return redirect("/oficios/{$oficio->id}")->with('success', $msg);
         } catch (\Exception $e) {
             DB::rollBack();
 

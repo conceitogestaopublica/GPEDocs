@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Support\TextoNormalizer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,6 +12,26 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class UgOrganograma extends Model
 {
     protected $table = 'ug_organograma';
+
+    /**
+     * Padrao de nome para setores (nos folha): sentence case.
+     * Aplicado no boot via evento `saving`. Orgaos/unidades pai
+     * preservam a capitalizacao original.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (self $no) {
+            if (! $no->isDirty('nome') || $no->nome === null) return;
+
+            $ehFolha = $no->exists
+                ? ! static::where('parent_id', $no->id)->exists()
+                : true; // criacao: assume folha (novo no nao tem filhos ainda)
+
+            if ($ehFolha) {
+                $no->nome = TextoNormalizer::sentenceCase($no->nome);
+            }
+        });
+    }
 
     protected $fillable = [
         'ug_id',

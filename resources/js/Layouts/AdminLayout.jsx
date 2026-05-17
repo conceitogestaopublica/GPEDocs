@@ -9,6 +9,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import FlashMessage from '../Components/FlashMessage';
 import ModuloIcon from '../Components/ModuloIcon';
+import ChatFlutuante from '../Components/ChatFlutuante';
 
 // Menus separados por modulo
 const MENU_GED = [
@@ -40,29 +41,52 @@ const MENU_CONFIGURACOES = [
 ];
 
 const MENU_GEPSP = [
-    { section: 'label', label: 'Entrada — preciso agir' },
-    { title: 'Caixa Pessoal', icon: 'fas fa-inbox', href: '/flow/inbox-pessoal', color: 'text-blue-600 bg-blue-100' },
-    { title: 'Caixa Setor', icon: 'fas fa-users', href: '/flow/inbox-setor', color: 'text-indigo-600 bg-indigo-100' },
-    { title: 'Aguardando Assinatura', icon: 'fas fa-file-signature', href: '/flow/aguardando-assinatura', color: 'text-purple-600 bg-purple-100' },
-    { section: 'label', label: 'Em Andamento' },
-    { title: 'Em Tramitacao', icon: 'fas fa-share', href: '/flow/em-tramitacao', color: 'text-orange-600 bg-orange-100' },
-    { section: 'label', label: 'Concluidos' },
-    { title: 'Concluidos', icon: 'fas fa-check-double', href: '/flow/concluidos', color: 'text-green-600 bg-green-100' },
-    { section: 'label', label: 'Privado' },
-    { title: 'Saida (Originados)', icon: 'fas fa-paper-plane', href: '/flow/saida', color: 'text-emerald-600 bg-emerald-100' },
-    { title: 'Rascunhos', icon: 'fas fa-pencil-alt', href: '/flow/rascunhos', color: 'text-yellow-600 bg-yellow-100' },
-    { section: 'label', label: 'Criar' },
-    { title: 'Novo Processo', icon: 'fas fa-plus-circle', href: '/processos/create', color: 'text-green-600 bg-green-100' },
-    { title: 'Novo Memorando', icon: 'fas fa-envelope', href: '/memorandos/create', color: 'text-amber-600 bg-amber-100' },
-    { title: 'Nova Circular', icon: 'fas fa-bullhorn', href: '/circulares/create', color: 'text-rose-600 bg-rose-100' },
-    { title: 'Novo Oficio', icon: 'fas fa-file-alt', href: '/oficios/create', color: 'text-cyan-600 bg-cyan-100' },
-    { section: 'label', label: 'Gestao' },
-    { title: 'Painel', icon: 'fas fa-tachometer-alt', href: '/processos/dashboard', color: 'text-teal-600 bg-teal-100' },
-    { title: 'Todos Processos', icon: 'fas fa-folder-open', href: '/processos', color: 'text-indigo-600 bg-indigo-100' },
-    { title: 'Controle de Oficios', icon: 'fas fa-book', href: '/oficios/controle', color: 'text-cyan-600 bg-cyan-100' },
-    { section: 'label', label: 'Administracao' },
-    { title: 'Tipos de Processo', icon: 'fas fa-cogs', href: '/admin/tipos-processo', color: 'text-teal-600 bg-teal-100' },
-    { title: 'Modelos de Oficio', icon: 'fas fa-file-signature', href: '/admin/oficios-modelos', color: 'text-cyan-600 bg-cyan-100' },
+    {
+        title: 'Caixa de Entrada', icon: 'fas fa-inbox', color: 'text-blue-600 bg-blue-100',
+        children: [
+            { title: 'Caixa Pessoal',          icon: 'fas fa-inbox',          href: '/flow/inbox-pessoal',         color: 'text-blue-600 bg-blue-100' },
+            { title: 'Caixa Setor',            icon: 'fas fa-users',          href: '/flow/inbox-setor',           color: 'text-indigo-600 bg-indigo-100' },
+            { title: 'Aguardando Assinatura',  icon: 'fas fa-file-signature', href: '/flow/aguardando-assinatura', color: 'text-purple-600 bg-purple-100' },
+        ],
+    },
+    {
+        title: 'Em Andamento', icon: 'fas fa-share', color: 'text-orange-600 bg-orange-100',
+        children: [
+            { title: 'Em Tramitacao', icon: 'fas fa-share',        href: '/flow/em-tramitacao', color: 'text-orange-600 bg-orange-100' },
+            { title: 'Concluidos',    icon: 'fas fa-check-double', href: '/flow/concluidos',    color: 'text-green-600 bg-green-100' },
+        ],
+    },
+    {
+        title: 'Comunicacao', icon: 'fas fa-envelope', color: 'text-cyan-600 bg-cyan-100',
+        children: [
+            { title: 'Novo Memorando',     icon: 'fas fa-envelope',         href: '/memorandos/create',  color: 'text-amber-600 bg-amber-100' },
+            { title: 'Nova Circular',      icon: 'fas fa-bullhorn',         href: '/circulares/create',  color: 'text-rose-600 bg-rose-100' },
+            { title: 'Novo Oficio',        icon: 'fas fa-file-alt',         href: '/oficios/create',     color: 'text-cyan-600 bg-cyan-100' },
+            { title: 'Controle de Oficios', icon: 'fas fa-book',            href: '/oficios/controle',   color: 'text-cyan-600 bg-cyan-100' },
+        ],
+    },
+    {
+        title: 'Processos Administrativos', icon: 'fas fa-folder-open', color: 'text-indigo-600 bg-indigo-100',
+        children: [
+            { title: 'Painel',           icon: 'fas fa-tachometer-alt', href: '/processos/dashboard', color: 'text-teal-600 bg-teal-100' },
+            { title: 'Novo Processo',    icon: 'fas fa-plus-circle',    href: '/processos/create',    color: 'text-green-600 bg-green-100' },
+            { title: 'Todos Processos',  icon: 'fas fa-folder-open',    href: '/processos',           color: 'text-indigo-600 bg-indigo-100' },
+        ],
+    },
+    {
+        title: 'Privado', icon: 'fas fa-lock', color: 'text-emerald-600 bg-emerald-100',
+        children: [
+            { title: 'Saida (Originados)', icon: 'fas fa-paper-plane',  href: '/flow/saida',     color: 'text-emerald-600 bg-emerald-100' },
+            { title: 'Rascunhos',          icon: 'fas fa-pencil-alt',   href: '/flow/rascunhos', color: 'text-yellow-600 bg-yellow-100' },
+        ],
+    },
+    {
+        title: 'Cadastros', icon: 'fas fa-cogs', color: 'text-slate-600 bg-slate-100',
+        children: [
+            { title: 'Tipos de Processo',  icon: 'fas fa-cogs',            href: '/admin/tipos-processo',  color: 'text-teal-600 bg-teal-100' },
+            { title: 'Modelos de Oficio',  icon: 'fas fa-file-signature',  href: '/admin/oficios-modelos', color: 'text-cyan-600 bg-cyan-100' },
+        ],
+    },
 ];
 
 // Detectar modulo pela URL
@@ -183,6 +207,9 @@ export default function AdminLayout({ children }) {
                     <span className="font-medium text-gray-500">Conceito Gestao Publica</span>
                 </footer>
             </div>
+
+            {/* Chat interno flutuante */}
+            {auth?.user && <ChatFlutuante />}
         </div>
     );
 }
@@ -221,47 +248,10 @@ function GedSidebar({ collapsed, isMobile, sidebarOpen, onClose, moduloConfig })
 
                 {/* Menu */}
                 <nav className="flex-1 overflow-y-auto px-3 py-4">
-                    {MENU_ITEMS.map((item, i) => {
-                        if (item.section === 'separator') {
-                            return <div key={i} className="my-3 mx-2 border-t border-gray-100" />;
-                        }
-                        if (item.section === 'label') {
-                            return !collapsed
-                                ? <p key={i} className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 pt-4 pb-1">{item.label}</p>
-                                : <div key={i} className="my-3 mx-2 border-t border-gray-100" />;
-                        }
-
-                        // Itens com query string: match exato. Itens sem: match por prefixo (mas não se outro item com query bate exato).
-                        const hasQuery = item.href.includes('?');
-                        const exactMatch = url === item.href;
-                        const prefixMatch = !hasQuery && (url.startsWith(item.href + '/') || url.startsWith(item.href + '?'));
-                        const isActive = exactMatch || (prefixMatch && !MENU_ITEMS.some(m => m.href?.includes('?') && url === m.href));
-
-                        const [iconColor, iconBg] = (item.color || 'text-gray-500 bg-gray-100').split(' ');
-
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 transition-all duration-200
-                                    ${isActive
-                                        ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
-                                        : 'text-gray-600 hover:bg-gray-50'
-                                    }`}
-                                title={collapsed ? item.title : undefined}
-                            >
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors
-                                    ${isActive ? 'bg-white/20' : iconBg}`}>
-                                    <i className={`${item.icon} text-xs ${isActive ? 'text-white' : iconColor}`} />
-                                </div>
-                                {!collapsed && (
-                                    <span className={`text-[13px] truncate ${isActive ? 'font-semibold' : 'font-medium'}`}>
-                                        {item.title}
-                                    </span>
-                                )}
-                            </Link>
-                        );
-                    })}
+                    {MENU_ITEMS.map((item, i) => (
+                        <MenuNode key={item.href || item.title || i}
+                            item={item} url={url} collapsed={collapsed} />
+                    ))}
                 </nav>
 
                 {/* Footer */}
@@ -273,6 +263,122 @@ function GedSidebar({ collapsed, isMobile, sidebarOpen, onClose, moduloConfig })
                 )}
             </div>
         </aside>
+    );
+}
+
+/**
+ * Item de menu na sidebar. Renderiza:
+ * - Separator / label de secao
+ * - Link direto (item simples com href)
+ * - Grupo expansivel (item com children)
+ */
+function MenuNode({ item, url, collapsed }) {
+    // Separator
+    if (item.section === 'separator') {
+        return <div className="my-3 mx-2 border-t border-gray-100" />;
+    }
+    // Label de secao
+    if (item.section === 'label') {
+        return !collapsed
+            ? <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 pt-4 pb-1">{item.label}</p>
+            : <div className="my-3 mx-2 border-t border-gray-100" />;
+    }
+    // Grupo com filhos
+    if (Array.isArray(item.children) && item.children.length > 0) {
+        return <MenuGroup item={item} url={url} collapsed={collapsed} />;
+    }
+    // Link simples
+    return <MenuLink item={item} url={url} collapsed={collapsed} />;
+}
+
+function MenuLink({ item, url, collapsed, indented = false }) {
+    const hasQuery = item.href.includes('?');
+    const exactMatch = url === item.href;
+    const prefixMatch = !hasQuery && (url.startsWith(item.href + '/') || url.startsWith(item.href + '?'));
+    const isActive = exactMatch || prefixMatch;
+    const [iconColor, iconBg] = (item.color || 'text-gray-500 bg-gray-100').split(' ');
+
+    return (
+        <Link
+            href={item.href}
+            className={`group flex items-center gap-3 ${indented ? 'pl-8 pr-3' : 'px-3'} py-2 rounded-xl mb-1 transition-all duration-200
+                ${isActive
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+            title={collapsed ? item.title : undefined}
+        >
+            <div className={`${indented ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg flex items-center justify-center shrink-0 transition-colors
+                ${isActive ? 'bg-white/20' : iconBg}`}>
+                <i className={`${item.icon} text-[10px] ${isActive ? 'text-white' : iconColor}`} />
+            </div>
+            {!collapsed && (
+                <span className={`text-[12.5px] truncate ${isActive ? 'font-semibold' : 'font-medium'}`}>
+                    {item.title}
+                </span>
+            )}
+        </Link>
+    );
+}
+
+function MenuGroup({ item, url, collapsed }) {
+    const storageKey = 'menu_group_' + (item.title || '').replace(/\W+/g, '_');
+    // Verifica se algum filho está ativo, para auto-expandir
+    const hasActiveChild = item.children.some(c => {
+        if (!c.href) return false;
+        const hasQuery = c.href.includes('?');
+        return c.href === url || (!hasQuery && (url.startsWith(c.href + '/') || url.startsWith(c.href + '?')));
+    });
+
+    const [open, setOpen] = useState(() => {
+        if (typeof window === 'undefined') return hasActiveChild;
+        const saved = localStorage.getItem(storageKey);
+        return saved === null ? hasActiveChild : saved === 'true';
+    });
+
+    // Garante expandir quando um filho fica ativo (apos navegacao)
+    useEffect(() => {
+        if (hasActiveChild) setOpen(true);
+    }, [hasActiveChild]);
+
+    const toggle = () => {
+        const next = !open;
+        setOpen(next);
+        if (typeof window !== 'undefined') localStorage.setItem(storageKey, String(next));
+    };
+
+    const [iconColor, iconBg] = (item.color || 'text-gray-500 bg-gray-100').split(' ');
+
+    return (
+        <div className="mb-1">
+            <button
+                type="button"
+                onClick={toggle}
+                className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200
+                    ${hasActiveChild ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                title={collapsed ? item.title : undefined}
+            >
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+                    <i className={`${item.icon} text-xs ${iconColor}`} />
+                </div>
+                {!collapsed && (
+                    <>
+                        <span className={`flex-1 text-left text-[13px] truncate ${hasActiveChild ? 'font-semibold' : 'font-medium'}`}>
+                            {item.title}
+                        </span>
+                        <i className={`fas fa-chevron-${open ? 'down' : 'right'} text-[9px] text-gray-400`} />
+                    </>
+                )}
+            </button>
+
+            {open && !collapsed && (
+                <div className="mt-1 ml-1 pl-3 border-l border-gray-100">
+                    {item.children.map(child => (
+                        <MenuLink key={child.href} item={child} url={url} collapsed={false} indented />
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }
 

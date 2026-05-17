@@ -3,12 +3,13 @@
  * Permite cadastrar/editar templates que aparecem no Create de oficio.
  */
 import { Head, router, useForm } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import PageHeader from '../../../../Components/PageHeader';
 import Button from '../../../../Components/Button';
 import Card from '../../../../Components/Card';
 import Modal from '../../../../Components/Modal';
+import RichEditor from '../../../../Components/RichEditor';
 
 export default function ModelosOficio({ modelos = [] }) {
     const [editando, setEditando] = useState(null); // null | 'novo' | objeto modelo
@@ -99,12 +100,39 @@ function ModeloModal({ modelo, onClose }) {
         else post('/admin/oficios-modelos', opts);
     };
 
+    const [importando, setImportando] = useState(false);
+    const [erroImport, setErroImport] = useState(null);
+    const [modoEdicao, setModoEdicao] = useState('visual'); // visual | html
+
     const importarArquivo = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        const txt = await file.text();
-        setData('conteudo', (data.conteudo ? data.conteudo + '\n\n' : '') + txt);
-        e.target.value = '';
+        setErroImport(null);
+        setImportando(true);
+        try {
+            const fd = new FormData();
+            fd.append('arquivo', file);
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+            const resp = await fetch('/admin/oficios-modelos/importar-docx', {
+                method: 'POST',
+                body: fd,
+                headers: csrf ? { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest' } : { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            const json = await resp.json();
+            if (!resp.ok) throw new Error(json.erro || json.message || 'Falha na importacao');
+            setData('conteudo', json.conteudo || '');
+            if (!data.nome) {
+                // Sugere nome a partir do arquivo
+                const base = (json.nome_arquivo || file.name).replace(/\.[^.]+$/, '');
+                setData('nome', base);
+            }
+        } catch (err) {
+            setErroImport(err.message);
+        } finally {
+            setImportando(false);
+            e.target.value = '';
+        }
     };
 
     return (
@@ -131,16 +159,46 @@ function ModeloModal({ modelo, onClose }) {
                 </div>
 
                 <div>
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
                         <label className="text-xs font-medium text-gray-700">Conteudo *</label>
-                        <label className="text-xs text-blue-600 hover:underline cursor-pointer">
-                            <i className="fas fa-file-import mr-1" />Importar de arquivo (.txt, .html)
-                            <input type="file" accept=".txt,.html,.htm,.md" onChange={importarArquivo} className="hidden" />
-                        </label>
+                        <div className="flex items-center gap-2">
+                            <div className="flex rounded-md border border-gray-200 overflow-hidden text-[10px]">
+                                <button type="button" onClick={() => setModoEdicao('visual')}
+                                    className={`px-2 py-1 ${modoEdicao === 'visual' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>
+                                    <i className="fas fa-eye mr-1" />Visual
+                                </button>
+                                <button type="button" onClick={() => setModoEdicao('html')}
+                                    className={`px-2 py-1 ${modoEdicao === 'html' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>
+                                    <i className="fas fa-code mr-1" />HTML
+                                </button>
+                            </div>
+                            <label className={`text-xs px-2 py-1 rounded-md cursor-pointer transition-colors
+                                ${importando ? 'bg-gray-100 text-gray-400 cursor-wait' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'}`}>
+                                {importando ? <><i className="fas fa-spinner fa-spin mr-1" />Importando...</> :
+                                    <><i className="fas fa-file-import mr-1" />Importar arquivo Word/TXT</>}
+                                <input type="file" accept=".doc,.docx,.txt,.html,.htm" onChange={importarArquivo}
+                                    disabled={importando} className="hidden" />
+                            </label>
+                        </div>
                     </div>
-                    <textarea value={data.conteudo} onChange={e => setData('conteudo', e.target.value)}
-                        rows={14} className="ds-input font-mono text-sm"
-                        placeholder="Texto do modelo. Use {{destinatario}}, {{cargo}}, {{orgao}}, {{assunto}} para campos dinamicos." />
+
+                    {erroImport && (
+                        <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-md text-xs text-red-700">
+                            <i className="fas fa-exclamation-triangle mr-1" />{erroImport}
+                        </div>
+                    )}
+
+                    {modoEdicao === 'visual' ? (
+                        <RichEditor
+                            html={data.conteudo}
+                            onChange={(html) => setData('conteudo', html)}
+                        />
+                    ) : (
+                        <textarea value={data.conteudo} onChange={e => setData('conteudo', e.target.value)}
+                            rows={18} className="ds-input font-mono text-xs"
+                            placeholder="HTML do modelo. Use {{destinatario}}, {{cargo}}, {{orgao}}, {{assunto}} para campos dinamicos." />
+                    )}
+
                     {errors.conteudo && <p className="text-xs text-red-600 mt-1">{errors.conteudo}</p>}
                     <p className="text-[10px] text-gray-500 mt-1">
                         Variaveis disponiveis: <code>{'{{destinatario}}'}</code> <code>{'{{cargo}}'}</code>{' '}

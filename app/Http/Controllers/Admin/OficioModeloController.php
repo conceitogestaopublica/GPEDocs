@@ -73,6 +73,60 @@ class OficioModeloController extends Controller
     }
 
     /**
+     * Recebe um arquivo .docx (Word) e devolve o conteudo convertido em HTML.
+     * Usado no editor de modelos para importar um documento existente.
+     */
+    public function importarDocx(Request $request)
+    {
+        $request->validate([
+            'arquivo' => ['required', 'file', 'mimes:doc,docx,txt,html,htm', 'max:20480'],
+        ]);
+
+        $arquivo = $request->file('arquivo');
+        $ext = strtolower($arquivo->getClientOriginalExtension());
+
+        // .txt e .html simples — apenas le o conteudo
+        if (in_array($ext, ['txt', 'html', 'htm'])) {
+            $conteudo = file_get_contents($arquivo->getRealPath());
+            if ($ext === 'txt') {
+                // Converte quebras de linha em paragrafos HTML
+                $conteudo = '<p>' . str_replace(["\r\n\r\n", "\n\n"], '</p><p>', e($conteudo)) . '</p>';
+                $conteudo = str_replace(["\r\n", "\n"], '<br>', $conteudo);
+            }
+            return response()->json([
+                'conteudo' => $conteudo,
+                'nome_arquivo' => $arquivo->getClientOriginalName(),
+            ]);
+        }
+
+        // .docx / .doc — usa PhpWord para converter em HTML
+        try {
+            $phpWord = \PhpOffice\PhpWord\IOFactory::load($arquivo->getRealPath());
+            $tmpFile = tempnam(sys_get_temp_dir(), 'oficio_html_') . '.html';
+            $writer = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'HTML');
+            $writer->save($tmpFile);
+            $html = file_get_contents($tmpFile);
+            @unlink($tmpFile);
+
+            // Extrai apenas o conteudo do <body> (descarta cabecalho e estilos da pagina)
+            if (preg_match('/<body[^>]*>(.*?)<\/body>/is', $html, $m)) {
+                $conteudo = trim($m[1]);
+            } else {
+                $conteudo = $html;
+            }
+
+            return response()->json([
+                'conteudo' => $conteudo,
+                'nome_arquivo' => $arquivo->getClientOriginalName(),
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'erro' => 'Nao foi possivel ler o arquivo: ' . $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
      * Lista pública (usada no Create de oficio) com os modelos
      * disponíveis para a UG ativa do usuário.
      */

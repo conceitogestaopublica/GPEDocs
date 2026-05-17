@@ -57,7 +57,8 @@ export default function ControleOficios({ oficios, anos = [], filtros = {} }) {
             <Head title="Livro de Controle - Oficios" />
             <PageHeader title="Livro de Controle - Oficios" subtitle="Registro de oficios emitidos">
                 <Button variant="secondary" icon="fas fa-file-csv" onClick={exportarCsv}>Exportar CSV</Button>
-                <Button icon="fas fa-paper-plane" href="/oficios/create">Novo Oficio</Button>
+                <Button variant="secondary" icon="fas fa-plus" onClick={() => setShowRegistrar(true)}>Registrar Manual</Button>
+                <Button icon="fas fa-paper-plane" href="/oficios/create">Novo Oficio Eletronico</Button>
             </PageHeader>
 
             <Card className="mb-3">

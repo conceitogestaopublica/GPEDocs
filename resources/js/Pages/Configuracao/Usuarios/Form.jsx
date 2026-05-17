@@ -2,7 +2,7 @@
  * Cadastro de Usuario — tela dedicada (padrao "wizard com resumo lateral")
  */
 import { Head, router, useForm } from '@inertiajs/react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import CadastroLayout, { CadastroSecao } from '../../../Components/CadastroLayout';
 
@@ -26,11 +26,36 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
     const ugPrincipalId = data.ug_ids[0];
     const ugPrincipal = ugs.find(u => u.id === Number(ugPrincipalId));
 
+    // Lista achatada em ordem hierarquica (setor dentro da sua unidade dentro do seu orgao).
+    // Cada item recebe `depth` real conforme posicao na arvore (raiz=0).
     const unidadesDaUg = useMemo(() => {
         if (! ugPrincipalId) return [];
-        return unidades
-            .filter(u => u.ug_id === Number(ugPrincipalId))
-            .sort((a, b) => a.nivel - b.nivel || a.nome.localeCompare(b.nome));
+        const ugId = Number(ugPrincipalId);
+        const todas = unidades.filter(u => u.ug_id === ugId);
+        const porPai = new Map();
+        for (const u of todas) {
+            const k = u.parent_id ?? 0;
+            if (! porPai.has(k)) porPai.set(k, []);
+            porPai.get(k).push(u);
+        }
+        for (const arr of porPai.values()) {
+            arr.sort((a, b) => a.nome.localeCompare(b.nome));
+        }
+        const out = [];
+        const walk = (paiId, depth) => {
+            const filhos = porPai.get(paiId) || [];
+            for (const f of filhos) {
+                out.push({ ...f, depth });
+                walk(f.id, depth + 1);
+            }
+        };
+        walk(0, 0);
+        // Captura orfaos (parent_id apontando para algo fora do conjunto), evita perder dado.
+        const incluidos = new Set(out.map(o => o.id));
+        for (const u of todas) {
+            if (! incluidos.has(u.id)) out.push({ ...u, depth: 0 });
+        }
+        return out;
     }, [ugPrincipalId, unidades]);
 
     const unidadeSel = unidades.find(u => u.id === Number(data.unidade_id));
@@ -238,22 +263,14 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                     <CadastroSecao
                         icone="fa-sitemap"
                         titulo="Unidade no Organograma"
-                        descricao={`Unidade dentro do organograma de ${ugPrincipal?.nome} (UG principal)`}
+                        descricao={`Unidade dentro do organograma de ${ugPrincipal?.nome} (UG principal). Digite para pesquisar.`}
                     >
-                        <select value={data.unidade_id}
-                            onChange={(e) => setData('unidade_id', e.target.value ? Number(e.target.value) : '')}
-                            className="ds-input">
-                            <option value="">— Sem vinculo de unidade —</option>
-                            {unidadesDaUg.map(u => {
-                                const labelN = ugPrincipal?.[`nivel_${u.nivel}_label`] || `N${u.nivel}`;
-                                const indent = '— '.repeat(u.nivel - 1);
-                                return (
-                                    <option key={u.id} value={u.id}>
-                                        {indent}[{labelN}] {u.nome}
-                                    </option>
-                                );
-                            })}
-                        </select>
+                        <UnidadeCombo
+                            value={data.unidade_id}
+                            onChange={(id) => setData('unidade_id', id)}
+                            unidades={unidadesDaUg}
+                            ugPrincipal={ugPrincipal}
+                        />
                         {unidadesDaUg.length === 0 && (
                             <p className="mt-1 text-[10px] text-amber-600">
                                 Esta UG ainda nao possui organograma cadastrado.
@@ -350,4 +367,105 @@ function formatarCpf(cpf) {
     const d = (cpf || '').replace(/\D/g, '');
     if (d.length !== 11) return cpf;
     return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+}
+
+/**
+ * Combobox pesquisavel de unidades do organograma.
+ * Mostra a arvore com indent real (setor dentro da unidade dentro do orgao).
+ * Filtra por nome/codigo sem ignorar acentos.
+ */
+function UnidadeCombo({ value, onChange, unidades, ugPrincipal }) {
+    const [open, setOpen] = useState(false);
+    const [busca, setBusca] = useState('');
+    const ref = useRef(null);
+
+    const selecionada = unidades.find(u => u.id === Number(value));
+    const labelDe = (u) => ugPrincipal?.[`nivel_${u.nivel}_label`] || `N${u.nivel}`;
+
+    useEffect(() => {
+        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const termo = norm(busca.trim());
+    const filtradas = termo === ''
+        ? unidades
+        : unidades.filter(u => norm(u.nome).includes(termo) || norm(u.codigo).includes(termo));
+
+    return (
+        <div className="relative" ref={ref}>
+            <button type="button" onClick={() => setOpen(o => !o)}
+                className="ds-input w-full text-left flex items-center justify-between gap-2">
+                {selecionada ? (
+                    <span className="truncate">
+                        <span className="text-[10px] uppercase tracking-wide text-gray-400 mr-1">
+                            [{labelDe(selecionada)}]
+                        </span>
+                        {selecionada.nome}
+                    </span>
+                ) : (
+                    <span className="text-gray-400">— Sem vinculo de unidade —</span>
+                )}
+                <i className={`fas fa-chevron-down text-[10px] text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+            </button>
+
+            {open && (
+                <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                    <div className="p-2 border-b border-gray-100 bg-gray-50">
+                        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5">
+                            <i className="fas fa-search text-gray-400 text-xs" />
+                            <input autoFocus type="text" value={busca}
+                                onChange={(e) => setBusca(e.target.value)}
+                                placeholder="Pesquisar unidade ou codigo..."
+                                className="flex-1 bg-transparent text-sm outline-none" />
+                            {busca && (
+                                <button type="button" onClick={() => setBusca('')}
+                                    className="text-gray-400 hover:text-gray-600">
+                                    <i className="fas fa-times text-[10px]" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <ul className="max-h-72 overflow-y-auto py-1">
+                        <li>
+                            <button type="button"
+                                onClick={() => { onChange(''); setOpen(false); setBusca(''); }}
+                                className={`w-full text-left px-3 py-1.5 text-xs italic flex items-center gap-2
+                                    ${! value ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-500 hover:bg-gray-50'}`}>
+                                <i className="fas fa-ban text-[10px]" /> Sem vinculo de unidade
+                            </button>
+                        </li>
+                        {filtradas.length === 0 ? (
+                            <li className="px-3 py-4 text-xs text-gray-400 text-center">
+                                Nenhuma unidade encontrada.
+                            </li>
+                        ) : filtradas.map(u => {
+                            const ativo = Number(value) === u.id;
+                            const depth = termo === '' ? (u.depth || 0) : 0;
+                            return (
+                                <li key={u.id}>
+                                    <button type="button"
+                                        onClick={() => { onChange(u.id); setOpen(false); setBusca(''); }}
+                                        style={{ paddingLeft: 12 + depth * 16 }}
+                                        className={`w-full text-left pr-3 py-1.5 text-sm flex items-center gap-2
+                                            ${ativo ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}>
+                                        <span className="text-[9px] uppercase tracking-wide text-gray-400 shrink-0 w-20">
+                                            [{labelDe(u)}]
+                                        </span>
+                                        <span className="truncate">{u.nome}</span>
+                                        {u.codigo && (
+                                            <span className="ml-auto text-[10px] text-gray-400 font-mono">{u.codigo}</span>
+                                        )}
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
 }

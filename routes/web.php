@@ -250,6 +250,7 @@ Route::middleware('auth')->group(function () {
         Route::resource('tipos-processo', TipoProcessoController::class)->except(['create', 'edit', 'show']);
         Route::post('tipos-processo/{id}/toggle-ativo', [TipoProcessoController::class, 'toggleAtivo'])->name('tipos-processo.toggle-ativo');
         Route::resource('oficios-modelos', \App\Http\Controllers\Admin\OficioModeloController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::post('oficios-modelos/importar-docx', [\App\Http\Controllers\Admin\OficioModeloController::class, 'importarDocx'])->name('oficios-modelos.importar-docx');
 
         // Redirects das URLs antigas para o modulo Configuracoes
         Route::redirect('usuarios', '/configuracoes/usuarios');
@@ -266,6 +267,12 @@ Route::middleware('auth')->group(function () {
     Route::get('memorandos/{id}/pdf', [MemorandoController::class, 'downloadPdf'])->name('memorandos.pdf');
 
     // Oficios
+    // Chat interno
+    Route::get('chat/contatos',                [\App\Http\Controllers\ChatController::class, 'contatos'])->name('chat.contatos');
+    Route::get('chat/nao-lidas',               [\App\Http\Controllers\ChatController::class, 'naoLidas'])->name('chat.nao-lidas');
+    Route::get('chat/mensagens/{contatoId}',   [\App\Http\Controllers\ChatController::class, 'mensagens'])->name('chat.mensagens');
+    Route::post('chat/enviar/{contatoId}',     [\App\Http\Controllers\ChatController::class, 'enviar'])->name('chat.enviar');
+
     Route::get('oficios/controle', [OficioController::class, 'controle'])->name('oficios.controle');
     Route::get('oficios/modelos-disponiveis', [\App\Http\Controllers\Admin\OficioModeloController::class, 'disponiveis'])->name('oficios.modelos-disponiveis');
     Route::resource('oficios', OficioController::class)->only(['index', 'create', 'store', 'show']);

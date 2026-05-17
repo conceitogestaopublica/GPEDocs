@@ -8,10 +8,29 @@ import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
+import RichEditor from '../../../Components/RichEditor';
 
-export default function OficiosCreate({ modelos = [] }) {
+export default function OficiosCreate({ modelos = [], setores = [] }) {
+    // Monta nome hierarquico: "Orgao > Unidade > Setor"
+    const buildPath = (s, all) => {
+        const parts = [s.nome];
+        let p = s.parent_id;
+        while (p) {
+            const parent = all.find(x => x.id === p);
+            if (!parent) break;
+            parts.unshift(parent.nome);
+            p = parent.parent_id;
+        }
+        return parts.join(' › ');
+    };
+    const setoresOrdenados = (setores || []).map(s => ({
+        ...s,
+        path: buildPath(s, setores || []),
+    })).sort((a, b) => a.path.localeCompare(b.path, 'pt-BR'));
     const [modeloId, setModeloId] = useState('');
     const { data, setData, post, processing, errors } = useForm({
+        modo_envio: 'fisico', // 'fisico' = livro / 'eletronico' = envio por email
+        data_envio: new Date().toISOString().slice(0, 10),
         assunto: '',
         destinatario_nome: '',
         destinatario_email: '',
@@ -26,6 +45,8 @@ export default function OficiosCreate({ modelos = [] }) {
         e.preventDefault();
 
         const formData = new FormData();
+        formData.append('modo_envio', data.modo_envio);
+        formData.append('data_envio', data.data_envio);
         formData.append('assunto', data.assunto);
         formData.append('conteudo', data.conteudo);
         formData.append('destinatario_nome', data.destinatario_nome);
@@ -45,14 +66,16 @@ export default function OficiosCreate({ modelos = [] }) {
         });
     };
 
+    const isFisico = data.modo_envio === 'fisico';
+
     return (
         <AdminLayout>
-            <Head title="Novo Oficio Eletronico" />
+            <Head title="Novo Oficio" />
             <PageHeader
-                title="Novo Oficio Eletronico"
-                subtitle="Enviar documento oficial para destinatario externo"
+                title="Novo Oficio"
+                subtitle={isFisico ? 'Registro de oficio no livro de controle' : 'Envio eletronico para destinatario externo'}
             >
-                <Button variant="secondary" icon="fas fa-arrow-left" href="/oficios">Voltar</Button>
+                <Button variant="secondary" icon="fas fa-arrow-left" href="/oficios/controle">Voltar</Button>
             </PageHeader>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -60,6 +83,55 @@ export default function OficiosCreate({ modelos = [] }) {
                 <div className="lg:col-span-2">
                     <div className="bg-white rounded-xl border border-gray-200 p-6">
                         <form onSubmit={submit} className="space-y-6">
+                            {/* Modo de envio */}
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                                    Como o oficio sera enviado?
+                                </label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <label className={`flex items-start gap-2 p-3 rounded-lg cursor-pointer border-2 transition-colors
+                                        ${isFisico ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                                        <input type="radio" name="modo_envio" value="fisico"
+                                            checked={isFisico} onChange={() => setData('modo_envio', 'fisico')}
+                                            className="mt-1" />
+                                        <div>
+                                            <p className="text-sm font-semibold text-gray-800">
+                                                <i className="fas fa-book mr-1 text-blue-600" />Fisico / Impresso
+                                            </p>
+                                            <p className="text-[11px] text-gray-500 mt-0.5">
+                                                Apenas registrar no livro de controle. Sera impresso e entregue manualmente.
+                                            </p>
+                                        </div>
+                                    </label>
+                                    <label className={`flex items-start gap-2 p-3 rounded-lg cursor-pointer border-2 transition-colors
+                                        ${!isFisico ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                                        <input type="radio" name="modo_envio" value="eletronico"
+                                            checked={!isFisico} onChange={() => setData('modo_envio', 'eletronico')}
+                                            className="mt-1" />
+                                        <div>
+                                            <p className="text-sm font-semibold text-gray-800">
+                                                <i className="fas fa-paper-plane mr-1 text-cyan-600" />Eletronico (Email)
+                                            </p>
+                                            <p className="text-[11px] text-gray-500 mt-0.5">
+                                                Enviar por e-mail com rastreio de entrega e abertura.
+                                            </p>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Data do envio (visivel apenas para registro fisico) */}
+                            {isFisico && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Data do Oficio
+                                    </label>
+                                    <input type="date" value={data.data_envio}
+                                        onChange={(e) => setData('data_envio', e.target.value)}
+                                        className="ds-input w-48" />
+                                </div>
+                            )}
+
                             {/* Assunto */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -95,15 +167,16 @@ export default function OficiosCreate({ modelos = [] }) {
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        E-mail do Destinatario <span className="text-red-500">*</span>
+                                        E-mail do Destinatario {!isFisico && <span className="text-red-500">*</span>}
+                                        {isFisico && <span className="text-xs text-gray-400 font-normal ml-1">(opcional)</span>}
                                     </label>
                                     <input
                                         type="email"
                                         value={data.destinatario_email}
                                         onChange={(e) => setData('destinatario_email', e.target.value)}
                                         className="ds-input"
-                                        placeholder="email@exemplo.com"
-                                        required
+                                        placeholder={isFisico ? 'opcional' : 'email@exemplo.com'}
+                                        required={!isFisico}
                                     />
                                     {errors.destinatario_email && <p className="text-xs text-red-500 mt-1">{errors.destinatario_email}</p>}
                                 </div>
@@ -140,26 +213,44 @@ export default function OficiosCreate({ modelos = [] }) {
                             {/* Setor Origem */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Setor de Origem</label>
-                                <input
-                                    type="text"
-                                    value={data.setor_origem}
-                                    onChange={(e) => setData('setor_origem', e.target.value)}
-                                    className="ds-input"
-                                    placeholder="Ex: Departamento de TI"
-                                />
+                                {setoresOrdenados.length > 0 ? (
+                                    <select
+                                        value={data.setor_origem}
+                                        onChange={(e) => setData('setor_origem', e.target.value)}
+                                        className="ds-input">
+                                        <option value="">-- selecione um setor do organograma --</option>
+                                        {setoresOrdenados.map(s => (
+                                            <option key={s.id} value={s.path}>{s.path}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <>
+                                        <input
+                                            type="text"
+                                            value={data.setor_origem}
+                                            onChange={(e) => setData('setor_origem', e.target.value)}
+                                            className="ds-input"
+                                            placeholder="Ex: Departamento de TI"
+                                        />
+                                        <p className="text-[10px] text-gray-400 mt-1">
+                                            <i className="fas fa-info-circle mr-1" />
+                                            Cadastre o organograma da sua UG para selecionar setores
+                                        </p>
+                                    </>
+                                )}
                                 {errors.setor_origem && <p className="text-xs text-red-500 mt-1">{errors.setor_origem}</p>}
                             </div>
 
                             {/* Conteudo + selecao de modelo */}
                             <div>
-                                <div className="flex items-end justify-between mb-1 gap-2">
+                                <div className="flex items-end justify-between mb-2 gap-2 flex-wrap">
                                     <label className="block text-sm font-medium text-gray-700">
                                         Conteudo <span className="text-red-500">*</span>
                                     </label>
                                     {modelos.length > 0 && (
                                         <div className="flex items-center gap-2">
                                             <label className="text-[10px] text-gray-500 uppercase font-semibold tracking-wide">
-                                                Usar modelo:
+                                                Carregar modelo:
                                             </label>
                                             <select
                                                 value={modeloId}
@@ -169,18 +260,17 @@ export default function OficiosCreate({ modelos = [] }) {
                                                     if (!id) return;
                                                     const m = modelos.find(x => String(x.id) === String(id));
                                                     if (!m) return;
-                                                    let txt = m.conteudo;
-                                                    // Substituicao de placeholders
-                                                    txt = txt
-                                                        .replaceAll('{{destinatario}}', data.destinatario_nome || '___')
-                                                        .replaceAll('{{cargo}}',        data.destinatario_cargo || '___')
-                                                        .replaceAll('{{orgao}}',        data.destinatario_orgao || '___')
-                                                        .replaceAll('{{assunto}}',      data.assunto || '___')
-                                                        .replaceAll('{{data}}',         new Date().toLocaleDateString('pt-BR'));
-                                                    setData('conteudo', txt);
+                                                    // Confirma sobrescrita se ja houver conteudo digitado
+                                                    if (data.conteudo && data.conteudo.replace(/<[^>]+>/g, '').trim().length > 10) {
+                                                        if (!confirm('Substituir o conteudo atual pelo modelo selecionado?')) {
+                                                            setModeloId('');
+                                                            return;
+                                                        }
+                                                    }
+                                                    setData('conteudo', m.conteudo);
                                                 }}
-                                                className="text-xs px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
-                                                <option value="">-- selecionar --</option>
+                                                className="text-xs px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 max-w-xs">
+                                                <option value="">-- selecionar modelo --</option>
                                                 {modelos.map(m => (
                                                     <option key={m.id} value={m.id}>
                                                         {m.categoria ? `[${m.categoria}] ` : ''}{m.nome}
@@ -190,13 +280,11 @@ export default function OficiosCreate({ modelos = [] }) {
                                         </div>
                                     )}
                                 </div>
-                                <textarea
-                                    value={data.conteudo}
-                                    onChange={(e) => setData('conteudo', e.target.value)}
-                                    className="ds-input !h-auto"
-                                    rows={12}
-                                    placeholder="Digite o conteudo do oficio (ou selecione um modelo acima)..."
-                                    required
+                                <RichEditor
+                                    html={data.conteudo}
+                                    onChange={(html) => setData('conteudo', html)}
+                                    minHeight={420}
+                                    placeholder="Digite o conteudo do oficio ou selecione um modelo acima..."
                                 />
                                 {errors.conteudo && <p className="text-xs text-red-500 mt-1">{errors.conteudo}</p>}
                             </div>
@@ -237,32 +325,48 @@ export default function OficiosCreate({ modelos = [] }) {
                     <div className="bg-white rounded-xl border border-gray-200 p-5">
                         <h3 className="text-sm font-semibold text-gray-800 mb-3">
                             <i className="fas fa-info-circle text-blue-500 mr-1.5" />
-                            Sobre Oficios Eletronicos
+                            {isFisico ? 'Registro no Livro' : 'Envio Eletronico'}
                         </h3>
                         <div className="space-y-3 text-xs text-gray-600 leading-relaxed">
-                            <p>
-                                O oficio eletronico e um documento oficial enviado para destinatarios
-                                externos via e-mail, com rastreio de entrega e abertura.
-                            </p>
-                            <p>
-                                Apos o envio, voce podera acompanhar o status de entrega e leitura
-                                em tempo real na pagina de detalhes do oficio.
-                            </p>
+                            {isFisico ? (
+                                <>
+                                    <p>
+                                        O oficio sera <strong>registrado no livro de controle</strong> para
+                                        fins de auditoria, sem disparo de e-mail.
+                                    </p>
+                                    <p>
+                                        Apos o cadastro, voce podera imprimir o documento e entrega-lo
+                                        ao destinatario por meios fisicos.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <p>
+                                        O oficio sera <strong>enviado por e-mail</strong> ao destinatario,
+                                        com rastreio de entrega e abertura.
+                                    </p>
+                                    <p>
+                                        Apos o envio, acompanhe o status em tempo real na pagina de detalhes.
+                                    </p>
+                                </>
+                            )}
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-xl border border-gray-200 p-5">
-                        <h3 className="text-sm font-semibold text-gray-800 mb-3">
-                            <i className="fas fa-route text-green-500 mr-1.5" />
-                            Rastreamento
-                        </h3>
-                        <div className="space-y-2">
-                            <TrackStep icon="fas fa-paper-plane" color="blue" label="Enviado" desc="Oficio criado e enviado" />
-                            <TrackStep icon="fas fa-envelope" color="yellow" label="Entregue" desc="E-mail entregue na caixa" />
-                            <TrackStep icon="fas fa-eye" color="green" label="Lido" desc="Destinatario abriu o oficio" />
-                            <TrackStep icon="fas fa-reply" color="purple" label="Respondido" desc="Resposta recebida" />
+                    {!isFisico && (
+                        <div className="bg-white rounded-xl border border-gray-200 p-5">
+                            <h3 className="text-sm font-semibold text-gray-800 mb-3">
+                                <i className="fas fa-route text-green-500 mr-1.5" />
+                                Rastreamento
+                            </h3>
+                            <div className="space-y-2">
+                                <TrackStep icon="fas fa-paper-plane" color="blue" label="Enviado" desc="Oficio criado e enviado" />
+                                <TrackStep icon="fas fa-envelope" color="yellow" label="Entregue" desc="E-mail entregue na caixa" />
+                                <TrackStep icon="fas fa-eye" color="green" label="Lido" desc="Destinatario abriu o oficio" />
+                                <TrackStep icon="fas fa-reply" color="purple" label="Respondido" desc="Resposta recebida" />
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </AdminLayout>
