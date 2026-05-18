@@ -120,12 +120,19 @@ class PastaController extends Controller
         $tiposDocumentais = DB::table('ged_tipos_documentais')
             ->where('ativo', true)->orderBy('nome')->get(['id','nome']);
 
+        // IDs dos documentos favoritados pelo user para o botao estrela inline
+        $favoritoIds = DB::table('ged_favoritos')
+            ->where('user_id', $userId)
+            ->pluck('documento_id')
+            ->all();
+
         return Inertia::render('GED/Repositorio/Index', [
             'pastas'           => $pastas,
             'documentos'       => $documentos,
             'pasta_atual'      => $pastaAtual,
             'breadcrumb'       => $breadcrumb,
             'tipos_documentais'=> $tiposDocumentais,
+            'favorito_ids'     => $favoritoIds,
             'filtros'          => [
                 'busca'              => $busca,
                 'tipo_documental_id' => $tipoDocId,

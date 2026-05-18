@@ -9,7 +9,49 @@ import Button from '../../../Components/Button';
 import Modal from '../../../Components/Modal';
 import Card from '../../../Components/Card';
 
-export default function Repositorio({ pastas, documentos, pasta_atual, breadcrumb, tipos_documentais = [], filtros = {} }) {
+// Configuracao visual de cada filtro rapido (titulo, icone, classes Tailwind explicitas).
+// Classes precisam ser strings literais pra Tailwind nao podar no build.
+const FILTRO_RAPIDO_CONFIG = {
+    favoritos: {
+        titulo: 'Favoritos',
+        subtitulo: 'Documentos que voce marcou como favoritos',
+        icone: 'fas fa-star',
+        bannerClasses: 'bg-amber-50 border-amber-200 text-amber-800',
+        iconeClasses: 'text-amber-600',
+        botaoClasses: 'bg-white border-amber-200 hover:bg-amber-100',
+        vazioMsg: 'Voce ainda nao favoritou nenhum documento.',
+        vazioDica: 'Clique na estrela ao lado de qualquer documento para favoritar.',
+    },
+    recentes: {
+        titulo: 'Recentes',
+        subtitulo: 'Documentos que voce visualizou nos ultimos 30 dias',
+        icone: 'fas fa-clock',
+        bannerClasses: 'bg-cyan-50 border-cyan-200 text-cyan-800',
+        iconeClasses: 'text-cyan-600',
+        botaoClasses: 'bg-white border-cyan-200 hover:bg-cyan-100',
+        vazioMsg: 'Sem visualizacoes recentes nos ultimos 30 dias.',
+    },
+    populares: {
+        titulo: 'Mais Acessados',
+        subtitulo: 'Documentos com mais visualizacoes nos ultimos 30 dias',
+        icone: 'fas fa-fire',
+        bannerClasses: 'bg-orange-50 border-orange-200 text-orange-800',
+        iconeClasses: 'text-orange-600',
+        botaoClasses: 'bg-white border-orange-200 hover:bg-orange-100',
+        vazioMsg: 'Sem documentos populares ainda.',
+    },
+    arquivados: {
+        titulo: 'Arquivados',
+        subtitulo: 'Documentos com status arquivado',
+        icone: 'fas fa-archive',
+        bannerClasses: 'bg-gray-50 border-gray-200 text-gray-800',
+        iconeClasses: 'text-gray-600',
+        botaoClasses: 'bg-white border-gray-200 hover:bg-gray-100',
+        vazioMsg: 'Nenhum documento arquivado.',
+    },
+};
+
+export default function Repositorio({ pastas, documentos, pasta_atual, breadcrumb, tipos_documentais = [], favorito_ids = [], filtros = {} }) {
     const [viewMode, setViewMode] = useState('list');
     const [selectedDoc, setSelectedDoc] = useState(null);
     const [showNewFolder, setShowNewFolder] = useState(false);
@@ -20,6 +62,37 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
     const [status, setStatus]       = useState(filtros.status || '');
     const [dataDe, setDataDe]       = useState(filtros.data_de || '');
     const [dataAte, setDataAte]     = useState(filtros.data_ate || '');
+
+    // Filtro rapido vindo da URL (favoritos/recentes/populares/arquivados)
+    const filtroRapido = filtros.filtro_rapido || null;
+    const rapidoCfg = filtroRapido ? FILTRO_RAPIDO_CONFIG[filtroRapido] : null;
+
+    // Set local de favoritos para refletir o toggle imediatamente (otimista)
+    const [favoritosLocal, setFavoritosLocal] = useState(() => new Set(favorito_ids));
+    useEffect(() => {
+        setFavoritosLocal(new Set(favorito_ids));
+    }, [favorito_ids]);
+
+    const toggleFavorito = (docId) => {
+        // Update otimista
+        setFavoritosLocal(prev => {
+            const novo = new Set(prev);
+            novo.has(docId) ? novo.delete(docId) : novo.add(docId);
+            return novo;
+        });
+        router.post(`/documentos/${docId}/favorito`, {}, {
+            preserveScroll: true,
+            preserveState: true,
+            onError: () => {
+                // Rollback em caso de falha
+                setFavoritosLocal(prev => {
+                    const novo = new Set(prev);
+                    novo.has(docId) ? novo.delete(docId) : novo.add(docId);
+                    return novo;
+                });
+            },
+        });
+    };
 
     // Modais de acao em pasta
     const [renamePasta, setRenamePasta] = useState(null);
@@ -61,21 +134,41 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
             status: status || undefined,
             data_de: dataDe || undefined,
             data_ate: dataAte || undefined,
+            filtro: filtroRapido || undefined,
         }, { preserveState: true, replace: true });
     };
 
     const limparFiltros = () => {
         setBusca(''); setTipoDocId(''); setStatus(''); setDataDe(''); setDataAte('');
+        // Limpa apenas filtros finos; preserva o filtro_rapido se houver
+        router.get('/repositorio', {
+            pasta_id: pasta_atual?.id || undefined,
+            filtro: filtroRapido || undefined,
+        }, { preserveState: true, replace: true });
+    };
+
+    const sairDoFiltroRapido = () => {
         router.get('/repositorio', { pasta_id: pasta_atual?.id || undefined }, { preserveState: true, replace: true });
+    };
+
+    // Monta querystring para Links de pasta preservando o filtro_rapido
+    const linkPasta = (pastaId) => {
+        const params = [];
+        if (pastaId) params.push(`pasta_id=${pastaId}`);
+        if (filtroRapido) params.push(`filtro=${filtroRapido}`);
+        return params.length ? `/repositorio?${params.join('&')}` : '/repositorio';
     };
 
     const temFiltro = busca || tipoDocId || status || dataDe || dataAte;
 
     return (
         <AdminLayout>
-            <Head title="Repositorio" />
+            <Head title={rapidoCfg?.titulo || 'Repositorio'} />
 
-            <PageHeader title="Repositorio" subtitle="Navegar, visualizar e gerenciar documentos e pastas">
+            <PageHeader
+                title={rapidoCfg?.titulo || 'Repositorio'}
+                subtitle={rapidoCfg?.subtitulo || 'Navegar, visualizar e gerenciar documentos e pastas'}
+            >
                 <Button variant="secondary" icon="fas fa-folder-plus" onClick={() => setShowNewFolder(true)}>
                     Nova Pasta
                 </Button>
@@ -84,9 +177,24 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                 </Button>
             </PageHeader>
 
+            {/* Banner do filtro rapido ativo */}
+            {rapidoCfg && (
+                <div className={`mb-3 flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border ${rapidoCfg.bannerClasses}`}>
+                    <div className="flex items-center gap-2 text-sm">
+                        <i className={`${rapidoCfg.icone} ${rapidoCfg.iconeClasses}`} />
+                        <span className="font-semibold">Filtro ativo: {rapidoCfg.titulo}</span>
+                        <span className="text-xs opacity-70">— {rapidoCfg.subtitulo}</span>
+                    </div>
+                    <button onClick={sairDoFiltroRapido}
+                        className={`text-xs px-2.5 py-1 rounded-lg border ${rapidoCfg.botaoClasses}`}>
+                        <i className="fas fa-times mr-1" />Sair do filtro
+                    </button>
+                </div>
+            )}
+
             {/* Faixa horizontal de pastas (substitui sidebar) */}
             <div className="bg-white rounded-xl border border-gray-200 px-3 py-2 mb-3 flex items-center gap-2 overflow-x-auto">
-                <Link href="/repositorio"
+                <Link href={linkPasta(null)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors
                         ${!pasta_atual ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>
                     <i className="fas fa-folder text-[10px]" />
@@ -95,7 +203,7 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                 {folders.filter(f => f.parent_id === (pasta_atual?.id ?? null)).map(folder => {
                     const isActive = pasta_atual?.id === folder.id;
                     return (
-                        <Link key={folder.id} href={`/repositorio?pasta_id=${folder.id}`}
+                        <Link key={folder.id} href={linkPasta(folder.id)}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors
                                 ${isActive ? 'bg-blue-600 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>
                             <i className="fas fa-folder text-[10px]" />
@@ -106,7 +214,7 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                 {pasta_atual && (
                     <>
                         <div className="w-px h-5 bg-gray-200 mx-1 shrink-0" />
-                        <Link href={pasta_atual.parent_id ? `/repositorio?pasta_id=${pasta_atual.parent_id}` : '/repositorio'}
+                        <Link href={linkPasta(pasta_atual.parent_id || null)}
                             className="text-xs text-gray-500 hover:text-gray-800 px-2 py-1 whitespace-nowrap">
                             <i className="fas fa-arrow-left mr-1" />Voltar
                         </Link>
@@ -119,7 +227,7 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                     {/* Breadcrumb + view mode */}
                     <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 mb-3 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-1 text-sm">
-                            <Link href="/repositorio" className="text-blue-600 hover:underline">
+                            <Link href={linkPasta(null)} className="text-blue-600 hover:underline">
                                 <i className="fas fa-home text-xs" />
                             </Link>
                             {crumbs.map((c, i) => (
@@ -128,7 +236,7 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                                     {i === crumbs.length - 1 ? (
                                         <span className="text-gray-700 font-medium">{c.nome}</span>
                                     ) : (
-                                        <Link href={`/repositorio?pasta_id=${c.id}`} className="text-blue-600 hover:underline">{c.nome}</Link>
+                                        <Link href={linkPasta(c.id)} className="text-blue-600 hover:underline">{c.nome}</Link>
                                     )}
                                 </span>
                             ))}
@@ -212,20 +320,27 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                     {viewMode === 'grid' ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {docs.map(doc => (
-                                <Link key={doc.id} href={`/documentos/${doc.id}`}
-                                    className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md hover:border-blue-200 transition-all group">
-                                    <div className="w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-3">
-                                        <i className={`${getFileIcon(doc.mime_type)} text-3xl text-gray-300 group-hover:text-blue-400 transition-colors`} />
-                                    </div>
-                                    <p className="text-sm font-medium text-gray-700 truncate" title={doc.nome}>{doc.nome}</p>
-                                    {doc.tipo_nome && (
-                                        <p className="text-[10px] text-gray-400 mt-0.5">{doc.tipo_nome}</p>
-                                    )}
-                                    <div className="flex items-center justify-between mt-2">
-                                        <span className="text-xs text-gray-400">{formatBytes(doc.tamanho)}</span>
-                                        <StatusBadge status={doc.status} />
-                                    </div>
-                                </Link>
+                                <div key={doc.id}
+                                    className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md hover:border-blue-200 transition-all group relative">
+                                    <button onClick={(e) => { e.stopPropagation(); toggleFavorito(doc.id); }}
+                                        className="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center hover:bg-amber-50 z-10"
+                                        title={favoritosLocal.has(doc.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}>
+                                        <i className={`${favoritosLocal.has(doc.id) ? 'fas text-amber-500' : 'far text-gray-300 hover:text-amber-500'} fa-star`} />
+                                    </button>
+                                    <Link href={`/documentos/${doc.id}`} className="block">
+                                        <div className="w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center mb-3">
+                                            <i className={`${getFileIcon(doc.mime_type)} text-3xl text-gray-300 group-hover:text-blue-400 transition-colors`} />
+                                        </div>
+                                        <p className="text-sm font-medium text-gray-700 truncate" title={doc.nome}>{doc.nome}</p>
+                                        {doc.tipo_nome && (
+                                            <p className="text-[10px] text-gray-400 mt-0.5">{doc.tipo_nome}</p>
+                                        )}
+                                        <div className="flex items-center justify-between mt-2">
+                                            <span className="text-xs text-gray-400">{formatBytes(doc.tamanho)}</span>
+                                            <StatusBadge status={doc.status} />
+                                        </div>
+                                    </Link>
+                                </div>
                             ))}
                         </div>
                     ) : (
@@ -307,7 +422,7 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                                                 {! pasta_atual && (
                                                     <td className="px-3 py-2.5 text-xs">
                                                         {doc.pasta_nome ? (
-                                                            <Link href={`/repositorio?pasta_id=${doc.pasta_id}`}
+                                                            <Link href={linkPasta(doc.pasta_id)}
                                                                 className="inline-flex items-center gap-1 text-blue-600 hover:underline">
                                                                 <i className="fas fa-folder text-[10px] text-amber-400" />
                                                                 {doc.pasta_nome}
@@ -324,6 +439,14 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                                                 <td className="px-3 py-2.5 text-gray-400 text-[11px] whitespace-nowrap">{formatDate(doc.updated_at)}</td>
                                                 <td className="px-3 py-2.5">
                                                     <div className="flex items-center justify-center gap-1.5">
+                                                        <button onClick={() => toggleFavorito(doc.id)}
+                                                            className={`text-[11px] px-2 py-1 rounded border transition-colors
+                                                                ${favoritosLocal.has(doc.id)
+                                                                    ? 'bg-amber-50 border-amber-300 text-amber-500 hover:bg-amber-100'
+                                                                    : 'bg-white border-gray-200 text-gray-400 hover:bg-amber-50 hover:text-amber-500 hover:border-amber-200'}`}
+                                                            title={favoritosLocal.has(doc.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}>
+                                                            <i className={`${favoritosLocal.has(doc.id) ? 'fas' : 'far'} fa-star`} />
+                                                        </button>
                                                         <Link href={`/documentos/${doc.id}`}
                                                             className="text-[11px] px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
                                                             title="Abrir">
@@ -348,12 +471,26 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                             </div>
                             {docs.length === 0 && (
                                 <div className="py-12 text-center text-gray-400">
-                                    <i className="fas fa-folder-open text-3xl mb-2 block" />
-                                    <p className="text-sm font-medium">Nenhum documento {temFiltro ? 'encontrado com esses filtros' : 'nesta pasta'}</p>
-                                    {temFiltro && (
-                                        <button onClick={limparFiltros} className="text-xs text-blue-600 hover:underline mt-2">
-                                            Limpar filtros
-                                        </button>
+                                    {rapidoCfg && !temFiltro ? (
+                                        <>
+                                            <i className={`${rapidoCfg.icone} ${rapidoCfg.iconeClasses} text-3xl mb-2 block opacity-60`} />
+                                            <p className="text-sm font-medium text-gray-600">{rapidoCfg.vazioMsg}</p>
+                                            {rapidoCfg.vazioDica && (
+                                                <p className="text-xs text-gray-400 mt-1">{rapidoCfg.vazioDica}</p>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <i className="fas fa-folder-open text-3xl mb-2 block" />
+                                            <p className="text-sm font-medium">
+                                                Nenhum documento {temFiltro ? 'encontrado com esses filtros' : 'nesta pasta'}
+                                            </p>
+                                            {temFiltro && (
+                                                <button onClick={limparFiltros} className="text-xs text-blue-600 hover:underline mt-2">
+                                                    Limpar filtros
+                                                </button>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             )}
