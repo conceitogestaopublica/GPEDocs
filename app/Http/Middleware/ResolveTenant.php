@@ -30,7 +30,6 @@ class ResolveTenant
 
     public function handle(Request $request, Closure $next): Response
     {
-        dd($request->getHost());
         $host = $request->getHost();
 
         self::$LANDLORD_URL = $request->host() !== 'localhost' ? $host :
