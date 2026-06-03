@@ -123,20 +123,24 @@ class ResolveTenant
     /** Cache de 5min para evitar query no landlord a cada request. */
     private function resolveTenant(string $domain, string $subdomain, $isLocal = false): ?Tenant
     {
-        try {
-            return Cache::store('file')->remember(
-                "tenant:subdomain:{$domain}.{$subdomain}",  300,
-                fn () => Tenant::active()
-                    ->where('domain', $isLocal ? ":" . self::$LANDLORD_PORT : "$domain.com.br" )
-                    ->where('subdomain', $subdomain)
-                    ->first()
-            );
-        } catch (\Throwable $e) {
-            // Se cache falhar, consulta direto (não derruba a app)
-            return Tenant::active()
-                ->where('domain', $isLocal ? ":" . self::$LANDLORD_PORT : "$domain.com.br" )
-                ->where('subdomain', $subdomain)
-                ->first();
-        }
+        return Tenant::active()
+            ->where('domain', $isLocal ? ":" . self::$LANDLORD_PORT : "$domain.com.br" )
+            ->where('subdomain', $subdomain)
+            ->first();
+//        try {
+//            return Cache::store('file')->remember(
+//                "tenant:subdomain:{$domain}.{$subdomain}",  300,
+//                fn () => Tenant::active()
+//                    ->where('domain', $isLocal ? ":" . self::$LANDLORD_PORT : "$domain.com.br" )
+//                    ->where('subdomain', $subdomain)
+//                    ->first()
+//            );
+//        } catch (\Throwable $e) {
+//            // Se cache falhar, consulta direto (não derruba a app)
+//            return Tenant::active()
+//                ->where('domain', $isLocal ? ":" . self::$LANDLORD_PORT : "$domain.com.br" )
+//                ->where('subdomain', $subdomain)
+//                ->first();
+//        }
     }
 }
