@@ -74,7 +74,7 @@ class ResolveTenant
                 return $next($request);
             }
         }
-        dd($subdomain, $domain, $isLocal);
+        dd($subdomain, $domain, $isLocal, $this->resolveTenant($domain, $subdomain, $isLocal));
         $tenant = $this->resolveTenant($domain, $subdomain, $isLocal);
 
         if (!$tenant) {
