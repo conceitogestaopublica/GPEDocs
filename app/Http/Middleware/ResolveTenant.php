@@ -75,7 +75,7 @@ class ResolveTenant
         }
 
         $tenant = $this->resolveTenant($domain, $subdomain, $isLocal);
-
+dd($tenant, $domain, $subdomain, $isLocal);
         if (!$tenant) {
             // Tenant não existe ou está inativo. Redireciona para o login do
             // painel admin (landlord) com a mensagem explícita na query string.
