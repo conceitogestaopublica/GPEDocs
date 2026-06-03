@@ -27,14 +27,14 @@ return new class extends Migration
         Schema::create('portal_solicitacoes', function (Blueprint $t) {
             $t->id();
             $t->string('codigo', 30)->unique();
-            $t->foreignId('ug_id')->constrained('ugs')->cascadeOnDelete();
-            $t->foreignId('servico_id')->constrained('portal_servicos')->cascadeOnDelete();
-            $t->foreignId('cidadao_id')->constrained('portal_cidadaos')->cascadeOnDelete();
+            $t->foreignId('ug_id')->constrained('ugs', indexName: 'portal_solicitacoes_x_ugs_X_ug_id');
+            $t->foreignId('servico_id')->constrained('portal_servicos', indexName: 'portal_solicitacoes_x_portal_servicos_X_servico_id');
+            $t->foreignId('cidadao_id')->constrained('portal_cidadaos', indexName: 'portal_solicitacoes_x_portal_cidadaos_X_cidadao_id');
             $t->string('status', 20)->default('aberta'); // aberta, em_atendimento, atendida, recusada, cancelada
             $t->text('descricao'); // o que o cidadao escreveu ao solicitar
             $t->string('telefone_contato', 30)->nullable();
             $t->string('email_contato', 150)->nullable();
-            $t->foreignId('atendente_id')->nullable()->constrained('users')->nullOnDelete();
+            $t->foreignId('atendente_id')->nullable()->constrained('users', indexName: 'portal_solicitacoes_x_users_X_atendente_id');
             $t->text('resposta')->nullable(); // resposta do atendente
             $t->timestamp('respondida_em')->nullable();
             $t->timestamps();
@@ -44,12 +44,12 @@ return new class extends Migration
 
         Schema::create('portal_solicitacao_eventos', function (Blueprint $t) {
             $t->id();
-            $t->foreignId('solicitacao_id')->constrained('portal_solicitacoes')->cascadeOnDelete();
+            $t->foreignId('solicitacao_id')->constrained('portal_solicitacoes', indexName: 'pse_x_portal_solicitacoes_X_solicitacao_id');
             $t->string('tipo', 30); // criada, status_alterado, comentario, atendida, recusada
             $t->string('autor_tipo', 20); // cidadao, atendente, sistema
             $t->string('autor_nome')->nullable();
-            $t->foreignId('autor_user_id')->nullable()->constrained('users')->nullOnDelete();
-            $t->foreignId('autor_cidadao_id')->nullable()->constrained('portal_cidadaos')->nullOnDelete();
+            $t->foreignId('autor_user_id')->nullable()->constrained('users', indexName: 'portal_solicitacao_eventos_x_users_X_autor_user_id');
+            $t->foreignId('autor_cidadao_id')->nullable()->constrained('portal_cidadaos', indexName: 'portal_solicitacao_eventos_x_portal_cidadaos_X_autor_cidadao_id');
             $t->string('status_anterior', 20)->nullable();
             $t->string('status_novo', 20)->nullable();
             $t->text('mensagem')->nullable();

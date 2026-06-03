@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -18,13 +19,9 @@ class Ug extends Model
         'legado_orgao_id',
         'nome',
         'cnpj',
-        'cep',
-        'logradouro',
+        'logradouro_id',
         'numero',
         'complemento',
-        'bairro',
-        'cidade',
-        'uf',
         'nivel_1_label',
         'nivel_2_label',
         'nivel_3_label',
@@ -48,6 +45,11 @@ class Ug extends Model
             'ativo'        => 'boolean',
             'banner_ativo' => 'boolean',
         ];
+    }
+
+    public function logradouro(): BelongsTo
+    {
+        return $this->belongsTo(Logradouro::class, 'logradouro_id');
     }
 
     public function organograma(): HasMany
@@ -88,18 +90,28 @@ class Ug extends Model
     }
 
     /**
-     * Devolve os campos de endereco no formato compativel com herdar/proprio.
+     * Devolve os campos de endereco no formato flat (compativel com EnderecoForm
+     * e com os imports/exports). Carrega a cadeia logradouro->municipio->uf
+     * sob demanda.
      */
     public function enderecoArray(): array
     {
+        $logradouro = $this->logradouro;
+        if ($logradouro) {
+            $logradouro->loadMissing('bairro.municipio.uf');
+        }
+
+        $bairro    = $logradouro?->bairro;
+        $municipio = $bairro?->municipio;
+
         return [
-            'cep'         => $this->cep,
-            'logradouro'  => $this->logradouro,
+            'cep'         => $logradouro?->cep,
+            'logradouro'  => $logradouro?->nome,
             'numero'      => $this->numero,
             'complemento' => $this->complemento,
-            'bairro'      => $this->bairro,
-            'cidade'      => $this->cidade,
-            'uf'          => $this->uf,
+            'bairro'      => $bairro?->nome,
+            'cidade'      => $municipio?->nome,
+            'uf'          => $municipio?->uf?->nome,
         ];
     }
 }

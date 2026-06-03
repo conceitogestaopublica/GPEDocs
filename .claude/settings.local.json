@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"C:\\\\GitHub\\\\GPEDocs\\\\bootstrap\")",
+      "Bash(dir \"C:\\\\GitHub\\\\GPEDocs\\\\public\")",
+      "Bash(grep -n '\\\\${' C:/GitHub/GPEDocs/docker-compose.yml)",
+      "Bash(grep -n '\\\\$' C:/GitHub/GPEDocs/.env)",
+      "Bash(php -l database/seeders/UsuariosDemoSeeder.php)",
+      "Bash(php -l database/seeders/DocumentosDemoSeeder.php)",
+      "Bash(php -l database/seeders/ProcessosDemoSeeder.php)",
+      "Bash(php -l database/seeders/MemorandosOficiosDemoSeeder.php)",
+      "Bash(php -l database/seeders/PortalSolicitacaoDemoSeeder.php)",
+      "Bash(docker exec *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\GitHub\\\\GPEDocs\" -Directory)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(xargs grep -l \"table\\('users\")",
+      "Bash(docker cp *)",
+      "Bash(xargs grep -l 'documento_id')"
+    ]
+  }
+}

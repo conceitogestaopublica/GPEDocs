@@ -12,9 +12,9 @@ return new class extends Migration
     {
         Schema::create('chat_mensagens', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('ug_id')->nullable()->constrained('ugs')->nullOnDelete();
-            $table->foreignId('remetente_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('destinatario_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('ug_id')->nullable()->constrained('ugs', indexName: 'chat_mensagens_x_ugs_X_ug_id');
+            $table->foreignId('remetente_id')->constrained('users', indexName: 'chat_mensagens_x_users_X_remetente_id');
+            $table->foreignId('destinatario_id')->constrained('users', indexName: 'chat_mensagens_x_users_X_destinatario_id');
             $table->text('conteudo');
             $table->timestamp('lida_em')->nullable();
             $table->timestamps();

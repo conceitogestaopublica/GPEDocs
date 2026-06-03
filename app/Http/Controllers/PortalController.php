@@ -233,6 +233,7 @@ class PortalController extends Controller
     private function resolverUg(string $slug): Ug
     {
         return Ug::query()
+            ->with('logradouro.bairro.municipio.uf')
             ->where('portal_slug', $slug)
             ->where('ativo', true)
             ->firstOrFail();
@@ -261,8 +262,8 @@ class PortalController extends Controller
             'codigo'   => $ug->codigo,
             'slug'     => $ug->portal_slug,
             'nome'     => $ug->nome,
-            'cidade'   => $ug->cidade,
-            'uf'       => $ug->uf,
+            'cidade'   => $ug->logradouro?->bairro?->municipio?->nome,
+            'uf'       => $ug->logradouro?->bairro?->municipio?->uf?->nome,
             'brasao'   => $ug->brasao_path ? "/_brasao/{$ug->id}" : null,
             'site'     => $ug->site,
             'email'    => $ug->email_institucional,

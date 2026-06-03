@@ -12,13 +12,13 @@ return new class extends Migration
     {
         Schema::create('proc_oficio_modelos', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('ug_id')->nullable()->constrained('ugs')->nullOnDelete();
+            $table->foreignId('ug_id')->nullable()->constrained('ugs', indexName: 'proc_oficio_modelos_x_ugs_X_ug_id');
             $table->string('nome', 200);
             $table->string('categoria', 80)->nullable();
             $table->text('descricao')->nullable();
             $table->text('conteudo');
             $table->boolean('ativo')->default(true);
-            $table->foreignId('criado_por')->constrained('users');
+            $table->foreignId('criado_por')->constrained('users', indexName: 'proc_oficio_modelos_x_users_X_criado_por');
             $table->timestamps();
             $table->softDeletes();
 

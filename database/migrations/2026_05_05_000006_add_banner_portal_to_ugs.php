@@ -20,14 +20,14 @@ return new class extends Migration
             $t->text('banner_subtitulo')->nullable()->after('banner_titulo');
             $t->string('banner_link_url', 500)->nullable()->after('banner_subtitulo');
             $t->string('banner_link_label', 60)->nullable()->after('banner_link_url');
-            $t->boolean('banner_ativo')->default(true)->after('banner_link_label');
+            // `banner_ativo` ja e criado na migration base (create_ugs_and_organograma).
         });
     }
 
     public function down(): void
     {
         Schema::table('ugs', function (Blueprint $t) {
-            $t->dropColumn(['banner_path', 'banner_titulo', 'banner_subtitulo', 'banner_link_url', 'banner_link_label', 'banner_ativo']);
+            $t->dropColumn(['banner_path', 'banner_titulo', 'banner_subtitulo', 'banner_link_url', 'banner_link_label']);
         });
     }
 };

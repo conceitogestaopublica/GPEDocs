@@ -51,13 +51,9 @@ class UgOrganograma extends Model
         'responsavel_id',
         'protocolo_externo',
         'endereco_proprio',
-        'cep',
-        'logradouro',
+        'logradouro_id',
         'numero',
         'complemento',
-        'bairro',
-        'cidade',
-        'uf',
     ];
 
     protected function casts(): array
@@ -76,6 +72,11 @@ class UgOrganograma extends Model
     public function ug(): BelongsTo
     {
         return $this->belongsTo(Ug::class, 'ug_id');
+    }
+
+    public function logradouro(): BelongsTo
+    {
+        return $this->belongsTo(Logradouro::class, 'logradouro_id');
     }
 
     public function parent(): BelongsTo
@@ -104,22 +105,39 @@ class UgOrganograma extends Model
     }
 
     /**
+     * Endereco proprio do no (sem heranca) no formato flat. Util quando
+     * `endereco_proprio = true` ou quando o form precisa preencher os campos
+     * mesmo que herdados (entao o caller usa enderecoEfetivo()).
+     */
+    public function enderecoProprioArray(): array
+    {
+        $logradouro = $this->logradouro;
+        if ($logradouro) {
+            $logradouro->loadMissing('bairro.municipio.uf');
+        }
+
+        $bairro    = $logradouro?->bairro;
+        $municipio = $bairro?->municipio;
+
+        return [
+            'cep'         => $logradouro?->cep,
+            'logradouro'  => $logradouro?->nome,
+            'numero'      => $this->numero,
+            'complemento' => $this->complemento,
+            'bairro'      => $bairro?->nome,
+            'cidade'      => $municipio?->nome,
+            'uf'          => $municipio?->uf?->nome,
+        ];
+    }
+
+    /**
      * Endereco efetivo deste no: o proprio se endereco_proprio = true,
      * caso contrario o da UG associada.
      */
     public function enderecoEfetivo(): array
     {
         if ($this->endereco_proprio) {
-            return [
-                'origem'      => 'proprio',
-                'cep'         => $this->cep,
-                'logradouro'  => $this->logradouro,
-                'numero'      => $this->numero,
-                'complemento' => $this->complemento,
-                'bairro'      => $this->bairro,
-                'cidade'      => $this->cidade,
-                'uf'          => $this->uf,
-            ];
+            return ['origem' => 'proprio'] + $this->enderecoProprioArray();
         }
 
         return ['origem' => 'herdado'] + ($this->ug?->enderecoArray() ?? []);

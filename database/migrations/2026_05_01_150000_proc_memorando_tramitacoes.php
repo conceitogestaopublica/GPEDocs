@@ -22,16 +22,16 @@ return new class extends Migration
     {
         Schema::create('proc_memorando_tramitacoes', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('memorando_id')->constrained('proc_memorandos')->cascadeOnDelete();
-            $table->foreignId('tramite_origem_id')->nullable()->constrained('proc_memorando_tramitacoes')->nullOnDelete();
+            $table->foreignId('memorando_id')->constrained('proc_memorandos', indexName: 'proc_memorando_tramitacoes_x_proc_memorandos_X_memorando_id');
+            $table->foreignId('tramite_origem_id')->nullable()->constrained('proc_memorando_tramitacoes', indexName: 'pmt_x_pmt_X_tramite_origem_id');
 
             // Origem (quem encaminhou — sempre user)
-            $table->foreignId('origem_usuario_id')->constrained('users')->restrictOnDelete();
-            $table->foreignId('origem_unidade_id')->nullable()->constrained('ug_organograma')->nullOnDelete();
+            $table->foreignId('origem_usuario_id')->constrained('users', indexName: 'proc_memorando_tramitacoes_x_users_X_origem_usuario_id');
+            $table->foreignId('origem_unidade_id')->nullable()->constrained('ug_organograma', indexName: 'pmt_x_ug_organograma_X_origem_unidade_id');
 
             // Destino (usuario OU unidade do organograma)
-            $table->foreignId('destino_usuario_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('destino_unidade_id')->nullable()->constrained('ug_organograma')->nullOnDelete();
+            $table->foreignId('destino_usuario_id')->nullable()->constrained('users', indexName: 'proc_memorando_tramitacoes_x_users_X_destino_usuario_id');
+            $table->foreignId('destino_unidade_id')->nullable()->constrained('ug_organograma', indexName: 'pmt_x_ug_organograma_X_destino_unidade_id');
 
             $table->text('parecer')->nullable();
             $table->boolean('em_uso')->default(true);    // true = aguardando recebimento; false = ja foi tramitado pra frente

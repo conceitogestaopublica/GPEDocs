@@ -1,0 +1,63 @@
+services:
+
+  # ── PHP-FPM: executa a aplicação Laravel ──────────────────────────────────
+  app:
+    build:
+      context: .
+      target: app
+    image: app-docs:latest
+    container_name: app-docs
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - storage:/var/www/html/storage
+      - ./app:/var/www/html/app
+      - ./database:/var/www/html/database
+      - ./routes:/var/www/html/routes
+      - ./config:/var/www/html/config
+      - ./resources:/var/www/html/resources
+    networks:
+      - gpedocs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ── Queue worker: processa jobs em background ─────────────────────────────
+#  queue:
+#    build:
+#      context: .
+#      target: app
+#    image: queue-docs:latest
+#    container_name: queue-docs
+#    restart: unless-stopped
+#    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+#    env_file: .env
+#    volumes:
+#      - storage:/var/www/html/storage
+#    networks:
+#      - gpedocs
+#    depends_on:
+#      - app
+
+  # ── Nginx: proxy reverso + arquivos estáticos ─────────────────────────────
+  nginx:
+    build:
+      context: .
+      target: nginx
+    image: nginx-docs:latest
+    container_name: nginx-docs
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-80}:80"
+    volumes:
+      - storage:/var/www/html/storage:ro
+    networks:
+      - gpedocs
+    depends_on:
+      - app
+
+volumes:
+  storage:
+
+networks:
+  gpedocs:
+    driver: bridge

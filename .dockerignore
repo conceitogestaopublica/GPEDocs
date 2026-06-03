@@ -1,0 +1,21 @@
+.git
+.gitignore
+node_modules
+vendor
+.env
+*.local
+
+# Storage gerado em runtime (volumes Docker)
+storage/logs
+storage/framework/cache
+storage/framework/sessions
+storage/framework/views
+
+# Testes e docs
+tests
+docs
+*.md
+
+# Assets compilados do host (gerados no Docker via multi-stage)
+public/build
+public/hot

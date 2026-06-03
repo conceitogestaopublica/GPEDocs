@@ -17,7 +17,7 @@ return new class extends Migration
     {
         Schema::create('portal_banners', function (Blueprint $t) {
             $t->id();
-            $t->foreignId('ug_id')->constrained('ugs')->cascadeOnDelete();
+            $t->foreignId('ug_id')->constrained('ugs', indexName: 'portal_banners_x_ugs_X_ug_id');
             $t->string('imagem_path', 255);
             $t->string('titulo', 200)->nullable();
             $t->text('subtitulo')->nullable();

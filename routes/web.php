@@ -28,6 +28,11 @@ use Illuminate\Support\Facades\Route;
 // Rastreio de oficio (publico, sem auth)
 Route::get('oficios/rastrear/{token}', [OficioController::class, 'rastrear'])->name('oficios.rastrear');
 
+/* ─── SSO consume — recebe token emitido pelo landlord (fluxo multi-tenant) ─── */
+// GET porque o landlord redireciona via 302 com ?t=<token>. O token é de uso
+// único, validado contra hash sha256 — não é credencial em URL clássica.
+Route::get('/sso/landlord', [\App\Http\Controllers\Tenant\SSOConsumeController::class, 'consume'])->name('sso.landlord');
+
 // Documentacao da API de integracao (publica, leitura)
 Route::get('docs/integracao-externa.md', function () {
     $path = base_path('docs/integracao-externa.md');

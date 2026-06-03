@@ -25,10 +25,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('proc_oficios', function (Blueprint $table) {
-            $table->foreignId('destinatario_usuario_id')->nullable()->after('remetente_id')
-                ->constrained('users')->nullOnDelete();
-            $table->foreignId('destinatario_unidade_id')->nullable()->after('destinatario_usuario_id')
-                ->constrained('ug_organograma')->nullOnDelete();
+            $table->foreignId('destinatario_usuario_id')->nullable()->after('remetente_id')->constrained('users', indexName: 'proc_oficios_x_users_X_destinatario_usuario_id');
+            $table->foreignId('destinatario_unidade_id')->nullable()->after('destinatario_usuario_id')->constrained('ug_organograma', indexName: 'proc_oficios_x_ug_organograma_X_destinatario_unidade_id');
+
             // proc_oficios ja tem lido_em — pulo se ja existir
             if (! Schema::hasColumn('proc_oficios', 'lido_em_interno')) {
                 $table->timestamp('lido_em_interno')->nullable()->after('lido_em');
@@ -37,12 +36,12 @@ return new class extends Migration
 
         Schema::table('proc_memorando_destinatarios', function (Blueprint $table) {
             $table->foreignId('unidade_id')->nullable()->after('usuario_id')
-                ->constrained('ug_organograma')->nullOnDelete();
+                ->constrained('ug_organograma', indexName: 'proc_memorando_destinatarios_x_ug_organograma_X_unidade_id');
         });
 
         Schema::table('proc_tramitacoes', function (Blueprint $table) {
             $table->foreignId('destino_unidade_id')->nullable()->after('destinatario_id')
-                ->constrained('ug_organograma')->nullOnDelete();
+                ->constrained('ug_organograma', indexName: 'proc_tramitacoes_x_ug_organograma_X_destino_unidade_id');
             $table->timestamp('lida_em')->nullable()->after('recebido_em');
         });
 
@@ -130,18 +129,18 @@ return new class extends Migration
         DB::statement("DROP VIEW IF EXISTS proc_inbox");
 
         Schema::table('proc_tramitacoes', function (Blueprint $table) {
-            $table->dropForeign(['destino_unidade_id']);
+            $table->dropForeign('proc_tramitacoes_x_ug_organograma_X_destino_unidade_id');
             $table->dropColumn(['destino_unidade_id', 'lida_em']);
         });
 
         Schema::table('proc_memorando_destinatarios', function (Blueprint $table) {
-            $table->dropForeign(['unidade_id']);
+            $table->dropForeign('proc_memorando_destinatarios_x_ug_organograma_X_unidade_id');
             $table->dropColumn('unidade_id');
         });
 
         Schema::table('proc_oficios', function (Blueprint $table) {
-            $table->dropForeign(['destinatario_usuario_id']);
-            $table->dropForeign(['destinatario_unidade_id']);
+            $table->dropForeign('proc_oficios_x_users_X_destinatario_usuario_id');
+            $table->dropForeign('proc_oficios_x_ug_organograma_X_destinatario_unidade_id');
             $table->dropColumn(['destinatario_usuario_id', 'destinatario_unidade_id', 'lido_em_interno']);
         });
     }

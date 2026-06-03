@@ -344,7 +344,11 @@ class SolicitacaoController extends Controller
 
     private function resolverUg(string $slug): Ug
     {
-        return Ug::query()->where('portal_slug', $slug)->where('ativo', true)->firstOrFail();
+        return Ug::query()
+            ->with('logradouro.bairro.municipio.uf')
+            ->where('portal_slug', $slug)
+            ->where('ativo', true)
+            ->firstOrFail();
     }
 
     private function resolverServico(int $ugId, string $slug): Servico
@@ -364,8 +368,8 @@ class SolicitacaoController extends Controller
             'codigo'   => $ug->codigo,
             'slug'     => $ug->portal_slug,
             'nome'     => $ug->nome,
-            'cidade'   => $ug->cidade,
-            'uf'       => $ug->uf,
+            'cidade'   => $ug->logradouro?->bairro?->municipio?->nome,
+            'uf'       => $ug->logradouro?->bairro?->municipio?->uf?->nome,
             'brasao'   => $ug->brasao_path ? "/_brasao/{$ug->id}" : null,
             'site'     => $ug->site,
             'email'    => $ug->email_institucional,

@@ -25,9 +25,9 @@ return new class extends Migration
             $table->id();
             $table->string('nome', 255);
             $table->text('descricao')->nullable();
-            $table->foreignId('parent_id')->nullable()->constrained('ged_pastas')->nullOnDelete();
+            $table->foreignId('parent_id')->nullable()->constrained('ged_pastas', indexName: 'ged_pastas_x_ged_pastas_X_parent_id');
             $table->text('path');
-            $table->foreignId('criado_por')->constrained('users');
+            $table->foreignId('criado_por')->constrained('users', indexName: 'ged_pastas_x_users_X_criado_por');
             $table->timestamps();
 
             $table->index('parent_id');
@@ -39,16 +39,16 @@ return new class extends Migration
             $table->id();
             $table->string('nome', 255);
             $table->text('descricao')->nullable();
-            $table->foreignId('tipo_documental_id')->nullable()->constrained('ged_tipos_documentais')->nullOnDelete();
-            $table->foreignId('pasta_id')->nullable()->constrained('ged_pastas')->nullOnDelete();
+            $table->foreignId('tipo_documental_id')->nullable()->constrained('ged_tipos_documentais', indexName: 'ged_documentos_x_ged_tipos_documentais_X_tipo_documental_id');
+            $table->foreignId('pasta_id')->nullable()->constrained('ged_pastas', indexName: 'ged_documentos_x_ged_pastas_X_pasta_id');
             $table->integer('versao_atual')->default(1);
             $table->bigInteger('tamanho');
             $table->string('mime_type', 100);
-            $table->foreignId('autor_id')->constrained('users');
+            $table->foreignId('autor_id')->constrained('users', indexName: 'ged_documentos_x_users_X_autor_id');
             $table->string('status', 20)->default('rascunho');
             $table->string('classificacao', 20)->default('publico');
             $table->text('ocr_texto')->nullable();
-            $table->foreignId('check_out_por')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('check_out_por')->nullable()->constrained('users', indexName: 'ged_documentos_x_users_X_check_out_por');
             $table->timestamp('check_out_em')->nullable();
             $table->timestamps();
             $table->softDeletes();
@@ -62,12 +62,12 @@ return new class extends Migration
         // 4. ged_versoes
         Schema::create('ged_versoes', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('documento_id')->constrained('ged_documentos')->cascadeOnDelete();
+            $table->foreignId('documento_id')->constrained('ged_documentos', indexName: 'ged_versoes_x_ged_documentos_X_documento_id');
             $table->integer('versao');
             $table->string('arquivo_path', 500);
             $table->bigInteger('tamanho');
             $table->string('hash_sha256', 64)->nullable();
-            $table->foreignId('autor_id')->constrained('users');
+            $table->foreignId('autor_id')->constrained('users', indexName: 'ged_versoes_x_users_X_autor_id');
             $table->text('comentario')->nullable();
             $table->timestamps();
 
@@ -77,7 +77,7 @@ return new class extends Migration
         // 5. ged_metadados
         Schema::create('ged_metadados', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('documento_id')->constrained('ged_documentos')->cascadeOnDelete();
+            $table->foreignId('documento_id')->constrained('ged_documentos', indexName: 'ged_metadados_x_ged_documentos_X_documento_id');
             $table->string('chave', 100);
             $table->text('valor')->nullable();
             $table->timestamps();
@@ -95,8 +95,8 @@ return new class extends Migration
 
         // 7. ged_documento_tags
         Schema::create('ged_documento_tags', function (Blueprint $table) {
-            $table->foreignId('documento_id')->constrained('ged_documentos')->cascadeOnDelete();
-            $table->foreignId('tag_id')->constrained('ged_tags')->cascadeOnDelete();
+            $table->foreignId('documento_id')->constrained('ged_documentos', indexName: 'ged_documento_tags_x_ged_documentos_X_documento_id');
+            $table->foreignId('tag_id')->constrained('ged_tags', indexName: 'ged_documento_tags_x_ged_tags_X_tag_id');
 
             $table->primary(['documento_id', 'tag_id']);
         });
@@ -104,10 +104,10 @@ return new class extends Migration
         // 8. ged_compartilhamentos
         Schema::create('ged_compartilhamentos', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('documento_id')->constrained('ged_documentos')->cascadeOnDelete();
-            $table->foreignId('usuario_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('documento_id')->constrained('ged_documentos', indexName: 'ged_compartilhamentos_x_ged_documentos_X_documento_id');
+            $table->foreignId('usuario_id')->constrained('users', indexName: 'ged_compartilhamentos_x_users_X_usuario_id');
             $table->string('permissao', 20)->default('visualizar');
-            $table->foreignId('criado_por')->constrained('users');
+            $table->foreignId('criado_por')->constrained('users', indexName: 'ged_compartilhamentos_x_users_X_criado_por');
             $table->timestamps();
 
             $table->unique(['documento_id', 'usuario_id']);
@@ -120,29 +120,29 @@ return new class extends Migration
             $table->text('descricao')->nullable();
             $table->jsonb('definicao');
             $table->boolean('ativo')->default(true);
-            $table->foreignId('criado_por')->constrained('users');
+            $table->foreignId('criado_por')->constrained('users', indexName: 'ged_fluxos_x_users_X_criado_por');
             $table->timestamps();
         });
 
         // 10. ged_fluxo_instancias
         Schema::create('ged_fluxo_instancias', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('fluxo_id')->constrained('ged_fluxos');
-            $table->foreignId('documento_id')->constrained('ged_documentos');
+            $table->foreignId('fluxo_id')->constrained('ged_fluxos', indexName: 'ged_fluxo_instancias_x_ged_fluxos_X_fluxo_id');
+            $table->foreignId('documento_id')->constrained('ged_documentos', indexName: 'ged_fluxo_instancias_x_ged_documentos_X_documento_id');
             $table->string('status', 20)->default('pendente');
             $table->string('etapa_atual', 100)->nullable();
-            $table->foreignId('iniciado_por')->constrained('users');
+            $table->foreignId('iniciado_por')->constrained('users', indexName: 'ged_fluxo_instancias_x_users_X_iniciado_por');
             $table->timestamps();
         });
 
         // 11. ged_fluxo_etapas
         Schema::create('ged_fluxo_etapas', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('instancia_id')->constrained('ged_fluxo_instancias')->cascadeOnDelete();
+            $table->foreignId('instancia_id')->constrained('ged_fluxo_instancias', indexName: 'ged_fluxo_etapas_x_ged_fluxo_instancias_X_instancia_id');
             $table->string('nome', 100);
             $table->string('tipo', 20);
             $table->integer('ordem')->default(0);
-            $table->foreignId('responsavel_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('responsavel_id')->nullable()->constrained('users', indexName: 'ged_fluxo_etapas_x_users_X_responsavel_id');
             $table->string('status', 20)->default('pendente');
             $table->timestamp('prazo')->nullable();
             $table->text('comentario')->nullable();
@@ -153,8 +153,8 @@ return new class extends Migration
         // 12. ged_audit_logs
         Schema::create('ged_audit_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('documento_id')->nullable()->constrained('ged_documentos')->nullOnDelete();
-            $table->foreignId('usuario_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('documento_id')->nullable()->constrained('ged_documentos', indexName: 'ged_audit_logs_x_ged_documentos_X_documento_id');
+            $table->foreignId('usuario_id')->nullable()->constrained('users', indexName: 'ged_audit_logs_x_users_X_usuario_id');
             $table->string('acao', 50);
             $table->jsonb('detalhes')->nullable();
             $table->string('ip', 45)->nullable();
@@ -165,7 +165,7 @@ return new class extends Migration
         // 13. ged_buscas_salvas
         Schema::create('ged_buscas_salvas', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('usuario_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('usuario_id')->constrained('users', indexName: 'ged_buscas_salvas_x_users_X_usuario_id');
             $table->string('nome', 100);
             $table->jsonb('filtros');
             $table->timestamps();
@@ -189,16 +189,16 @@ return new class extends Migration
 
         // 16. ged_role_permissions
         Schema::create('ged_role_permissions', function (Blueprint $table) {
-            $table->foreignId('role_id')->constrained('ged_roles')->cascadeOnDelete();
-            $table->foreignId('permission_id')->constrained('ged_permissions')->cascadeOnDelete();
+            $table->foreignId('role_id')->constrained('ged_roles', indexName: 'ged_role_permissions_x_ged_roles_X_role_id');
+            $table->foreignId('permission_id')->constrained('ged_permissions', indexName: 'ged_role_permissions_x_ged_permissions_X_permission_id');
 
             $table->primary(['role_id', 'permission_id']);
         });
 
         // 17. ged_user_roles
         Schema::create('ged_user_roles', function (Blueprint $table) {
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('role_id')->constrained('ged_roles')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users', indexName: 'ged_user_roles_x_users_X_user_id');
+            $table->foreignId('role_id')->constrained('ged_roles', indexName: 'ged_user_roles_x_ged_roles_X_role_id');
 
             $table->primary(['user_id', 'role_id']);
         });
@@ -206,7 +206,7 @@ return new class extends Migration
         // 18. ged_notificacoes
         Schema::create('ged_notificacoes', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('usuario_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('usuario_id')->constrained('users', indexName: 'ged_notificacoes_x_users_X_usuario_id');
             $table->string('tipo', 50);
             $table->string('titulo', 255);
             $table->text('mensagem')->nullable();

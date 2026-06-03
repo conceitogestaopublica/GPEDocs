@@ -12,7 +12,7 @@ return new class extends Migration
     {
         Schema::create('portal_categorias_servicos', function (Blueprint $t) {
             $t->id();
-            $t->foreignId('ug_id')->constrained('ugs')->cascadeOnDelete();
+            $t->foreignId('ug_id')->constrained('ugs', indexName: 'portal_categorias_servicos_x_ugs_X_ug_id');
             $t->string('nome', 120);
             $t->string('slug', 140);
             $t->string('icone', 60)->nullable();
@@ -27,8 +27,8 @@ return new class extends Migration
 
         Schema::create('portal_servicos', function (Blueprint $t) {
             $t->id();
-            $t->foreignId('ug_id')->constrained('ugs')->cascadeOnDelete();
-            $t->foreignId('categoria_id')->nullable()->constrained('portal_categorias_servicos')->nullOnDelete();
+            $t->foreignId('ug_id')->constrained('ugs', indexName: 'portal_servicos_x_ugs_X_ug_id');
+            $t->foreignId('categoria_id')->nullable()->constrained('portal_categorias_servicos', indexName: 'portal_servicos_x_portal_categorias_servicos_X_categoria_id');
             $t->string('titulo');
             $t->string('slug', 200);
             $t->string('publico_alvo', 20)->default('cidadao');

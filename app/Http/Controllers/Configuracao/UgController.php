@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Configuracao;
 
 use App\Http\Controllers\Controller;
+use App\Models\Logradouro;
 use App\Models\Ug;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -66,8 +67,11 @@ class UgController extends Controller
 
     public function edit($id): Response
     {
-        $ug = Ug::findOrFail($id);
-        $payload = $ug->toArray();
+        $ug = Ug::with('logradouro.bairro.municipio.uf')->findOrFail($id);
+        // toArray() devolve as colunas (incluindo logradouro_id, numero, complemento).
+        // Spread enderecoArray() para anexar cep/logradouro/bairro/cidade/uf no shape
+        // flat esperado pelo EnderecoForm.jsx.
+        $payload = array_merge($ug->toArray(), $ug->enderecoArray());
         // URL temporaria do brasao (para preview no form)
         $payload['brasao_url'] = $ug->brasao_path
             ? route('configuracoes.ug.brasao', ['id' => $ug->id])
@@ -96,9 +100,7 @@ class UgController extends Controller
             $bannerPath = $this->salvarBanner($request->file('banner'), $request->input('codigo'));
         }
 
-        $dados = collect($validated)
-            ->except(['brasao', 'remover_brasao', 'banner', 'remover_banner'])
-            ->all();
+        $dados = $this->dadosPersistencia($validated);
         $dados['brasao_path'] = $brasaoPath;
         $dados['banner_path'] = $bannerPath;
         $dados['ativo'] = true;
@@ -116,7 +118,7 @@ class UgController extends Controller
             + $this->regrasComuns($ug->id);
         $validated = $request->validate($rules);
 
-        $dados = collect($validated)->except(['brasao', 'remover_brasao', 'banner', 'remover_banner'])->all();
+        $dados = $this->dadosPersistencia($validated);
 
         // Remover brasao
         if ($request->boolean('remover_brasao') && $ug->brasao_path) {
@@ -190,6 +192,28 @@ class UgController extends Controller
         }
 
         return Storage::disk('documentos')->response($ug->brasao_path);
+    }
+
+    /**
+     * Filtra os campos validados para o shape persistivel na tabela `ugs`:
+     * remove arquivos/flags auxiliares e converte os campos flat de endereco
+     * (cep/logradouro/bairro/cidade/uf) em logradouro_id via firstOrCreate.
+     */
+    private function dadosPersistencia(array $validated): array
+    {
+        $logradouro = Logradouro::resolverFromFlat([
+            'cep'        => $validated['cep']        ?? null,
+            'logradouro' => $validated['logradouro'] ?? null,
+            'bairro'     => $validated['bairro']     ?? null,
+            'cidade'     => $validated['cidade']     ?? null,
+            'uf'         => $validated['uf']         ?? null,
+        ]);
+
+        return collect($validated)
+            ->except(['brasao', 'remover_brasao', 'banner', 'remover_banner',
+                      'cep', 'logradouro', 'bairro', 'cidade', 'uf'])
+            ->put('logradouro_id', $logradouro?->id)
+            ->all();
     }
 
     private function salvarBrasao(\Illuminate\Http\UploadedFile $file, ?string $codigo): string

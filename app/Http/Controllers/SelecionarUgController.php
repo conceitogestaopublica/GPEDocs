@@ -20,9 +20,9 @@ class SelecionarUgController extends Controller
 
         // Super-admin pode ver todas as UGs ativas
         if ($user->super_admin) {
-            $ugs = Ug::where('ativo', true)->orderBy('codigo')->get();
+            $ugs = Ug::with('logradouro.bairro.municipio.uf')->where('ativo', true)->orderBy('codigo')->get();
         } else {
-            $ugs = $user->ugs()->where('ugs.ativo', true)->orderBy('codigo')->get();
+            $ugs = $user->ugs()->with('logradouro.bairro.municipio.uf')->where('ugs.ativo', true)->orderBy('codigo')->get();
         }
 
         // 0 UGs → tela "sem UG"
@@ -42,8 +42,8 @@ class SelecionarUgController extends Controller
                 'codigo' => $u->codigo,
                 'nome'   => $u->nome,
                 'cnpj'   => $u->cnpj,
-                'cidade' => $u->cidade,
-                'uf'     => $u->uf,
+                'cidade' => $u->logradouro?->bairro?->municipio?->nome,
+                'uf'     => $u->logradouro?->bairro?->municipio?->uf?->nome,
             ])->values(),
             'ug_atual' => session('ug_id'),
         ]);

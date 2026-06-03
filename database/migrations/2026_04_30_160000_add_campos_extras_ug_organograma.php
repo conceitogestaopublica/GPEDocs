@@ -25,7 +25,7 @@ return new class extends Migration
 
             // Responsavel pela unidade (mais relevante no nivel 3, mas valido em todos)
             $table->foreignId('responsavel_id')->nullable()->after('suprimir_tce')
-                ->constrained('users')->nullOnDelete();
+                ->constrained('users', indexName: 'ug_organograma_x_users_X_responsavel_id');
 
             // Recebe protocolos externos? (nivel 3 — usado pelo Portal de Servicos)
             $table->boolean('protocolo_externo')->default(false)->after('responsavel_id');
@@ -35,7 +35,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('ug_organograma', function (Blueprint $table) {
-            $table->dropForeign(['responsavel_id']);
+            $table->dropForeign('ug_organograma_x_users_X_responsavel_id');
             $table->dropColumn([
                 'dt_inicio',
                 'dt_encerramento',

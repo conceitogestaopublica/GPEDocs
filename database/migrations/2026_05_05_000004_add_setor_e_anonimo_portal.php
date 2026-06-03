@@ -14,15 +14,15 @@ return new class extends Migration
         Schema::table('portal_servicos', function (Blueprint $t) {
             $t->boolean('permite_anonimo')->default(false)->after('publico_alvo');
             $t->foreignId('setor_responsavel_id')->nullable()->after('orgao_responsavel')
-                ->constrained('ug_organograma')->nullOnDelete();
+                ->constrained('ug_organograma', indexName: 'portal_servicos_x_ug_organograma_X_setor_responsavel_id');
             $t->foreignId('tipo_processo_id')->nullable()->after('setor_responsavel_id')
-                ->constrained('proc_tipos_processo')->nullOnDelete();
+                ->constrained('proc_tipos_processo', indexName: 'portal_servicos_x_proc_tipos_processo_X_tipo_processo_id');
         });
 
         Schema::table('portal_solicitacoes', function (Blueprint $t) {
             $t->boolean('anonima')->default(false)->after('cidadao_id');
             $t->foreignId('processo_id')->nullable()->after('atendente_id')
-                ->constrained('proc_processos')->nullOnDelete();
+                ->constrained('proc_processos', indexName: 'portal_solicitacoes_x_proc_processos_X_processo_id');
             $t->index('processo_id');
         });
 
@@ -39,14 +39,14 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('portal_solicitacoes', function (Blueprint $t) {
-            $t->dropForeign(['processo_id']);
+            $t->dropForeign('portal_solicitacoes_x_proc_processos_X_processo_id');
             $t->dropIndex(['processo_id']);
             $t->dropColumn(['anonima', 'processo_id']);
         });
 
         Schema::table('portal_servicos', function (Blueprint $t) {
-            $t->dropForeign(['setor_responsavel_id']);
-            $t->dropForeign(['tipo_processo_id']);
+            $t->dropForeign('portal_servicos_x_ug_organograma_X_setor_responsavel_id');
+            $t->dropForeign('portal_servicos_x_proc_tipos_processo_X_tipo_processo_id');
             $t->dropColumn(['permite_anonimo', 'setor_responsavel_id', 'tipo_processo_id']);
         });
 

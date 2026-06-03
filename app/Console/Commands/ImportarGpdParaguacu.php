@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\Logradouro;
 use App\Models\Ug;
 use App\Models\UgOrganograma;
 use App\Models\User;
@@ -135,6 +136,7 @@ class ImportarGpdParaguacu extends Command
             $codigo = 'UG-' . str_pad((string) ($g->codigo_tce ?? $g->gestora_id), 3, '0', STR_PAD_LEFT);
 
             $endereco = $this->resolverEndereco($g->logradouro_id, $g->numero_lograd, $g->comple_lograd);
+            $logradouroNovo = Logradouro::resolverFromFlat($endereco);
 
             $ug = Ug::updateOrCreate(
                 ['legado_orgao_id' => $g->gestora_id],
@@ -142,13 +144,9 @@ class ImportarGpdParaguacu extends Command
                     'codigo'        => $codigo,
                     'nome'          => $this->limparTexto($g->nome),
                     'cnpj'          => $g->cnpj ? $this->formatarCnpj($g->cnpj) : null,
-                    'cep'           => $endereco['cep'] ?? null,
-                    'logradouro'    => $endereco['logradouro'] ?? null,
+                    'logradouro_id' => $logradouroNovo?->id,
                     'numero'        => $g->numero_lograd,
                     'complemento'   => $g->comple_lograd,
-                    'bairro'        => $endereco['bairro'] ?? null,
-                    'cidade'        => $endereco['cidade'] ?? null,
-                    'uf'            => $endereco['uf'] ?? null,
                     'nivel_1_label' => 'Órgão',
                     'nivel_2_label' => 'Unidade',
                     'nivel_3_label' => 'Departamento',

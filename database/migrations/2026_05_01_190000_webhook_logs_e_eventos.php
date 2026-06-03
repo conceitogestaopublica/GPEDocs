@@ -21,7 +21,7 @@ return new class extends Migration
         Schema::create('ged_webhook_logs', function (Blueprint $table) {
             $table->id();
             $table->string('sistema_origem', 50);
-            $table->foreignId('documento_id')->constrained('ged_documentos')->cascadeOnDelete();
+            $table->foreignId('documento_id')->constrained('ged_documentos', indexName: 'ged_webhook_logs_x_ged_documentos_X_documento_id');
             $table->string('evento', 50);                  // 'assinatura.todas_concluidas', etc
             $table->string('callback_url', 500);
             $table->json('payload');                        // JSON enviado

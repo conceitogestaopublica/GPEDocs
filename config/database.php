@@ -107,8 +107,9 @@ return [
             'password' => env('DB_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
-            'prefix_indexes' => true,
+//            'prefix_indexes' => true,
             'search_path' => 'public',
+//            'scheme' => env('DB_SCHEMA_PGSQL', 'public'),
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
@@ -125,6 +126,46 @@ return [
             'prefix_indexes' => true,
             // 'encrypt' => env('DB_ENCRYPT', 'yes'),
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
+        ],
+
+        'gpd' => [
+            'driver'    => 'mysql',
+            'host'      => env('DB_HOST'),
+            'database'  => env('DB_DATABASE'),
+            'username'  => env('DB_USERNAME'),
+            'password'  => env('DB_PASSWORD'),
+            'port'      => env('DB_PORT'),
+            'charset'   => 'utf8',
+            'collation' => 'utf8_unicode_ci',
+            'prefix'    => '',
+            'strict'    => false,
+            'options' => [
+                PDO::ATTR_EMULATE_PREPARES => true,
+            ],
+            'server_id' => 'default',
+        ],
+
+        /*
+        |----------------------------------------------------------------------
+        | Multi-tenant: Landlord
+        |----------------------------------------------------------------------
+        | Banco central que catalogá os tenants (municípios). Não armazena
+        | nenhum dado operacional, apenas o registro de cada banco do tenant
+        | (domain, credenciais, status) e sessões compartilhadas se necessário.
+        */
+
+        'landlord' => [
+            'driver'    => 'mariadb',
+            'host'      => env('LANDLORD_DB_HOST', env('DB_HOST', '127.0.0.1')),
+            'port'      => env('LANDLORD_DB_PORT', env('DB_PORT', '3306')),
+            'database'  => env('LANDLORD_DB_DATABASE', 'gpe2landlord'),
+            'username'  => env('LANDLORD_DB_USERNAME', env('DB_USERNAME', 'root')),
+            'password'  => env('LANDLORD_DB_PASSWORD', env('DB_PASSWORD', '')),
+            'charset'   => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix'    => '',
+            'strict'    => false,
+            'engine'    => null,
         ],
 
     ],

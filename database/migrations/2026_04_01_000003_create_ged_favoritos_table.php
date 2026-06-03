@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('ged_favoritos', function (Blueprint $table) {
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('documento_id')->constrained('ged_documentos')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users', indexName: 'ged_favoritos_x_users_X_user_id');
+            $table->foreignId('documento_id')->constrained('ged_documentos', indexName: 'ged_favoritos_x_ged_documentos_X_documento_id');
             $table->timestamp('created_at')->nullable();
 
             $table->primary(['user_id', 'documento_id']);

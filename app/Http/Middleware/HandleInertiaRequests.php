@@ -18,10 +18,8 @@ class HandleInertiaRequests extends Middleware
 
         // Count unread notifications
         $notificacoesPendentes = 0;
-        if ($user) {
-            $notificacoesPendentes = \App\Models\Notificacao::where('usuario_id', $user->id)
-                ->where('lida', false)->count();
-        }
+        if ($user)
+            $notificacoesPendentes = \App\Models\Notificacao::where('usuario_id', $user->id)->where('lida', false)->count();
 
         // UG ativa + lista de UGs do usuario (para o seletor da topbar)
         $tenant = $this->compartilharTenant($user, $request);
@@ -62,15 +60,15 @@ class HandleInertiaRequests extends Middleware
         $ugAtualId = $request->session()->get('ug_id');
         $ugAtual = null;
         if ($ugAtualId) {
-            $ug = \App\Models\Ug::find($ugAtualId);
+            $ug = \App\Models\Ug::with('logradouro.bairro.municipio.uf')->find($ugAtualId);
             if ($ug) {
                 $ugAtual = [
                     'id'     => $ug->id,
                     'codigo' => $ug->codigo,
                     'nome'   => $ug->nome,
                     'cnpj'   => $ug->cnpj,
-                    'cidade' => $ug->cidade,
-                    'uf'     => $ug->uf,
+                    'cidade' => $ug->logradouro?->bairro?->municipio?->nome,
+                    'uf'     => $ug->logradouro?->bairro?->municipio?->uf?->nome,
                 ];
             }
         }

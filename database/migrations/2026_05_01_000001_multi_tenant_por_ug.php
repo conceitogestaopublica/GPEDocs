@@ -25,8 +25,8 @@ return new class extends Migration
         // 1) Pivot user_ugs
         Schema::create('user_ugs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('ug_id')->constrained('ugs')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users', indexName: 'user_ugs_x_users_X_user_id');
+            $table->foreignId('ug_id')->constrained('ugs', indexName: 'user_ugs_x_ugs_X_ug_id');
             $table->boolean('principal')->default(false);
             $table->timestamps();
 
@@ -53,9 +53,9 @@ return new class extends Migration
             if (! Schema::hasTable($tabela)) {
                 continue;
             }
-            Schema::table($tabela, function (Blueprint $t) {
+            Schema::table($tabela, function (Blueprint $t) use ($tabela) {
                 $t->foreignId('ug_id')->nullable()->after('id')
-                    ->constrained('ugs')->nullOnDelete();
+                    ->constrained('ugs', indexName: $tabela.'_x_ugs_X_ug_id');
                 $t->index('ug_id');
             });
         }
@@ -99,8 +99,8 @@ return new class extends Migration
             if (! Schema::hasTable($tabela)) {
                 continue;
             }
-            Schema::table($tabela, function (Blueprint $t) {
-                $t->dropForeign(['ug_id']);
+            Schema::table($tabela, function (Blueprint $t) use ($tabela) {
+                $t->dropForeign($tabela.'_x_ugs_X_ug_id');
                 $t->dropColumn('ug_id');
             });
         }

@@ -14,7 +14,7 @@ return new class extends Migration
 
         Schema::create('ged_certificados', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users', indexName: 'ged_certificados_x_users_X_user_id');
             $table->string('tipo', 5);                  // A1, A3
             $table->string('subject_cn', 255);          // Common Name (titular)
             $table->string('subject_cpf', 14)->nullable();
@@ -45,7 +45,7 @@ return new class extends Migration
             // qualificada (art. 4, III - ICP-Brasil)
 
             $table->foreignId('certificado_id')->nullable()->after('tipo_assinatura')
-                ->constrained('ged_certificados')->nullOnDelete();
+                ->constrained('ged_certificados', indexName: 'ged_assinaturas_x_ged_certificados_X_certificado_id');
 
             $table->binary('assinatura_pkcs7')->nullable()->after('hash_documento');
             $table->json('cadeia_certificados')->nullable()->after('assinatura_pkcs7');
@@ -60,7 +60,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('ged_assinaturas', function (Blueprint $table) {
-            $table->dropForeign(['certificado_id']);
+            $table->dropForeign('ged_assinaturas_x_ged_certificados_X_certificado_id');
             $table->dropColumn([
                 'tipo_assinatura',
                 'certificado_id',

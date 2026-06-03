@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('numero', 30)->unique(); // CIR-2026/000001
             $table->string('assunto', 500);
             $table->text('conteudo');
-            $table->foreignId('remetente_id')->constrained('users');
+            $table->foreignId('remetente_id')->constrained('users', indexName: 'proc_circulares_x_users_X_remetente_id');
             $table->string('setor_origem', 150)->nullable();
             $table->string('destino_tipo', 20)->default('todos'); // todos, setores, usuarios
             $table->jsonb('destino_setores')->nullable(); // lista de setores quando destino_tipo='setores'
@@ -24,6 +24,9 @@ return new class extends Migration
             $table->timestamp('arquivado_em')->nullable();
             $table->date('data_arquivamento_auto')->nullable();
             $table->uuid('qr_code_token')->nullable()->unique();
+            // Documento arquivado no GED apos envio (opcional).
+            $table->foreignId('documento_id')->nullable()
+                ->constrained('ged_documentos', indexName: 'proc_circulares_x_ged_documentos_X_documento_id');
             $table->timestamps();
             $table->softDeletes();
 
@@ -33,8 +36,8 @@ return new class extends Migration
 
         Schema::create('proc_circular_destinatarios', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('circular_id')->constrained('proc_circulares')->cascadeOnDelete();
-            $table->foreignId('usuario_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('circular_id')->constrained('proc_circulares', indexName: 'proc_circular_destinatarios_x_proc_circulares_X_circular_id');
+            $table->foreignId('usuario_id')->constrained('users', indexName: 'proc_circular_destinatarios_x_users_X_usuario_id');
             $table->boolean('lido')->default(false);
             $table->timestamp('lido_em')->nullable();
             $table->timestamps();
@@ -44,12 +47,12 @@ return new class extends Migration
 
         Schema::create('proc_circular_anexos', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('circular_id')->constrained('proc_circulares')->cascadeOnDelete();
+            $table->foreignId('circular_id')->constrained('proc_circulares', indexName: 'proc_circular_anexos_x_proc_circulares_X_circular_id');
             $table->string('nome', 255);
             $table->string('arquivo_path', 500);
             $table->bigInteger('tamanho');
             $table->string('mime_type', 100);
-            $table->foreignId('enviado_por')->constrained('users');
+            $table->foreignId('enviado_por')->constrained('users', indexName: 'proc_circular_anexos_x_users_X_enviado_por');
             $table->timestamps();
 
             $table->index('circular_id');

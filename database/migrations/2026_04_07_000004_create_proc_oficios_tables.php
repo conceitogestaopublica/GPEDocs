@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('numero', 30)->unique(); // OF-2026/000001
             $table->string('assunto', 500);
             $table->text('conteudo');
-            $table->foreignId('remetente_id')->constrained('users');
+            $table->foreignId('remetente_id')->constrained('users', indexName: 'proc_oficios_x_users_X_remetente_id');
             $table->string('setor_origem', 150)->nullable();
             // Destinatario externo
             $table->string('destinatario_nome', 255);
@@ -29,6 +29,9 @@ return new class extends Migration
             $table->timestamp('arquivado_em')->nullable();
             $table->string('rastreio_token', 64)->nullable()->unique(); // token para rastrear abertura
             $table->uuid('qr_code_token')->nullable()->unique();
+            // Documento arquivado no GED apos envio (opcional).
+            $table->foreignId('documento_id')->nullable()
+                ->constrained('ged_documentos', indexName: 'proc_oficios_x_ged_documentos_X_documento_id');
             $table->timestamps();
             $table->softDeletes();
 
@@ -38,13 +41,13 @@ return new class extends Migration
 
         Schema::create('proc_oficio_anexos', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('oficio_id')->constrained('proc_oficios')->cascadeOnDelete();
+            $table->foreignId('oficio_id')->constrained('proc_oficios', indexName: 'proc_oficio_anexos_x_proc_oficios_X_oficio_id');
             $table->string('nome', 255);
             $table->string('arquivo_path', 500);
             $table->bigInteger('tamanho');
             $table->string('mime_type', 100);
             $table->boolean('solicitar_assinatura')->default(false);
-            $table->foreignId('enviado_por')->constrained('users');
+            $table->foreignId('enviado_por')->constrained('users', indexName: 'proc_oficio_anexos_x_users_X_enviado_por');
             $table->timestamps();
 
             $table->index('oficio_id');
@@ -52,12 +55,12 @@ return new class extends Migration
 
         Schema::create('proc_oficio_respostas', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('oficio_id')->constrained('proc_oficios')->cascadeOnDelete();
+            $table->foreignId('oficio_id')->constrained('proc_oficios', indexName: 'proc_oficio_respostas_x_proc_oficios_X_oficio_id');
             $table->string('respondente_nome', 255)->nullable();
             $table->string('respondente_email', 255)->nullable();
             $table->text('conteudo');
             $table->boolean('externo')->default(false); // true = resposta do destinatario externo
-            $table->foreignId('usuario_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('usuario_id')->nullable()->constrained('users', indexName: 'proc_oficio_respostas_x_users_X_usuario_id');
             $table->timestamps();
 
             $table->index('oficio_id');

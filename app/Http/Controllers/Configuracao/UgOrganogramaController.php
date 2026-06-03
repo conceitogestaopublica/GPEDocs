@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Configuracao;
 
 use App\Http\Controllers\Controller;
+use App\Models\Logradouro;
 use App\Models\Ug;
 use App\Models\UgOrganograma;
 use App\Models\User;
@@ -61,7 +62,11 @@ class UgOrganogramaController extends Controller
     public function editNode(Ug $ug, UgOrganograma $node): Response
     {
         $this->validarPertence($ug, $node);
-        $node->load('parent:id,nome,nivel');
+        $node->load(['parent:id,nome,nivel', 'logradouro.bairro.municipio.uf']);
+
+        // Endereco "proprio" do no no shape flat (mesmo que esteja herdando — o
+        // form preenche os campos so quando endereco_proprio = true).
+        $endereco = $node->enderecoProprioArray();
 
         return Inertia::render('Configuracao/Ugs/OrganogramaForm', [
             'ug'        => $ug->only(['id','codigo','nome','nivel_1_label','nivel_2_label','nivel_3_label']),
@@ -81,13 +86,13 @@ class UgOrganogramaController extends Controller
                 'responsavel_id'    => $node->responsavel_id,
                 'protocolo_externo' => (bool) $node->protocolo_externo,
                 'endereco_proprio'  => (bool) $node->endereco_proprio,
-                'cep'               => $node->cep,
-                'logradouro'        => $node->logradouro,
-                'numero'            => $node->numero,
-                'complemento'       => $node->complemento,
-                'bairro'            => $node->bairro,
-                'cidade'            => $node->cidade,
-                'uf'                => $node->uf,
+                'cep'               => $endereco['cep'],
+                'logradouro'        => $endereco['logradouro'],
+                'numero'            => $endereco['numero'],
+                'complemento'       => $endereco['complemento'],
+                'bairro'            => $endereco['bairro'],
+                'cidade'            => $endereco['cidade'],
+                'uf'                => $endereco['uf'],
             ],
             'usuarios'  => $this->listarUsuariosResponsaveis(),
         ]);
@@ -178,7 +183,8 @@ class UgOrganogramaController extends Controller
 
     /**
      * Monta o payload para create/update do no, garantindo que os campos de
-     * endereco fiquem null quando o no esta herdando da UG.
+     * endereco fiquem null quando o no esta herdando da UG (caso contrario,
+     * resolve cep/logradouro/bairro/cidade/uf para um logradouro_id).
      */
     private function montarPayloadNode(
         array $validated,
@@ -187,6 +193,18 @@ class UgOrganogramaController extends Controller
         bool $atualizando = false,
     ): array {
         $proprio = (bool) ($validated['endereco_proprio'] ?? false);
+
+        $logradouroId = null;
+        if ($proprio) {
+            $logradouro = Logradouro::resolverFromFlat([
+                'cep'        => $validated['cep']        ?? null,
+                'logradouro' => $validated['logradouro'] ?? null,
+                'bairro'     => $validated['bairro']     ?? null,
+                'cidade'     => $validated['cidade']     ?? null,
+                'uf'         => $validated['uf']         ?? null,
+            ]);
+            $logradouroId = $logradouro?->id;
+        }
 
         $base = [
             'codigo'            => $validated['codigo'] ?? null,
@@ -200,13 +218,9 @@ class UgOrganogramaController extends Controller
             'responsavel_id'    => $validated['responsavel_id'] ?? null,
             'protocolo_externo' => $nivel === 3 ? (bool) ($validated['protocolo_externo'] ?? false) : false,
             'endereco_proprio'  => $proprio,
-            'cep'         => $proprio ? ($validated['cep']         ?? null) : null,
-            'logradouro'  => $proprio ? ($validated['logradouro']  ?? null) : null,
-            'numero'      => $proprio ? ($validated['numero']      ?? null) : null,
-            'complemento' => $proprio ? ($validated['complemento'] ?? null) : null,
-            'bairro'      => $proprio ? ($validated['bairro']      ?? null) : null,
-            'cidade'      => $proprio ? ($validated['cidade']      ?? null) : null,
-            'uf'          => $proprio ? ($validated['uf']          ?? null) : null,
+            'logradouro_id'     => $logradouroId,
+            'numero'            => $proprio ? ($validated['numero']      ?? null) : null,
+            'complemento'       => $proprio ? ($validated['complemento'] ?? null) : null,
         ];
 
         if ($atualizando) {
