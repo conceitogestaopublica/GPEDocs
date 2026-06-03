@@ -142,7 +142,7 @@ class TenantsController extends Controller
         $t = Tenant::findOrFail($id);
         try {
             $pdo = new \PDO(
-                "mysql:host={$t->db_host};port={$t->db_port};dbname={$t->db_name}",
+                "{$t->driver}:host={$t->db_host};port={$t->db_port};dbname={$t->db_name}",
                 $t->db_username, $t->db_password,
                 [\PDO::ATTR_TIMEOUT => 3]
             );
