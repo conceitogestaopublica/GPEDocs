@@ -24,20 +24,21 @@ class ResolveTenant
 {
     /** Subdomains "reservados" que não correspondem a tenants. */
     private const SUBDOMAINS_LANDLORD = ['www', 'admin', 'api'];
+
     public static $LANDLORD_URL = '';
     public static $LANDLORD_PORT = '';
 
     public function handle(Request $request, Closure $next): Response
     {
-        self::$LANDLORD_URL = $request->host() == 'localhost' ?
-            config('multitenancy.dev_landlord_url') :
-            config('multitenancy.landlord_url');
+        $host = $request->getHost();
+
+        self::$LANDLORD_URL = $request->host() !== 'localhost' ? $host :
+            config('multitenancy.dev_landlord_url');
 
         self::$LANDLORD_PORT = $request->getPort();
-
-        $host = $request->getHost();
         $isLocal = $host === 'localhost' || filter_var($host, FILTER_VALIDATE_IP);
         $subdomain = $isLocal ? 'localhost' : $this->extractSubdomain($host);
+        $domain = $isLocal ? '' : $this->extractDomain($host);
 
         // Host que serve o painel landlord: localhost/IP (dev) ou subdomínio 'admin'.
         $isAdminHost = $isLocal || $subdomain === 'admin';
@@ -49,9 +50,6 @@ class ResolveTenant
         // preservando path+query. (NÃO casa 'sso/landlord' — consumo SSO do lado
         // tenant, que precisa do tenant.)
         if ($request->is('landlord', 'landlord/*')) {
-//            DB::purge('landlord');
-//            DB::setDefaultConnection('landlord');
-//            DB::reconnect('landlord');
             if ($isAdminHost) {
                 return $next($request);
             }
@@ -59,7 +57,8 @@ class ResolveTenant
             if (!$landlordUrl) {
                 abort(404);
             }
-            return redirect()->away(rtrim($landlordUrl, '/').$request->getRequestUri());
+
+            return redirect()->away(rtrim($landlordUrl, '/')/*.$request->getRequestUri()*/);
         }
         // ── Demais paths (área de tenant) ─────────────────────────────────────
         // Em dev/local (localhost, 127.0.0.1, IP), opcionalmente força tenant pelo .env.
@@ -69,14 +68,13 @@ class ResolveTenant
             if ($subdomain === 'admin') {
                 return redirect('/landlord/tenants');
             }
-
             // www / api / domínio raiz → não ativa tenant (landing/API).
             if (! $subdomain || in_array($subdomain, self::SUBDOMAINS_LANDLORD, true)) {
                 return $next($request);
             }
         }
 
-        $tenant = $this->resolveTenant($subdomain, $isLocal);
+        $tenant = $this->resolveTenant($domain, $subdomain, $isLocal);
 
         if (!$tenant) {
             // Tenant não existe ou está inativo. Redireciona para o login do
@@ -96,8 +94,19 @@ class ResolveTenant
             }
             return redirect()->route('landlord.login')->withErrors([$msg]);
         }
+
         app(TenantContext::class)->set($tenant);
         return $next($request);
+    }
+
+    private function extractDomain(string $host): ?string
+    {
+        $partes = explode('.', $host);
+        // Precisa de pelo menos 3 partes (sub.dominio.tld)
+        if (count($partes) < 3) {
+            return null;
+        }
+        return $partes[1];
     }
 
     private function extractSubdomain(string $host): ?string
@@ -111,20 +120,20 @@ class ResolveTenant
     }
 
     /** Cache de 5min para evitar query no landlord a cada request. */
-    private function resolveTenant(string $subdomain, $isLocal = false): ?Tenant
+    private function resolveTenant(string $domain, string $subdomain, $isLocal = false): ?Tenant
     {
         try {
             return Cache::store('file')->remember(
-                "tenant:subdomain:{$subdomain}",  300,
+                "tenant:subdomain:{$domain}.{$subdomain}",  300,
                 fn () => Tenant::active()
-                    ->where('domain', $isLocal ? ":" . self::$LANDLORD_PORT : $subdomain )
+                    ->where('domain', $isLocal ? ":" . self::$LANDLORD_PORT : "$domain.com.br" )
                     ->where('subdomain', $subdomain)
                     ->first()
             );
         } catch (\Throwable $e) {
             // Se cache falhar, consulta direto (não derruba a app)
             return Tenant::active()
-                ->where('domain', $isLocal ? ":" . self::$LANDLORD_PORT : $subdomain )
+                ->where('domain', $isLocal ? ":" . self::$LANDLORD_PORT : "$domain.com.br" )
                 ->where('subdomain', $subdomain)
                 ->first();
         }
