@@ -30,6 +30,7 @@ class ResolveTenant
 
     public function handle(Request $request, Closure $next): Response
     {
+        dd($request->getHost());
         $host = $request->getHost();
 
         self::$LANDLORD_URL = $request->host() !== 'localhost' ? $host :
@@ -75,7 +76,7 @@ class ResolveTenant
         }
 
         $tenant = $this->resolveTenant($domain, $subdomain, $isLocal);
-dd($tenant, $domain, $subdomain, $isLocal);
+
         if (!$tenant) {
             // Tenant não existe ou está inativo. Redireciona para o login do
             // painel admin (landlord) com a mensagem explícita na query string.
