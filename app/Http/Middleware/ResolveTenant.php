@@ -49,6 +49,8 @@ class ResolveTenant
         // subdomínio de QUALQUER município. Redireciona para o host admin canônico,
         // preservando path+query. (NÃO casa 'sso/landlord' — consumo SSO do lado
         // tenant, que precisa do tenant.)
+        dd($subdomain,
+$domain);
         if ($request->is('landlord', 'landlord/*')) {
             if ($isAdminHost) {
                 return $next($request);
