@@ -21,53 +21,44 @@ class TenantContext
     public function set(Tenant $tenant): void
     {
         $this->tenant = $tenant;
-        Config::set('database.connections.tenant', $this->buildConnectionConfig($tenant));
 
-        // Limpa pool de conexão anterior (se houve troca) e força reconexão
-        DB::purge('tenant');
-        DB::setDefaultConnection('tenant');
-        DB::reconnect('tenant');
-    }
+        $driver = $tenant->driver ?: 'mariadb';
 
-    /**
-     * Monta o array de config da conexão "tenant" conforme o driver do tenant.
-     * Suporta mysql, mariadb e pgsql — cada um tem chaves específicas que o
-     * Laravel/PDO espera, então fazer um único shape "universal" gera erros
-     * silenciosos (ex.: utf8mb4 com pgsql, sslmode com mysql).
-     */
-    private function buildConnectionConfig(Tenant $tenant): array
-    {
-        $base = [
-            'driver'   => $tenant->driver,
+        // Base comum a todos os drivers.
+        $config = [
+            'driver'   => $driver,
             'host'     => $tenant->db_host,
             'port'     => $tenant->db_port,
             'database' => $tenant->db_name,
             'username' => $tenant->db_username,
             'password' => $tenant->db_password,
             'prefix'   => '',
+            'options'  => [],
         ];
 
-        return match ($tenant->driver) {
-            'mysql', 'mariadb' => array_merge($base, [
-                'charset'        => $tenant->db_charset ?? 'utf8mb4',
-                'collation'      => $tenant->db_collation ?? 'utf8mb4_unicode_ci',
+        // Defaults por driver. Postgres exige search_path (schema do tenant).
+        if ($driver === 'pgsql') {
+            $config += [
+                'charset'        => 'utf8',
+                'search_path'    => $tenant->db_schema ?: 'public',
+                'sslmode'        => 'prefer',
                 'prefix_indexes' => true,
-                'strict'         => false,
-                'engine'         => null,
-                'options'        => [],
-            ]),
+            ];
+        } else {
+            $config += [
+                'charset'   => 'utf8mb4',
+                'collation' => 'utf8mb4_unicode_ci',
+                'strict'    => false,
+                'engine'    => null,
+            ];
+        }
 
-            'pgsql' => array_merge($base, [
-                'charset'        => $tenant->db_charset ?? 'utf8',
-                'prefix_indexes' => true,
-                'search_path'    => $tenant->db_schema ?? 'public',
-                'sslmode'        => $tenant->db_sslmode ?? 'prefer',
-            ]),
+        Config::set('database.connections.tenant', $config);
 
-            default => throw new \InvalidArgumentException(
-                "Driver de tenant não suportado: [{$tenant->driver}]. Use mysql, mariadb ou pgsql."
-            ),
-        };
+        // Limpa pool de conexão anterior (se houve troca) e força reconexão
+        DB::purge('tenant');
+        DB::setDefaultConnection('tenant');
+        DB::reconnect('tenant');
     }
 
     /** Limpa o tenant ativo — usado em testes e shutdown de jobs. */
@@ -88,6 +79,13 @@ class TenantContext
         return $this->tenant?->id;
     }
 
+    /** Subdomínio (rótulo único do tenant — ex: paraguacu). */
+    public function subdomain(): ?string
+    {
+        return $this->tenant?->subdomain;
+    }
+
+    /** Domínio base (ex: maatgpecloud.com.br). */
     public function domain(): ?string
     {
         return $this->tenant?->domain;
