@@ -26,9 +26,6 @@ use Illuminate\Support\Facades\DB;
 class DbResetDemo extends Command
 {
     protected $signature = 'db:reset-demo
-                            {--tenant= : ID do tenant no landlord (pula o prompt)}
-                            {--driver= : mysql | mariadb | pgsql | sqlite (pula o prompt)}
-                            {--schema= : Schema do postgres (pula o prompt; só usado se driver=pgsql)}
                             {--force : Não pede confirmação interativa}
                             {--no-seed : Apenas dropa e migra, sem rodar os seeders demo}';
 
@@ -145,16 +142,6 @@ class DbResetDemo extends Command
             return null;
         }
 
-        if ($id = $this->option('tenant')) {
-            /** @var Tenant|null $tenant */
-            $tenant = $tenants->firstWhere('id', (int) $id);
-            if (! $tenant) {
-                $this->components->error("Tenant com id [{$id}] não encontrado no landlord.");
-                return null;
-            }
-            return $tenant;
-        }
-
         $choices = $tenants->mapWithKeys(fn ($t) => [
             (string) $t->id => sprintf('%s [%s/%s] (%s @ %s)', $t->nome, $t->subdomain, $t->driver, $t->db_name, $t->db_host),
         ])->all();
@@ -171,10 +158,6 @@ class DbResetDemo extends Command
 
     private function resolveDriver(Tenant $tenant): string
     {
-        if ($d = $this->option('driver')) {
-            return $d;
-        }
-
         $default = in_array($tenant->driver, self::DRIVERS, true) ? $tenant->driver : 'pgsql';
 
         return $this->choice('Qual driver usar?', self::DRIVERS, array_search($default, self::DRIVERS, true));
@@ -182,12 +165,7 @@ class DbResetDemo extends Command
 
     private function resolveSchema(Tenant $tenant): string
     {
-        if ($s = $this->option('schema')) {
-            return $s;
-        }
-
         $default = $tenant->db_schema ?? 'public';
-
         return (string) ($this->ask('Qual schema do postgres usar?', $default) ?: 'public');
     }
 }
