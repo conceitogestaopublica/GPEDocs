@@ -52,11 +52,13 @@ trait TenantAware
     private function runForAllTenants(callable $callback): int
     {
         $schemas = DB::table("information_schema.schemata")
-            ->where('driver', 'pgsql')
             ->where('catalog_name', 'gpedocs')
             ->selectRaw("schema_name")->pluck("schema_name");
 
-        $tenants = Tenant::active()->whereIn('db_schema', $schemas)->orderBy('subdomain')->get();
+        $tenants = Tenant::active()
+            ->where('driver', 'pgsql')
+            ->whereIn('db_schema', $schemas)->orderBy('subdomain')->get();
+
         if ($tenants->isEmpty()) {
             $this->warn('Nenhum tenant ativo cadastrado no landlord.');
             return self::SUCCESS;
