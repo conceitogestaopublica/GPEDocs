@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Tenant\TenantContext;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -16,11 +17,13 @@ use Illuminate\Support\Facades\DB;
  *
  * O comando pergunta interativamente:
  *   1. Qual tenant resetar (carregados do landlord)
- *   2. Qual driver usar (mysql / mariadb / pgsql / sqlite)
- *   3. Qual schema usar (apenas pgsql)
+ *   2. Qual schema usar (apenas pgsql) — aceita "todos" para iterar em
+ *      todos os schemas do banco
+ *
+ * O driver é tirado direto do tenant (`tenants.driver`) — não há prompt.
  *
  *   php artisan db:reset-demo
- *   php artisan db:reset-demo --tenant=2 --driver=pgsql --schema=public --force
+ *   php artisan db:reset-demo --force
  *   php artisan db:reset-demo --force --no-seed
  */
 class DbResetDemo extends Command
@@ -32,6 +35,7 @@ class DbResetDemo extends Command
     protected $description = 'Apaga todas as tabelas e recria o banco do tenant com dados de demonstração.';
 
     private const DRIVERS = ['mysql', 'mariadb', 'pgsql', 'sqlite'];
+    private const ALL_SCHEMAS = 'todos';
 
     public function handle(TenantContext $tenantContext): int
     {
@@ -48,15 +52,19 @@ class DbResetDemo extends Command
             return self::FAILURE;
         }
 
-        // ── 2. Driver ───────────────────────────────────────────────────────
-        $driver = $this->resolveDriver($tenant);
+        // ── 2. Driver (direto do tenant) ────────────────────────────────────
+        $driver = (string) $tenant->driver;
         if (! in_array($driver, self::DRIVERS, true)) {
-            $this->components->error("Driver inválido: [{$driver}]. Use um de: " . implode(', ', self::DRIVERS));
+            $this->components->error("Driver do tenant inválido: [{$driver}]. Esperado um de: " . implode(', ', self::DRIVERS));
             return self::FAILURE;
         }
 
-        // ── 3. Schema (só pgsql) ────────────────────────────────────────────
-        $schema = $driver === 'pgsql' ? $this->resolveSchema($tenant) : null;
+        // ── 3. Schema(s) — só pgsql ─────────────────────────────────────────
+        $schemas = $driver === 'pgsql' ? $this->resolveSchemas($tenant) : [null];
+        if ($schemas === []) {
+            $this->components->error('Nenhum schema selecionado/encontrado.');
+            return self::FAILURE;
+        }
 
         // ── 4. Resumo + confirmação ─────────────────────────────────────────
         $this->components->info(sprintf(
@@ -66,49 +74,57 @@ class DbResetDemo extends Command
             $driver,
             $tenant->db_host,
             $tenant->db_name,
-            $schema ? " | schema: {$schema}" : '',
+            $driver === 'pgsql' ? ' | schema(s): ' . implode(', ', $schemas) : '',
             $env,
         ));
 
         if (!$this->option('force')) {
-            $this->warn("⚠  Todas as tabelas em [{$tenant->db_name}] serão APAGADAS.");
+            $alvo = count($schemas) > 1
+                ? count($schemas) . " schemas do banco [{$tenant->db_name}]"
+                : "tabelas em [{$tenant->db_name}]" . ($schemas[0] ? " (schema {$schemas[0]})" : '');
+            $this->warn("⚠  {$alvo} serão APAGADAS.");
             if (! $this->confirm('Tem certeza que deseja continuar?', false)) {
                 $this->components->warn('Operação cancelada.');
                 return self::SUCCESS;
             }
         }
 
-        // ── 5. Aplica overrides na conexão "tenant" ─────────────────────────
-        $tenant->driver = $driver;
-        if ($schema !== null) {
-            // Atributo virtual usado por TenantContext::buildConnectionConfig().
-            $tenant->db_schema = $schema;
-        }
+        // ── 5. Loop por schema (1 ou N) ─────────────────────────────────────
+        foreach ($schemas as $idx => $schema) {
+            if (count($schemas) > 1) {
+                $this->newLine();
+                $this->components->info(sprintf('▶ Schema %d/%d: %s', $idx + 1, count($schemas), $schema));
+            }
 
-        $tenantContext->set($tenant);
-        DB::setDefaultConnection('tenant');
+            $tenant->driver = $driver;
+            if ($schema !== null) {
+                // Atributo virtual usado por TenantContext::buildConnectionConfig().
+                $tenant->db_schema = $schema;
+            }
 
-        // ── 6. migrate:fresh ────────────────────────────────────────────────
-        $this->components->task('Apagando tabelas e rodando migrations', function () {
-            return Artisan::call('migrate:fresh', [
-                '--database' => 'tenant',
-                '--force'    => true,
-            ], $this->output) === 0;
-        });
+            $tenantContext->set($tenant);
+            DB::setDefaultConnection('tenant');
 
-        // ── 7. Seeders demo ─────────────────────────────────────────────────
-        if (!$this->option('no-seed')) {
-            $this->components->task('Rodando DatabaseSeeder (dados de demonstração)', function () {
-                return Artisan::call('db:seed', [
+            $this->components->task('Apagando tabelas e rodando migrations', function () {
+                return Artisan::call('migrate:fresh', [
                     '--database' => 'tenant',
                     '--force'    => true,
                 ], $this->output) === 0;
             });
-        } else {
-            $this->components->info('--no-seed: pulando os seeders.');
+
+            if (!$this->option('no-seed')) {
+                $this->components->task('Rodando DatabaseSeeder (dados de demonstração)', function () {
+                    return Artisan::call('db:seed', [
+                        '--database' => 'tenant',
+                        '--force'    => true,
+                    ], $this->output) === 0;
+                });
+            } else {
+                $this->components->info('--no-seed: pulando os seeders.');
+            }
         }
 
-        // ── 8. Limpa caches ─────────────────────────────────────────────────
+        // ── 6. Limpa caches (uma vez no final) ──────────────────────────────
         $this->components->task('Limpando caches da aplicação', function () {
             Artisan::call('cache:clear');
             Artisan::call('config:clear');
@@ -130,8 +146,8 @@ class DbResetDemo extends Command
     }
 
     /**
-     * Resolve o tenant via --tenant (id ou subdomain) ou via prompt interativo
-     * listando todos os tenants registrados no landlord.
+     * Resolve o tenant via prompt interativo listando todos os tenants
+     * registrados no landlord.
      */
     private function resolveTenant(): ?Tenant
     {
@@ -156,16 +172,63 @@ class DbResetDemo extends Command
         return $tenant;
     }
 
-    private function resolveDriver(Tenant $tenant): string
+    /**
+     * Retorna lista de schemas a operar:
+     *   - ['public']               → 1 schema específico (selecionado pelo usuário)
+     *   - ['s1', 's2', 's3', ...]  → "todos" → lista vinda do information_schema
+     */
+    private function resolveSchemas(Tenant $tenant): array
     {
-        $default = in_array($tenant->driver, self::DRIVERS, true) ? $tenant->driver : 'pgsql';
+        $existing = $this->listPgsqlSchemas($tenant);
+        $options  = [...$existing, self::ALL_SCHEMAS];
+        $default  = in_array('public', $existing, true) ? 'public' : (string) $options[0];
 
-        return $this->choice('Qual driver usar?', self::DRIVERS, array_search($default, self::DRIVERS, true));
+        $choice = $this->choice(
+            'Qual schema do postgres usar? (escolha "todos" para iterar em todos os schemas existentes)',
+            $options,
+            array_search($default, $options, true),
+        );
+
+        return $choice === self::ALL_SCHEMAS ? $existing : [$choice];
     }
 
-    private function resolveSchema(Tenant $tenant): string
+    /**
+     * Lista schemas reais do banco postgres do tenant (excluindo schemas
+     * internos pg_* e information_schema). Usa uma conexão temporária.
+     */
+    private function listPgsqlSchemas(Tenant $tenant): array
     {
-        $default = $tenant->db_schema ?? 'public';
-        return (string) ($this->ask('Qual schema do postgres usar?', $default) ?: 'public');
+        Config::set('database.connections._schema_list', [
+            'driver'      => 'pgsql',
+            'host'        => $tenant->db_host,
+            'port'        => $tenant->db_port,
+            'database'    => $tenant->db_name,
+            'username'    => $tenant->db_username,
+            'password'    => $tenant->db_password,
+            'charset'     => $tenant->db_charset ?? 'utf8',
+            'prefix'      => '',
+            'search_path' => 'public',
+            'sslmode'     => $tenant->db_sslmode ?? 'prefer',
+        ]);
+
+        try {
+            $rows = DB::connection('_schema_list')->select(
+                "SELECT schema_name FROM information_schema.schemata
+                 WHERE schema_name NOT LIKE 'pg_%' AND schema_name != 'information_schema'
+                 ORDER BY schema_name"
+            );
+        } finally {
+            DB::purge('_schema_list');
+        }
+
+        $names = array_map(fn ($r) => (string) $r->schema_name, $rows);
+
+        // Garantia mínima: 'public' sempre disponível como opção, mesmo se o
+        // banco estiver vazio ou inacessível por algum motivo.
+        if (! in_array('public', $names, true)) {
+            array_unshift($names, 'public');
+        }
+
+        return $names;
     }
 }
