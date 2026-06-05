@@ -31,7 +31,7 @@ class TenantMigrate extends Command
 
     public function handle(): int
     {
-        $this->info("Bancos listados na conexão - 'landlord'.");
+        $this->info("Identificando tenants somente do GPEDOCS... ");
 
         if ($this->option('fresh') && $this->option('tenant') === 'ALL') {
             if (!$this->confirm('Isso vai DROPAR e recriar TODOS os schemas dos banco de tenants. Tem certeza?', false)) {
