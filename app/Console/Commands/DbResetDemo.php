@@ -87,7 +87,7 @@ class DbResetDemo extends Command
             // Atributo virtual usado por TenantContext::buildConnectionConfig().
             $tenant->db_schema = $schema;
         }
-        dd($tenant);
+
         $tenantContext->set($tenant);
         DB::setDefaultConnection('tenant');
 
