@@ -169,6 +169,31 @@ return [
         ],
 
     ],
+        /*
+        |----------------------------------------------------------------------
+        | Multi-tenant: Tenant (placeholder)
+        |----------------------------------------------------------------------
+        | Esta conexão é REESCRITA em runtime pelo TenantContext::set() antes
+        | de qualquer query. O placeholder existe apenas para o array existir
+        | e evitar undefined index em pontos do framework que inspecionam
+        | config('database.connections').
+        |
+        | NUNCA confiar nestes valores em produção sem o middleware ResolveTenant
+        | ter executado. O TenantConnectionGuard aborta requests sem tenant.
+        */
+            'tenant' => [
+                'driver'    => 'mariadb',
+                'host'      => '127.0.0.1',
+                'port'      => '3306',
+                'database'  => 'tenant_placeholder',
+                'username'  => 'tenant_placeholder',
+                'password'  => '',
+                'charset'   => 'utf8mb4',
+                'collation' => 'utf8mb4_unicode_ci',
+                'prefix'    => '',
+                'strict'    => false,
+                'engine'    => null,
+            ],
 
     /*
     |--------------------------------------------------------------------------
