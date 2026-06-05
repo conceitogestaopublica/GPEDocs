@@ -27,7 +27,7 @@ class DbResetDemo extends Command
 {
     protected $signature = 'db:reset-demo
                             {--tenant= : ID do tenant no landlord (pula o prompt)}
-                            {--driver= : mysql|mariadb|pgsql|sqlite (pula o prompt)}
+                            {--driver= : mysql | mariadb | pgsql | sqlite (pula o prompt)}
                             {--schema= : Schema do postgres (pula o prompt; só usado se driver=pgsql)}
                             {--force : Não pede confirmação interativa}
                             {--no-seed : Apenas dropa e migra, sem rodar os seeders demo}';
@@ -40,14 +40,14 @@ class DbResetDemo extends Command
     {
         $env = config('app.env');
 
-        if ($env === 'production' && ! $this->option('force')) {
+        if ($env === 'production' && !$this->option('force')) {
             $this->components->error('Este comando NÃO pode rodar em produção sem --force. Abortando.');
             return self::FAILURE;
         }
 
         // ── 1. Tenant ───────────────────────────────────────────────────────
         $tenant = $this->resolveTenant();
-        if (! $tenant) {
+        if (!$tenant) {
             return self::FAILURE;
         }
 
@@ -73,7 +73,7 @@ class DbResetDemo extends Command
             $env,
         ));
 
-        if (! $this->option('force')) {
+        if (!$this->option('force')) {
             $this->warn("⚠  Todas as tabelas em [{$tenant->db_name}] serão APAGADAS.");
             if (! $this->confirm('Tem certeza que deseja continuar?', false)) {
                 $this->components->warn('Operação cancelada.');
@@ -87,6 +87,7 @@ class DbResetDemo extends Command
             // Atributo virtual usado por TenantContext::buildConnectionConfig().
             $tenant->db_schema = $schema;
         }
+        dd($tenant);
         $tenantContext->set($tenant);
         DB::setDefaultConnection('tenant');
 
@@ -99,7 +100,7 @@ class DbResetDemo extends Command
         });
 
         // ── 7. Seeders demo ─────────────────────────────────────────────────
-        if (! $this->option('no-seed')) {
+        if (!$this->option('no-seed')) {
             $this->components->task('Rodando DatabaseSeeder (dados de demonstração)', function () {
                 return Artisan::call('db:seed', [
                     '--database' => 'tenant',
