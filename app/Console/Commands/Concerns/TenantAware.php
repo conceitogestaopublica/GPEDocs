@@ -51,7 +51,9 @@ trait TenantAware
 
     private function runForAllTenants(callable $callback): int
     {
-        $schemas = DB::table("information_schema.schemata")->where('driver', 'pgsql')
+        $schemas = DB::table("information_schema.schemata")
+            ->where('driver', 'pgsql')
+            ->where('catalog_name', 'gpedocs')
             ->selectRaw("schema_name")->pluck("schema_name");
 
         $tenants = Tenant::active()->whereIn('db_schema', $schemas)->orderBy('subdomain')->get();
