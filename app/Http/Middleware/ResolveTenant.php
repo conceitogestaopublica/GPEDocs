@@ -32,10 +32,10 @@ class ResolveTenant
     {
         $host = $request->getHost();
 
-        self::$LANDLORD_URL = $request->host() !== 'localhost' ? $host :
-            config('multitenancy.dev_landlord_url');
-dd($host, self::$LANDLORD_URL);
+        self::$LANDLORD_URL = $request->host() !== 'localhost' ? $host : config('multitenancy.dev_landlord_url');
+
         self::$LANDLORD_PORT = $request->getPort();
+
         $isLocal = $host === 'localhost' || filter_var($host, FILTER_VALIDATE_IP);
         $subdomain = $isLocal ? 'localhost' : $this->extractSubdomain($host);
         $domain = $isLocal ? '' : $this->extractDomain($host);
