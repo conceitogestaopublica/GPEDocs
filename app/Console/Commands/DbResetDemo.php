@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\DB;
 class DbResetDemo extends Command
 {
     protected $signature = 'db:reset-demo
-                            {--tenant= : ID ou subdomain do tenant (pula o prompt)}
+                            {--tenant= : ID do tenant no landlord (pula o prompt)}
                             {--driver= : mysql|mariadb|pgsql|sqlite (pula o prompt)}
                             {--schema= : Schema do postgres (pula o prompt; só usado se driver=pgsql)}
                             {--force : Não pede confirmação interativa}
@@ -146,9 +146,9 @@ class DbResetDemo extends Command
 
         if ($id = $this->option('tenant')) {
             /** @var Tenant|null $tenant */
-            $tenant = $tenants->first(fn ($t) => (string) $t->id === (string) $id || $t->subdomain === $id);
+            $tenant = $tenants->firstWhere('id', (int) $id);
             if (! $tenant) {
-                $this->components->error("Tenant [{$id}] não encontrado no landlord.");
+                $this->components->error("Tenant com id [{$id}] não encontrado no landlord.");
                 return null;
             }
             return $tenant;
