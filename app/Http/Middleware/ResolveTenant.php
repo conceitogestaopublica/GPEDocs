@@ -34,7 +34,7 @@ class ResolveTenant
 
         self::$LANDLORD_URL = $request->host() !== 'localhost' ? $host :
             config('multitenancy.dev_landlord_url');
-
+dd($host, self::$LANDLORD_URL);
         self::$LANDLORD_PORT = $request->getPort();
         $isLocal = $host === 'localhost' || filter_var($host, FILTER_VALIDATE_IP);
         $subdomain = $isLocal ? 'localhost' : $this->extractSubdomain($host);
