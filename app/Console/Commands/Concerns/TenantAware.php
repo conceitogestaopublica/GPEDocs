@@ -53,7 +53,7 @@ trait TenantAware
     {
         $tenants = Tenant::active()
             ->where('driver', 'pgsql')
-            ->where('domain', 'gpedocs')
+            ->where('domain', 'gpedocs.com.br')
             ->orderBy('subdomain')->get();
 
         if ($tenants->isEmpty()) {
