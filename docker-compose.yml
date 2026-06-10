@@ -8,35 +8,27 @@ services:
     image: app-docs:latest
     container_name: app-docs
     restart: unless-stopped
-    env_file: .env
+    # IMPORTANTE (dev): NÃO usar env_file aqui. O .env é bind-montado abaixo e
+    # Laravel/phpdotenv lê dele a cada bootstrap. Se usássemos env_file, as vars
+    # seriam injetadas no env do processo no boot do container e nunca mais
+    # atualizadas — bloqueando o reload do .env sem restart.
     volumes:
       - storage:/var/www/html/storage
+      - ./storage/logs:/var/www/html/storage/logs
       - ./app:/var/www/html/app
       - ./database:/var/www/html/database
       - ./routes:/var/www/html/routes
       - ./config:/var/www/html/config
       - ./resources:/var/www/html/resources
+      - ./.env:/var/www/html/.env:ro
     networks:
       - gpedocs
     extra_hosts:
+      # Padrão (funciona pro Postgres que aceita IPv4 + IPv6)
       - "host.docker.internal:host-gateway"
-
-  # ── Queue worker: processa jobs em background ─────────────────────────────
-#  queue:
-#    build:
-#      context: .
-#      target: app
-#    image: queue-docs:latest
-#    container_name: queue-docs
-#    restart: unless-stopped
-#    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
-#    env_file: .env
-#    volumes:
-#      - storage:/var/www/html/storage
-#    networks:
-#      - gpedocs
-#    depends_on:
-#      - app
+      # IPv4 puro do host Windows visto do container (sem AAAA/IPv6).
+      # Use este nome no LANDLORD_DB_HOST do .env pra forçar IPv4 no MariaDB.
+      - "mariadb.host.local:192.168.65.254"
 
   # ── Nginx: proxy reverso + arquivos estáticos ─────────────────────────────
   nginx:
@@ -54,6 +46,39 @@ services:
       - gpedocs
     depends_on:
       - app
+
+  # ── Queue: worker para filas ─────────────────────────────
+  queue:
+    build:
+      context: .
+      target: app
+    image: app-docs:latest                # mesma imagem do app, sem rebuild duplo
+    container_name: queue-docs
+    restart: unless-stopped
+    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600 --max-jobs=1000 --queue=high,default
+    # Sem env_file: o queue:work relê o .env a cada job — mas o processo em si
+    # carrega só uma vez. Pra mudanças de .env afetarem jobs em andamento,
+    # ainda precisa de "docker compose restart queue-docs".
+    volumes:
+      - storage:/var/www/html/storage
+      - ./storage/logs:/var/www/html/storage/logs
+      - ./app:/var/www/html/app
+      - ./database:/var/www/html/database
+      - ./routes:/var/www/html/routes
+      - ./config:/var/www/html/config
+      - ./resources:/var/www/html/resources
+      - ./.env:/var/www/html/.env:ro
+    networks:
+      - gpedocs
+    extra_hosts:
+      # Padrão (funciona pro Postgres que aceita IPv4 + IPv6)
+      - "host.docker.internal:host-gateway"
+      # IPv4 puro do host Windows visto do container (sem AAAA/IPv6).
+      # Use este nome no LANDLORD_DB_HOST do .env pra forçar IPv4 no MariaDB.
+      - "mariadb.host.local:192.168.65.254"
+    depends_on:
+      - app
+    stop_grace_period: 60s
 
 volumes:
   storage:

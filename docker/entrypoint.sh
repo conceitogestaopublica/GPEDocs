@@ -1,8 +1,17 @@
 #!/bin/sh
 set -e
 
-if [ -z "$APP_KEY" ]; then
-    echo "ERRO: APP_KEY não está definida. Defina no .env antes de iniciar." >&2
+# Verifica que o .env existe (bind-mounted pelo docker-compose em dev).
+# Em produção, defina as variáveis via -e/env_file conforme preferir.
+if [ ! -f /var/www/html/.env ]; then
+    echo "ERRO: /var/www/html/.env não encontrado. Garanta o bind mount ou crie o arquivo." >&2
+    exit 1
+fi
+
+# Sanity check: APP_KEY precisa estar no arquivo (não testamos como env var
+# porque agora não temos env_file: no compose — Laravel lê o .env via phpdotenv).
+if ! grep -qE '^APP_KEY=.+' /var/www/html/.env; then
+    echo "ERRO: APP_KEY não está definida no .env. Rode: php artisan key:generate" >&2
     exit 1
 fi
 
