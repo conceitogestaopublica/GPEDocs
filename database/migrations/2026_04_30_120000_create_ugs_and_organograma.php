@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('codigo', 20)->unique();
             $table->string('nome', 200);
             $table->string('cnpj', 18)->nullable();
-            $table->foreignId('logradouro_id')->nullable()->constrained('logradouros', indexName: 'ugs_x_logradouros_X_logradouro_id');
+            $table->foreignId('logradouro_id')->nullable()->constrained('logradouro', indexName: 'ugs_x_logradouro_X_logradouro_id');
             $table->string('numero', 20)->nullable();
             $table->string('complemento', 100)->nullable();
             $table->string('site')->nullable();
@@ -43,7 +43,7 @@ return new class extends Migration
             // Quando true, usa logradouro_id/numero/complemento proprios.
             $table->boolean('endereco_proprio')->default(false);
             $table->foreignId('logradouro_id')->nullable()
-                ->constrained('logradouros', indexName: 'ug_organograma_x_logradouros_X_logradouro_id');
+                ->constrained('logradouro', indexName: 'ug_organograma_x_logradouro_X_logradouro_id');
             $table->string('numero', 20)->nullable();
             $table->string('complemento', 100)->nullable();
             $table->timestamps();

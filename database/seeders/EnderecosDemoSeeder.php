@@ -28,7 +28,7 @@ class EnderecosDemoSeeder extends Seeder
     public function run(): void
     {
         DB::transaction(function () {
-            $mg = Uf::firstOrCreate(['nome' => 'MG']);
+            $mg = Uf::firstOrCreate(['id' => 'MG'], ['nome' => 'MG']);
 
             $cidadeModelo = Municipio::firstOrCreate(
                 ['uf_id' => $mg->id, 'nome' => 'Cidade Modelo'],

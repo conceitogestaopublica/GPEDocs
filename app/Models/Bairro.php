@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Bairro extends Model
 {
-    protected $table = 'bairros';
+    protected $table = 'bairro';
 
     protected $fillable = ['nome', 'municipio_id', 'last_user'];
 

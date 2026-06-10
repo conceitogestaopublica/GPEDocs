@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Config;
 
 /**
  * Tenant — registro de um município/entidade no banco landlord.
@@ -23,9 +24,9 @@ class Tenant extends Model
     protected $table = 'tenants';
     protected $guarded = ['id'];
     protected $casts = [
-        'active'        => 'boolean',
+        'active' => 'boolean',
         'contratado_em' => 'date',
-        'encerrado_em'  => 'date',
+        'encerrado_em' => 'date',
     ];
 
     /**
@@ -38,15 +39,15 @@ class Tenant extends Model
     protected function dbPassword(): Attribute
     {
         return Attribute::make(
-            get: fn ($value) => $value ? $this->decryptSafe($value) : null,
-            set: fn ($value) => $value ?: null,
+            get: fn($value) => $value ? $this->decryptSafe($value) : null,
+            set: fn($value) => $value ?: null,
         );
     }
 
     /** Lê valores legados criptografados; se já for texto plano, retorna como está. */
     private function decryptSafe(?string $value): ?string
     {
-        if (! $value) return null;
+        if (!$value) return null;
         try {
             return Crypt::decryptString($value);
         } catch (\Throwable) {
@@ -72,8 +73,20 @@ class Tenant extends Model
             $url = "http://" . config('multitenancy.dev_landlord_url') . ":" . ResolveTenant::$LANDLORD_PORT;
         } else {
             $url = config('multitenancy.url_template');
-            $url =  str_replace('{domain}', $this->domain, $url);
+            $url = str_replace('{domain}', $this->domain, $url);
         }
         return $path === '' ? $url : rtrim($url, '/') . '/' . ltrim($path, '/');
+    }
+
+    public static function getTenanttDomain() {
+        return Config::get('multitenancy.tenant_default_domain');
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+        static::addGlobalScope('only_pgsql', function ($builder) {
+            $builder->whereRaw("driver = 'pgsql'");
+        });
     }
 }

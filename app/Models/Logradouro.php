@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Logradouro extends Model
 {
-    protected $table = 'logradouros';
+    protected $table = 'logradouro';
 
     protected $fillable = ['nome', 'cep', 'bairro_id', 'last_user'];
 
@@ -40,7 +40,8 @@ class Logradouro extends Model
             return null;
         }
 
-        $uf = Uf::firstOrCreate(['nome' => strtoupper($ufNome)]);
+        $ufSigla = strtoupper($ufNome);
+        $uf = Uf::firstOrCreate(['id' => $ufSigla], ['nome' => $ufSigla]);
 
         $municipio = Municipio::firstOrCreate(
             ['uf_id' => $uf->id, 'nome' => $cidadeNome],

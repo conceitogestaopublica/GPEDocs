@@ -10,9 +10,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Uf extends Model
 {
-    protected $table = 'ufs';
+    protected $table = 'uf';
+    protected $keyType = 'string';
+    public $incrementing = false;
 
-    protected $fillable = ['nome', 'last_user'];
+    protected $fillable = ['id', 'nome', 'last_user'];
 
     public function municipios(): HasMany
     {

@@ -39,7 +39,7 @@ class TenantMigrate extends Command
                 return self::SUCCESS;
             }
         }
-//        if ()
+
 
         return $this->runForTenant(function () {
             $opts = [
@@ -54,7 +54,6 @@ class TenantMigrate extends Command
             } else {
                 $code = $this->call('migrate', $opts);
             }
-
             return $code;
         });
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\TenantAware;
 use App\Models\Tenant;
 use App\Tenant\TenantContext;
 use Illuminate\Console\Command;
@@ -37,7 +38,9 @@ class DbResetDemo extends Command
     private const DRIVERS = ['mysql', 'mariadb', 'pgsql', 'sqlite'];
     private const ALL_SCHEMAS = 'todos';
 
-    public function handle(TenantContext $tenantContext): int
+    use TenantAware;
+
+    public function handle(): int
     {
         $env = config('app.env');
 
@@ -48,89 +51,47 @@ class DbResetDemo extends Command
 
         // ── 1. Tenant ───────────────────────────────────────────────────────
         $tenant = $this->resolveTenant();
-        if (!$tenant) {
-            return self::FAILURE;
-        }
 
-        // ── 2. Driver (direto do tenant) ────────────────────────────────────
-        $driver = (string) $tenant->driver;
-        if (! in_array($driver, self::DRIVERS, true)) {
-            $this->components->error("Driver do tenant inválido: [{$driver}]. Esperado um de: " . implode(', ', self::DRIVERS));
-            return self::FAILURE;
-        }
+        $callback = function () use ($env) {
+            $tenant = app(TenantContext::class)->get();
+            // ── 4. Resumo + confirmação ─────────────────────────────────────────
+            $this->components->info(sprintf(
+                'Reset demo — tenant: %s (#%d) | Host: %s | Banco: %s | env: %s',
+                $tenant->nome,
+                $tenant->id,
+                $tenant->db_host,
+                $tenant->db_name,
+                $env,
+            ));
 
-        // ── 3. Schema(s) — só pgsql ─────────────────────────────────────────
-        $schemas = $driver === 'pgsql' ? $this->resolveSchemas($tenant) : [null];
-        if ($schemas === []) {
-            $this->components->error('Nenhum schema selecionado/encontrado.');
-            return self::FAILURE;
-        }
-
-        // ── 4. Resumo + confirmação ─────────────────────────────────────────
-        $this->components->info(sprintf(
-            'Reset demo — tenant: %s (#%d) | driver: %s | host: %s | database: %s%s | env: %s',
-            $tenant->nome,
-            $tenant->id,
-            $driver,
-            $tenant->db_host,
-            $tenant->db_name,
-            $driver === 'pgsql' ? ' | schema(s): ' . implode(', ', $schemas) : '',
-            $env,
-        ));
-
-        if (!$this->option('force')) {
-            $alvo = count($schemas) > 1
-                ? count($schemas) . " schemas do banco [{$tenant->db_name}]"
-                : "tabelas em [{$tenant->db_name}]" . ($schemas[0] ? " (schema {$schemas[0]})" : '');
-            $this->warn("⚠  {$alvo} serão APAGADAS.");
-            if (! $this->confirm('Tem certeza que deseja continuar?', false)) {
-                $this->components->warn('Operação cancelada.');
-                return self::SUCCESS;
-            }
-        }
-
-        // ── 5. Loop por schema (1 ou N) ─────────────────────────────────────
-        foreach ($schemas as $idx => $schema) {
-            if (count($schemas) > 1) {
-                $this->newLine();
-                $this->components->info(sprintf('▶ Schema %d/%d: %s', $idx + 1, count($schemas), $schema));
-            }
-
-            $tenant->driver = $driver;
-            if ($schema !== null) {
-                // Atributo virtual usado por TenantContext::buildConnectionConfig().
-                $tenant->db_schema = $schema;
-            }
-
-            $tenantContext->set($tenant);
-            DB::setDefaultConnection('tenant');
-
+            // ── 5. Loop por schema (1 ou N) ─────────────────────────────────────
             $this->components->task('Apagando tabelas e rodando migrations', function () {
                 return Artisan::call('migrate:fresh', [
-                    '--database' => 'tenant',
-                    '--force'    => true,
-                ], $this->output) === 0;
+                        '--database' => 'tenant',
+                        '--force' => true,
+                    ], $this->output) === 0;
             });
 
             if (!$this->option('no-seed')) {
                 $this->components->task('Rodando DatabaseSeeder (dados de demonstração)', function () {
                     return Artisan::call('db:seed', [
-                        '--database' => 'tenant',
-                        '--force'    => true,
-                    ], $this->output) === 0;
+                            '--database' => 'tenant',
+                            '--force' => true,
+                        ], $this->output) === 0;
                 });
             } else {
                 $this->components->info('--no-seed: pulando os seeders.');
             }
-        }
-
-        // ── 6. Limpa caches (uma vez no final) ──────────────────────────────
-        $this->components->task('Limpando caches da aplicação', function () {
-            Artisan::call('cache:clear');
-            Artisan::call('config:clear');
-            Artisan::call('view:clear');
-            return true;
-        });
+            // ── 6. Limpa caches (uma vez no final) ──────────────────────────────
+            $this->components->task('Limpando caches da aplicação', function () {
+                Artisan::call('cache:clear');
+                Artisan::call('config:clear');
+                Artisan::call('view:clear');
+                return true;
+            });
+        };
+        $response = !$tenant ? $this->runForAllTenants($callback) : $this->runForOne($tenant, $callback);
+        if($response !== self::SUCCESS) return self::FAILURE;
 
         $this->newLine();
         $this->components->info('✓ Reset demo concluído.');
@@ -149,7 +110,7 @@ class DbResetDemo extends Command
      * Resolve o tenant via prompt interativo listando todos os tenants
      * registrados no landlord.
      */
-    private function resolveTenant(): ?Tenant
+    private function resolveTenant2(): ?Tenant
     {
         $tenants = Tenant::query()->orderBy('id')->get();
 
@@ -158,8 +119,8 @@ class DbResetDemo extends Command
             return null;
         }
 
-        $choices = $tenants->mapWithKeys(fn ($t) => [
-            (string) $t->id => sprintf('%s [%s/%s] (%s @ %s)', $t->nome, $t->subdomain, $t->driver, $t->db_name, $t->db_host),
+        $choices = $tenants->mapWithKeys(fn($t) => [
+            (string)$t->id => sprintf('%s [%s/%s] (%s @ %s)', $t->nome, $t->subdomain, $t->driver, $t->db_name, $t->db_host),
         ])->all();
 
         $label = $this->choice('Qual tenant você quer resetar?', $choices, array_key_first($choices));
@@ -168,7 +129,7 @@ class DbResetDemo extends Command
         $id = array_search($label, $choices, true) ?: array_key_first($choices);
 
         /** @var Tenant|null $tenant */
-        $tenant = $tenants->firstWhere('id', (int) $id);
+        $tenant = $tenants->firstWhere('id', (int)$id);
         return $tenant;
     }
 
@@ -180,8 +141,8 @@ class DbResetDemo extends Command
     private function resolveSchemas(Tenant $tenant): array
     {
         $existing = $this->listPgsqlSchemas($tenant);
-        $options  = [...$existing, self::ALL_SCHEMAS];
-        $default  = in_array('public', $existing, true) ? 'public' : (string) $options[0];
+        $options = [...$existing, self::ALL_SCHEMAS];
+        $default = in_array('public', $existing, true) ? 'public' : (string)$options[0];
 
         $choice = $this->choice(
             'Qual schema do postgres usar? (escolha "todos" para iterar em todos os schemas existentes)',
@@ -199,16 +160,16 @@ class DbResetDemo extends Command
     private function listPgsqlSchemas(Tenant $tenant): array
     {
         Config::set('database.connections._schema_list', [
-            'driver'      => 'pgsql',
-            'host'        => $tenant->db_host,
-            'port'        => $tenant->db_port,
-            'database'    => $tenant->db_name,
-            'username'    => $tenant->db_username,
-            'password'    => $tenant->db_password,
-            'charset'     => $tenant->db_charset ?? 'utf8',
-            'prefix'      => '',
+            'driver' => 'pgsql',
+            'host' => $tenant->db_host,
+            'port' => $tenant->db_port,
+            'database' => $tenant->db_name,
+            'username' => $tenant->db_username,
+            'password' => $tenant->db_password,
+            'charset' => $tenant->db_charset ?? 'utf8',
+            'prefix' => '',
             'search_path' => 'public',
-            'sslmode'     => $tenant->db_sslmode ?? 'prefer',
+            'sslmode' => $tenant->db_sslmode ?? 'prefer',
         ]);
 
         try {
@@ -221,11 +182,11 @@ class DbResetDemo extends Command
             DB::purge('_schema_list');
         }
 
-        $names = array_map(fn ($r) => (string) $r->schema_name, $rows);
+        $names = array_map(fn($r) => (string)$r->schema_name, $rows);
 
         // Garantia mínima: 'public' sempre disponível como opção, mesmo se o
         // banco estiver vazio ou inacessível por algum motivo.
-        if (! in_array('public', $names, true)) {
+        if (!in_array('public', $names, true)) {
             array_unshift($names, 'public');
         }
 

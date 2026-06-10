@@ -17,7 +17,7 @@ class DatabaseSeeder extends Seeder
     {
         // Estrutura base (ordem importa por dependências de FK)
         $this->call(GedSeeder::class);                 // tipos documentais, roles, permissões, tags, admin@ged.local, pastas-modelo
-        $this->call(EnderecosDemoSeeder::class);       // ufs + municipios + logradouros (precisa vir antes da UG modelo)
+        $this->call(EnderecosDemoSeeder::class);       // uf + municipio + bairro + logradouro (precisa vir antes da UG modelo)
         $this->call(UgModeloSeeder::class);            // UG modelo + organograma 3 níveis
 
         // Usuários demo + vínculos UG/roles
