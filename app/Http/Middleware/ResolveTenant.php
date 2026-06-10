@@ -18,7 +18,6 @@ use Symfony\Component\HttpFoundation\Response;
  *   taquaracu.gpe.com.br  →  procura tenant onde subdomain='taquaracu'
  *   www.gpe.com.br        →  rota landlord (super-admin) — não seta tenant
  *   gpe.com.br            →  idem
- *   localhost / 127.0.0.1 →  usa env('TENANT_DEFAULT_DOMAIN') se definido (dev)
  */
 class ResolveTenant
 {
@@ -63,7 +62,6 @@ class ResolveTenant
         }
         // ── Demais paths (área de tenant) ─────────────────────────────────────
         // Em dev/local (localhost, 127.0.0.1, IP), opcionalmente força tenant pelo .env.
-        // Sem TENANT_DEFAULT_DOMAIN, segue como landlord (sem tenant).
         if (!$isLocal) {
             // Host do painel admin fora de /landlord/* → manda para o CRUD de tenants.
             if ($subdomain === 'admin') {

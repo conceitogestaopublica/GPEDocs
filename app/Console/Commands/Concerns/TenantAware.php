@@ -52,8 +52,7 @@ trait TenantAware
     private function runForAllTenants(callable $callback): int
     {
         $tenants = Tenant::active()
-            ->where('driver', 'pgsql')
-            ->where('domain', 'gpedocs.com.br')
+            ->where('domain', Tenant::getTenanttDomain())
             ->orderBy('subdomain')->get();
 
         if ($tenants->isEmpty()) {
@@ -89,25 +88,36 @@ trait TenantAware
         }
     }
 
-    private function resolveTenant(?string $subdomain): ?Tenant
+    private function resolveTenant(?string $subdomain = null): ?Tenant
     {
-        if (! $subdomain) {
-            $disponiveis = Tenant::active()->orderBy('subdomain')->pluck('subdomain')->all();
-            if (empty($disponiveis)) {
-                $this->error('Nenhum tenant ativo cadastrado.');
+        if (!$subdomain) {
+            $tenants = Tenant::query()->orderBy('id')->get();
+
+            if ($tenants->isEmpty()) {
+                $this->components->error('Nenhum tenant registrado no landlord. Cadastre um antes de rodar este comando.');
                 return null;
             }
-            $subdomain = $this->choice('Selecione o tenant', $disponiveis);
-        }
 
-        $tenant = Tenant::active()->where('subdomain', $subdomain)->first();
-        if (! $tenant) {
-            $this->error("Tenant '{$subdomain}' não encontrado ou inativo.");
-            return null;
+            $choices = ['0' => 'toods'] + $tenants->mapWithKeys(fn($t) => [
+                (string)$t->id => sprintf('%s [%s/%s] (%s @ %s)', $t->nome, $t->subdomain, $t->driver, $t->db_name, $t->db_host),
+            ])->all();
+
+            $label = $this->choice('Selencione o tenant:', $choices, array_key_first($choices));
+
+            // O choice() do Symfony retorna o LABEL quando a chave é string. Reverte para id.
+            $id = array_search($label, $choices, true) ?: array_key_first($choices);
+
+            /** @var Tenant|null $tenant */
+            $tenant = $tenants->firstWhere('id', (int) $id);
+        } else {
+            $domain = Tenant::getTenanttDomain();
+            $tenant = Tenant::query()->whereRaw("subdomain = '{$subdomain}' AND domain = '{$domain}'")->first();
+            if (empty($tenant)) {
+                $this->components->error('Nenhum tenant registrado no landlord. Cadastre um antes de rodar este comando.');
+                return null;
+            }
         }
         return $tenant;
     }
-
-    private function resolveAllSchemas () {}
 
 }

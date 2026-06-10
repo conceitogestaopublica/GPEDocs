@@ -44,6 +44,6 @@ return [
     'landlord_url' => env('LANDLORD_URL', ''),
     'dev_landlord_url' => env('DEV_LANDLORD_URL', ''),
     'dev_landlord_port' => env('DEV_LANDLORD_PORT', ''),
-    'tenant_default_domain' => env('TENANT_DEFAULT_DOMAIN', ''),
-
+    'tenant_default_domain' => env('TENANT_DEFAULT_DOMAIN') ?: env('DEV_TENANT_DEFAULT_DOMAIN') ?: ':8090',
+    'dev_tenant_default_domain' => env('DEV_TENANT_DEFAULT_DOMAIN', ':8090'),
 ];
