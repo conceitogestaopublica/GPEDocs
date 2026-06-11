@@ -98,7 +98,7 @@ trait TenantAware
                 return null;
             }
 
-            $choices = ['0' => 'toods'] + $tenants->mapWithKeys(fn($t) => [
+            $choices = ['0' => 'todos'] + $tenants->mapWithKeys(fn($t) => [
                 (string)$t->id => sprintf('%s [%s/%s] (%s @ %s)', $t->nome, $t->subdomain, $t->driver, $t->db_name, $t->db_host),
             ])->all();
 
