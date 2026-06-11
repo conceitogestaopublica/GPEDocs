@@ -43,12 +43,11 @@ class InsertUsersGPDSeeder extends Seeder
         if (count($chunk)) {
             dispatch((new MassInsertUserJob($db_id, $chunk))->onQueue('default'));
         }
-
     }
 
-    private function extraction( string $conn): iterable
+    private function extraction(string $conn): iterable
     {
-        $conn = $conn == ":8090" ? $conn :  "gpdparaguacu";
+        $conn = $conn == "localhost" ? Config::get('database.connections.gpe_legado.database') : "gpd$conn";
         Config::set('database.connections.gpe_legado.database', $conn);
 
         DB::purge('tenant');

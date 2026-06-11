@@ -31,7 +31,7 @@ return new class extends Migration
             $table->string('ibge_id', 10)->nullable()->unique();
             $table->timestamps();
 
-            $table->index(['uf_id', 'nome']);
+            $table->unique(['uf_id', 'nome'], 'municipio_uf_nome_uniq');
         });
 
         Schema::create('bairro', function (Blueprint $table) {
@@ -40,7 +40,7 @@ return new class extends Migration
             $table->foreignId('municipio_id')->constrained('municipio', indexName: 'bairro_x_municipio_X_municipio_id');
             $table->timestamps();
 
-            $table->index(['municipio_id', 'nome']);
+            $table->unique(['municipio_id', 'nome'], 'bairro_municipio_nome_uniq');
         });
 
         Schema::create('logradouro', function (Blueprint $table) {
@@ -50,7 +50,7 @@ return new class extends Migration
             $table->foreignId('bairro_id')->constrained('bairro', indexName: 'logradouro_x_bairro_X_bairro_id');
             $table->timestamps();
 
-            $table->index(['bairro_id', 'nome']);
+            $table->unique(['bairro_id', 'nome', 'cep'], 'logradouro_bairro_nome_cep_uniq');
             $table->index('cep');
         });
     }

@@ -15,7 +15,8 @@
       "Bash(Select-Object -ExpandProperty Name)",
       "Bash(xargs grep -l \"table\\('users\")",
       "Bash(docker cp *)",
-      "Bash(xargs grep -l 'documento_id')"
+      "Bash(xargs grep -l 'documento_id')",
+      "Bash(xargs -I{} echo \"database/migrations/landlord/{}\")"
     ]
   }
 }

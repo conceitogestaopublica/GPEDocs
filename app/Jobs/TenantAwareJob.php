@@ -10,6 +10,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Job base com isolamento de tenant. Captura o tenant_id no momento do dispatch
@@ -46,6 +47,7 @@ abstract class TenantAwareJob implements ShouldQueue
         $tenant = Tenant::findOrFail($this->tenant_id);
         if (! $tenant->active) {
             // Tenant desativado entre o dispatch e a execução — descarta sem erro
+            Log::error('USUARIO: ERROR: O tenant foi desativado!', []);
             return;
         }
         app(TenantContext::class)->set($tenant);
