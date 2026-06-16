@@ -20,6 +20,8 @@ services:
       - ./routes:/var/www/html/routes
       - ./config:/var/www/html/config
       - ./resources:/var/www/html/resources
+      # Bind do public/ pro Blade @vite ler public/hot (gravado pelo container vite).
+      - ./public:/var/www/html/public
       - ./.env:/var/www/html/.env:ro
     networks:
       - gpedocs
@@ -29,6 +31,31 @@ services:
       # IPv4 puro do host Windows visto do container (sem AAAA/IPv6).
       # Use este nome no LANDLORD_DB_HOST do .env pra forçar IPv4 no MariaDB.
       - "mariadb.host.local:192.168.65.254"
+
+  # ── Vite: dev server (HMR) para JSX/CSS ───────────────────────────────────
+  # Sobe somente em desenvolvimento. Grava public/hot quando ativo — o Blade
+  # @vite() detecta o arquivo e roteia o browser pra http://localhost:5174.
+  # Quando este service NÃO está up, o Laravel cai no fallback (public/build).
+  vite:
+    image: node:22-alpine
+    container_name: vite-docs
+    restart: unless-stopped
+    working_dir: /var/www/html
+    # npm install na 1ª subida (deps caem no volume nomeado e persistem).
+    # --host 0.0.0.0 pra escutar em todas interfaces (bind do host).
+    command: sh -c "npm install --prefer-offline --no-audit --no-fund && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "${VITE_PORT:-5174}:5174"
+    volumes:
+      - ./package.json:/var/www/html/package.json
+      - ./package-lock.json:/var/www/html/package-lock.json
+      - ./vite.config.js:/var/www/html/vite.config.js
+      - ./resources:/var/www/html/resources
+      - ./public:/var/www/html/public
+      # Volume nomeado pra node_modules — isola binaries Linux das deps do host Windows.
+      - vite_node_modules:/var/www/html/node_modules
+    networks:
+      - gpedocs
 
   # ── Nginx: proxy reverso + arquivos estáticos ─────────────────────────────
   nginx:
@@ -82,6 +109,7 @@ services:
 
 volumes:
   storage:
+  vite_node_modules:
 
 networks:
   gpedocs:

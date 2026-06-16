@@ -6,7 +6,6 @@ namespace App\Console\Commands\Concerns;
 
 use App\Models\Tenant;
 use App\Tenant\TenantContext;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Trait para comandos que precisam rodar em contexto de tenant.
@@ -43,18 +42,14 @@ trait TenantAware
         }
 
         $tenant = $this->resolveTenant($opt);
-
-        if (!$tenant) return self::FAILURE;
+        if (! $tenant) return self::FAILURE;
 
         return $this->runForOne($tenant, $callback);
     }
 
     private function runForAllTenants(callable $callback): int
     {
-        $tenants = Tenant::active()
-            ->where('domain', Tenant::getTenanttDomain())
-            ->orderBy('subdomain')->get();
-
+        $tenants = Tenant::active()->orderBy('subdomain')->get();
         if ($tenants->isEmpty()) {
             $this->warn('Nenhum tenant ativo cadastrado no landlord.');
             return self::SUCCESS;
@@ -88,36 +83,22 @@ trait TenantAware
         }
     }
 
-    private function resolveTenant(?string $subdomain = null): ?Tenant
+    private function resolveTenant(?string $subdomain): ?Tenant
     {
-        if (!$subdomain) {
-            $tenants = Tenant::query()->orderBy('id')->get();
-
-            if ($tenants->isEmpty()) {
-                $this->components->error('Nenhum tenant registrado no landlord. Cadastre um antes de rodar este comando.');
+        if (! $subdomain) {
+            $disponiveis = Tenant::active()->orderBy('subdomain')->pluck('subdomain')->all();
+            if (empty($disponiveis)) {
+                $this->error('Nenhum tenant ativo cadastrado.');
                 return null;
             }
+            $subdomain = $this->choice('Selecione o tenant', $disponiveis);
+        }
 
-            $choices = ['0' => 'todos'] + $tenants->mapWithKeys(fn($t) => [
-                (string)$t->id => sprintf('%s [%s/%s] (%s @ %s)', $t->nome, $t->subdomain, $t->driver, $t->db_name, $t->db_host),
-            ])->all();
-
-            $label = $this->choice('Selencione o tenant:', $choices, array_key_first($choices));
-
-            // O choice() do Symfony retorna o LABEL quando a chave é string. Reverte para id.
-            $id = array_search($label, $choices, true) ?: array_key_first($choices);
-
-            /** @var Tenant|null $tenant */
-            $tenant = $tenants->firstWhere('id', (int) $id);
-        } else {
-            $domain = Tenant::getTenanttDomain();
-            $tenant = Tenant::query()->whereRaw("subdomain = '{$subdomain}' AND domain = '{$domain}'")->first();
-            if (empty($tenant)) {
-                $this->components->error('Nenhum tenant registrado no landlord. Cadastre um antes de rodar este comando.');
-                return null;
-            }
+        $tenant = Tenant::active()->where('subdomain', $subdomain)->first();
+        if (! $tenant) {
+            $this->error("Tenant '{$subdomain}' não encontrado ou inativo.");
+            return null;
         }
         return $tenant;
     }
-
 }

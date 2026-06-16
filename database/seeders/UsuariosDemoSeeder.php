@@ -59,7 +59,7 @@ class UsuariosDemoSeeder extends Seeder
                     'name'            => 'Maria Admin',
                     'cpf'             => '222.222.222-22',
                     'tipo'            => 'interno',
-                    'super_admin'     => false,
+                    'super_admin'     => true,
                     'ug_id'           => $ug->id,
                     'unidade_id'      => $setorFolha?->id,
                     'role'            => 'Administrador',
