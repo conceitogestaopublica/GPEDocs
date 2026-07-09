@@ -83,9 +83,9 @@ trait TenantAware
         }
     }
 
-    private function resolveTenant(?string $subdomain): ?Tenant
+    private function resolveTenant(?string $subdomain = ''): ?Tenant
     {
-        if (! $subdomain) {
+        if (!$subdomain) {
             $disponiveis = Tenant::active()->orderBy('subdomain')->pluck('subdomain')->all();
             if (empty($disponiveis)) {
                 $this->error('Nenhum tenant ativo cadastrado.');
