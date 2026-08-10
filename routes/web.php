@@ -86,6 +86,13 @@ Route::prefix('api/integracoes')
         Route::get('documentos/{numero}', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'show'])
             ->where('numero', '[^/]+')
             ->name('api.integracoes.documentos.show');
+
+        // Arquivamento SEM assinatura (imagens, anexos) — ex.: foto do servidor no RH.
+        Route::post('arquivos', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'arquivar'])
+            ->name('api.integracoes.arquivos.store');
+        Route::get('arquivos/{id}/conteudo', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'conteudo'])
+            ->where('id', '[0-9]+')
+            ->name('api.integracoes.arquivos.conteudo');
     });
 
 // Portal Cidadao — Carta de Servicos (publico, sem auth)
