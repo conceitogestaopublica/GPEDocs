@@ -10,16 +10,20 @@ use Symfony\Component\HttpFoundation\Response;
 
 class VerifyTenant
 {
+    const LOGIN = 'login';
+    const LANDLORD_LOGIN = 'landlord-login';
+
     /**
      * Handle an incoming request.
      *
-     * @param  Closure(Request): (Response)  $next
+     * @param Closure(Request): (Response) $next
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if(empty(app(TenantContext::class)->get())) {
-            redirect()->route('login');
+        if (empty(app(TenantContext::class)->get()) && !$request->is('landlord', 'landlord/*')) {
+            redirect()->route(self::LOGIN);
         }
+
         return $next($request);
     }
 }

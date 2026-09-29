@@ -3,18 +3,13 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__ . '/../routes/web.php',
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
-        then: function (): void {
-            Route::middleware('web')->group(function (): void {
-                Route::prefix('landlord')->name('landlord.')->group(base_path('routes/landlord.php'));
-            });
-        },
+        // Sem rotas /landlord: o painel landlord vive só no gpe2 (ResolveTenant redireciona).
     )->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(prepend: [
             \App\Http\Middleware\ResolveTenant::class,
@@ -30,7 +25,6 @@ return Application::configure(basePath: dirname(__DIR__))
                 'sistema.api' => \App\Http\Middleware\AutenticaSistemaIntegrado::class,
                 'auth.cidadao' => \App\Http\Middleware\AutenticarCidadao::class,
                 'tenant.require' => \App\Http\Middleware\RequireTenant::class,
-                'super-admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
                 'verify-sso' => \App\Http\Middleware\VerifyActiveSuperAdminSSO::class,
             ]);
 

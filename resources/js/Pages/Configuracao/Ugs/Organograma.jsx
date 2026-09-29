@@ -9,6 +9,7 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
+import { useConfirm } from '../../../Components/ConfirmProvider';
 
 export default function Organograma({ ug, arvore }) {
     const [labelsModal, setLabelsModal] = useState(false);
@@ -86,6 +87,7 @@ export default function Organograma({ ug, arvore }) {
 }
 
 function No({ node, ug, labels, onAdicionarFilho, depth = 0 }) {
+    const confirmar = useConfirm();
     const [expandido, setExpandido] = useState(true);
     const filhos = node.filhos_recursivos || [];
     const podeAdicionarFilho = node.nivel < 3;
@@ -99,8 +101,8 @@ function No({ node, ug, labels, onAdicionarFilho, depth = 0 }) {
         router.post(`/configuracoes/ugs/${ug.id}/organograma/nodes/${node.id}/toggle-ativo`);
     };
 
-    const excluir = () => {
-        if (! confirm(`Excluir "${node.nome}"? Esta acao nao pode ser desfeita.`)) return;
+    const excluir = async () => {
+        if (! await confirmar({ titulo: `Excluir "${node.nome}"?`, descricao: 'Esta ação não pode ser desfeita.', tom: 'perigo', rotuloConfirmar: 'Excluir' })) return;
         router.delete(`/configuracoes/ugs/${ug.id}/organograma/nodes/${node.id}`);
     };
 

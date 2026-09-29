@@ -8,6 +8,8 @@ import PageHeader from '../../../../Components/PageHeader';
 import Button from '../../../../Components/Button';
 import Modal from '../../../../Components/Modal';
 import Card from '../../../../Components/Card';
+import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
+import { useConfirm } from '../../../../Components/ConfirmProvider';
 
 const CORES = ['red', 'blue', 'amber', 'indigo', 'orange', 'green', 'pink', 'cyan'];
 
@@ -19,6 +21,9 @@ const COR_BG = {
 };
 
 export default function CartaServicosAdmin({ servicos, categorias, setores, tiposProcesso, filtros, publicos }) {
+    const confirmar = useConfirm();
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const [showCatForm, setShowCatForm] = useState(false);
     const [showServForm, setShowServForm] = useState(false);
     const [editCat, setEditCat] = useState(null);
@@ -40,13 +45,13 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
         router.post(`/configuracoes/carta-servicos/servicos/${servico.id}/toggle-publicado`, {}, { preserveScroll: true });
     };
 
-    const excluirServico = (servico) => {
-        if (! confirm(`Excluir o servico "${servico.titulo}"?`)) return;
+    const excluirServico = async (servico) => {
+        if (! await confirmar({ titulo: `Excluir o serviço "${servico.titulo}"?`, tom: 'perigo', rotuloConfirmar: 'Excluir' })) return;
         router.delete(`/configuracoes/carta-servicos/servicos/${servico.id}`, { preserveScroll: true });
     };
 
-    const excluirCategoria = (cat) => {
-        if (! confirm(`Excluir a categoria "${cat.nome}"?`)) return;
+    const excluirCategoria = async (cat) => {
+        if (! await confirmar({ titulo: `Excluir a categoria "${cat.nome}"?`, tom: 'perigo', rotuloConfirmar: 'Excluir' })) return;
         router.delete(`/configuracoes/carta-servicos/categorias/${cat.id}`, { preserveScroll: true });
     };
 
@@ -122,75 +127,77 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
 
             {/* Lista de servicos */}
             <Card padding={false}>
-                <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-                        <tr>
-                            <th className="px-4 py-3 text-left font-semibold">Servico</th>
-                            <th className="px-4 py-3 text-left font-semibold">Categoria</th>
-                            <th className="px-4 py-3 text-center font-semibold">Publico</th>
-                            <th className="px-4 py-3 text-center font-semibold">Visualizacoes</th>
-                            <th className="px-4 py-3 text-center font-semibold">Status</th>
-                            <th className="px-4 py-3 text-center font-semibold w-32">Acoes</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {(servicos.data || []).map(s => (
-                            <tr key={s.id} className="hover:bg-gray-50">
-                                <td className="px-4 py-3">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-9 h-9 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center shrink-0">
-                                            <i className={`${s.icone || 'fas fa-file-alt'} text-sm`} />
-                                        </div>
-                                        <div>
-                                            <p className="font-semibold text-gray-800">{s.titulo}</p>
-                                            <p className="text-xs text-gray-500 max-w-md truncate">{s.descricao_curta}</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-4 py-3">
-                                    {s.categoria ? (
-                                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${COR_BG[s.categoria.cor] || 'bg-gray-100 text-gray-700'}`}>
-                                            {s.categoria.nome}
-                                        </span>
-                                    ) : <span className="text-xs text-gray-400">—</span>}
-                                </td>
-                                <td className="px-4 py-3 text-center text-xs text-gray-600">
-                                    {publicos[s.publico_alvo] || s.publico_alvo}
-                                </td>
-                                <td className="px-4 py-3 text-center text-xs text-gray-500">{s.visualizacoes}</td>
-                                <td className="px-4 py-3 text-center">
-                                    <button
-                                        onClick={() => togglePublicado(s)}
-                                        className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors
-                                            ${s.publicado
-                                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                                    >
-                                        {s.publicado ? 'Publicado' : 'Rascunho'}
-                                    </button>
-                                </td>
-                                <td className="px-4 py-3">
-                                    <div className="flex items-center justify-center gap-1">
-                                        <button onClick={() => { setEditServ(s); setShowServForm(true); }}
-                                            className="w-8 h-8 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600" title="Editar">
-                                            <i className="fas fa-pen text-xs" />
-                                        </button>
-                                        <button onClick={() => excluirServico(s)}
-                                            className="w-8 h-8 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600" title="Excluir">
-                                            <i className="fas fa-trash text-xs" />
-                                        </button>
-                                    </div>
-                                </td>
+                <div ref={scrollRef} className="overflow-auto">
+                    <table className="w-full text-sm">
+                        <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-xs">
+                            <tr>
+                                <th className="px-4 py-3 text-left font-semibold">Servico</th>
+                                <th className="px-4 py-3 text-left font-semibold">Categoria</th>
+                                <th className="px-4 py-3 text-center font-semibold">Publico</th>
+                                <th className="px-4 py-3 text-center font-semibold">Visualizacoes</th>
+                                <th className="px-4 py-3 text-center font-semibold">Status</th>
+                                <th className="px-4 py-3 text-center font-semibold w-32">Acoes</th>
                             </tr>
-                        ))}
-                        {(servicos.data || []).length === 0 && (
-                            <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400">
-                                <i className="fas fa-folder-open text-3xl mb-2 block" />
-                                Nenhum servico cadastrado.
-                            </td></tr>
-                        )}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {(servicos.data || []).map(s => (
+                                <tr key={s.id} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-9 h-9 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center shrink-0">
+                                                <i className={`${s.icone || 'fas fa-file-alt'} text-sm`} />
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-800">{s.titulo}</p>
+                                                <p className="text-xs text-gray-500 max-w-md truncate">{s.descricao_curta}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {s.categoria ? (
+                                            <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${COR_BG[s.categoria.cor] || 'bg-gray-100 text-gray-700'}`}>
+                                                {s.categoria.nome}
+                                            </span>
+                                        ) : <span className="text-xs text-gray-400">—</span>}
+                                    </td>
+                                    <td className="px-4 py-3 text-center text-xs text-gray-600">
+                                        {publicos[s.publico_alvo] || s.publico_alvo}
+                                    </td>
+                                    <td className="px-4 py-3 text-center text-xs text-gray-500">{s.visualizacoes}</td>
+                                    <td className="px-4 py-3 text-center">
+                                        <button
+                                            onClick={() => togglePublicado(s)}
+                                            className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors
+                                                ${s.publicado
+                                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                                        >
+                                            {s.publicado ? 'Publicado' : 'Rascunho'}
+                                        </button>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center justify-center gap-1">
+                                            <button onClick={() => { setEditServ(s); setShowServForm(true); }}
+                                                className="w-8 h-8 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600" title="Editar">
+                                                <i className="fas fa-pen text-xs" />
+                                            </button>
+                                            <button onClick={() => excluirServico(s)}
+                                                className="w-8 h-8 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600" title="Excluir">
+                                                <i className="fas fa-trash text-xs" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                            {(servicos.data || []).length === 0 && (
+                                <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                                    <i className="fas fa-folder-open text-3xl mb-2 block" />
+                                    Nenhum servico cadastrado.
+                                </td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </Card>
 
             {showCatForm && (

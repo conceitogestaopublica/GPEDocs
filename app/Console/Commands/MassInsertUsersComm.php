@@ -31,8 +31,6 @@ class MassInsertUsersComm extends Command
 
     use TenantAware;
 
-    private const ALL_SCHEMAS = 'todos';
-
     public function handle(): int
     {
         $env = config('app.env');
@@ -45,7 +43,7 @@ class MassInsertUsersComm extends Command
         $tenants = Tenant::query()->orderBy('id')->get();
 
         if ($tenants->isEmpty()) {
-            $this->components->error('Nenhum tenant registrado no landlord. Cadastre um antes de rodar este comando.');
+            $this->components->error("Nenhum tenant do GPEDocs (domínio '".config('multitenancy.dominio_base')."') no landlord. Cadastre um antes de rodar este comando.");
             return self::FAILURE;
         }
 

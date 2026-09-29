@@ -10,8 +10,10 @@ import AdminLayout from '../../../../Layouts/AdminLayout';
 import PageHeader from '../../../../Components/PageHeader';
 import Button from '../../../../Components/Button';
 import DataTable from '../../../../Components/DataTable';
+import { useConfirm } from '../../../../Components/ConfirmProvider';
 
 export default function Usuarios({ usuarios, filtros = {} }) {
+    const confirmar = useConfirm();
     const data = usuarios?.data || usuarios || [];
     const [busca, setBusca] = useState(filtros.busca || '');
     const [tipo, setTipo]   = useState(filtros.tipo || '');
@@ -129,8 +131,8 @@ export default function Usuarios({ usuarios, filtros = {} }) {
                                 className="text-blue-500 hover:text-blue-700 px-1 text-xs">
                                 <i className="fas fa-edit" /> Editar
                             </Link>
-                            <button onClick={() => {
-                                if (confirm(`Excluir usuario "${row.name}"?`)) router.delete(`/configuracoes/usuarios/${row.id}`);
+                            <button onClick={async () => {
+                                if (await confirmar({ titulo: `Excluir o usuário "${row.name}"?`, tom: 'perigo', rotuloConfirmar: 'Excluir' })) router.delete(`/configuracoes/usuarios/${row.id}`);
                             }} className="text-red-400 hover:text-red-600 px-1 text-xs ml-2">
                                 <i className="fas fa-trash" /> Excluir
                             </button>

@@ -22,6 +22,44 @@
     --color-primary-900: #1e3a8a;
 }
 
+/* Cabeçalho fixo das listagens SEMPRE na frente das linhas que rolam por baixo (padrão
+   gpe2). `:where()` mantém especificidade zero — um `z-*` explícito da tela continua valendo. */
+:where(table thead.sticky, table th.sticky, table tfoot.sticky) {
+    z-index: 10;
+}
+
+/* ── Cursor dos elementos clicáveis ──────────────────────────────────────
+   O preflight do Tailwind v4 deixa <button> com cursor padrão (seta). Aqui todo
+   elemento clicável ganha a "mãozinha", e desabilitado mostra "proibido".
+   Em @layer base de propósito: classes utilitárias (cursor-default,
+   cursor-not-allowed...) num componente continuam vencendo. */
+@layer base {
+    button,
+    [role='button'],
+    [type='button'],
+    [type='submit'],
+    [type='reset'],
+    [type='checkbox'],
+    [type='radio'],
+    [type='file'],
+    [type='color'],
+    [type='range'],
+    ::file-selector-button,
+    select,
+    summary,
+    label[for],
+    a[href] {
+        cursor: pointer;
+    }
+
+    :disabled,
+    :disabled::file-selector-button,
+    [aria-disabled='true'],
+    label:has(> :disabled) {
+        cursor: not-allowed;
+    }
+}
+
 :root {
     --ds-primary: #2563EB;
     --ds-primary-hover: #1D4ED8;
@@ -263,6 +301,13 @@ aside::-webkit-scrollbar-thumb { background: var(--ds-border); border-radius: 4p
     to { transform: translateX(0); }
 }
 .animate-slideInRight { animation: slideInRight 0.3s ease-out; }
+
+/* Flyout da sidebar minimizada: rótulo desliza para fora do ícone. */
+@keyframes flyoutIn {
+    from { opacity: 0; transform: translateX(-8px) scale(0.97); }
+    to { opacity: 1; transform: none; }
+}
+.animate-flyoutIn { animation: flyoutIn 0.18s cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: left center; }
 
 @media print {
     .no-print { display: none !important; }

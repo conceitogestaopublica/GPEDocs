@@ -9,8 +9,10 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import { useConfirm } from '../../../Components/ConfirmProvider';
 
 export default function CircularesShow({ circular }) {
+    const confirmar = useConfirm();
     const circ = circular || {};
     const destinatarios = circ.destinatarios || [];
     const anexos = circ.anexos || [];
@@ -66,8 +68,8 @@ export default function CircularesShow({ circular }) {
 
                         {circ.status !== 'arquivado' && (
                             <Button variant="secondary" icon="fas fa-archive"
-                                onClick={() => {
-                                    if (confirm('Arquivar esta circular?'))
+                                onClick={async () => {
+                                    if (await confirmar({ titulo: 'Arquivar esta circular?', rotuloConfirmar: 'Arquivar' }))
                                         router.post(`/circulares/${circ.id}/arquivar`);
                                 }}>
                                 Arquivar

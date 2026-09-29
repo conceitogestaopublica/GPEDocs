@@ -33,6 +33,11 @@ Route::get('oficios/rastrear/{token}', [OficioController::class, 'rastrear'])->n
 // único, validado contra hash sha256 — não é credencial em URL clássica.
 Route::get('/sso/landlord', [\App\Http\Controllers\Tenant\SSOConsumeController::class, 'consume'])->name('sso.landlord');
 
+/* ─── Painel landlord: vive só no gpe2 ─── */
+// A rota existe só para o grupo 'web' rodar: o ResolveTenant intercepta /landlord/*
+// e redireciona para LANDLORD_URL (ou 404 se não configurada) antes de chegar aqui.
+Route::any('landlord/{path?}', fn () => abort(404))->where('path', '.*')->name('landlord.redirect');
+
 // Documentacao da API de integracao (publica, leitura)
 Route::get('docs/integracao-externa.md', function () {
     $path = base_path('docs/integracao-externa.md');
@@ -158,6 +163,10 @@ Route::middleware('auth')->group(function () {
     Route::get('documentos/{id}/download', [DocumentoController::class, 'download'])->name('documentos.download');
     Route::get('documentos/{id}/preview', [DocumentoController::class, 'preview'])->name('documentos.preview');
     Route::post('documentos/{id}/favorito', [DocumentoController::class, 'toggleFavorito'])->name('documentos.favorito');
+
+    // Rotinas favoritas (Ctrl+K → estrela) — por usuário × UG. Não são os documentos favoritos acima.
+    Route::post('rotinas/favoritos', [\App\Http\Controllers\RotinaFavoritaController::class, 'store'])->name('rotinas.favoritos.store');
+    Route::post('rotinas/favoritos/remover', [\App\Http\Controllers\RotinaFavoritaController::class, 'destroy'])->name('rotinas.favoritos.destroy');
     Route::post('documentos/{id}/status', [DocumentoController::class, 'alterarStatus'])->name('documentos.status');
 
     // Pastas / Repositorio

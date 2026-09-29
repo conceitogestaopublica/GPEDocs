@@ -8,8 +8,10 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Modal from '../../../Components/Modal';
 import Card from '../../../Components/Card';
+import { useConfirm } from '../../../Components/ConfirmProvider';
 
 export default function Banners({ ug, banners }) {
+    const confirmar = useConfirm();
     const [showForm, setShowForm] = useState(false);
     const [editBanner, setEditBanner] = useState(null);
 
@@ -19,8 +21,8 @@ export default function Banners({ ug, banners }) {
     const move = (banner, direcao) => {
         router.post(`/configuracoes/ugs/${ug.id}/banners/${banner.id}/move/${direcao}`, {}, { preserveScroll: true });
     };
-    const excluir = (banner) => {
-        if (! confirm('Excluir este banner? A imagem sera removida.')) return;
+    const excluir = async (banner) => {
+        if (! await confirmar({ titulo: 'Excluir este banner?', descricao: 'A imagem será removida.', tom: 'perigo', rotuloConfirmar: 'Excluir' })) return;
         router.delete(`/configuracoes/ugs/${ug.id}/banners/${banner.id}`, { preserveScroll: true });
     };
 

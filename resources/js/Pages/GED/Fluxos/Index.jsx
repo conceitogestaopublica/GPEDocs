@@ -6,8 +6,10 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import DataTable from '../../../Components/DataTable';
+import { useConfirm } from '../../../Components/ConfirmProvider';
 
 export default function FluxosIndex({ fluxos }) {
+    const confirmar = useConfirm();
     const data = fluxos?.data || fluxos || [];
 
     const columns = [
@@ -47,8 +49,8 @@ export default function FluxosIndex({ fluxos }) {
                             <Link href={`/fluxos/${row.id}/edit`} className="text-blue-500 hover:text-blue-700 px-1">
                                 <i className="fas fa-edit text-xs" />
                             </Link>
-                            <button onClick={() => {
-                                if (confirm('Excluir este fluxo?')) router.delete(`/fluxos/${row.id}`);
+                            <button onClick={async () => {
+                                if (await confirmar({ titulo: 'Excluir este fluxo?', tom: 'perigo', rotuloConfirmar: 'Excluir' })) router.delete(`/fluxos/${row.id}`);
                             }} className="text-red-400 hover:text-red-600 px-1">
                                 <i className="fas fa-trash text-xs" />
                             </button>

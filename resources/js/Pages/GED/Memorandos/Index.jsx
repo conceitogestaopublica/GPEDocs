@@ -8,8 +8,13 @@ import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
+import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
+import { useConfirm } from '../../../Components/ConfirmProvider';
 
 export default function MemorandosIndex({ memorandos, filters, usuarios }) {
+    const confirmar = useConfirm();
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const data = memorandos?.data || memorandos || [];
     const tipo = filters?.tipo || 'recebidos';
     const [search, setSearch] = useState(filters?.search || '');
@@ -87,9 +92,9 @@ export default function MemorandosIndex({ memorandos, filters, usuarios }) {
                 </div>
 
                 {/* Tabela */}
-                <div className="overflow-x-auto">
+                <div ref={scrollRef} className="overflow-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
+                        <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
                             <tr>
                                 <th className="px-4 py-3 text-left font-semibold">Numero</th>
                                 <th className="px-4 py-3 text-left font-semibold">Assunto</th>
@@ -171,8 +176,8 @@ export default function MemorandosIndex({ memorandos, filters, usuarios }) {
                                             <ActionBtn icon="fas fa-eye" title="Ver"
                                                 onClick={() => router.visit(`/memorandos/${memo.id}`)} />
                                             <ActionBtn icon="fas fa-archive" title="Arquivar"
-                                                onClick={() => {
-                                                    if (confirm('Arquivar este memorando?'))
+                                                onClick={async () => {
+                                                    if (await confirmar({ titulo: 'Arquivar este memorando?', rotuloConfirmar: 'Arquivar' }))
                                                         router.post(`/memorandos/${memo.id}/arquivar`, {}, { preserveState: true, preserveScroll: true });
                                                 }} />
                                             <ActionBtn icon="fas fa-file-pdf" title="PDF"

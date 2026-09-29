@@ -3,6 +3,7 @@
  */
 import { Head, Link, router } from '@inertiajs/react';
 import PortalLayout from '../../Layouts/PortalLayout';
+import { useConfirm } from '../../Components/ConfirmProvider';
 
 const STATUS_CORES = {
     aberta:         'bg-blue-100 text-blue-700 border-blue-200',
@@ -24,8 +25,9 @@ const TIPO_ICONE = {
 const STATUS_FINAIS = ['atendida', 'recusada', 'cancelada'];
 
 export default function SolicitacaoShow({ ug, solicitacao, anexos = [], decisaoPdf = null, statusList }) {
-    const cancelar = () => {
-        if (! confirm('Cancelar esta solicitacao? Esta acao nao pode ser desfeita.')) return;
+    const confirmar = useConfirm();
+    const cancelar = async () => {
+        if (! await confirmar({ titulo: 'Cancelar esta solicitação?', descricao: 'Esta ação não pode ser desfeita.', tom: 'atencao', rotuloConfirmar: 'Cancelar solicitação', rotuloCancelar: 'Voltar' })) return;
         router.post(`/minhas-solicitacoes/${solicitacao.id}/cancelar`);
     };
 

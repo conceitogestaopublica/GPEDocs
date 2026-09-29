@@ -12,6 +12,7 @@ import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
 import Tabs from '../../../Components/Tabs';
 import AssinarModal from '../../../Components/AssinarModal';
+import { useConfirm, useAvisar } from '../../../Components/ConfirmProvider';
 
 const statusColors = {
     aberto: 'bg-blue-100 text-blue-700',
@@ -64,6 +65,8 @@ const tabList = [
 ];
 
 export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null }) {
+    const confirmar = useConfirm();
+    const avisar = useAvisar();
     const proc = processo || {};
     const tramitacoes = proc.tramitacoes || [];
     const comentarios = proc.comentarios || [];
@@ -172,9 +175,9 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     };
 
     // Decidir e Encerrar — usa /concluir passando decisao
-    const handleDecidir = (decisao, pularAssinatura = false) => {
+    const handleDecidir = async (decisao, pularAssinatura = false) => {
         if (! concluirForm.data.observacao_conclusao.trim()) {
-            alert('Informe a observacao/parecer da decisao.');
+            await avisar({ titulo: 'Informe o parecer', descricao: 'Preencha a observação/parecer antes de registrar a decisão.', tom: 'atencao' });
             return;
         }
         concluirForm.setData(d => ({ ...d, decisao, pular_assinatura: pularAssinatura }));
@@ -185,8 +188,8 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
         });
     };
 
-    const handleArquivar = () => {
-        if (! confirm('Arquivar este processo? Ele sera encerrado sem decisao formal.')) return;
+    const handleArquivar = async () => {
+        if (! await confirmar({ titulo: 'Arquivar este processo?', descricao: 'Ele será encerrado sem decisão formal.', tom: 'atencao', rotuloConfirmar: 'Arquivar' })) return;
         concluirForm.transform((data) => ({ ...data, decisao: 'arquivado', observacao_conclusao: data.observacao_conclusao || 'Arquivado sem decisao formal' }));
         concluirForm.post(`/processos/${proc.id}/concluir`, {
             preserveScroll: true,

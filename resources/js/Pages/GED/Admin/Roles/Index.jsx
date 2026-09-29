@@ -8,6 +8,7 @@ import PageHeader from '../../../../Components/PageHeader';
 import Button from '../../../../Components/Button';
 import Modal from '../../../../Components/Modal';
 import Card from '../../../../Components/Card';
+import { useConfirm } from '../../../../Components/ConfirmProvider';
 
 const PERMISSION_GROUPS = [
     {
@@ -33,6 +34,7 @@ const PERMISSION_GROUPS = [
 ];
 
 export default function Roles({ roles, permissions }) {
+    const confirmar = useConfirm();
     const [showForm, setShowForm] = useState(false);
     const [editingRole, setEditingRole] = useState(null);
     const rolesList = roles || [];
@@ -67,8 +69,8 @@ export default function Roles({ roles, permissions }) {
                                 <button onClick={() => openEdit(role)} className="text-blue-500 hover:text-blue-700 p-1">
                                     <i className="fas fa-edit text-xs" />
                                 </button>
-                                <button onClick={() => {
-                                    if (confirm('Excluir este perfil?')) router.delete(`/admin/roles/${role.id}`);
+                                <button onClick={async () => {
+                                    if (await confirmar({ titulo: 'Excluir este perfil?', tom: 'perigo', rotuloConfirmar: 'Excluir' })) router.delete(`/admin/roles/${role.id}`);
                                 }} className="text-red-400 hover:text-red-600 p-1">
                                     <i className="fas fa-trash text-xs" />
                                 </button>

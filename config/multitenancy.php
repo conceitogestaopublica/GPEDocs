@@ -9,15 +9,14 @@ return [
     | Template da URL pública do tenant
     |--------------------------------------------------------------------------
     |
-    | Use {domain} como placeholder do subdomain do tenant — substituído em
-    | tempo de execução por `Tenant::url()`.
+    | Use {subdomain} e {domain} como placeholders — substituídos em tempo de
+    | execução por `Tenant::url()` pelas colunas homônimas do tenant.
     |
-    | Produção:  https://{domain}.maatgpecloud.com.br
-    | Dev local: http://{domain}.localhost:8080  (exige *.localhost no host
-    |            ou DNS local que resolva subdomínios)
+    | Produção:  https://{subdomain}.{domain}   (ex: https://paraguacu.gpedocs.com.br)
+    | Dev local: não usado — tenant com domain ':<porta>' vira http://localhost:<porta>
     |
     */
-    'url_template' => env('TENANT_URL_TEMPLATE', 'https://{domain}.gpedocs.com.br'),
+    'url_template' => env('TENANT_URL_TEMPLATE', '{subdomain}.{domain}'),
 
     /*
     |--------------------------------------------------------------------------
@@ -33,17 +32,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | URL do painel landlord (super-admin)
+    | URL do painel landlord (super-admin) — vive SÓ no gpe2
     |--------------------------------------------------------------------------
     |
-    | Domínio raiz onde vive o painel de super-admin (CRUD de tenants). Usado
-    | pelo banner "Operando via SSO" e pelas telas de erro de SSO para o botão
-    | "voltar ao painel". O landlord roda fora do subdomain de qualquer tenant.
+    | Este projeto não tem painel landlord: /landlord/* e tenant não encontrado
+    | redirecionam para cá. Também é o destino do botão "voltar ao painel" do
+    | banner SSO. Sem valor, esses casos viram 404.
+    |
+    | Produção:  https://admin.maatgpecloud.com.br
+    | Dev local: http://localhost:8080   (web-gpe do stack gpe2)
     |
     */
     'landlord_url' => env('LANDLORD_URL', ''),
-    'dev_landlord_url' => env('DEV_LANDLORD_URL', ''),
-    'dev_landlord_port' => env('DEV_LANDLORD_PORT', ''),
-    'tenant_default_domain' => env('TENANT_DEFAULT_DOMAIN') ?: env('DEV_TENANT_DEFAULT_DOMAIN') ?: ':8090',
-    'dev_tenant_default_domain' => env('DEV_TENANT_DEFAULT_DOMAIN', ':8090'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Domínio base dos tenants do GPEDocs
+    |--------------------------------------------------------------------------
+    |
+    | O landlord é compartilhado com o gpe2 — o que separa os tenants do GPEDocs
+    | é a coluna `domain`. Os comandos console (trait TenantAware — tenant:migrate,
+    | etc.) operam SÓ nos tenants cuja coluna `domain` casa com este valor (LIKE),
+    | assim nunca tocam bancos do gpe2. Também identifica o apex no ResolveTenant.
+    |
+    | Produção: TENANT_DOMINIO_BASE=gpedocs.com.br
+    | Dev local: ':<APP_PORT>' (default ':8090') — a porta em que o nginx-docs escuta
+    |
+    */
+    'dominio_base' => env('TENANT_DOMINIO_BASE', ':8090'),
+
 ];

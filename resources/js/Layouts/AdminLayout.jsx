@@ -5,89 +5,14 @@
  * notificacoes e perfil. Fundo cinza claro (#f5f5f9).
  * Baseado no layout do GPE2 (estilo Modernize).
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
+import { createPortal } from 'react-dom';
 import FlashMessage from '../Components/FlashMessage';
 import ModuloIcon from '../Components/ModuloIcon';
 import ChatFlutuante from '../Components/ChatFlutuante';
-
-// Menus separados por modulo
-const MENU_GED = [
-    { title: 'Dashboard', icon: 'fas fa-tachometer-alt', href: '/dashboard', color: 'text-blue-600 bg-blue-100' },
-    { section: 'label', label: 'Documentos' },
-    { title: 'Repositorio', icon: 'fas fa-folder-tree', href: '/repositorio', color: 'text-amber-600 bg-amber-100' },
-    { title: 'Favoritos', icon: 'fas fa-star', href: '/repositorio?filtro=favoritos', color: 'text-yellow-600 bg-yellow-100' },
-    { title: 'Recentes', icon: 'fas fa-clock', href: '/repositorio?filtro=recentes', color: 'text-cyan-600 bg-cyan-100' },
-    { title: 'Mais Acessados', icon: 'fas fa-fire', href: '/repositorio?filtro=populares', color: 'text-orange-600 bg-orange-100' },
-    { section: 'label', label: 'Acoes' },
-    { title: 'Capturar', icon: 'fas fa-camera', href: '/capturar', color: 'text-purple-600 bg-purple-100' },
-    { title: 'Assinaturas', icon: 'fas fa-file-signature', href: '/assinaturas', color: 'text-emerald-600 bg-emerald-100' },
-    { section: 'label', label: 'Administracao' },
-    { title: 'Tipos Documentais', icon: 'fas fa-file-signature', href: '/admin/tipos-documentais', color: 'text-violet-600 bg-violet-100' },
-];
-
-const MENU_CONFIGURACOES = [
-    { title: 'Visao Geral', icon: 'fas fa-cog', href: '/configuracoes', color: 'text-slate-600 bg-slate-100' },
-    { section: 'label', label: 'Estrutura' },
-    { title: 'Unidades Gestoras', icon: 'fas fa-building', href: '/configuracoes/ugs', color: 'text-indigo-600 bg-indigo-100' },
-    { section: 'label', label: 'Acessos' },
-    { title: 'Usuarios', icon: 'fas fa-users', href: '/configuracoes/usuarios', color: 'text-red-600 bg-red-100' },
-    { title: 'Perfis e Permissoes', icon: 'fas fa-shield-alt', href: '/configuracoes/perfis', color: 'text-slate-600 bg-slate-100' },
-    { section: 'label', label: 'Portal do Cidadao' },
-    { title: 'Carta de Servicos', icon: 'fas fa-clipboard-list', href: '/configuracoes/carta-servicos', color: 'text-blue-600 bg-blue-100' },
-    { title: 'Solicitacoes', icon: 'fas fa-inbox', href: '/configuracoes/solicitacoes-portal', color: 'text-indigo-600 bg-indigo-100' },
-    { section: 'label', label: 'Integracoes' },
-    { title: 'Sistemas Integrados', icon: 'fas fa-plug', href: '/configuracoes/sistemas-integrados', color: 'text-violet-600 bg-violet-100' },
-];
-
-const MENU_GEPSP = [
-    {
-        title: 'Caixa de Entrada', icon: 'fas fa-inbox', color: 'text-blue-600 bg-blue-100',
-        children: [
-            { title: 'Caixa Pessoal',          icon: 'fas fa-inbox',          href: '/flow/inbox-pessoal',         color: 'text-blue-600 bg-blue-100' },
-            { title: 'Caixa Setor',            icon: 'fas fa-users',          href: '/flow/inbox-setor',           color: 'text-indigo-600 bg-indigo-100' },
-            { title: 'Aguardando Assinatura',  icon: 'fas fa-file-signature', href: '/flow/aguardando-assinatura', color: 'text-purple-600 bg-purple-100' },
-        ],
-    },
-    {
-        title: 'Em Andamento', icon: 'fas fa-share', color: 'text-orange-600 bg-orange-100',
-        children: [
-            { title: 'Em Tramitacao', icon: 'fas fa-share',        href: '/flow/em-tramitacao', color: 'text-orange-600 bg-orange-100' },
-            { title: 'Concluidos',    icon: 'fas fa-check-double', href: '/flow/concluidos',    color: 'text-green-600 bg-green-100' },
-        ],
-    },
-    {
-        title: 'Comunicacao', icon: 'fas fa-envelope', color: 'text-cyan-600 bg-cyan-100',
-        children: [
-            { title: 'Novo Memorando',     icon: 'fas fa-envelope',         href: '/memorandos/create',  color: 'text-amber-600 bg-amber-100' },
-            { title: 'Nova Circular',      icon: 'fas fa-bullhorn',         href: '/circulares/create',  color: 'text-rose-600 bg-rose-100' },
-            { title: 'Novo Oficio',        icon: 'fas fa-file-alt',         href: '/oficios/create',     color: 'text-cyan-600 bg-cyan-100' },
-            { title: 'Controle de Oficios', icon: 'fas fa-book',            href: '/oficios/controle',   color: 'text-cyan-600 bg-cyan-100' },
-        ],
-    },
-    {
-        title: 'Processos Administrativos', icon: 'fas fa-folder-open', color: 'text-indigo-600 bg-indigo-100',
-        children: [
-            { title: 'Painel',           icon: 'fas fa-tachometer-alt', href: '/processos/dashboard', color: 'text-teal-600 bg-teal-100' },
-            { title: 'Novo Processo',    icon: 'fas fa-plus-circle',    href: '/processos/create',    color: 'text-green-600 bg-green-100' },
-            { title: 'Todos Processos',  icon: 'fas fa-folder-open',    href: '/processos',           color: 'text-indigo-600 bg-indigo-100' },
-        ],
-    },
-    {
-        title: 'Privado', icon: 'fas fa-lock', color: 'text-emerald-600 bg-emerald-100',
-        children: [
-            { title: 'Saida (Originados)', icon: 'fas fa-paper-plane',  href: '/flow/saida',     color: 'text-emerald-600 bg-emerald-100' },
-            { title: 'Rascunhos',          icon: 'fas fa-pencil-alt',   href: '/flow/rascunhos', color: 'text-yellow-600 bg-yellow-100' },
-        ],
-    },
-    {
-        title: 'Cadastros', icon: 'fas fa-cogs', color: 'text-slate-600 bg-slate-100',
-        children: [
-            { title: 'Tipos de Processo',  icon: 'fas fa-cogs',            href: '/admin/tipos-processo',  color: 'text-teal-600 bg-teal-100' },
-            { title: 'Modelos de Oficio',  icon: 'fas fa-file-signature',  href: '/admin/oficios-modelos', color: 'text-cyan-600 bg-cyan-100' },
-        ],
-    },
-];
+import CommandPalette from '../Components/CommandPalette';
+import { MODULO_CONFIG, ROTINAS } from '../menus';
 
 // Detectar modulo pela URL
 function getModulo(url) {
@@ -95,12 +20,6 @@ function getModulo(url) {
     if (url.startsWith('/flow') || url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url.startsWith('/oficios') || url === '/admin/tipos-processo' || url.startsWith('/admin/oficios-modelos')) return 'gepsp';
     return 'ged';
 }
-
-const MODULO_CONFIG = {
-    ged:           { nome: 'GPE Docs',   subtitulo: 'Gestao Documental',   icon: 'fas fa-archive',         iconText: 'Docs', cor: 'from-blue-600 to-indigo-700',  shadow: 'shadow-blue-200',  menu: MENU_GED },
-    gepsp:         { nome: 'GPE Flow',   subtitulo: 'Fluxos e Tramitacao', icon: 'fas fa-project-diagram', iconText: 'Flow', cor: 'from-teal-600 to-emerald-700', shadow: 'shadow-teal-200',  menu: MENU_GEPSP },
-    configuracoes: { nome: 'GPE Config', subtitulo: 'Ajustes e Estrutura', icon: 'fas fa-cog',             iconText: 'Conf', cor: 'from-slate-600 to-gray-700',   shadow: 'shadow-slate-200', menu: MENU_CONFIGURACOES },
-};
 
 export default function AdminLayout({ children }) {
     const { auth, flash, notificacoes_pendentes, tenant } = usePage().props;
@@ -162,15 +81,8 @@ export default function AdminLayout({ children }) {
                             <i className="fas fa-bars text-sm" />
                         </button>
 
-                        <form onSubmit={(e) => {
-                            e.preventDefault();
-                            const val = e.target.elements.globalSearch.value;
-                            if (val) router.get('/busca', { q: val });
-                        }} className="hidden md:flex items-center bg-[#f5f5f9] rounded-xl px-4 py-2.5 w-80">
-                            <i className="fas fa-search text-gray-400 text-sm mr-3" />
-                            <input name="globalSearch" type="text" placeholder="Buscar documentos, pastas, conteudo..."
-                                className="bg-transparent text-sm text-gray-700 outline-none w-full placeholder-gray-400" />
-                        </form>
+                        {/* Busca global de rotinas + documentos (command palette, Ctrl+K) */}
+                        <CommandPalette rotinas={ROTINAS} />
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -297,8 +209,10 @@ function MenuLink({ item, url, collapsed, indented = false }) {
     const prefixMatch = !hasQuery && (url.startsWith(item.href + '/') || url.startsWith(item.href + '?'));
     const isActive = exactMatch || prefixMatch;
     const [iconColor, iconBg] = (item.color || 'text-gray-500 bg-gray-100').split(' ');
+    const flyout = useFlyout(collapsed);
 
     return (
+        <div ref={flyout.ref} onMouseEnter={flyout.abrir} onMouseLeave={flyout.fechar} onFocus={flyout.abrir} onBlur={flyout.fechar}>
         <Link
             href={item.href}
             className={`group flex items-center gap-3 ${indented ? 'pl-8 pr-3' : 'px-3'} py-2 rounded-xl mb-1 transition-all duration-200
@@ -306,7 +220,7 @@ function MenuLink({ item, url, collapsed, indented = false }) {
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
                     : 'text-gray-600 hover:bg-gray-50'
                 }`}
-            title={collapsed ? item.title : undefined}
+            aria-label={collapsed ? item.title : undefined}
         >
             <div className={`${indented ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg flex items-center justify-center shrink-0 transition-colors
                 ${isActive ? 'bg-white/20' : iconBg}`}>
@@ -318,6 +232,14 @@ function MenuLink({ item, url, collapsed, indented = false }) {
                 </span>
             )}
         </Link>
+        {flyout.rect && (
+            <FlyoutMenu rect={flyout.rect} centralizado onEnter={flyout.abrir} onLeave={flyout.fechar}>
+                <span className={`block px-3 py-2 text-[12.5px] font-semibold whitespace-nowrap ${isActive ? 'text-blue-600' : 'text-gray-700'}`}>
+                    {item.title}
+                </span>
+            </FlyoutMenu>
+        )}
+        </div>
     );
 }
 
@@ -348,15 +270,17 @@ function MenuGroup({ item, url, collapsed }) {
     };
 
     const [iconColor, iconBg] = (item.color || 'text-gray-500 bg-gray-100').split(' ');
+    const flyout = useFlyout(collapsed);
 
     return (
-        <div className="mb-1">
+        <div className="mb-1" ref={flyout.ref} onMouseEnter={flyout.abrir} onMouseLeave={flyout.fechar} onFocus={flyout.abrir} onBlur={flyout.fechar}>
             <button
                 type="button"
                 onClick={toggle}
                 className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200
                     ${hasActiveChild ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
-                title={collapsed ? item.title : undefined}
+                aria-label={collapsed ? item.title : undefined}
+                aria-expanded={collapsed ? Boolean(flyout.rect) : open}
             >
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
                     <i className={`${item.icon} text-xs ${iconColor}`} />
@@ -378,7 +302,78 @@ function MenuGroup({ item, url, collapsed }) {
                     ))}
                 </div>
             )}
+
+            {/* Minimizada: os filhos só ficariam acessíveis expandindo a sidebar — o
+                flyout mostra o grupo inteiro, com os links clicáveis. */}
+            {flyout.rect && (
+                <FlyoutMenu rect={flyout.rect} onEnter={flyout.abrir} onLeave={flyout.fechar}>
+                    <p className="px-3 pt-2.5 pb-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">{item.title}</p>
+                    <div className="px-1.5 pb-1.5 min-w-[200px]">
+                        {item.children.map(child => (
+                            <MenuLink key={child.href} item={child} url={url} collapsed={false} />
+                        ))}
+                    </div>
+                </FlyoutMenu>
+            )}
         </div>
+    );
+}
+
+/**
+ * Flyout da sidebar MINIMIZADA: ao passar o mouse (ou focar) um ícone, o rótulo do item
+ * desliza para fora da barra. Vai por portal com position fixed porque a <aside> tem
+ * overflow-hidden e o <nav> rola — dentro deles o rótulo seria cortado.
+ *
+ * Fechar tem um atraso curto: dá tempo de levar o mouse do ícone até o flyout (grupo com
+ * links clicáveis) sem ele sumir no caminho. Rolar o menu fecha (a posição ficaria velha).
+ */
+function useFlyout(ativo) {
+    const ref = useRef(null);
+    const timer = useRef(null);
+    const [rect, setRect] = useState(null);
+
+    const abrir = () => {
+        if (!ativo || !ref.current) return;
+        clearTimeout(timer.current);
+        setRect(ref.current.getBoundingClientRect());
+    };
+    const fechar = () => {
+        clearTimeout(timer.current);
+        timer.current = setTimeout(() => setRect(null), 140);
+    };
+
+    useEffect(() => { if (!ativo) setRect(null); }, [ativo]);
+    useEffect(() => {
+        if (!rect) return;
+        const onScroll = () => setRect(null);
+        window.addEventListener('scroll', onScroll, true);
+        return () => window.removeEventListener('scroll', onScroll, true);
+    }, [rect]);
+    useEffect(() => () => clearTimeout(timer.current), []);
+
+    return { ref, rect, abrir, fechar };
+}
+
+function FlyoutMenu({ rect, centralizado = false, onEnter, onLeave, children }) {
+    const painelRef = useRef(null);
+    const [top, setTop] = useState(centralizado ? rect.top + rect.height / 2 : rect.top);
+
+    // Grupo: alinhado ao topo do botão e, se não couber, sobe o necessário para caber na tela.
+    useLayoutEffect(() => {
+        if (centralizado || !painelRef.current) return;
+        const h = painelRef.current.offsetHeight;
+        setTop(Math.max(16, Math.min(rect.top, window.innerHeight - 16 - h)));
+    }, [rect, centralizado]);
+
+    return createPortal(
+        <div ref={painelRef} style={{ left: rect.right + 10, top, transform: centralizado ? 'translateY(-50%)' : undefined }}
+            onMouseEnter={onEnter} onMouseLeave={onLeave} className="fixed z-[80] no-print">
+            <div className="animate-flyoutIn relative bg-white rounded-xl border border-gray-100 shadow-xl shadow-gray-300/40 overflow-y-auto"
+                style={{ maxHeight: 'calc(100vh - 32px)' }}>
+                {children}
+            </div>
+        </div>,
+        document.body
     );
 }
 

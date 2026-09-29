@@ -10,8 +10,11 @@ import Button from '../../../../Components/Button';
 import Card from '../../../../Components/Card';
 import Modal from '../../../../Components/Modal';
 import RichEditor from '../../../../Components/RichEditor';
+import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
 
 export default function ModelosOficio({ modelos = [] }) {
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const [editando, setEditando] = useState(null); // null | 'novo' | objeto modelo
     const [confirmExcluir, setConfirmExcluir] = useState(null);
 
@@ -30,44 +33,46 @@ export default function ModelosOficio({ modelos = [] }) {
                         <p className="text-xs mt-1">Crie modelos para agilizar a redacao de oficios recorrentes</p>
                     </div>
                 ) : (
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
-                            <tr>
-                                <th className="px-4 py-3 text-left">Nome</th>
-                                <th className="px-4 py-3 text-left">Categoria</th>
-                                <th className="px-4 py-3 text-left">Descricao</th>
-                                <th className="px-4 py-3 text-left">Status</th>
-                                <th className="px-4 py-3 text-center w-32">Acoes</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {modelos.map(m => (
-                                <tr key={m.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3 font-medium text-gray-800">{m.nome}</td>
-                                    <td className="px-4 py-3 text-xs text-gray-600">{m.categoria || '-'}</td>
-                                    <td className="px-4 py-3 text-xs text-gray-500 max-w-md truncate">{m.descricao || '-'}</td>
-                                    <td className="px-4 py-3">
-                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium
-                                            ${m.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                            {m.ativo ? 'Ativo' : 'Inativo'}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                        <div className="flex justify-center gap-2">
-                                            <button onClick={() => setEditando(m)}
-                                                className="text-blue-600 hover:text-blue-800 text-xs">
-                                                <i className="fas fa-edit" /> Editar
-                                            </button>
-                                            <button onClick={() => setConfirmExcluir(m)}
-                                                className="text-red-500 hover:text-red-700 text-xs">
-                                                <i className="fas fa-trash" />
-                                            </button>
-                                        </div>
-                                    </td>
+                    <div ref={scrollRef} className="overflow-auto">
+                        <table className="w-full text-sm">
+                            <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
+                                <tr>
+                                    <th className="px-4 py-3 text-left">Nome</th>
+                                    <th className="px-4 py-3 text-left">Categoria</th>
+                                    <th className="px-4 py-3 text-left">Descricao</th>
+                                    <th className="px-4 py-3 text-left">Status</th>
+                                    <th className="px-4 py-3 text-center w-32">Acoes</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {modelos.map(m => (
+                                    <tr key={m.id} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 font-medium text-gray-800">{m.nome}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{m.categoria || '-'}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-500 max-w-md truncate">{m.descricao || '-'}</td>
+                                        <td className="px-4 py-3">
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium
+                                                ${m.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                {m.ativo ? 'Ativo' : 'Inativo'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <div className="flex justify-center gap-2">
+                                                <button onClick={() => setEditando(m)}
+                                                    className="text-blue-600 hover:text-blue-800 text-xs">
+                                                    <i className="fas fa-edit" /> Editar
+                                                </button>
+                                                <button onClick={() => setConfirmExcluir(m)}
+                                                    className="text-red-500 hover:text-red-700 text-xs">
+                                                    <i className="fas fa-trash" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </Card>
 

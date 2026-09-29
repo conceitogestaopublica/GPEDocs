@@ -8,6 +8,7 @@ import PageHeader from '../../../../Components/PageHeader';
 import Button from '../../../../Components/Button';
 import Modal from '../../../../Components/Modal';
 import Card from '../../../../Components/Card';
+import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
 
 const TIPOS_CAMPO = [
     { value: 'text', label: 'Texto' },
@@ -17,6 +18,8 @@ const TIPOS_CAMPO = [
 ];
 
 export default function TiposDocumentais({ tipos }) {
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const [showForm, setShowForm] = useState(false);
     const [editTipo, setEditTipo] = useState(null);
     const [deleteTipo, setDeleteTipo] = useState(null);
@@ -35,66 +38,68 @@ export default function TiposDocumentais({ tipos }) {
             </PageHeader>
 
             <Card padding={false}>
-                <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-                        <tr>
-                            <th className="px-4 py-3 text-left font-semibold">Nome</th>
-                            <th className="px-4 py-3 text-left font-semibold">Descricao</th>
-                            <th className="px-4 py-3 text-center font-semibold">Campos</th>
-                            <th className="px-4 py-3 text-center font-semibold">Documentos</th>
-                            <th className="px-4 py-3 text-center font-semibold">Status</th>
-                            <th className="px-4 py-3 text-center font-semibold w-32">Acoes</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {(tipos || []).map(tipo => (
-                            <tr key={tipo.id} className={`hover:bg-gray-50 ${!tipo.ativo ? 'opacity-50' : ''}`}>
-                                <td className="px-4 py-3">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center shrink-0">
-                                            <i className="fas fa-file-signature text-xs text-violet-600" />
-                                        </div>
-                                        <span className="font-medium text-gray-800">{tipo.nome}</span>
-                                    </div>
-                                </td>
-                                <td className="px-4 py-3 text-gray-500 max-w-xs truncate">{tipo.descricao || '-'}</td>
-                                <td className="px-4 py-3 text-center">
-                                    <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">
-                                        {(tipo.schema_metadados || []).length}
-                                    </span>
-                                </td>
-                                <td className="px-4 py-3 text-center text-gray-500">{tipo.documentos_count || 0}</td>
-                                <td className="px-4 py-3 text-center">
-                                    <button
-                                        onClick={() => router.post(`/admin/tipos-documentais/${tipo.id}/toggle-ativo`)}
-                                        className={`text-[10px] px-2.5 py-1 rounded-full font-medium cursor-pointer transition-colors
-                                            ${tipo.ativo
-                                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                                    >
-                                        {tipo.ativo ? 'Ativo' : 'Inativo'}
-                                    </button>
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                        <button onClick={() => openEdit(tipo)}
-                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                                            title="Editar">
-                                            <i className="fas fa-pen text-xs" />
-                                        </button>
-                                        {(tipo.documentos_count || 0) === 0 && (
-                                            <button onClick={() => setDeleteTipo(tipo)}
-                                                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                                                title="Excluir">
-                                                <i className="fas fa-trash text-xs" />
-                                            </button>
-                                        )}
-                                    </div>
-                                </td>
+                <div ref={scrollRef} className="overflow-auto">
+                    <table className="w-full text-sm">
+                        <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-xs">
+                            <tr>
+                                <th className="px-4 py-3 text-left font-semibold">Nome</th>
+                                <th className="px-4 py-3 text-left font-semibold">Descricao</th>
+                                <th className="px-4 py-3 text-center font-semibold">Campos</th>
+                                <th className="px-4 py-3 text-center font-semibold">Documentos</th>
+                                <th className="px-4 py-3 text-center font-semibold">Status</th>
+                                <th className="px-4 py-3 text-center font-semibold w-32">Acoes</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {(tipos || []).map(tipo => (
+                                <tr key={tipo.id} className={`hover:bg-gray-50 ${!tipo.ativo ? 'opacity-50' : ''}`}>
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center shrink-0">
+                                                <i className="fas fa-file-signature text-xs text-violet-600" />
+                                            </div>
+                                            <span className="font-medium text-gray-800">{tipo.nome}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-gray-500 max-w-xs truncate">{tipo.descricao || '-'}</td>
+                                    <td className="px-4 py-3 text-center">
+                                        <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">
+                                            {(tipo.schema_metadados || []).length}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-center text-gray-500">{tipo.documentos_count || 0}</td>
+                                    <td className="px-4 py-3 text-center">
+                                        <button
+                                            onClick={() => router.post(`/admin/tipos-documentais/${tipo.id}/toggle-ativo`)}
+                                            className={`text-[10px] px-2.5 py-1 rounded-full font-medium cursor-pointer transition-colors
+                                                ${tipo.ativo
+                                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                                        >
+                                            {tipo.ativo ? 'Ativo' : 'Inativo'}
+                                        </button>
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                        <div className="flex items-center justify-center gap-1">
+                                            <button onClick={() => openEdit(tipo)}
+                                                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                                title="Editar">
+                                                <i className="fas fa-pen text-xs" />
+                                            </button>
+                                            {(tipo.documentos_count || 0) === 0 && (
+                                                <button onClick={() => setDeleteTipo(tipo)}
+                                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                                    title="Excluir">
+                                                    <i className="fas fa-trash text-xs" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
                 {(!tipos || tipos.length === 0) && (
                     <div className="py-12 text-center text-gray-400">
                         <i className="fas fa-file-signature text-3xl mb-2 block" />

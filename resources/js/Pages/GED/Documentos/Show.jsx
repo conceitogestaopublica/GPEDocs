@@ -10,6 +10,7 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import StatusPill from '../../../Components/StatusPill';
+import { useConfirm } from '../../../Components/ConfirmProvider';
 
 const TABS = [
     { key: 'visualizar', label: 'Visualizar', icon: 'fas fa-eye' },
@@ -20,6 +21,7 @@ const TABS = [
 ];
 
 export default function Show({ documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito, usuarios, versao_assinada }) {
+    const confirmar = useConfirm();
     const [activeTab, setActiveTab] = useState('visualizar');
     const [statusOpen, setStatusOpen] = useState(false);
     const doc = documento || {};
@@ -148,8 +150,8 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
                         <a href={`/documentos/${doc.id}/download`} className="ds-btn ds-btn-primary">
                             <i className="fas fa-download mr-1" /> Download
                         </a>
-                        <Button variant="danger" icon="fas fa-trash" onClick={() => {
-                            if (confirm('Tem certeza que deseja excluir este documento?')) {
+                        <Button variant="danger" icon="fas fa-trash" onClick={async () => {
+                            if (await confirmar({ titulo: 'Excluir este documento?', descricao: 'O documento e suas versões saem do repositório.', tom: 'perigo', rotuloConfirmar: 'Excluir' })) {
                                 router.delete(`/documentos/${doc.id}`);
                             }
                         }}>Excluir</Button>

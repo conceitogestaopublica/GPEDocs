@@ -41,6 +41,8 @@ class HandleInertiaRequests extends Middleware
                 'token_gerado'  => $request->session()->get('token_gerado'),
             ],
             'notificacoes_pendentes' => $notificacoesPendentes,
+            // Rotinas favoritas do usuário (Ctrl+K → estrela) — pessoais e por UG da sessão.
+            'favoritos' => $this->favoritos($user, $request),
             'tenant' => $tenant,
             'cidadao' => Auth::guard('cidadao')->check() ? [
                 'id'       => Auth::guard('cidadao')->user()->id,
@@ -49,6 +51,27 @@ class HandleInertiaRequests extends Middleware
                 'telefone' => Auth::guard('cidadao')->user()->telefone,
             ] : null,
         ]);
+    }
+
+    /**
+     * Uma consulta pequena, por índice. Banco de tenant ainda sem a migration não pode
+     * derrubar TODA tela (a prop vai em todo request) — sem a tabela, sem favoritos.
+     */
+    private function favoritos($user, Request $request): array
+    {
+        if (! $user) {
+            return [];
+        }
+
+        try {
+            return \Illuminate\Support\Facades\DB::table('usuario_favorito')
+                ->where('user_id', $user->id)
+                ->where('ug_id', (int) $request->session()->get('ug_id', 0))
+                ->orderBy('ordem')->orderBy('label')
+                ->get(['href', 'label', 'icon'])->all();
+        } catch (\Illuminate\Database\QueryException) {
+            return [];
+        }
     }
 
     private function compartilharTenant($user, Request $request): array
