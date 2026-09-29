@@ -27,11 +27,16 @@ export default function AdminLayout({ children }) {
     const modulo = getModulo(url);
     const moduloConfig = MODULO_CONFIG[modulo];
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    // Sidebar começa MINIMIZADA; só abre expandida se o usuário a expandiu nesta sessão
+    // do navegador (sessionStorage — some ao fechar o navegador/aba). A preferência antiga
+    // ficava no localStorage para sempre; é descartada.
     const [collapsed, setCollapsed] = useState(() => {
-        if (typeof window !== 'undefined') {
-            return localStorage.getItem('ged_sidebar_collapsed') === 'true';
+        try {
+            localStorage.removeItem('ged_sidebar_collapsed');
+            return sessionStorage.getItem('ged_sidebar_expandida') !== 'true';
+        } catch (_) {
+            return true;
         }
-        return false;
     });
     const [isMobile, setIsMobile] = useState(false);
 
@@ -48,7 +53,7 @@ export default function AdminLayout({ children }) {
         } else {
             const next = !collapsed;
             setCollapsed(next);
-            localStorage.setItem('ged_sidebar_collapsed', String(next));
+            try { sessionStorage.setItem('ged_sidebar_expandida', String(!next)); } catch (_) { /* sem storage */ }
         }
     };
 
