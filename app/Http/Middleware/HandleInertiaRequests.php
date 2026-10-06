@@ -31,6 +31,8 @@ class HandleInertiaRequests extends Middleware
                     'name'        => $user->name,
                     'email'       => $user->email,
                     'super_admin' => (bool) $user->super_admin,
+                    // Só para esconder menu — quem decide é o Gate em cada rota.
+                    'permissoes'  => $user->super_admin ? ['*'] : $user->permissoes(),
                 ] : null,
             ],
             'flash' => [

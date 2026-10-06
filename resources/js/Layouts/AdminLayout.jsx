@@ -12,7 +12,7 @@ import FlashMessage from '../Components/FlashMessage';
 import ModuloIcon from '../Components/ModuloIcon';
 import ChatFlutuante from '../Components/ChatFlutuante';
 import CommandPalette from '../Components/CommandPalette';
-import { MODULO_CONFIG, ROTINAS } from '../menus';
+import { MODULO_CONFIG, filtrarMenu, rotinasDe } from '../menus';
 
 // Detectar modulo pela URL
 function getModulo(url) {
@@ -87,7 +87,7 @@ export default function AdminLayout({ children }) {
                         </button>
 
                         {/* Busca global de rotinas + documentos (command palette, Ctrl+K) */}
-                        <CommandPalette rotinas={ROTINAS} />
+                        <CommandPalette rotinas={rotinasDe(auth?.user?.permissoes)} />
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -135,8 +135,8 @@ export default function AdminLayout({ children }) {
  * Sidebar do GED
  */
 function GedSidebar({ collapsed, isMobile, sidebarOpen, onClose, moduloConfig }) {
-    const { url } = usePage();
-    const MENU_ITEMS = moduloConfig.menu;
+    const { url, props } = usePage();
+    const MENU_ITEMS = filtrarMenu(moduloConfig.menu, props.auth?.user?.permissoes);
 
     const sidebarWidth = isMobile
         ? (sidebarOpen ? 'w-[260px] translate-x-0' : 'w-[260px] -translate-x-full')

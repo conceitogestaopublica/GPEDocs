@@ -162,54 +162,70 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/', fn () => redirect('/modulos'));
     Route::get('/modulos', ModulosController::class)->name('modulos');
-    Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/dashboard', DashboardController::class)->name('dashboard')->middleware('can:documento.visualizar');
 
-    // Documentos
-    Route::resource('documentos', DocumentoController::class)->except(['create', 'edit']);
-    Route::post('documentos/mover-pasta', [DocumentoController::class, 'moverPasta'])->name('documentos.mover-pasta');
-    Route::get('documentos/{id}/download', [DocumentoController::class, 'download'])->name('documentos.download');
-    Route::get('documentos/{id}/preview', [DocumentoController::class, 'preview'])->name('documentos.preview');
-    Route::post('documentos/{id}/favorito', [DocumentoController::class, 'toggleFavorito'])->name('documentos.favorito');
+    // Documentos — permissões do catálogo App\Support\Permissoes (Gate::before no AppServiceProvider)
+    Route::resource('documentos', DocumentoController::class)->except(['create', 'edit'])
+        ->middlewareFor(['index', 'show'], 'can:documento.visualizar')
+        ->middlewareFor('store', 'can:documento.criar')
+        ->middlewareFor('update', 'can:documento.editar')
+        ->middlewareFor('destroy', 'can:documento.excluir');
+    Route::post('documentos/mover-pasta', [DocumentoController::class, 'moverPasta'])->name('documentos.mover-pasta')->middleware('can:documento.editar');
+    Route::get('documentos/{id}/download', [DocumentoController::class, 'download'])->name('documentos.download')->middleware('can:documento.download');
+    Route::get('documentos/{id}/preview', [DocumentoController::class, 'preview'])->name('documentos.preview')->middleware('can:documento.visualizar');
+    Route::post('documentos/{id}/favorito', [DocumentoController::class, 'toggleFavorito'])->name('documentos.favorito')->middleware('can:documento.visualizar');
 
     // Rotinas favoritas (Ctrl+K → estrela) — por usuário × UG. Não são os documentos favoritos acima.
     Route::post('rotinas/favoritos', [\App\Http\Controllers\RotinaFavoritaController::class, 'store'])->name('rotinas.favoritos.store');
     Route::post('rotinas/favoritos/remover', [\App\Http\Controllers\RotinaFavoritaController::class, 'destroy'])->name('rotinas.favoritos.destroy');
-    Route::post('documentos/{id}/status', [DocumentoController::class, 'alterarStatus'])->name('documentos.status');
+    Route::post('documentos/{id}/status', [DocumentoController::class, 'alterarStatus'])->name('documentos.status')->middleware('can:documento.editar');
 
     // Pastas / Repositorio
-    Route::get('repositorio', [PastaController::class, 'index'])->name('repositorio');
-    Route::get('pastas/tree', [PastaController::class, 'tree'])->name('pastas.tree');
-    Route::resource('pastas', PastaController::class)->except(['index', 'show']);
-    Route::post('pastas/{id}/inativar', [PastaController::class, 'inativar'])->name('pastas.inativar');
-    Route::post('pastas/{id}/reativar', [PastaController::class, 'reativar'])->name('pastas.reativar');
+    Route::get('repositorio', [PastaController::class, 'index'])->name('repositorio')->middleware('can:documento.visualizar');
+    Route::get('pastas/tree', [PastaController::class, 'tree'])->name('pastas.tree')->middleware('can:pasta.visualizar');
+    Route::resource('pastas', PastaController::class)->except(['index', 'show'])
+        ->middlewareFor(['create', 'store'], 'can:pasta.criar')
+        ->middlewareFor(['edit', 'update'], 'can:pasta.editar')
+        ->middlewareFor('destroy', 'can:pasta.excluir');
+    Route::post('pastas/{id}/inativar', [PastaController::class, 'inativar'])->name('pastas.inativar')->middleware('can:pasta.editar');
+    Route::post('pastas/{id}/reativar', [PastaController::class, 'reativar'])->name('pastas.reativar')->middleware('can:pasta.editar');
 
     // Captura
-    Route::get('capturar', [CapturaController::class, 'index'])->name('capturar');
-    Route::post('capturar/upload', [CapturaController::class, 'upload'])->name('capturar.upload');
+    Route::get('capturar', [CapturaController::class, 'index'])->name('capturar')->middleware('can:documento.criar');
+    Route::post('capturar/upload', [CapturaController::class, 'upload'])->name('capturar.upload')->middleware('can:documento.criar');
 
     // Fluxos
-    Route::resource('fluxos', FluxoController::class);
-    Route::post('fluxos/{id}/iniciar', [FluxoController::class, 'iniciar'])->name('fluxos.iniciar');
+    Route::resource('fluxos', FluxoController::class)
+        ->middlewareFor(['index', 'show'], 'can:fluxo.visualizar')
+        ->middlewareFor(['create', 'store'], 'can:fluxo.criar')
+        ->middlewareFor(['edit', 'update', 'destroy'], 'can:fluxo.editar');
+    Route::post('fluxos/{id}/iniciar', [FluxoController::class, 'iniciar'])->name('fluxos.iniciar')->middleware('can:fluxo.gerenciar');
 
     // Busca
-    Route::get('busca', [BuscaController::class, 'index'])->name('busca');
-    Route::post('busca/salvar', [BuscaController::class, 'salvar'])->name('busca.salvar');
-    Route::delete('busca/salvar/{id}', [BuscaController::class, 'destroy'])->name('busca.destroy');
+    Route::middleware('can:documento.visualizar')->group(function () {
+        Route::get('busca', [BuscaController::class, 'index'])->name('busca');
+        Route::post('busca/salvar', [BuscaController::class, 'salvar'])->name('busca.salvar');
+        Route::delete('busca/salvar/{id}', [BuscaController::class, 'destroy'])->name('busca.destroy');
+    });
+
+    // Imagens institucionais da UG — exibidas a todo usuário logado (cabeçalho, portal)
+    Route::get('configuracoes/ugs/{id}/brasao', [\App\Http\Controllers\Configuracao\UgController::class, 'brasao'])->name('configuracoes.ug.brasao');
+    Route::get('configuracoes/ugs/{id}/banner', [\App\Http\Controllers\Configuracao\UgController::class, 'banner'])->name('configuracoes.ug.banner');
+    Route::get('configuracoes/ugs/{ug}/banners/{banner}/imagem', [\App\Http\Controllers\Configuracao\BannerPortalController::class, 'imagem'])->name('configuracoes.ug.banners.imagem');
 
     // Configuracoes — modulo dedicado para usuarios, perfis, UGs e organograma
     Route::prefix('configuracoes')->name('configuracoes.')->group(function () {
         // Visao geral do modulo
-        Route::get('/', fn () => Inertia\Inertia::render('Configuracao/Index'))->name('index');
+        Route::get('/', fn () => Inertia\Inertia::render('Configuracao/Index'))->name('index')->middleware('can:admin.configuracoes');
 
         // Usuarios e perfis (movidos de /admin)
-        Route::resource('usuarios', UsuarioController::class)->except(['show']);
-        Route::resource('perfis', RoleController::class)->parameters(['perfis' => 'role'])->except(['create', 'edit', 'show']);
+        Route::resource('usuarios', UsuarioController::class)->except(['show'])->middleware('can:admin.usuarios');
+        Route::resource('perfis', RoleController::class)->parameters(['perfis' => 'role'])->except(['create', 'edit', 'show'])->middleware('can:admin.roles');
 
-        // Unidades Gestoras + organograma
+        // Unidades Gestoras + organograma + banners do portal
+        Route::middleware('can:admin.ugs')->group(function () {
         Route::resource('ugs', \App\Http\Controllers\Configuracao\UgController::class)->except(['show']);
         Route::post('ugs/{id}/toggle-ativo', [\App\Http\Controllers\Configuracao\UgController::class, 'toggleAtivo'])->name('ugs.toggle-ativo');
-        Route::get('ugs/{id}/brasao', [\App\Http\Controllers\Configuracao\UgController::class, 'brasao'])->name('ug.brasao');
-        Route::get('ugs/{id}/banner', [\App\Http\Controllers\Configuracao\UgController::class, 'banner'])->name('ug.banner');
 
         // Banners do Portal Cidadao (carrossel)
         Route::get('ugs/{ug}/banners',                [\App\Http\Controllers\Configuracao\BannerPortalController::class, 'index'])->name('ug.banners.index');
@@ -217,7 +233,6 @@ Route::middleware('auth')->group(function () {
         Route::put('ugs/{ug}/banners/{banner}',       [\App\Http\Controllers\Configuracao\BannerPortalController::class, 'update'])->name('ug.banners.update');
         Route::delete('ugs/{ug}/banners/{banner}',    [\App\Http\Controllers\Configuracao\BannerPortalController::class, 'destroy'])->name('ug.banners.destroy');
         Route::post('ugs/{ug}/banners/{banner}/move/{direcao}', [\App\Http\Controllers\Configuracao\BannerPortalController::class, 'move'])->name('ug.banners.move');
-        Route::get('ugs/{ug}/banners/{banner}/imagem', [\App\Http\Controllers\Configuracao\BannerPortalController::class, 'imagem'])->name('ug.banners.imagem');
 
         Route::get('ugs/{ug}/organograma', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'show'])->name('ugs.organograma');
         Route::post('ugs/{ug}/organograma/labels', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'updateLabels'])->name('ugs.organograma.labels');
@@ -230,8 +245,10 @@ Route::middleware('auth')->group(function () {
         Route::put('ugs/{ug}/organograma/nodes/{node}', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'updateNode'])->name('ugs.organograma.nodes.update');
         Route::delete('ugs/{ug}/organograma/nodes/{node}', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'destroyNode'])->name('ugs.organograma.nodes.destroy');
         Route::post('ugs/{ug}/organograma/nodes/{node}/toggle-ativo', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'toggleAtivoNode'])->name('ugs.organograma.nodes.toggle-ativo');
+        });
 
         // Sistemas integrados (API tokens para sistemas externos)
+        Route::middleware('can:admin.sistemas_integrados')->group(function () {
         Route::resource('sistemas-integrados', \App\Http\Controllers\Configuracao\SistemaIntegradoController::class)
             ->except(['create', 'edit', 'show']);
         Route::post('sistemas-integrados/{id}/regenerar-token', [\App\Http\Controllers\Configuracao\SistemaIntegradoController::class, 'regenerarToken'])
@@ -242,9 +259,10 @@ Route::middleware('auth')->group(function () {
             ->name('sistemas-integrados.reenviar-webhook');
         Route::post('sistemas-integrados/{id}/toggle-ativo', [\App\Http\Controllers\Configuracao\SistemaIntegradoController::class, 'toggleAtivo'])
             ->name('sistemas-integrados.toggle-ativo');
+        });
 
         // Solicitacoes do Portal Cidadao (atendimento pelos servidores)
-        Route::prefix('solicitacoes-portal')->name('solicitacoes-portal.')->group(function () {
+        Route::prefix('solicitacoes-portal')->name('solicitacoes-portal.')->middleware('can:portal.atendimento')->group(function () {
             Route::get('/',                       [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'index'])->name('index');
             Route::get('/{id}',                   [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'show'])->name('show');
             Route::post('/{id}/status',           [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'alterarStatus'])->name('status');
@@ -252,7 +270,7 @@ Route::middleware('auth')->group(function () {
         });
 
         // Carta de Servicos (admin) — gestor da UG mantem catalogo publicado no /portal
-        Route::prefix('carta-servicos')->name('carta-servicos.')->group(function () {
+        Route::prefix('carta-servicos')->name('carta-servicos.')->middleware('can:portal.carta_servicos')->group(function () {
             Route::get('/', [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'index'])->name('index');
             Route::post('categorias',           [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'storeCategoria'])->name('categorias.store');
             Route::put('categorias/{id}',       [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'updateCategoria'])->name('categorias.update');
@@ -266,12 +284,16 @@ Route::middleware('auth')->group(function () {
 
     // Admin (apenas tipos documentais e tipos de processo permanecem aqui)
     Route::prefix('admin')->name('admin.')->group(function () {
-        Route::resource('tipos-documentais', TipoDocumentalController::class)->except(['create', 'edit', 'show']);
-        Route::post('tipos-documentais/{id}/toggle-ativo', [TipoDocumentalController::class, 'toggleAtivo'])->name('tipos-documentais.toggle-ativo');
-        Route::resource('tipos-processo', TipoProcessoController::class)->except(['create', 'edit', 'show']);
-        Route::post('tipos-processo/{id}/toggle-ativo', [TipoProcessoController::class, 'toggleAtivo'])->name('tipos-processo.toggle-ativo');
-        Route::resource('oficios-modelos', \App\Http\Controllers\Admin\OficioModeloController::class)->only(['index', 'store', 'update', 'destroy']);
-        Route::post('oficios-modelos/importar-docx', [\App\Http\Controllers\Admin\OficioModeloController::class, 'importarDocx'])->name('oficios-modelos.importar-docx');
+        Route::middleware('can:admin.tipos_documentais')->group(function () {
+            Route::resource('tipos-documentais', TipoDocumentalController::class)->except(['create', 'edit', 'show']);
+            Route::post('tipos-documentais/{id}/toggle-ativo', [TipoDocumentalController::class, 'toggleAtivo'])->name('tipos-documentais.toggle-ativo');
+        });
+        Route::middleware('can:admin.tipos_processo')->group(function () {
+            Route::resource('tipos-processo', TipoProcessoController::class)->except(['create', 'edit', 'show']);
+            Route::post('tipos-processo/{id}/toggle-ativo', [TipoProcessoController::class, 'toggleAtivo'])->name('tipos-processo.toggle-ativo');
+            Route::resource('oficios-modelos', \App\Http\Controllers\Admin\OficioModeloController::class)->only(['index', 'store', 'update', 'destroy']);
+            Route::post('oficios-modelos/importar-docx', [\App\Http\Controllers\Admin\OficioModeloController::class, 'importarDocx'])->name('oficios-modelos.importar-docx');
+        });
 
         // Redirects das URLs antigas para o modulo Configuracoes
         Route::redirect('usuarios', '/configuracoes/usuarios');
@@ -279,7 +301,9 @@ Route::middleware('auth')->group(function () {
     });
 
     // Memorandos
-    Route::resource('memorandos', MemorandoController::class)->only(['index', 'create', 'store', 'show']);
+    // Comunicações: ver/responder depende de ser participante (403 no controller); emitir exige permissão
+    Route::resource('memorandos', MemorandoController::class)->only(['index', 'create', 'store', 'show'])
+        ->middlewareFor(['create', 'store'], 'can:comunicacao.enviar');
     Route::post('memorandos/{id}/responder', [MemorandoController::class, 'responder'])->name('memorandos.responder');
     Route::post('memorandos/{id}/arquivar', [MemorandoController::class, 'arquivar'])->name('memorandos.arquivar');
     Route::post('memorandos/{id}/receber', [MemorandoController::class, 'receber'])->name('memorandos.receber');
@@ -296,14 +320,16 @@ Route::middleware('auth')->group(function () {
 
     Route::get('oficios/controle', [OficioController::class, 'controle'])->name('oficios.controle');
     Route::get('oficios/modelos-disponiveis', [\App\Http\Controllers\Admin\OficioModeloController::class, 'disponiveis'])->name('oficios.modelos-disponiveis');
-    Route::resource('oficios', OficioController::class)->only(['index', 'create', 'store', 'show']);
+    Route::resource('oficios', OficioController::class)->only(['index', 'create', 'store', 'show'])
+        ->middlewareFor(['create', 'store'], 'can:comunicacao.enviar');
     Route::post('oficios/{id}/responder', [OficioController::class, 'responder'])->name('oficios.responder');
     Route::post('oficios/{id}/arquivar', [OficioController::class, 'arquivar'])->name('oficios.arquivar');
     Route::post('oficios/{id}/arquivar-no-ged', [OficioController::class, 'arquivarNoGed'])->name('oficios.arquivar-no-ged');
     Route::get('oficios/{id}/pdf', [OficioController::class, 'downloadPdf'])->name('oficios.pdf');
 
     // Circulares
-    Route::resource('circulares', CircularController::class)->only(['index', 'create', 'store', 'show']);
+    Route::resource('circulares', CircularController::class)->only(['index', 'create', 'store', 'show'])
+        ->middlewareFor(['create', 'store'], 'can:comunicacao.enviar');
     Route::post('circulares/{id}/arquivar', [CircularController::class, 'arquivar'])->name('circulares.arquivar');
     Route::post('circulares/{id}/arquivar-no-ged', [CircularController::class, 'arquivarNoGed'])->name('circulares.arquivar-no-ged');
     Route::get('circulares/{id}/pdf', [CircularController::class, 'downloadPdf'])->name('circulares.pdf');
@@ -332,25 +358,29 @@ Route::middleware('auth')->group(function () {
     });
 
     // Processos (GEPSP)
-    Route::get('processos/dashboard', [ProcessoDashboardController::class, '__invoke'])->name('processos.dashboard');
-    Route::get('processos/inbox', [TramitacaoController::class, 'inbox'])->name('processos.inbox');
-    Route::resource('processos', ProcessoController::class)->except(['edit', 'update', 'destroy']);
-    Route::post('processos/{id}/concluir', [ProcessoController::class, 'concluir'])->name('processos.concluir');
-    Route::post('processos/{id}/cancelar', [ProcessoController::class, 'cancelar'])->name('processos.cancelar');
-    Route::post('processos/{id}/arquivar-no-ged', [ProcessoController::class, 'arquivarNoGed'])->name('processos.arquivar-no-ged');
+    Route::get('processos/dashboard', [ProcessoDashboardController::class, '__invoke'])->name('processos.dashboard')->middleware('can:processo.visualizar');
+    Route::get('processos/inbox', [TramitacaoController::class, 'inbox'])->name('processos.inbox')->middleware('can:processo.visualizar');
+    Route::resource('processos', ProcessoController::class)->except(['edit', 'update', 'destroy'])
+        ->middlewareFor(['index', 'show'], 'can:processo.visualizar')
+        ->middlewareFor(['create', 'store'], 'can:processo.criar');
+    Route::middleware('can:processo.tramitar')->group(function () {
+        Route::post('processos/{id}/concluir', [ProcessoController::class, 'concluir'])->name('processos.concluir');
+        Route::post('processos/{id}/cancelar', [ProcessoController::class, 'cancelar'])->name('processos.cancelar');
+        Route::post('processos/{id}/arquivar-no-ged', [ProcessoController::class, 'arquivarNoGed'])->name('processos.arquivar-no-ged');
 
-    // Tramitacoes
-    Route::post('tramitacoes/{id}/receber', [TramitacaoController::class, 'receber'])->name('tramitacoes.receber');
-    Route::post('tramitacoes/{id}/despachar', [TramitacaoController::class, 'despachar'])->name('tramitacoes.despachar');
-    Route::post('tramitacoes/{id}/devolver', [TramitacaoController::class, 'devolver'])->name('tramitacoes.devolver');
-    Route::post('tramitacoes/{id}/comentar', [TramitacaoController::class, 'comentar'])->name('tramitacoes.comentar');
-    Route::post('tramitacoes/{id}/anexar', [TramitacaoController::class, 'anexar'])->name('tramitacoes.anexar');
+        // Tramitacoes
+        Route::post('tramitacoes/{id}/receber', [TramitacaoController::class, 'receber'])->name('tramitacoes.receber');
+        Route::post('tramitacoes/{id}/despachar', [TramitacaoController::class, 'despachar'])->name('tramitacoes.despachar');
+        Route::post('tramitacoes/{id}/devolver', [TramitacaoController::class, 'devolver'])->name('tramitacoes.devolver');
+        Route::post('tramitacoes/{id}/comentar', [TramitacaoController::class, 'comentar'])->name('tramitacoes.comentar');
+        Route::post('tramitacoes/{id}/anexar', [TramitacaoController::class, 'anexar'])->name('tramitacoes.anexar');
+    });
 
     // Assinaturas
     Route::get('assinaturas', [AssinaturaController::class, 'index'])->name('assinaturas');
     Route::post('assinaturas/classificar-arquivar', [AssinaturaController::class, 'classificarArquivar'])->name('assinaturas.classificar-arquivar');
-    Route::post('documentos/{id}/solicitar-assinatura', [AssinaturaController::class, 'solicitar'])->name('assinaturas.solicitar');
-    Route::post('assinaturas/solicitar-lote', [AssinaturaController::class, 'solicitarLote'])->name('assinaturas.solicitar-lote');
+    Route::post('documentos/{id}/solicitar-assinatura', [AssinaturaController::class, 'solicitar'])->name('assinaturas.solicitar')->middleware('can:assinatura.solicitar');
+    Route::post('assinaturas/solicitar-lote', [AssinaturaController::class, 'solicitarLote'])->name('assinaturas.solicitar-lote')->middleware('can:assinatura.solicitar');
     Route::post('assinaturas/{id}/assinar', [AssinaturaController::class, 'assinar'])->name('assinaturas.assinar');
     Route::post('assinaturas/{id}/assinar-icp', [AssinaturaController::class, 'assinarIcp'])->name('assinaturas.assinar-icp');
     Route::post('assinaturas/{id}/preparar-icp-a3', [AssinaturaController::class, 'prepararIcpA3'])->name('assinaturas.preparar-icp-a3');

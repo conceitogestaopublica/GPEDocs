@@ -103,6 +103,9 @@ class UsuarioController extends Controller
     public function store(Request $request)
     {
         $validated = $this->validarUsuario($request, criando: true);
+        // Só quem já é super admin concede o privilégio — sem isto, qualquer usuário com
+        // acesso à tela de usuários se promovia criando uma conta super_admin.
+        $validated['super_admin'] = $request->user()->super_admin && ($validated['super_admin'] ?? false);
 
         $tipo      = $validated['tipo'];
         $unidadeId = $tipo === 'externo' ? null : ($validated['unidade_id'] ?? null);
@@ -143,7 +146,12 @@ class UsuarioController extends Controller
 
     public function update(Request $request, $id)
     {
+        $this->bloquearAlteracaoDeSuperAdmin($request, (int) $id);
         $validated = $this->validarUsuario($request, criando: false, userId: (int) $id);
+        if (! $request->user()->super_admin) {
+            // Mantém o que está gravado: quem não é super admin não concede nem retira.
+            $validated['super_admin'] = (bool) User::whereKey($id)->value('super_admin');
+        }
 
         $tipo      = $validated['tipo'];
         $unidadeId = $tipo === 'externo' ? null : ($validated['unidade_id'] ?? null);
@@ -223,8 +231,18 @@ class UsuarioController extends Controller
         $user->ugs()->sync($sync);
     }
 
-    public function destroy($id)
+    /** Conta super admin só é alterada ou excluída por outro super admin. */
+    private function bloquearAlteracaoDeSuperAdmin(Request $request, int $alvoId): void
     {
+        if (! $request->user()->super_admin && User::whereKey($alvoId)->value('super_admin')) {
+            abort(403, 'Somente um super administrador altera outro super administrador.');
+        }
+    }
+
+    public function destroy(Request $request, $id)
+    {
+        $this->bloquearAlteracaoDeSuperAdmin($request, (int) $id);
+
         try {
             $user = User::findOrFail($id);
 

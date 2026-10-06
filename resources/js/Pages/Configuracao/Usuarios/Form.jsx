@@ -1,13 +1,15 @@
 /**
  * Cadastro de Usuario — tela dedicada (padrao "wizard com resumo lateral")
  */
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import CadastroLayout, { CadastroSecao } from '../../../Components/CadastroLayout';
 
 export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = [] }) {
     const isEdit = !! usuario;
+    // Só super admin concede o privilégio (o servidor ignora o campo vindo de outro usuário)
+    const podeConcederSuperAdmin = !! usePage().props.auth?.user?.super_admin;
 
     const { data, setData, post, put, processing, errors } = useForm({
         name:            usuario?.name || '',
@@ -306,6 +308,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                 )}
 
                 {/* Super Admin */}
+                {podeConcederSuperAdmin && (
                 <CadastroSecao
                     icone="fa-crown"
                     titulo="Super Administrador"
@@ -328,6 +331,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                         </div>
                     </label>
                 </CadastroSecao>
+                )}
 
                 {/* Perfis */}
                 <CadastroSecao

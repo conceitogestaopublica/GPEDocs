@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Support\Permissoes;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -68,33 +69,8 @@ class GedSeeder extends Seeder
             ]));
         }
 
-        // Permissoes
-        $permissoes = [
-            ['nome' => 'documento.visualizar', 'descricao' => 'Visualizar documentos'],
-            ['nome' => 'documento.criar', 'descricao' => 'Criar/fazer upload de documentos'],
-            ['nome' => 'documento.editar', 'descricao' => 'Editar metadados de documentos'],
-            ['nome' => 'documento.excluir', 'descricao' => 'Excluir documentos'],
-            ['nome' => 'documento.download', 'descricao' => 'Fazer download de documentos'],
-            ['nome' => 'pasta.visualizar', 'descricao' => 'Visualizar pastas e repositorio'],
-            ['nome' => 'pasta.criar', 'descricao' => 'Criar pastas'],
-            ['nome' => 'pasta.editar', 'descricao' => 'Renomear e mover pastas'],
-            ['nome' => 'pasta.excluir', 'descricao' => 'Excluir pastas'],
-            ['nome' => 'fluxo.visualizar', 'descricao' => 'Visualizar fluxos de trabalho'],
-            ['nome' => 'fluxo.criar', 'descricao' => 'Criar fluxos de trabalho'],
-            ['nome' => 'fluxo.editar', 'descricao' => 'Editar fluxos de trabalho'],
-            ['nome' => 'fluxo.gerenciar', 'descricao' => 'Gerenciar instancias de fluxo'],
-            ['nome' => 'admin.usuarios', 'descricao' => 'Gerenciar usuarios'],
-            ['nome' => 'admin.roles', 'descricao' => 'Gerenciar perfis e permissoes'],
-            ['nome' => 'admin.configuracoes', 'descricao' => 'Configuracoes do sistema'],
-        ];
-
-        $permIds = [];
-        foreach ($permissoes as $p) {
-            $permIds[$p['nome']] = DB::table('ged_permissions')->insertGetId(array_merge($p, [
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]));
-        }
+        // Permissoes — catálogo único (a migration do RBAC já pode tê-lo criado)
+        $permIds = Permissoes::sincronizarCatalogo();
 
         // Roles
         $roles = [
@@ -121,24 +97,24 @@ class GedSeeder extends Seeder
                 'descricao' => 'Apenas visualiza e faz download',
                 'permissoes' => ['documento.visualizar', 'documento.download', 'pasta.visualizar'],
             ],
+            [
+                'nome' => Permissoes::PERFIL_PADRAO,
+                'descricao' => 'Tudo exceto administração',
+                'permissoes' => Permissoes::doPerfilPadrao(),
+            ],
         ];
 
         foreach ($roles as $role) {
-            $roleId = DB::table('ged_roles')->insertGetId([
-                'nome' => $role['nome'],
-                'descricao' => $role['descricao'],
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            DB::table('ged_roles')->updateOrInsert(
+                ['nome' => $role['nome']],
+                ['descricao' => $role['descricao'], 'created_at' => now(), 'updated_at' => now()],
+            );
+            $roleId = (int) DB::table('ged_roles')->where('nome', $role['nome'])->value('id');
 
-            foreach ($role['permissoes'] as $permNome) {
-                if (isset($permIds[$permNome])) {
-                    DB::table('ged_role_permissions')->insert([
-                        'role_id' => $roleId,
-                        'permission_id' => $permIds[$permNome],
-                    ]);
-                }
-            }
+            $permissoes = $role['nome'] === 'Administrador'
+                ? $role['permissoes']
+                : array_merge($role['permissoes'], Permissoes::OPERACIONAIS_NOVAS);
+            Permissoes::concederAoPerfil($roleId, $permissoes, $permIds);
         }
 
         // Usuario admin (antes das pastas por causa da FK criado_por)
