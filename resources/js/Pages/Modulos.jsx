@@ -3,19 +3,7 @@
  */
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import ModuloIcon from '../Components/ModuloIcon';
-import { MODULO_CONFIG, filtrarMenu } from '../menus';
-
-/**
- * Entrada do módulo: a de sempre, se o perfil a alcança; senão a primeira rotina visível.
- * null = módulo inteiro fora do perfil (o cartão some).
- */
-function entradaDoModulo(key, preferida, permissoes) {
-    const hrefs = filtrarMenu(MODULO_CONFIG[key].menu, permissoes)
-        .flatMap((item) => (item.children ? item.children : [item]))
-        .map((item) => item.href)
-        .filter(Boolean);
-    return hrefs.includes(preferida) ? preferida : (hrefs[0] ?? null);
-}
+import { entradaDoModulo } from '../menus';
 
 const MODULOS = [
     {
@@ -49,7 +37,7 @@ export default function Modulos() {
     const user = auth?.user;
     const ugAtual = tenant?.atual;
     const modulos = MODULOS
-        .map((mod) => ({ ...mod, href: entradaDoModulo(mod.key, mod.href, user?.permissoes) }))
+        .map((mod) => ({ ...mod, href: entradaDoModulo(mod.key, user?.permissoes, mod.href) }))
         .filter((mod) => mod.href);
 
     const trocarUg = () => router.post('/trocar-ug');

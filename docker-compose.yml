@@ -31,6 +31,7 @@ services:
       - ./routes:/var/www/html/routes
       - ./config:/var/www/html/config
       - ./resources:/var/www/html/resources
+      - ./lang:/var/www/html/lang
       # Bind do public/ pro Blade @vite ler public/hot (gravado pelo container vite).
       - ./public:/var/www/html/public
       - ./.env:/var/www/html/.env:ro
@@ -110,6 +111,7 @@ services:
       - ./routes:/var/www/html/routes
       - ./config:/var/www/html/config
       - ./resources:/var/www/html/resources
+      - ./lang:/var/www/html/lang
       - ./.env:/var/www/html/.env:ro
     networks:
       - gpedocs
