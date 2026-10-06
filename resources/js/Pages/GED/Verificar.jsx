@@ -3,7 +3,7 @@
  */
 import { Head } from '@inertiajs/react';
 
-export default function Verificar({ documento, valido }) {
+export default function Verificar({ documento, valido, assinaturas = [] }) {
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
             <Head title={valido ? 'Documento Verificado' : 'Verificacao'} />
@@ -57,6 +57,31 @@ export default function Verificar({ documento, valido }) {
                                         <p className="text-[11px] text-gray-600 font-mono bg-gray-50 rounded-lg px-3 py-2 break-all">{documento.hash}</p>
                                     </div>
                                 )}
+
+                                <div>
+                                    <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wide mb-1">
+                                        Assinaturas registradas ({assinaturas.length})
+                                    </p>
+                                    {assinaturas.length === 0 ? (
+                                        <p className="text-xs text-gray-500">Nenhuma assinatura concluída.</p>
+                                    ) : (
+                                        <ul className="space-y-1.5">
+                                            {assinaturas.map((a, i) => (
+                                                <li key={i} className="text-xs bg-gray-50 rounded-lg px-3 py-2 text-gray-700">
+                                                    <i className="fas fa-file-signature text-emerald-600 mr-1.5" />
+                                                    {a.signatario ? <strong>{a.signatario}</strong> : 'Signatário'}
+                                                    {a.cpf && <span className="text-gray-500"> · CPF {a.cpf}</span>}
+                                                    <span className="text-gray-500"> · {a.modalidade}</span>
+                                                    {a.ac && <span className="text-gray-500"> · {a.ac}</span>}
+                                                    <span className="text-gray-400"> · {a.assinado_em}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    <a href="/validar-assinatura" className="inline-block mt-2 text-xs text-blue-600 hover:underline">
+                                        <i className="fas fa-shield-alt mr-1" />Verificar a integridade de um PDF assinado
+                                    </a>
+                                </div>
                             </div>
                         </>
                     ) : (

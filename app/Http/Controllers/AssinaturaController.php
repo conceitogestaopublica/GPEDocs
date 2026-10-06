@@ -783,6 +783,8 @@ class AssinaturaController extends Controller
                     'contato'  => $meta['subject_cn'],
                     'position' => $assinatura->signature_position,
                     'previous_stamps' => $assinaturasAnteriores,
+                    // QR do termo: página pública do próprio documento, no endereço do ente.
+                    'url_verificacao' => url('/verificar/' . $assinatura->documento->qr_code_token),
                 ]
             );
 

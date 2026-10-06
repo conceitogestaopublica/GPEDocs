@@ -28,8 +28,25 @@ class VerificacaoController extends Controller
             ]);
         }
 
+        // Assinaturas concluídas — o QR do termo de assinatura aponta para cá. Documento
+        // sigiloso mostra só modalidade e data, sem identificar quem assinou.
+        $sigiloso = $documento->ehSigiloso();
+        $assinaturas = \App\Models\Assinatura::with(['signatario:id,name', 'certificado:id,issuer_cn'])
+            ->where('documento_id', $documento->id)
+            ->where('status', 'assinado')
+            ->orderBy('assinado_em')
+            ->get()
+            ->map(fn ($a) => array_filter([
+                'signatario'  => $sigiloso ? null : $a->signatario?->name,
+                'cpf'         => $sigiloso || ! $a->cpf_signatario ? null
+                    : substr(preg_replace('/\D/', '', $a->cpf_signatario), 0, 3) . '.***.***-' . substr(preg_replace('/\D/', '', $a->cpf_signatario), -2),
+                'modalidade'  => $a->tipo_assinatura === 'qualificada' ? 'Qualificada (ICP-Brasil)' : 'Eletrônica simples',
+                'ac'          => $sigiloso ? null : $a->certificado?->issuer_cn,
+                'assinado_em' => $a->assinado_em?->format('d/m/Y H:i'),
+            ], fn ($v) => $v !== null));
+
         // Confidencial ou restrito: confirma a autenticidade sem expor o conteúdo descritivo.
-        if ($documento->ehSigiloso()) {
+        if ($sigiloso) {
             return Inertia::render('GED/Verificar', [
                 'documento' => [
                     'sigiloso'      => true,
@@ -41,6 +58,7 @@ class VerificacaoController extends Controller
                     'atualizado_em' => $documento->updated_at?->format('d/m/Y H:i'),
                 ],
                 'valido' => true,
+                'assinaturas' => $assinaturas,
             ]);
         }
 
@@ -57,6 +75,7 @@ class VerificacaoController extends Controller
                 'atualizado_em'   => $documento->updated_at?->format('d/m/Y H:i'),
             ],
             'valido' => true,
+            'assinaturas' => $assinaturas,
         ]);
     }
 
