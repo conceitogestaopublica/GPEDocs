@@ -146,7 +146,7 @@ class MemorandoController extends Controller
 
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('memorandos', 'documentos');
+                    $path = $file->store(\App\Tenant\TenantStorage::pasta('memorandos'), 'documentos');
 
                     MemorandoAnexo::create([
                         'memorando_id' => $memorando->id,
@@ -526,7 +526,7 @@ class MemorandoController extends Controller
             $pdfBytes = $pdf->output();
 
             $filename = 'memorando-' . str_replace(['/', '\\'], '-', $memorando->numero) . '.pdf';
-            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             Storage::disk('documentos')->put($path, $pdfBytes);
 
             $textoPesquisavel = collect([

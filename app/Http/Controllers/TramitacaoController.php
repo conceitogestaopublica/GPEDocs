@@ -132,7 +132,7 @@ class TramitacaoController extends Controller
             // Armazenar anexos
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('processos', 'documentos');
+                    $path = $file->store(\App\Tenant\TenantStorage::pasta('processos'), 'documentos');
 
                     ProcessoAnexo::create([
                         'processo_id'   => $processo->id,
@@ -317,7 +317,7 @@ class TramitacaoController extends Controller
             $anexosNomes = [];
 
             foreach ($request->file('files') as $file) {
-                $path = $file->store('processos', 'documentos');
+                $path = $file->store(\App\Tenant\TenantStorage::pasta('processos'), 'documentos');
 
                 ProcessoAnexo::create([
                     'processo_id'   => $tramitacao->processo_id,

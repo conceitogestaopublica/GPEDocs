@@ -220,7 +220,7 @@ class UgController extends Controller
     {
         $slug = $codigo ? preg_replace('/[^a-z0-9]/', '-', strtolower($codigo)) : uniqid();
         $ext = $file->getClientOriginalExtension();
-        $path = 'brasoes/' . $slug . '-' . substr(md5(uniqid()), 0, 6) . '.' . $ext;
+        $path = \App\Tenant\TenantStorage::pasta('brasoes') . '/' . $slug . '-' . substr(md5(uniqid()), 0, 6) . '.' . $ext;
         Storage::disk('documentos')->put($path, file_get_contents($file->getRealPath()));
         return $path;
     }
@@ -244,7 +244,7 @@ class UgController extends Controller
     {
         $slug = $codigo ? preg_replace('/[^a-z0-9]/', '-', strtolower($codigo)) : uniqid();
         $ext = $file->getClientOriginalExtension();
-        $path = 'banners/' . $slug . '-' . substr(md5(uniqid()), 0, 6) . '.' . $ext;
+        $path = \App\Tenant\TenantStorage::pasta('banners') . '/' . $slug . '-' . substr(md5(uniqid()), 0, 6) . '.' . $ext;
         Storage::disk('documentos')->put($path, file_get_contents($file->getRealPath()));
         return $path;
     }

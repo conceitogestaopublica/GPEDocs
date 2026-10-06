@@ -125,7 +125,7 @@ class DocumentoController extends Controller
             DB::beginTransaction();
 
             $file = $request->file('arquivo');
-            $path = $file->store('documentos', 'documentos');
+            $path = $file->store(\App\Tenant\TenantStorage::pasta('documentos'), 'documentos');
 
             // Extrai texto se for PDF — para busca full-text no repositorio
             $ocrTexto = null;

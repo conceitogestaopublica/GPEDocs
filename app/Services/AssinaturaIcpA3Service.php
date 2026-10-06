@@ -156,7 +156,7 @@ class AssinaturaIcpA3Service
         $disk = Storage::disk('documentos');
         $thumbprint = openssl_x509_fingerprint($certPem, 'sha256');
         $caminho = sprintf(
-            'assinaturas/icp/%s_a3_%s.pdf',
+            \App\Tenant\TenantStorage::pasta('assinaturas/icp') . '/%s_a3_%s.pdf',
             date('Ymd_His'),
             substr((string) $thumbprint, 0, 12),
         );

@@ -51,7 +51,7 @@ class CapturaController extends Controller
             $criados = 0;
 
             foreach ($arquivos as $file) {
-                $path = $file->store('documentos', 'documentos');
+                $path = $file->store(\App\Tenant\TenantStorage::pasta('documentos'), 'documentos');
                 $nome = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
 
                 $ocrTexto = null;

@@ -88,7 +88,7 @@ class AssinaturaIcpService
         // Persiste o resultado
         $disk = Storage::disk('documentos');
         $nomeArquivo = sprintf(
-            'assinaturas/icp/%s_%s.pdf',
+            \App\Tenant\TenantStorage::pasta('assinaturas/icp') . '/%s_%s.pdf',
             date('Ymd_His'),
             substr($meta['thumbprint_sha256'], 0, 12),
         );

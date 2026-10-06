@@ -177,7 +177,7 @@ class OficioController extends Controller
 
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('oficios', 'documentos');
+                    $path = $file->store(\App\Tenant\TenantStorage::pasta('oficios'), 'documentos');
 
                     OficioAnexo::create([
                         'oficio_id'           => $oficio->id,
@@ -308,7 +308,7 @@ class OficioController extends Controller
             $pdfBytes = $pdf->output();
 
             $filename = 'oficio-' . str_replace(['/', '\\'], '-', $oficio->numero) . '.pdf';
-            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             \Illuminate\Support\Facades\Storage::disk('documentos')->put($path, $pdfBytes);
 
             $textoPesquisavel = collect([

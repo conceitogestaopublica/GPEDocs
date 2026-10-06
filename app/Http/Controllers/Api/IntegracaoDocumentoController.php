@@ -169,7 +169,7 @@ class IntegracaoDocumentoController extends Controller
             }
 
             $filename = 'integracao-' . $sistema->codigo . '-' . str_replace(['/','\\'], '-', $validated['numero']) . '.pdf';
-            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             Storage::disk('documentos')->put($path, $pdfBytes);
 
             // 6. Cria Documento
@@ -305,7 +305,7 @@ class IntegracaoDocumentoController extends Controller
 
             $proximaVersao = ($documento->versao_atual ?? 1) + 1;
             $filename = 'integracao-' . $sistema->codigo . '-' . str_replace(['/','\\'], '-', $documento->numero_externo) . '-v' . $proximaVersao . '.pdf';
-            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             Storage::disk('documentos')->put($path, $pdfBytes);
 
             Versao::create([
@@ -711,7 +711,7 @@ class IntegracaoDocumentoController extends Controller
             }
 
             $filename = 'arquivo-' . $sistema->codigo . '-' . str_replace(['/', '\\'], '-', $validated['numero']) . '-v' . $versaoNum . '.' . $ext;
-            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             Storage::disk('documentos')->put($path, $bytes);
 
             Versao::create([

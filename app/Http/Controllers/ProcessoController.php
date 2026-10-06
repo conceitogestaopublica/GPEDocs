@@ -170,7 +170,7 @@ class ProcessoController extends Controller
             // Armazenar anexos
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('processos', 'documentos');
+                    $path = $file->store(\App\Tenant\TenantStorage::pasta('processos'), 'documentos');
 
                     ProcessoAnexo::create([
                         'processo_id'   => $processo->id,
@@ -416,7 +416,7 @@ class ProcessoController extends Controller
             $pdfBytes = $pdf->output();
 
             $filename = 'decisao-' . str_replace(['/', '\\'], '-', $processo->numero_protocolo) . '.pdf';
-            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             Storage::disk('documentos')->put($path, $pdfBytes);
 
             // Texto pesquisavel: junta dados do processo + parecer + dados do formulario
@@ -481,7 +481,7 @@ class ProcessoController extends Controller
             // Anexo opcional do parecer (anexa ao processo)
             if ($request->hasFile('anexo')) {
                 $file = $request->file('anexo');
-                $anexoPath = $file->store('processos', 'documentos');
+                $anexoPath = $file->store(\App\Tenant\TenantStorage::pasta('processos'), 'documentos');
                 ProcessoAnexo::create([
                     'processo_id'   => $processo->id,
                     'tramitacao_id' => $processo->etapa_atual_id,

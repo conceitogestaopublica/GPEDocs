@@ -47,6 +47,16 @@ class TenantStorage
             . ($relativePath ? '/' . ltrim($relativePath, '/') : '');
     }
 
+    /**
+     * Pasta de um ente dentro de um disco compartilhado (ex.: o disco `documentos`, que
+     * pode ser um bucket S3 único para vários entes): "tenants/<domínio>/<sub>".
+     * Só os arquivos NOVOS usam o prefixo — os antigos seguem pelo caminho gravado no banco.
+     */
+    public static function pasta(string $sub): string
+    {
+        return self::prefix() . '/' . trim($sub, '/');
+    }
+
     /** Prefixo único do tenant atual. Fallback "shared" se não houver contexto. */
     public static function prefix(): string
     {

@@ -123,7 +123,7 @@ class CircularController extends Controller
 
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('circulares', 'documentos');
+                    $path = $file->store(\App\Tenant\TenantStorage::pasta('circulares'), 'documentos');
 
                     CircularAnexo::create([
                         'circular_id'  => $circular->id,
@@ -234,7 +234,7 @@ class CircularController extends Controller
             $pdfBytes = $pdf->output();
 
             $filename = 'circular-' . str_replace(['/', '\\'], '-', $circular->numero) . '.pdf';
-            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             \Illuminate\Support\Facades\Storage::disk('documentos')->put($path, $pdfBytes);
 
             $textoPesquisavel = collect([
