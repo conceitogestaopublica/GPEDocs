@@ -20,6 +20,7 @@ final class Permissoes
         'documento.editar'     => 'Editar documentos, alterar situação e mover de pasta',
         'documento.excluir'    => 'Excluir documentos',
         'documento.download'   => 'Fazer download de documentos',
+        'documento.sigiloso'   => 'Acessar documentos confidenciais (restritos seguem só para autor e signatários)',
         'pasta.visualizar'     => 'Visualizar pastas e repositório',
         'pasta.criar'          => 'Criar pastas',
         'pasta.editar'         => 'Renomear, inativar e reativar pastas',
@@ -50,6 +51,9 @@ final class Permissoes
         'admin.tipos_processo'      => 'Gerenciar tipos de processo e modelos de ofício',
     ];
 
+    /** Fora do perfil padrão: concedidas uma a uma pelo administrador. */
+    private const SO_POR_CONCESSAO = ['portal.carta_servicos', 'documento.sigiloso'];
+
     /** Perfil atribuído a quem não tinha nenhum quando o RBAC foi ligado: tudo menos administração. */
     public const PERFIL_PADRAO = 'Usuário padrão';
 
@@ -67,7 +71,7 @@ final class Permissoes
     {
         return array_values(array_filter(
             array_keys(self::CATALOGO),
-            fn (string $p) => ! str_starts_with($p, 'admin.') && $p !== 'portal.carta_servicos',
+            fn (string $p) => ! str_starts_with($p, 'admin.') && ! in_array($p, self::SO_POR_CONCESSAO, true),
         ));
     }
 

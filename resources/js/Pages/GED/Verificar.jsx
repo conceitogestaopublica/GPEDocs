@@ -33,9 +33,18 @@ export default function Verificar({ documento, valido }) {
                             </div>
 
                             <div className="px-6 py-5 space-y-4">
-                                <InfoRow label="Nome" value={documento.nome} />
-                                <InfoRow label="Tipo Documental" value={documento.tipo_documental || '-'} />
-                                <InfoRow label="Autor" value={documento.autor} />
+                                {documento.sigiloso ? (
+                                    <p className="text-xs text-gray-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                                        <i className="fas fa-lock text-amber-500 mr-1" />
+                                        Documento de acesso restrito: a autenticidade está confirmada, mas o nome, o autor e o tipo não são exibidos publicamente.
+                                    </p>
+                                ) : (
+                                    <>
+                                        <InfoRow label="Nome" value={documento.nome} />
+                                        <InfoRow label="Tipo Documental" value={documento.tipo_documental || '-'} />
+                                        <InfoRow label="Autor" value={documento.autor} />
+                                    </>
+                                )}
                                 <InfoRow label="Status" value={documento.status} />
                                 <InfoRow label="Classificacao" value={documento.classificacao} />
                                 <InfoRow label="Versao" value={`v${documento.versao}`} />

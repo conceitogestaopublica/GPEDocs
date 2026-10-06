@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToUg;
+use App\Models\Concerns\RespeitaSigilo;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -15,7 +16,7 @@ use Illuminate\Support\Str;
 
 class Documento extends Model
 {
-    use SoftDeletes, BelongsToUg;
+    use SoftDeletes, BelongsToUg, RespeitaSigilo;
 
     protected $table = 'ged_documentos';
 

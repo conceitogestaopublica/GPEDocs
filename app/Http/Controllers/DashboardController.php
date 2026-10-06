@@ -17,7 +17,9 @@ class DashboardController extends Controller
         $userId = Auth::id();
         // DB::table não passa pelo escopo BelongsToUg: tudo aqui filtra pela UG da sessão
         // via ged_documentos.ug_id (instâncias de fluxo e auditoria não têm ug_id próprio).
-        $daUg = fn ($q) => $q->when(session('ug_id'), fn ($q, $ugId) => $q->where('ged_documentos.ug_id', $ugId));
+        // Sigilo também: a atividade recente traz nomes de documentos nos detalhes.
+        $daUg = fn ($q) => $q->when(session('ug_id'), fn ($q, $ugId) => $q->where('ged_documentos.ug_id', $ugId))
+            ->tap(fn ($q) => \App\Models\Documento::restringirPorSigilo($q, $request->user()));
 
         $totalDocumentos = DB::table('ged_documentos')
             ->whereNull('deleted_at')

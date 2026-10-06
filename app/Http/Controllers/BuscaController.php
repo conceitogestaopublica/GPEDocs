@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\BuscaSalva;
+use App\Models\Documento;
 use App\Models\Pasta;
 use App\Models\TipoDocumental;
 use Illuminate\Http\Request;
@@ -28,6 +29,7 @@ class BuscaController extends Controller
                 ->whereNull('ged_documentos.deleted_at')
                 // DB::table não passa pelo escopo BelongsToUg — mesmo filtro, à mão.
                 ->when(session('ug_id'), fn ($q, $ugId) => $q->where('ged_documentos.ug_id', $ugId))
+                ->tap(fn ($q) => Documento::restringirPorSigilo($q, $request->user()))
                 ->select(
                     'ged_documentos.id',
                     'ged_documentos.nome',
