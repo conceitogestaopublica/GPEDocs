@@ -10,6 +10,7 @@ export const MENU_GED = [
     { title: 'Favoritos', icon: 'fas fa-star', href: '/repositorio?filtro=favoritos', color: 'text-yellow-600 bg-yellow-100', permissao: 'documento.visualizar' },
     { title: 'Recentes', icon: 'fas fa-clock', href: '/repositorio?filtro=recentes', color: 'text-cyan-600 bg-cyan-100', permissao: 'documento.visualizar' },
     { title: 'Mais Acessados', icon: 'fas fa-fire', href: '/repositorio?filtro=populares', color: 'text-orange-600 bg-orange-100', permissao: 'documento.visualizar' },
+    { title: 'Lixeira', icon: 'fas fa-trash-restore', href: '/lixeira', color: 'text-gray-600 bg-gray-100', permissao: 'documento.excluir' },
     { section: 'label', label: 'Acoes' },
     { title: 'Capturar', icon: 'fas fa-camera', href: '/capturar', color: 'text-purple-600 bg-purple-100', permissao: 'documento.criar' },
     { title: 'Assinaturas', icon: 'fas fa-file-signature', href: '/assinaturas', color: 'text-emerald-600 bg-emerald-100' },

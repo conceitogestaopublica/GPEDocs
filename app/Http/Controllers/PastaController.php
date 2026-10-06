@@ -259,7 +259,15 @@ class PastaController extends Controller
     {
         try {
             $pasta = Pasta::findOrFail($id);
+
+            if ($pasta->parent_id && ! Pasta::whereKey($pasta->parent_id)->where('ativo', true)->exists()) {
+                return redirect()->back()->with('error', 'A pasta superior está inativa: reative-a primeiro.');
+            }
+
             $pasta->update(['ativo' => true]);
+
+            // Mesmo alcance da inativação: as subpastas inativadas junto voltam também.
+            Pasta::where('path', 'like', $pasta->path . '/%')->update(['ativo' => true]);
 
             return redirect()->back()->with('success', 'Pasta reativada com sucesso.');
         } catch (\Exception $e) {

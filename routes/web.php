@@ -191,6 +191,10 @@ Route::middleware('auth')->group(function () {
         ->middlewareFor(['edit', 'update'], 'can:pasta.editar')
         ->middlewareFor('destroy', 'can:pasta.excluir');
     Route::post('pastas/{id}/inativar', [PastaController::class, 'inativar'])->name('pastas.inativar')->middleware('can:pasta.editar');
+
+    // Lixeira: documentos excluídos e pastas inativas
+    Route::get('lixeira', [\App\Http\Controllers\LixeiraController::class, 'index'])->name('lixeira')->middleware('can:documento.excluir');
+    Route::post('lixeira/documentos/{id}/restaurar', [\App\Http\Controllers\LixeiraController::class, 'restaurarDocumento'])->name('lixeira.documentos.restaurar')->middleware('can:documento.excluir');
     Route::post('pastas/{id}/reativar', [PastaController::class, 'reativar'])->name('pastas.reativar')->middleware('can:pasta.editar');
 
     // Captura

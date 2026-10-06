@@ -684,7 +684,7 @@ const ACOES_AUDITORIA = {
     edicao: 'Edição', alteracao_status: 'Situação alterada', movimentacao: 'Mudança de pasta',
     exclusao: 'Exclusão', nova_versao: 'Nova versão', solicitacao_assinatura: 'Assinatura solicitada',
     assinatura: 'Assinatura', assinatura_qualificada_icp: 'Assinatura ICP-Brasil', recusa_assinatura: 'Assinatura recusada',
-    cancelado_via_integracao: 'Cancelado pela origem',
+    cancelado_via_integracao: 'Cancelado pela origem', restauracao: 'Restaurado da lixeira',
 };
 
 /** Detalhes do log em texto legível: "campo: antes → depois" ou "chave: valor". */
