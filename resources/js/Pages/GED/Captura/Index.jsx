@@ -578,6 +578,9 @@ export default function Captura({ tipos_documentais, pastas }) {
                                                         ))}
                                                     </select>
                                                 )}
+                                                {errors[`metadados.${campo.campo}`] && (
+                                                    <p className="mt-1 text-xs text-red-600">{errors[`metadados.${campo.campo}`]}</p>
+                                                )}
                                             </div>
                                         ))}
                                     </div>

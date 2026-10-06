@@ -113,6 +113,11 @@ class ProcessoController extends Controller
             'files.*'            => ['file', 'max:51200'],
         ]);
 
+        // Campos do formulário de abertura definidos no tipo de processo (obrigatoriedade e tipo).
+        $tipoProcesso = TipoProcesso::find($request->input('tipo_processo_id'));
+        [$regras, $nomes] = \App\Support\CamposDinamicos::regras($tipoProcesso?->schema_formulario, 'dados_formulario');
+        $request->validate($regras, [], $nomes);
+
         try {
             DB::beginTransaction();
 
