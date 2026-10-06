@@ -332,7 +332,7 @@ class OficioController extends Controller
             $documento = \App\Models\Documento::create([
                 'nome'              => 'Oficio ' . $oficio->numero,
                 'descricao'         => $oficio->assunto,
-                'tipo_documental_id'=> 1, // Oficio
+                'tipo_documental_id'=> \App\Support\TiposDocumentais::id('Oficio'),
                 'pasta_id'          => (int) $request->input('pasta_id'),
                 'versao_atual'      => 1,
                 'tamanho'           => strlen($pdfBytes),

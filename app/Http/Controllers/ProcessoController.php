@@ -432,7 +432,7 @@ class ProcessoController extends Controller
             $documento = Documento::create([
                 'nome'              => 'Decisao - ' . $processo->numero_protocolo,
                 'descricao'         => "Decisao administrativa do processo {$processo->numero_protocolo}: " . strtoupper($decisao),
-                'tipo_documental_id'=> 25,
+                'tipo_documental_id'=> \App\Support\TiposDocumentais::id('Decisão Administrativa', 'Decisão final de processo administrativo'),
                 'pasta_id'          => null,
                 'versao_atual'      => 1,
                 'tamanho'           => strlen($pdfBytes),

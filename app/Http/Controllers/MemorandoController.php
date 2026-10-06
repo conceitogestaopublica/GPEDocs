@@ -558,7 +558,7 @@ class MemorandoController extends Controller
             $documento = \App\Models\Documento::create([
                 'nome'              => 'Memorando ' . $memorando->numero,
                 'descricao'         => $memorando->assunto,
-                'tipo_documental_id'=> 2, // Memorando
+                'tipo_documental_id'=> \App\Support\TiposDocumentais::id('Memorando'),
                 'pasta_id'          => (int) $request->input('pasta_id'),
                 'versao_atual'      => 1,
                 'tamanho'           => strlen($pdfBytes),

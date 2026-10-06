@@ -258,7 +258,7 @@ class CircularController extends Controller
             $documento = \App\Models\Documento::create([
                 'nome'              => 'Circular ' . $circular->numero,
                 'descricao'         => $circular->assunto,
-                'tipo_documental_id'=> 2,
+                'tipo_documental_id'=> \App\Support\TiposDocumentais::id('Circular'),
                 'pasta_id'          => (int) $request->input('pasta_id'),
                 'versao_atual'      => 1,
                 'tamanho'           => strlen($pdfBytes),
