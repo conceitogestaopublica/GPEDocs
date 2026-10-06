@@ -215,6 +215,18 @@ class OficioController extends Controller
         }
     }
 
+    /** Download de anexo (a rota que a tela usava não existia). Mesma regra de ver o ofício. */
+    public function downloadAnexo($id, $anexoId)
+    {
+        $oficio = Oficio::findOrFail($id);
+        if ($oficio->remetente_id !== Auth::id()) {
+            abort(403);
+        }
+        $anexo = \App\Models\Processo\OficioAnexo::where('oficio_id', $oficio->id)->findOrFail($anexoId);
+
+        return \App\Support\Anexos::baixar($anexo->arquivo_path, $anexo->nome);
+    }
+
     public function show($id): Response
     {
         $oficio = Oficio::with([

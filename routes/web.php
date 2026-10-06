@@ -313,6 +313,7 @@ Route::middleware('auth')->group(function () {
     Route::post('memorandos/{id}/tramitar', [MemorandoController::class, 'tramitar'])->name('memorandos.tramitar');
     Route::post('memorandos/{id}/arquivar-no-ged', [MemorandoController::class, 'arquivarNoGed'])->name('memorandos.arquivar-no-ged');
     Route::get('memorandos/{id}/pdf', [MemorandoController::class, 'downloadPdf'])->name('memorandos.pdf');
+    Route::get('memorandos/{id}/anexos/{anexo}/download', [MemorandoController::class, 'downloadAnexo'])->name('memorandos.anexos.download');
 
     // Oficios
     // Chat interno
@@ -329,6 +330,7 @@ Route::middleware('auth')->group(function () {
     Route::post('oficios/{id}/arquivar', [OficioController::class, 'arquivar'])->name('oficios.arquivar');
     Route::post('oficios/{id}/arquivar-no-ged', [OficioController::class, 'arquivarNoGed'])->name('oficios.arquivar-no-ged');
     Route::get('oficios/{id}/pdf', [OficioController::class, 'downloadPdf'])->name('oficios.pdf');
+    Route::get('oficios/{id}/anexos/{anexo}/download', [OficioController::class, 'downloadAnexo'])->name('oficios.anexos.download');
 
     // Circulares
     Route::resource('circulares', CircularController::class)->only(['index', 'create', 'store', 'show'])
@@ -336,6 +338,7 @@ Route::middleware('auth')->group(function () {
     Route::post('circulares/{id}/arquivar', [CircularController::class, 'arquivar'])->name('circulares.arquivar');
     Route::post('circulares/{id}/arquivar-no-ged', [CircularController::class, 'arquivarNoGed'])->name('circulares.arquivar-no-ged');
     Route::get('circulares/{id}/pdf', [CircularController::class, 'downloadPdf'])->name('circulares.pdf');
+    Route::get('circulares/{id}/anexos/{anexo}/download', [CircularController::class, 'downloadAnexo'])->name('circulares.anexos.download');
 
     // GPE Flow — Inbox unificada por ESTADO
     Route::prefix('flow')->name('flow.')->group(function () {
@@ -363,6 +366,8 @@ Route::middleware('auth')->group(function () {
     // Processos (GEPSP)
     Route::get('processos/dashboard', [ProcessoDashboardController::class, '__invoke'])->name('processos.dashboard')->middleware('can:processo.visualizar');
     Route::get('processos/inbox', [TramitacaoController::class, 'inbox'])->name('processos.inbox')->middleware('can:processo.visualizar');
+    Route::get('processos/anexos/{anexo}/download', [ProcessoController::class, 'downloadAnexo'])->name('processos.anexos.download')->middleware('can:processo.visualizar');
+    Route::post('processos/{id}/comentarios', [ProcessoController::class, 'comentar'])->name('processos.comentarios.store')->middleware('can:processo.visualizar');
     Route::resource('processos', ProcessoController::class)->except(['edit', 'update', 'destroy'])
         ->middlewareFor(['index', 'show'], 'can:processo.visualizar')
         ->middlewareFor(['create', 'store'], 'can:processo.criar');

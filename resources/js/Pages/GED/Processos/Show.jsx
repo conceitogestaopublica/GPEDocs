@@ -62,6 +62,7 @@ const tabList = [
     { key: 'detalhes', label: 'Detalhes', icon: 'fas fa-info-circle' },
     { key: 'tramitacao', label: 'Tramitacao', icon: 'fas fa-route' },
     { key: 'comentarios', label: 'Comentarios', icon: 'fas fa-comments' },
+    { key: 'historico', label: 'Historico', icon: 'fas fa-history' },
 ];
 
 export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null }) {
@@ -75,7 +76,9 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     const requerente = proc.requerente || {};
     const tipoProcesso = proc.tipo_processo || {};
     const templatesDespacho = tipoProcesso.templates_despacho || [];
-    const etapaAtual = proc.etapa_atual || tramitacoes.find(t => t.status === 'pendente' || t.status === 'recebido');
+    const etapaAtual = proc.etapa_atual || tramitacoes
+        .filter(t => t.status === 'pendente' || t.status === 'recebido')
+        .reduce((ult, t) => (!ult || t.id > ult.id ? t : ult), null);
     const userList = usuarios || [];
 
     // Hierarquia de unidades para o dropdown de despacho (filhos sob o pai)
@@ -101,6 +104,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     const [activeTab, setActiveTab] = useState('detalhes');
     const [showConcluirModal, setShowConcluirModal] = useState(false);
     const [showCancelarModal, setShowCancelarModal] = useState(false);
+    const [motivoCancelamento, setMotivoCancelamento] = useState('');
     const [assinarOpen, setAssinarOpen] = useState(false);
     const [arquivarGedOpen, setArquivarGedOpen] = useState(false);
 
@@ -198,7 +202,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     };
 
     const handleCancelar = () => {
-        router.post(`/processos/${proc.id}/cancelar`, {}, {
+        router.post(`/processos/${proc.id}/cancelar`, { motivo: motivoCancelamento }, {
             onSuccess: () => setShowCancelarModal(false),
         });
     };
@@ -426,10 +430,22 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                     <div className="flex items-center gap-2">
                         {proc.status !== 'concluido' && proc.status !== 'cancelado' && (
                             <>
+                                {pode_receber && etapaAtual && (
+                                    <Button variant="secondary" icon="fas fa-inbox"
+                                        onClick={() => router.post(`/tramitacoes/${etapaAtual.id}/receber`, {}, { preserveScroll: true })}>
+                                        Receber
+                                    </Button>
+                                )}
                                 {pode_concluir && (
                                     <Button variant="primary" icon="fas fa-bolt"
                                         onClick={() => setActiveTab('tramitacao')}>
                                         Tramitar
+                                    </Button>
+                                )}
+                                {pode_concluir && (
+                                    <Button variant="danger" icon="fas fa-ban"
+                                        onClick={() => setShowCancelarModal(true)}>
+                                        Cancelar
                                     </Button>
                                 )}
                                 {! pode_concluir && (
@@ -520,7 +536,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                     </div>
                                                 </div>
                                                 <a
-                                                    href={anexo.url || `/anexos/${anexo.id}/download`}
+                                                    href={anexo.url || `/processos/anexos/${anexo.id}/download`}
                                                     className="text-blue-600 hover:text-blue-800 transition-colors"
                                                     target="_blank"
                                                     rel="noopener noreferrer"
@@ -965,6 +981,40 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                 )}
 
                 {/* ── Tab: Comentarios ── */}
+                {activeTab === 'historico' && (
+                    <Card title="Historico do processo">
+                        {(proc.historico || []).length === 0 ? (
+                            <div className="py-8 text-center text-gray-400">
+                                <i className="fas fa-history text-2xl mb-2 block" />
+                                <p className="text-sm">Nenhum registro</p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left font-semibold">Data/Hora</th>
+                                        <th className="px-4 py-3 text-left font-semibold">Usuario</th>
+                                        <th className="px-4 py-3 text-left font-semibold">Acao</th>
+                                        <th className="px-4 py-3 text-left font-semibold">IP</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {[...proc.historico].sort((a, b) => b.id - a.id).map(h => (
+                                        <tr key={h.id} className="hover:bg-gray-50">
+                                            <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(h.created_at)}</td>
+                                            <td className="px-4 py-3 text-gray-700">{h.usuario?.name || '-'}</td>
+                                            <td className="px-4 py-3">
+                                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{ACOES_HISTORICO[h.acao] || h.acao}</span>
+                                            </td>
+                                            <td className="px-4 py-3 text-gray-400 text-xs">{h.ip || '-'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </Card>
+                )}
+
                 {activeTab === 'comentarios' && (
                     <div className="space-y-6">
                         {/* Form novo comentario */}
@@ -1026,7 +1076,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                 </div>
                                                 <span className="text-xs text-gray-400">{formatDate(com.created_at)}</span>
                                             </div>
-                                            <p className="text-sm text-gray-600 whitespace-pre-wrap">{com.conteudo}</p>
+                                            <p className="text-sm text-gray-600 whitespace-pre-wrap">{com.texto || com.conteudo}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -1077,6 +1127,8 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             </p>
                         </div>
                     </div>
+                    <textarea value={motivoCancelamento} onChange={(e) => setMotivoCancelamento(e.target.value)}
+                        className="ds-input !h-auto" rows={3} placeholder="Motivo do cancelamento" />
                     <div className="flex items-center justify-end gap-2 pt-2">
                         <Button variant="secondary" onClick={() => setShowCancelarModal(false)}>
                             Voltar
@@ -1099,6 +1151,12 @@ function getFileIcon(mime) {
     if (mime.includes('sheet') || mime.includes('excel')) return 'fas fa-file-excel text-green-400';
     return 'fas fa-file text-gray-400';
 }
+
+const ACOES_HISTORICO = {
+    abertura: 'Abertura', recebimento: 'Recebimento', despacho: 'Despacho', devolucao: 'Devolucao',
+    comentario: 'Comentario', anexo: 'Anexo', conclusao: 'Conclusao', cancelamento: 'Cancelamento',
+    assinatura_decisao: 'Decisao assinada', arquivado_no_ged: 'Arquivado no repositorio',
+};
 
 function formatDate(dateStr) {
     if (!dateStr) return '';

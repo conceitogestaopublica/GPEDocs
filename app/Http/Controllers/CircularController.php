@@ -159,6 +159,19 @@ class CircularController extends Controller
         }
     }
 
+    /** Download de anexo (a rota que a tela usava não existia). Mesma regra de ver a circular. */
+    public function downloadAnexo($id, $anexoId)
+    {
+        $circular = Circular::with('destinatarios')->findOrFail($id);
+        $userId = Auth::id();
+        if ($circular->remetente_id !== $userId && ! $circular->destinatarios->contains('usuario_id', $userId)) {
+            abort(403);
+        }
+        $anexo = \App\Models\Processo\CircularAnexo::where('circular_id', $circular->id)->findOrFail($anexoId);
+
+        return \App\Support\Anexos::baixar($anexo->arquivo_path, $anexo->nome);
+    }
+
     public function show($id): Response
     {
         $circular = Circular::with([

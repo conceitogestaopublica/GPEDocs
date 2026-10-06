@@ -181,6 +181,40 @@ class MemorandoController extends Controller
         }
     }
 
+    /**
+     * Remetente, destinatário direto ou pela unidade, ou participante da tramitação.
+     * Vale para ver o memorando e para baixar os anexos dele.
+     */
+    private function podeVer(Memorando $memorando, \App\Models\User $user): bool
+    {
+        $memorando->loadMissing(['destinatarios', 'tramitacoes']);
+        $unidadeId = $user->unidade_id;
+        $acessoGeral = (bool) $user->acesso_geral_ug;
+
+        return $memorando->remetente_id === $user->id
+            || $memorando->destinatarios->contains(fn ($d) =>
+                $d->usuario_id === $user->id
+                || ($unidadeId && $d->unidade_id === $unidadeId)
+                || ($acessoGeral && $d->unidade_id !== null))
+            || $memorando->tramitacoes->contains(fn ($t) =>
+                $t->destino_usuario_id === $user->id
+                || ($unidadeId && $t->destino_unidade_id === $unidadeId)
+                || ($acessoGeral && $t->destino_unidade_id !== null))
+            || $memorando->tramitacoes->contains('origem_usuario_id', $user->id);
+    }
+
+    /** Download de anexo — a rota que a tela usava não existia (404). */
+    public function downloadAnexo($id, $anexoId)
+    {
+        $memorando = Memorando::findOrFail($id);
+        if (! $this->podeVer($memorando, Auth::user())) {
+            abort(403);
+        }
+        $anexo = \App\Models\Processo\MemorandoAnexo::where('memorando_id', $memorando->id)->findOrFail($anexoId);
+
+        return \App\Support\Anexos::baixar($anexo->arquivo_path, $anexo->nome);
+    }
+
     public function show($id): Response
     {
         $memorando = Memorando::with([
@@ -200,21 +234,7 @@ class MemorandoController extends Controller
         $unidadeId = $user->unidade_id;
         $acessoGeral = (bool) $user->acesso_geral_ug;
 
-        // Tem acesso? Remetente, destinatario direto, destinatario via unidade, ou tramitacao p/ ele
-        $isRemetente    = $memorando->remetente_id === $userId;
-        $isDestinatario = $memorando->destinatarios->contains(fn ($d) =>
-            $d->usuario_id === $userId
-            || ($unidadeId && $d->unidade_id === $unidadeId)
-            || ($acessoGeral && $d->unidade_id !== null)
-        );
-        $isTramiteDestino = $memorando->tramitacoes->contains(fn ($t) =>
-            $t->destino_usuario_id === $userId
-            || ($unidadeId && $t->destino_unidade_id === $unidadeId)
-            || ($acessoGeral && $t->destino_unidade_id !== null)
-        );
-        $isTramiteOrigem = $memorando->tramitacoes->contains('origem_usuario_id', $userId);
-
-        if (! $isRemetente && ! $isDestinatario && ! $isTramiteDestino && ! $isTramiteOrigem) {
+        if (! $this->podeVer($memorando, $user)) {
             abort(403, 'Voce nao tem permissao para visualizar este memorando.');
         }
 

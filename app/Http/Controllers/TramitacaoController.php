@@ -37,6 +37,10 @@ class TramitacaoController extends Controller
             DB::beginTransaction();
 
             $tramitacao = Tramitacao::findOrFail($id);
+            \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacao, Auth::user());
+            if ($tramitacao->status !== 'pendente') {
+                abort(409, 'Esta etapa já foi recebida.');
+            }
             $tramitacao->update([
                 'status'      => 'recebido',
                 'recebido_por'=> Auth::id(),
@@ -88,11 +92,15 @@ class TramitacaoController extends Controller
             DB::beginTransaction();
 
             $tramitacaoAtual = Tramitacao::with('processo.tipoProcesso.etapas')->findOrFail($id);
+            \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacaoAtual, Auth::user());
             $processo = $tramitacaoAtual->processo;
 
             // Finalizar tramitacao atual
             $tramitacaoAtual->update([
                 'status'        => 'despachado',
+                // Despachar etapa ainda pendente vale como recebimento por quem despacha.
+                'recebido_por'  => $tramitacaoAtual->recebido_por ?? Auth::id(),
+                'recebido_em'   => $tramitacaoAtual->recebido_em ?? now(),
                 'despachado_em' => now(),
                 'despacho'      => $request->input('despacho'),
             ]);
@@ -202,6 +210,7 @@ class TramitacaoController extends Controller
             DB::beginTransaction();
 
             $tramitacaoAtual = Tramitacao::findOrFail($id);
+            \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacaoAtual, Auth::user());
             $processo = $tramitacaoAtual->processo;
 
             // Finalizar tramitacao atual
@@ -314,6 +323,7 @@ class TramitacaoController extends Controller
             DB::beginTransaction();
 
             $tramitacao = Tramitacao::findOrFail($id);
+            \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacao, Auth::user());
             $anexosNomes = [];
 
             foreach ($request->file('files') as $file) {
