@@ -49,7 +49,7 @@ class TenantStorage
 
     /**
      * Pasta de um ente dentro de um disco compartilhado (ex.: o disco `documentos`, que
-     * pode ser um bucket S3 único para vários entes): "tenants/<domínio>/<sub>".
+     * pode ser um bucket S3 único para vários entes): "tenants/<banco do ente>/<sub>".
      * Só os arquivos NOVOS usam o prefixo — os antigos seguem pelo caminho gravado no banco.
      */
     public static function pasta(string $sub): string
