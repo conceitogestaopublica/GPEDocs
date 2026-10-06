@@ -25,3 +25,9 @@ Homestead.yaml
 Thumbs.db
 .env.back
 .env.back
+
+# Dumps de banco e pacotes de documentação contêm dados pessoais e credenciais:
+# nunca versionar (ficam só na máquina de quem faz o deploy).
+/database/backups/*.sql
+/docs/*.rar
+.env.bak*

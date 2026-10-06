@@ -121,7 +121,7 @@ class GedSeeder extends Seeder
         $adminUserId = DB::table('users')->insertGetId([
             'name' => 'Administrador',
             'email' => 'admin@ged.local',
-            'password' => Hash::make('admin123'),
+            'password' => Hash::make($this->senhaDoAdmin()),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -172,5 +172,23 @@ class GedSeeder extends Seeder
                 'updated_at' => now(),
             ]));
         }
+    }
+
+    /**
+     * Senha do admin@ged.local. Era fixa ("admin123") e todo ente criado pelo
+     * docs:template-restore nascia com ela em produção. Agora vem de
+     * GED_SEED_ADMIN_PASSWORD ou é sorteada e mostrada uma única vez no console.
+     */
+    private function senhaDoAdmin(): string
+    {
+        $senha = (string) env('GED_SEED_ADMIN_PASSWORD', '');
+        if ($senha !== '') {
+            return $senha;
+        }
+
+        $senha = \Illuminate\Support\Str::password(16, symbols: false);
+        $this->command?->warn("Senha do admin@ged.local (anote, não será mostrada de novo): {$senha}");
+
+        return $senha;
     }
 }

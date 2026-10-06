@@ -50,7 +50,7 @@ services:
     environment:
       POSTGRES_DB: gpedocs
       POSTGRES_USER: gpedocs
-      POSTGRES_PASSWORD: C0nc3it0
+      POSTGRES_PASSWORD: <senha-do-banco>
     volumes:
       - postgres_gpedocs_data:/var/lib/postgresql/data
 ```
@@ -58,7 +58,7 @@ services:
 **Credenciais do PostgreSQL:**
 - Container: `postgres-gpedocs`
 - Usuário: `gpedocs`
-- Senha: `C0nc3it0`
+- Senha: `<senha-do-banco>` (guardada fora do repositório)
 
 ---
 
@@ -161,7 +161,7 @@ DB_HOST=postgres-gpedocs
 DB_PORT=5432
 DB_DATABASE=docsparagucu
 DB_USERNAME=gpedocs
-DB_PASSWORD=C0nc3it0
+DB_PASSWORD=<senha-do-banco>
 
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
@@ -199,7 +199,7 @@ DB_HOST=postgres-gpedocs
 DB_PORT=5432
 DB_DATABASE=docsarimos
 DB_USERNAME=gpedocs
-DB_PASSWORD=C0nc3it0
+DB_PASSWORD=<senha-do-banco>
 
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
@@ -263,10 +263,10 @@ services:
     container_name: mariadb10
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: r00tC0nc31t0
+      MYSQL_ROOT_PASSWORD: <senha-root-mysql>
       MYSQL_DATABASE: gpdparaguacu
       MYSQL_USER: laravel
-      MYSQL_PASSWORD: LaRaVeLC0nc31t0
+      MYSQL_PASSWORD: <senha-mysql>
     volumes:
       - debian_mariadb10_data:/var/lib/mysql
     healthcheck:
@@ -283,7 +283,7 @@ services:
     environment:
       POSTGRES_DB: gpedocs
       POSTGRES_USER: gpedocs
-      POSTGRES_PASSWORD: C0nc3it0
+      POSTGRES_PASSWORD: <senha-do-banco>
     volumes:
       - postgres_gpedocs_data:/var/lib/postgresql/data
     networks:
@@ -446,13 +446,7 @@ Abrir no navegador:
 - https://paraguacu.gpedocs.com.br
 - https://arinos.gpedocs.com.br
 
-**Credenciais de teste:**
-
-| Sistema | E-mail | Senha |
-|---|---|---|
-| Paraguaçu | `joeljardim@gmail.com` | `admin123` |
-| Arinos | `joeljardim@gmail.com` | `admin123` |
-| Ambos | `admin@ged.local` | `admin123` |
+**Credenciais de acesso:** ficam com o responsável pela implantação, fora do repositório. A senha padrão do usuário criado pelo seeder (`admin@ged.local`) deve ser trocada no primeiro acesso de cada ambiente.
 
 Usuários importados do GPE Cloud (gpdparaguacu e gpdarinos) mantêm as **senhas originais** que já utilizavam no sistema legado.
 
@@ -492,7 +486,7 @@ Adicionar ao crontab do host (`crontab -e`):
 ## Troubleshooting
 
 ### Erro `password authentication failed for user "gpedocs"`
-- Verificar que `DB_PASSWORD` no `.env` é exatamente `C0nc3it0`
+- Verificar que `DB_PASSWORD` no `.env` é exatamente a senha definida em `POSTGRES_PASSWORD`
 - Rodar `docker exec -it php84-fpm sh -c "cd <pasta> && php artisan config:clear"` após editar o `.env`
 
 ### Erro `database "docsparagucu" does not exist`
