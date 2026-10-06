@@ -595,7 +595,7 @@ class Demonstracao extends Command
             . '<div class="ass">______________________________<br>Documento de demonstração do GPE Docs</div></body></html>';
 
         $caminho = tempnam(sys_get_temp_dir(), 'demo') . '.pdf';
-        file_put_contents($caminho, Pdf::loadHTML($html)->setPaper('a4')->output());
+        file_put_contents($caminho, Pdf::loadHTML($html)->setPaper('a4')->setOption('isFontSubsettingEnabled', true)->output());
 
         return new UploadedFile($caminho, $nomeArquivo . '.pdf', 'application/pdf', null, true);
     }
