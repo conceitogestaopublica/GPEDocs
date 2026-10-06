@@ -74,37 +74,66 @@ class IntegracaoDocumentoController extends Controller
             'pasta_codigo'   => ['nullable', 'string', 'max:100'],
         ]);
 
+        // 1. Resolve UG por codigo — consultas antes da transação: os 422 abaixo saíam
+        //    com a transação aberta.
+        $ug = \App\Models\Ug::where('codigo', $validated['ug_codigo'])->first();
+        if (! $ug) {
+            return response()->json(['erro' => "UG nao encontrada: {$validated['ug_codigo']}"], 422);
+        }
+
+        // 2. Resolve tipo documental — busca por nome (case-insensitive) ou por sistema_origem
+        $tipoDoc = TipoDocumental::where('ativo', true)
+            ->where(function ($q) use ($validated, $sistema) {
+                $q->whereRaw('LOWER(nome) = ?', [strtolower($validated['tipo'])])
+                  ->orWhere(function ($q2) use ($validated, $sistema) {
+                      $q2->where('sistema_origem', $sistema->codigo)
+                         ->whereRaw('LOWER(nome) = ?', [strtolower($validated['tipo'])]);
+                  });
+            })
+            ->first();
+        if (! $tipoDoc) {
+            return response()->json(['erro' => "Tipo documental nao cadastrado: {$validated['tipo']}"], 422);
+        }
+
+        // 3. Resolve pasta (opcional)
+        $pastaId = null;
+        $pasta = null;
+        if (! empty($validated['pasta_codigo'])) {
+            $pasta = DB::table('ged_pastas')
+                ->where('ug_id', $ug->id)
+                ->whereRaw('LOWER(nome) = ?', [strtolower($validated['pasta_codigo'])])
+                ->first();
+            $pastaId = $pasta?->id;
+        }
+
         try {
             DB::beginTransaction();
 
-            // 1. Resolve UG por codigo
-            $ug = \App\Models\Ug::where('codigo', $validated['ug_codigo'])->first();
-            if (! $ug) {
-                return response()->json(['erro' => "UG nao encontrada: {$validated['ug_codigo']}"], 422);
-            }
+            // Idempotência: o reenvio do mesmo número (rede caiu, retry do sistema de origem)
+            // devolve o documento já recebido em vez de criar outro. Só um documento
+            // CANCELADO libera o número para um envio novo. O lock serializa dois envios
+            // simultâneos do mesmo número (não há índice único: bases antigas já podem ter
+            // duplicados criados antes desta regra).
+            DB::select('select pg_advisory_xact_lock(?)', [crc32("integracao:{$sistema->codigo}:{$validated['numero']}")]);
+            $existente = $this->documentoDoSistema($sistema, $validated['numero'], ['solicitacoesAssinatura.assinaturas.signatario']);
+            if ($existente && $existente->status !== 'cancelado') {
+                DB::commit();
+                $solicitacaoExistente = $existente->solicitacoesAssinatura->sortByDesc('id')->first();
 
-            // 2. Resolve tipo documental — busca por nome (case-insensitive) ou por sistema_origem
-            $tipoDoc = TipoDocumental::where('ativo', true)
-                ->where(function ($q) use ($validated, $sistema) {
-                    $q->whereRaw('LOWER(nome) = ?', [strtolower($validated['tipo'])])
-                      ->orWhere(function ($q2) use ($validated, $sistema) {
-                          $q2->where('sistema_origem', $sistema->codigo)
-                             ->whereRaw('LOWER(nome) = ?', [strtolower($validated['tipo'])]);
-                      });
-                })
-                ->first();
-            if (! $tipoDoc) {
-                return response()->json(['erro' => "Tipo documental nao cadastrado: {$validated['tipo']}"], 422);
-            }
-
-            // 3. Resolve pasta (opcional)
-            $pastaId = null;
-            if (! empty($validated['pasta_codigo'])) {
-                $pasta = DB::table('ged_pastas')
-                    ->where('ug_id', $ug->id)
-                    ->whereRaw('LOWER(nome) = ?', [strtolower($validated['pasta_codigo'])])
-                    ->first();
-                $pastaId = $pasta?->id;
+                return response()->json([
+                    'id'              => $existente->id,
+                    'numero_externo'  => $existente->numero_externo,
+                    'sistema_origem'  => $existente->sistema_origem,
+                    'tipo'            => $tipoDoc->nome,
+                    'ug'              => $ug->codigo,
+                    'url_visualizacao'=> url("/documentos/{$existente->id}"),
+                    'solicitacao_id'  => $solicitacaoExistente?->id,
+                    'signatarios'     => $solicitacaoExistente?->assinaturas->map(fn ($a) => [
+                        'id' => $a->id, 'cpf' => $a->signatario?->cpf, 'ordem' => $a->ordem,
+                    ])->values()->all() ?? [],
+                    'criado_em'       => $existente->created_at->toIso8601String(),
+                    'reenvio'         => true,
+                ], 200);
             }
 
             // 4. Resolve signatarios (cria User externo se CPF nao existe)
@@ -135,6 +164,7 @@ class IntegracaoDocumentoController extends Controller
             // 5. Decode + persiste PDF
             $pdfBytes = base64_decode($validated['pdf_base64'], true);
             if ($pdfBytes === false || strlen($pdfBytes) < 100) {
+                DB::rollBack();
                 return response()->json(['erro' => 'pdf_base64 invalido ou vazio.'], 422);
             }
 
@@ -247,10 +277,7 @@ class IntegracaoDocumentoController extends Controller
             'signatarios.*.signature_position' => ['nullable', 'array'],
         ]);
 
-        $documento = Documento::with('versoes')
-            ->where('sistema_origem', $sistema->codigo)
-            ->where('numero_externo', $numeroExterno)
-            ->first();
+        $documento = $this->documentoDoSistema($sistema, $numeroExterno, ['versoes']);
 
         if (! $documento) {
             return response()->json(['erro' => 'Documento nao encontrado para este sistema.'], 404);
@@ -378,9 +405,7 @@ class IntegracaoDocumentoController extends Controller
     {
         $sistema = $request->attributes->get('sistema_integrado');
 
-        $documento = Documento::where('sistema_origem', $sistema->codigo)
-            ->where('numero_externo', $numeroExterno)
-            ->first();
+        $documento = $this->documentoDoSistema($sistema, $numeroExterno);
 
         if (! $documento) {
             return response()->json(['erro' => 'Documento nao encontrado.'], 404);
@@ -423,10 +448,7 @@ class IntegracaoDocumentoController extends Controller
     {
         $sistema = $request->attributes->get('sistema_integrado');
 
-        $documento = Documento::with(['solicitacoesAssinatura.assinaturas'])
-            ->where('sistema_origem', $sistema->codigo)
-            ->where('numero_externo', $numeroExterno)
-            ->first();
+        $documento = $this->documentoDoSistema($sistema, $numeroExterno, ['solicitacoesAssinatura.assinaturas']);
 
         if (! $documento) {
             return response()->json(['erro' => 'Documento nao encontrado para este sistema.'], 404);
@@ -464,9 +486,7 @@ class IntegracaoDocumentoController extends Controller
     {
         $sistema = $request->attributes->get('sistema_integrado');
 
-        $documento = Documento::where('sistema_origem', $sistema->codigo)
-            ->where('numero_externo', $numeroExterno)
-            ->first();
+        $documento = $this->documentoDoSistema($sistema, $numeroExterno);
 
         if (! $documento) {
             return response()->json(['erro' => 'Documento nao encontrado.'], 404);
@@ -528,9 +548,7 @@ class IntegracaoDocumentoController extends Controller
         $sistema = $request->attributes->get('sistema_integrado');
         $request->validate(['motivo' => ['required', 'string', 'max:1000']]);
 
-        $documento = Documento::where('sistema_origem', $sistema->codigo)
-            ->where('numero_externo', $numeroExterno)
-            ->first();
+        $documento = $this->documentoDoSistema($sistema, $numeroExterno);
 
         if (! $documento) {
             return response()->json(['erro' => 'Documento nao encontrado.'], 404);
@@ -765,6 +783,21 @@ class IntegracaoDocumentoController extends Controller
     }
 
     /** Usuário-sistema (tipo externo) que consta como autor dos arquivos de uma integração. */
+    /**
+     * Documento do sistema de origem pelo número externo. O número volta a ser usado
+     * depois de um cancelamento, então pode haver mais de um: vale o não cancelado
+     * mais recente (antes o first() pegava o primeiro, quase sempre o cancelado).
+     */
+    private function documentoDoSistema(SistemaIntegrado $sistema, string $numeroExterno, array $with = []): ?Documento
+    {
+        return Documento::with($with)
+            ->where('sistema_origem', $sistema->codigo)
+            ->where('numero_externo', $numeroExterno)
+            ->orderByRaw("case when status = 'cancelado' then 1 else 0 end")
+            ->orderByDesc('id')
+            ->first();
+    }
+
     private function usuarioDoSistema(SistemaIntegrado $sistema, int $ugId): User
     {
         $email = 'sistema-' . strtolower($sistema->codigo) . '@externo.local';
