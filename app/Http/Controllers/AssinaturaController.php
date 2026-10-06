@@ -45,6 +45,8 @@ class AssinaturaController extends Controller
         $pendentes = Assinatura::with(['documento.tipoDocumental', 'solicitacao.solicitante'])
             ->where('signatario_id', Auth::id())
             ->where('status', 'pendente')
+            // Solicitação recusada por outro signatário ou cancelada não pede mais nada.
+            ->whereHas('solicitacao', fn ($q) => $q->whereNotIn('status', ['recusada', 'cancelada']))
             ->when($origem, $filtroOrigem)
             ->orderByDesc('created_at')
             ->get();
@@ -275,6 +277,9 @@ class AssinaturaController extends Controller
         if ($assinatura->status !== 'pendente') {
             return redirect()->back()->with('error', 'Esta assinatura ja foi processada.');
         }
+        if ($impedimento = $this->impedimentoDaSolicitacao($assinatura)) {
+            return redirect()->back()->with('error', $impedimento);
+        }
 
         $versaoAtual = $assinatura->documento->versaoAtual;
 
@@ -291,7 +296,7 @@ class AssinaturaController extends Controller
 
         // Verificar se todas as assinaturas da solicitacao foram concluidas
         $solicitacao = $assinatura->solicitacao;
-        $todasAssinadas = $solicitacao->assinaturas()->where('status', 'pendente')->doesntExist();
+        $todasAssinadas = $this->todasAssinadas($solicitacao);
 
         // Webhook por assinatura individual (sistemas que escutam .individual)
         $this->dispararWebhook($solicitacao, 'assinatura.individual', [
@@ -332,6 +337,63 @@ class AssinaturaController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Documento assinado com sucesso.');
+    }
+
+    /**
+     * Solicitação recusada por um signatário (ou cancelada pela origem) não aceita mais
+     * assinaturas — antes, os demais assinavam e ela virava "concluída".
+     */
+    private function impedimentoDaSolicitacao(Assinatura $assinatura): ?string
+    {
+        return match ($assinatura->solicitacao?->status) {
+            'recusada'  => 'Esta solicitação foi recusada por um signatário e não aceita mais assinaturas.',
+            'cancelada' => 'Esta solicitação foi cancelada.',
+            default     => null,
+        };
+    }
+
+    /** Concluída só quando TODAS foram assinadas — recusa não conta como assinatura. */
+    private function todasAssinadas(SolicitacaoAssinatura $solicitacao): bool
+    {
+        return $solicitacao->assinaturas()->where('status', '!=', 'assinado')->doesntExist();
+    }
+
+    /**
+     * Conferências do certificado no ATO da assinatura qualificada (antes só no cadastro):
+     * validade temporal, CPF do signatário cadastrado e igual ao do certificado, e
+     * certificado não inativado pelo titular.
+     */
+    private function impedimentoDoCertificado(array $meta): ?string
+    {
+        $agora = now();
+        if ($agora->lt(\Carbon\Carbon::parse($meta['valido_de']))) {
+            return 'Certificado ainda não está válido (válido a partir de ' . \Carbon\Carbon::parse($meta['valido_de'])->format('d/m/Y') . ').';
+        }
+        if ($agora->gt(\Carbon\Carbon::parse($meta['valido_ate']))) {
+            return 'Certificado expirado em ' . \Carbon\Carbon::parse($meta['valido_ate'])->format('d/m/Y') . '.';
+        }
+
+        $cpfCert = preg_replace('/\D/', '', (string) ($meta['subject_cpf'] ?? ''));
+        $cpfUser = preg_replace('/\D/', '', (string) Auth::user()->cpf);
+        if (! $cpfCert) {
+            return 'CPF não encontrado no certificado (OID 2.16.76.1.3.1). O certificado pode não ser e-CPF ICP-Brasil.';
+        }
+        if (! $cpfUser) {
+            return 'Cadastre o seu CPF no perfil antes de assinar com certificado: ele é conferido com o CPF do certificado.';
+        }
+        if ($cpfUser !== $cpfCert) {
+            return "O CPF do certificado ({$cpfCert}) não confere com o CPF cadastrado para este usuário ({$cpfUser}).";
+        }
+
+        $inativado = \App\Models\Certificado::where('user_id', Auth::id())
+            ->where('thumbprint_sha256', $meta['thumbprint_sha256'] ?? '')
+            ->where('revogado', true)
+            ->exists();
+        if ($inativado) {
+            return 'Este certificado foi inativado em "Meus Certificados". Reative-o para assinar.';
+        }
+
+        return null;
     }
 
     /**
@@ -471,12 +533,32 @@ class AssinaturaController extends Controller
         if ($assinatura->signatario_id !== Auth::id()) {
             return redirect()->back()->with('error', 'Voce nao tem permissao.');
         }
+        // Antes a recusa sobrescrevia uma assinatura já feita.
+        if ($assinatura->status !== 'pendente') {
+            return redirect()->back()->with('error', 'Esta assinatura ja foi processada.');
+        }
+        if ($impedimento = $this->impedimentoDaSolicitacao($assinatura)) {
+            return redirect()->back()->with('error', $impedimento);
+        }
 
         $assinatura->update([
             'status'        => 'recusado',
             'motivo_recusa' => $request->input('motivo'),
             'ip'            => $request->ip(),
             'assinado_em'   => now(),
+        ]);
+
+        // A recusa encerra a solicitação: os demais não assinam mais, e ela nunca vira
+        // "concluída" (antes virava, e disparava o webhook todas_concluidas).
+        $assinatura->solicitacao->update(['status' => 'recusada']);
+
+        AuditLog::create([
+            'documento_id' => $assinatura->documento_id,
+            'usuario_id'   => Auth::id(),
+            'acao'         => 'recusa_assinatura',
+            'detalhes'     => ['motivo' => $request->input('motivo'), 'solicitacao_id' => $assinatura->solicitacao_id],
+            'ip'           => $request->ip(),
+            'user_agent'   => $request->userAgent(),
         ]);
 
         Notificacao::create([
@@ -528,6 +610,9 @@ class AssinaturaController extends Controller
 
         if ($assinatura->status !== 'pendente') {
             return redirect()->back()->with('error', 'Esta assinatura ja foi processada.');
+        }
+        if ($impedimento = $this->impedimentoDaSolicitacao($assinatura)) {
+            return redirect()->back()->with('error', $impedimento);
         }
 
         $versao = $assinatura->documento->versaoAtual;
@@ -586,20 +671,11 @@ class AssinaturaController extends Controller
 
             $meta = $certificadoService->lerMetadados($material['cert']);
 
-            // 2) Verifica que o CPF do cert bate com o do usuário (se cadastrado)
+            // 2) Validade, CPF (obrigatório e igual ao do cadastro) e certificado não inativado
+            if ($impedimento = $this->impedimentoDoCertificado($meta)) {
+                return redirect()->back()->with('error', $impedimento);
+            }
             $cpfCert = preg_replace('/\D/', '', (string) $meta['subject_cpf']);
-            $cpfUser = preg_replace('/\D/', '', (string) Auth::user()->cpf);
-
-            if ($cpfUser && $cpfCert && $cpfUser !== $cpfCert) {
-                return redirect()->back()->with('error',
-                    "O CPF do certificado ({$cpfCert}) não confere com o CPF cadastrado para este usuário ({$cpfUser})."
-                );
-            }
-            if (! $cpfCert) {
-                return redirect()->back()->with('error',
-                    'CPF não encontrado no certificado (OID 2.16.76.1.3.1). Cert pode não ser e-CPF ICP-Brasil.'
-                );
-            }
 
             // 3) Registra/atualiza certificado do usuário
             $certificado = $certificadoService->registrarParaUsuario(
@@ -676,7 +752,7 @@ class AssinaturaController extends Controller
 
         // Atualiza solicitação
         $solicitacao = $assinatura->solicitacao;
-        $todasAssinadas = $solicitacao->assinaturas()->where('status', 'pendente')->doesntExist();
+        $todasAssinadas = $this->todasAssinadas($solicitacao);
         $solicitacao->update(['status' => $todasAssinadas ? 'concluida' : 'em_andamento']);
 
         // Webhook por assinatura individual (ICP-Brasil A1)
@@ -746,6 +822,9 @@ class AssinaturaController extends Controller
         if ($assinatura->status !== 'pendente') {
             return response()->json(['erro' => 'Esta assinatura já foi processada.'], 409);
         }
+        if ($impedimento = $this->impedimentoDaSolicitacao($assinatura)) {
+            return response()->json(['erro' => $impedimento], 409);
+        }
 
         $versao = $assinatura->documento->versaoAtual;
         if (! $versao) {
@@ -770,18 +849,10 @@ class AssinaturaController extends Controller
         }
 
         $meta = $certificadoService->lerMetadados($certPem);
+        if ($impedimento = $this->impedimentoDoCertificado($meta)) {
+            return response()->json(['erro' => $impedimento], 422);
+        }
         $cpfCert = preg_replace('/\D/', '', (string) $meta['subject_cpf']);
-        $cpfUser = preg_replace('/\D/', '', (string) Auth::user()->cpf);
-        if ($cpfUser && $cpfCert && $cpfUser !== $cpfCert) {
-            return response()->json([
-                'erro' => "CPF do certificado ({$cpfCert}) não confere com o CPF do usuário ({$cpfUser}).",
-            ], 422);
-        }
-        if (! $cpfCert) {
-            return response()->json([
-                'erro' => 'CPF não encontrado no certificado (OID 2.16.76.1.3.1).',
-            ], 422);
-        }
 
         try {
             $resultado = $svc->preparar(
@@ -832,6 +903,9 @@ class AssinaturaController extends Controller
         }
         if ($assinatura->status !== 'pendente') {
             return response()->json(['erro' => 'Esta assinatura já foi processada.'], 409);
+        }
+        if ($impedimento = $this->impedimentoDaSolicitacao($assinatura)) {
+            return response()->json(['erro' => $impedimento], 409);
         }
 
         try {
@@ -903,7 +977,7 @@ class AssinaturaController extends Controller
 
         // Atualiza solicitacao
         $solicitacao = $assinatura->solicitacao;
-        $todasAssinadas = $solicitacao->assinaturas()->where('status', 'pendente')->doesntExist();
+        $todasAssinadas = $this->todasAssinadas($solicitacao);
         $solicitacao->update(['status' => $todasAssinadas ? 'concluida' : 'em_andamento']);
 
         // Webhook por assinatura individual (ICP-Brasil A3)
@@ -1029,14 +1103,17 @@ class AssinaturaController extends Controller
     public function downloadAssinado(Request $request, $id)
     {
         $assinatura = Assinatura::findOrFail($id);
+        // O acesso é conferido abaixo pela participação; o escopo de sigilo esconderia o
+        // documento do solicitante que não é autor nem signatário.
+        $documento = Documento::withoutGlobalScope('sigilo')->findOrFail($assinatura->documento_id);
 
         if ($assinatura->signatario_id !== Auth::id()
             && $assinatura->solicitacao->solicitante_id !== Auth::id()
-            && $assinatura->documento->autor_id !== Auth::id()) {
+            && $documento->autor_id !== Auth::id()) {
             abort(403);
         }
 
-        if ($assinatura->documento->status === 'cancelado') {
+        if ($documento->status === 'cancelado') {
             abort(403, 'Documento cancelado pela origem. Download não disponível.');
         }
 
@@ -1072,7 +1149,19 @@ class AssinaturaController extends Controller
             'assinaturas.certificado',
         ])->findOrFail($solicitacaoId);
 
-        $documento = $solicitacao->documento;
+        // Antes qualquer usuário logado baixava o manifesto de qualquer solicitação pelo ID.
+        // Participante (solicitante, signatário, autor) sempre pode; os demais só com o
+        // documento visível para eles (UG e sigilo pelo escopo) e permissão de visualizar.
+        $userId = Auth::id();
+        $documento = Documento::withoutGlobalScope('sigilo')->find($solicitacao->documento_id);
+        $participa = $solicitacao->solicitante_id === $userId
+            || $solicitacao->assinaturas->contains('signatario_id', $userId)
+            || $documento?->autor_id === $userId;
+        $alcanca = Documento::whereKey($solicitacao->documento_id)->exists()
+            && Auth::user()->can('documento.visualizar');
+        if (! $documento || (! $participa && ! $alcanca)) {
+            abort(403);
+        }
 
         $pdf = Pdf::loadView('assinaturas.manifesto', [
             'solicitacao' => $solicitacao,
