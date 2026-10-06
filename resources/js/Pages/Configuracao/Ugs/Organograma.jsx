@@ -172,7 +172,6 @@ function No({ node, ug, labels, onAdicionarFilho, depth = 0 }) {
                     ug={ug}
                     labels={labels}
                     onAdicionarFilho={onAdicionarFilho}
-                    onEditar={onEditar}
                     depth={depth + 1}
                 />
             ))}
