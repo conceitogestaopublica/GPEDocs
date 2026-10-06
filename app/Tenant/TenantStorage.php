@@ -61,7 +61,10 @@ class TenantStorage
     public static function prefix(): string
     {
         $ctx = app(TenantContext::class);
-        return 'tenants/' . ($ctx->domain() ?? 'shared');
+        // Banco do tenant, não o `domain`: o domain é o da INSTALAÇÃO (gpedocs.com.br em
+        // produção, ':8090' em dev) e seria o mesmo para todos os municípios. O db_name é
+        // único por município e igual em dev e produção — o banco e os arquivos viajam juntos.
+        return 'tenants/' . ($ctx->get()?->db_name ?: 'shared');
     }
 
     private static function resolveRoot(string $base): string
