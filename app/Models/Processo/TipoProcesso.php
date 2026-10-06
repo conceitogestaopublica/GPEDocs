@@ -34,7 +34,13 @@ class TipoProcesso extends Model
         ];
     }
 
+    /** Etapas vigentes, na ordem. As inativas só existem para o histórico das tramitações. */
     public function etapas(): HasMany
+    {
+        return $this->hasMany(TipoEtapa::class)->where('ativo', true)->orderBy('ordem');
+    }
+
+    public function todasEtapas(): HasMany
     {
         return $this->hasMany(TipoEtapa::class);
     }

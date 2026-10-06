@@ -100,9 +100,9 @@ class TramitacaoController extends Controller
             // Determinar proxima etapa
             $proximaEtapa = null;
             if ($tramitacaoAtual->tipo_etapa_id) {
-                $etapaAtual = $processo->tipoProcesso->etapas
-                    ->where('id', $tramitacaoAtual->tipo_etapa_id)
-                    ->first();
+                // A etapa atual pode ter sido retirada do tipo depois (fica inativa): ainda
+                // vale a ordem dela para achar a próxima entre as vigentes.
+                $etapaAtual = \App\Models\Processo\TipoEtapa::find($tramitacaoAtual->tipo_etapa_id);
 
                 if ($etapaAtual) {
                     $proximaEtapa = $processo->tipoProcesso->etapas
