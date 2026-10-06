@@ -4,15 +4,17 @@
 
 **RF-100.** Assinatura eletrônica **simples**, na forma do art. 4º, inciso I, da Lei nº 14.063/2020, com aceite declaratório do conteúdo e registro do CPF informado, do endereço IP, do navegador utilizado, da data e hora e do resumo criptográfico SHA-256 da versão assinada.
 
-**RF-101.** Assinatura eletrônica **qualificada**, na forma do art. 4º, inciso III, da Lei nº 14.063/2020, com certificado digital ICP-Brasil do tipo A1, observado o requisito RS-010.
+**RF-101.** Assinatura eletrônica **qualificada**, na forma do art. 4º, inciso III, da Lei nº 14.063/2020, com certificado digital ICP-Brasil do tipo A1, observado o requisito RS-014.
 
-**RF-102.** Conferência, no ato da assinatura qualificada, da correspondência entre o CPF do titular do certificado e o CPF cadastrado do usuário signatário.
+**RF-102.** Conferência, no ato da assinatura qualificada, de que o certificado está dentro do prazo de validade e não foi inativado pelo titular, e de que o CPF do titular do certificado corresponde ao CPF cadastrado do usuário signatário, recusada a assinatura de usuário sem CPF cadastrado.
 
 #### 6.8.2. Forma da assinatura no documento
 
 **RF-105.** Assinatura digital **incorporada ao próprio arquivo PDF**, em envelope criptográfico destacado com algoritmo de resumo SHA-256, verificável em leitor de PDF de mercado sem dependência da solução contratada.
 
 **RF-106.** Aposição, no PDF assinado com certificado, de representação visual da assinatura com nome do signatário, data e hora e endereço de verificação, acompanhada de tarja lateral indicativa em todas as páginas.
+
+**RF-107.** Página de termo de assinatura anexada ao PDF assinado com certificado, com a relação dos signatários (CPF mascarado, autoridade certificadora e data e hora) e QR Code que leva à página pública de verificação do documento.
 
 #### 6.8.3. Solicitação de assinatura
 
@@ -24,11 +26,15 @@
 
 **RF-113.** Painel do signatário com os documentos pendentes de sua assinatura, os que aguardam os demais signatários e os concluídos, com filtros por texto, CPF, modalidade de assinatura, período e sistema de origem.
 
+**RF-114.** Assinatura **em ordem**, opcional por solicitação: cada signatário só pode assinar depois que todos os de ordem anterior assinaram, a pendência só lhe é apresentada quando chega a sua vez, e ele é notificado nesse momento.
+
+**RF-115.** Recusa de assinatura pelo signatário, com motivo obrigatório, notificação ao solicitante, registro em auditoria e encerramento da solicitação, que deixa de aceitar as demais assinaturas e não é considerada concluída.
+
 #### 6.8.4. Evidências e verificação
 
 **RF-120.** Registro, por assinatura, das evidências do ato: signatário, CPF, endereço IP, navegador, data e hora, resumo criptográfico do documento e, na assinatura com certificado, titular, autoridade certificadora emissora, número de série, impressão digital do certificado e resumo criptográfico do envelope de assinatura.
 
-**RF-121.** Emissão de **manifesto de assinaturas** em PDF, por solicitação, com os dados do documento, a relação dos signatários, a modalidade de cada assinatura, as evidências previstas no requisito RF-120 e a base legal aplicável.
+**RF-121.** Emissão de **manifesto de assinaturas** em PDF, por solicitação, com os dados do documento, a relação dos signatários, a modalidade de cada assinatura, as evidências previstas no requisito RF-120 e a base legal aplicável, disponível somente aos participantes da solicitação e a quem tem acesso ao documento.
 
 **RF-122.** Página pública, acessível sem autenticação, para validação de PDF assinado enviado pelo interessado, com a relação de todas as assinaturas presentes no arquivo, a verificação de integridade criptográfica de cada uma e a exibição do signatário, do CPF ou CNPJ, da autoridade certificadora emissora, do número de série, do período de validade do certificado, do algoritmo, do motivo, do local e da data declarada.
 

@@ -65,7 +65,7 @@ d) atendimento à Lei nº 13.709/2018 (LGPD) no tratamento de dados pessoais de 
 
 **RT-004.** Base de dados **própria e exclusiva do Município**, separada da base de qualquer outro contratante da solução, com identificação do ente pelo endereço eletrônico de acesso.
 
-**RT-005.** Atuação de **múltiplas unidades gestoras** no mesmo ente, com seleção obrigatória da unidade de trabalho após a autenticação, seleção automática quando o usuário possuir vínculo com uma única unidade, troca de unidade sem nova autenticação e revalidação do vínculo a cada operação.
+**RT-005.** Atuação de **múltiplas unidades gestoras** no mesmo ente, com seleção obrigatória da unidade de trabalho após a autenticação, seleção automática quando o usuário possuir vínculo com uma única unidade, troca de unidade sem nova autenticação, revalidação do vínculo a cada operação e restrição de todas as consultas, pesquisas, painéis e cadastros à unidade gestora ativa.
 
 **RT-006.** Armazenamento dos arquivos digitais em repositório configurável, em disco do servidor de aplicação ou em serviço de armazenamento de objetos compatível com o protocolo S3.
 
@@ -119,10 +119,24 @@ d) atendimento à Lei nº 13.709/2018 (LGPD) no tratamento de dados pessoais de 
 
 **RS-007.** Indicação, por usuário, de acesso ampliado a todas as caixas de trabalho e setores da unidade gestora, de modo que a visão geral seja concedida apenas a quem for expressamente designado.
 
+**RS-008.** **Perfis de acesso** configuráveis pela Administração, compostos de permissões por módulo e ação — consultar, incluir, editar, excluir e administrar —, atribuíveis a um ou mais perfis por usuário, com verificação da permissão no servidor a cada operação e ocultação, nos menus e na busca de funcionalidades, das rotinas não permitidas.
+
+**RS-009.** Concessão e retirada do privilégio de administrador geral exclusivamente por quem já o detenha, vedada a alteração ou a exclusão de conta de administrador geral por usuário sem esse privilégio.
+
+**RS-010.** Recuperação de senha pelo próprio usuário, por link de uso único e validade limitada enviado ao correio eletrônico cadastrado, com resposta idêntica para endereço cadastrado ou não.
+
+**RS-011.** Limitação do número de tentativas de autenticação e de pedidos de recuperação de senha por período, com bloqueio temporário ao exceder o limite.
+
 ### 5.2. Credenciais de integração e chaves
 
-**RS-008.** Credencial de cada sistema integrado exibida uma única vez, no ato da emissão, e armazenada apenas sob a forma de resumo criptográfico irreversível.
+**RS-012.** Credencial de cada sistema integrado exibida uma única vez, no ato da emissão, e armazenada apenas sob a forma de resumo criptográfico irreversível.
 
-**RS-009.** Isolamento por sistema de origem: cada sistema integrado consulta, altera, cancela e recupera exclusivamente os documentos que ele próprio enviou.
+**RS-013.** Isolamento por sistema de origem: cada sistema integrado consulta, altera, cancela e recupera exclusivamente os documentos que ele próprio enviou.
 
-**RS-010.** Na assinatura com certificado digital do tipo A1, manutenção da chave privada e da senha do certificado apenas em memória durante a operação, vedada a sua gravação em qualquer meio.
+**RS-014.** Na assinatura com certificado digital do tipo A1, manutenção da chave privada e da senha do certificado apenas em memória durante a operação, vedada a sua gravação em qualquer meio.
+
+### 5.3. Auditoria
+
+**RS-015.** Trilha de auditoria por documento, consultável na própria ficha, com registro de criação, incorporação, visualização, download, edição — com o valor anterior e o novo de cada campo alterado —, mudança de pasta, alteração de situação, nova versão, exclusão, restauração, solicitação, assinatura e recusa de assinatura, indicando usuário, data e hora e endereço IP.
+
+**RS-016.** Histórico do processo administrativo, consultável no próprio processo, com registro de abertura, recebimento, despacho, devolução, comentário, juntada, decisão, assinatura, cancelamento e arquivamento, indicando usuário, data e hora e endereço IP.

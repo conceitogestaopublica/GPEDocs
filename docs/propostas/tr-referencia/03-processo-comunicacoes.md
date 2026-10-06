@@ -4,7 +4,7 @@
 
 **RF-151.** Definição, por tipo de processo, de **sequência ordenada de etapas**, cada uma com natureza — análise, parecer, aprovação, assinatura, despacho ou arquivamento —, unidade sugerida, prazo e texto-modelo.
 
-**RF-152.** Configuração, por tipo de processo, de **formulário dinâmico de abertura**, com campos de texto, número, valor monetário, data, texto longo e lista de opções, rótulo e ordem configuráveis, cujos dados ficam registrados no processo.
+**RF-152.** Configuração, por tipo de processo, de **formulário dinâmico de abertura**, com campos de texto, número, valor monetário, data, texto longo e lista de opções, rótulo, ordem e obrigatoriedade configuráveis, recusada a abertura quando faltar campo obrigatório ou o valor não corresponder ao tipo do campo, e com os dados registrados no processo.
 
 **RF-153.** Cadastro, por tipo de processo, de modelos de texto de despacho, aplicáveis com uma única ação no momento da redação do despacho.
 
@@ -13,6 +13,8 @@
 **RF-155.** Atribuição automática de **número de protocolo** sequencial, anual e por tipo de processo, composto pela sigla do tipo, pelo ano e pelo número sequencial, único no sistema.
 
 **RF-156.** Consulta de processos por número ou assunto, situação, tipo e prioridade, com paginação dos resultados.
+
+**RF-157.** Juntada de arquivos digitais na abertura e nos despachos, com registro de nome, tamanho, autor e resumo criptográfico, e download dos arquivos juntados por quem tem acesso ao processo.
 
 ### 6.10. Tramitação e decisão
 
@@ -29,6 +31,14 @@
 **RF-175.** Arquivamento do processo sem decisão de mérito, com justificativa obrigatória e geração do documento de encerramento.
 
 **RF-176.** Arquivamento do documento final do processo em pasta do repositório documental da mesma unidade gestora, com registro no processo.
+
+**RF-177.** Registro formal do recebimento do processo pela unidade ou pelo servidor de destino, com data, hora e recebedor; o despacho de etapa ainda não recebida registra o recebimento por quem despacha.
+
+**RF-178.** Devolução do processo ao remetente anterior, com justificativa, e cancelamento do processo, com motivo.
+
+**RF-179.** Execução de recebimento, despacho, devolução, juntada, decisão, arquivamento e cancelamento somente pelo destinatário da etapa ativa — servidor indicado, servidor da unidade de destino ou usuário com acesso geral à unidade gestora — ou, antes do primeiro despacho, pelo autor, com verificação no servidor.
+
+**RF-180.** Comentários no processo, com indicação de comentário interno, relacionados à etapa em curso e consultáveis no próprio processo.
 
 ### 6.11. Caixas de trabalho e prazos
 
@@ -58,11 +68,17 @@
 
 **RF-215.** Restrição da visualização de memorandos, ofícios e circulares ao remetente, aos destinatários — pessoais ou por unidade — e aos participantes da tramitação.
 
+**RF-216.** Download dos anexos de memorandos, ofícios e circulares por quem tem acesso à comunicação.
+
+**RF-217.** Verificação pública da autenticidade de memorando, ofício e circular por QR Code impresso no documento em PDF, com número, remetente, unidade, órgão, data de emissão e situação, omitido o assunto de comunicação confidencial.
+
 ### 6.13. Notificações e mensagens
 
 **RF-230.** Notificação interna automática ao destinatário, ou aos servidores da unidade de destino, quando processo, memorando ou circular lhe for encaminhado, respondido ou devolvido.
 
 **RF-231.** Mensagens instantâneas entre servidores da mesma unidade gestora, com lista de contatos, histórico da conversa, contador de mensagens não lidas e marcação automática de leitura, disponíveis em todas as telas.
+
+**RF-232.** Tela de notificações do usuário, com filtro das não lidas, marcação individual ou geral como lida e acesso direto ao documento, processo ou comunicação a que a notificação se refere.
 
 ### 6.14. Painel de processos
 

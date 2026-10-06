@@ -34,13 +34,13 @@
 
 ### 6.17. Autenticidade de documentos
 
-**RF-340.** Verificação pública da autenticidade de documento do repositório por código de verificação ou **QR Code**, sem autenticação, com exibição do tipo, do autor, da situação, da versão vigente e do resumo criptográfico do arquivo.
+**RF-340.** Verificação pública da autenticidade de documento do repositório por código de verificação ou **QR Code**, sem autenticação, com exibição do tipo, do autor, da situação, da versão vigente, do resumo criptográfico do arquivo e das assinaturas concluídas, preservado o sigilo: de documento confidencial ou restrito, exibem-se apenas a autenticidade, o resumo criptográfico e a modalidade e a data das assinaturas.
 
 ### 6.18. Integração com sistemas da Administração
 
 #### 6.18.1. Credenciais
 
-**RF-400.** Cadastro dos sistemas externos autorizados a integrar-se à solução, com emissão de credencial exclusiva na forma do requisito RS-008, regeneração com invalidação da credencial anterior, ativação e desativação, e bloqueio da exclusão de sistema que tenha enviado documentos.
+**RF-400.** Cadastro dos sistemas externos autorizados a integrar-se à solução, com emissão de credencial exclusiva na forma do requisito RS-012, regeneração com invalidação da credencial anterior, ativação e desativação, e bloqueio da exclusão de sistema que tenha enviado documentos.
 
 **RF-401.** Autenticação de cada requisição da interface de integração por credencial do tipo portador, sem sessão, com resposta padronizada de acesso não autorizado e registro da data do último uso da credencial.
 
@@ -48,7 +48,7 @@
 
 #### 6.18.2. Documentos para assinatura
 
-**RF-405.** Recebimento, pela interface de integração, de documento PDF com tipo documental, unidade gestora, número de origem, nome, descrição, metadados, pasta de destino, endereço de retorno e relação de signatários identificados por CPF, com posição visual da assinatura no documento, criando-se o documento, a versão e a solicitação de assinatura em uma única transação.
+**RF-405.** Recebimento, pela interface de integração, de documento PDF com tipo documental, unidade gestora, número de origem, nome, descrição, metadados, pasta de destino, endereço de retorno e relação de signatários identificados por CPF, com posição visual da assinatura no documento e indicação opcional de assinatura em ordem, criando-se o documento, a versão e a solicitação de assinatura em uma única transação. O reenvio de número de origem já recebido e não cancelado devolve o documento existente, sem duplicá-lo.
 
 **RF-406.** Consulta, pelo sistema de origem, da situação do documento e de cada assinatura.
 

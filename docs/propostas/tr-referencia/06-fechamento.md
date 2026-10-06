@@ -89,7 +89,11 @@ f) emissão de circular a unidades e consulta do painel de leituras;
 
 g) quando a integração com sistemas integrar o objeto, envio de documento para assinatura pela interface de integração, recebimento da notificação de retorno assinada e recuperação do PDF assinado;
 
-h) verificação pública de autenticidade de documento por QR Code.
+h) verificação pública de autenticidade de documento por QR Code;
+
+i) acesso por usuário sem perfil administrativo às rotinas de administração, com recusa, e consulta de documento restrito por usuário que não é autor nem signatário, sem que o documento apareça em listagens ou pesquisas;
+
+j) envio de nova versão de documento, consulta da trilha de auditoria na ficha e restauração de versão anterior.
 
 9.4. A reprovação em requisito considerado essencial pelo instrumento convocatório acarretará a desclassificação, convocando-se a licitante subsequente.
 

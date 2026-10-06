@@ -9,11 +9,11 @@ item a edital de terceiro. Mesmo modelo do TR do tributário
 
 | Arquivo                                 | O que é                                                                         |
 | --------------------------------------- | ------------------------------------------------------------------------------- |
-| `docx/TR-completo.docx`                 | **127 requisitos** — 19 RT, 10 RS, 98 RF                                        |
-| `docx/TR-enxuto.docx`                   | **98 requisitos** — sem carta de serviços/portal (6.15, 6.16) e sem integração (6.18) |
-| `requisitos-gpedocs.csv`                | os 127 em planilha, com a coluna que diz se está na enxuta. É o Anexo I         |
+| `docx/TR-completo.docx`                 | **148 requisitos** — 19 RT, 16 RS, 113 RF                                       |
+| `docx/TR-enxuto.docx`                   | **119 requisitos** — sem carta de serviços/portal (6.15, 6.16) e sem integração (6.18) |
+| `requisitos-gpedocs.csv`                | os 148 em planilha, com a coluna que diz se está na enxuta. É o Anexo I         |
 | `00-abertura.md` … `06-fechamento.md`   | **a fonte**. Os `.docx` e o `.csv` são gerados daqui                            |
-| `medicao/A…E-*.md`                      | a medição contra o código, item a item, com evidência `arquivo:símbolo`         |
+| `medicao/A…E-*.md`                      | a medição original contra o código, item a item, com evidência `arquivo:símbolo` |
 
 Gerar de novo, após editar os `.md`:
 
@@ -28,8 +28,7 @@ A enxuta é **subconjunto da completa** (constantes `ENXUTA_FAIXAS` e
 ## De onde vieram os requisitos
 
 Não havia edital de origem medido nem manual do usuário. A fonte foi o
-**código**, medido em 06/10/2026 na branch `feat/integracao-arquivos-sem-assinatura`
-(já com o `main` de 29/09 incorporado), em cinco áreas:
+**código**, medido em 06/10/2026 em cinco áreas:
 
 | Área                                   | Medidos | ✅  | 🟡  | ❌  |
 | -------------------------------------- | ------- | --- | --- | --- |
@@ -40,61 +39,59 @@ Não havia edital de origem medido nem manual do usuário. A fonte foi o
 | E — Técnico, segurança e configuração  | 61      | 36  | 9   | 16  |
 | **Total**                              | **285** | **136** | **58** | **91** |
 
+A primeira versão do TR (127 requisitos) saiu dessa medição. Depois, a branch
+`fix/pendencias-tr` corrigiu os defeitos que ela encontrou e o TR ganhou os 21
+requisitos que passaram a valer — cada correção com teste de feature contra
+banco PostgreSQL. **A pasta `medicao/` é o retrato de antes das correções**: os
+itens 🟡 e ❌ dela que aparecem abaixo como corrigidos já não valem como estão
+escritos lá.
+
 **Critério de entrada no TR:** só o que **passa numa prova de conceito hoje**,
-seguindo o caminho inteiro (tela → rota → controller → banco). Item 🟡 entrou
-apenas na parte que funciona, e a redação foi cortada nessa medida — por
-exemplo, "assinatura qualificada com certificado A1" (o A3 nunca foi testado com
-token real), "PDF assinado" (e não "PDF com todas as assinaturas"), "envelope
-criptográfico verificável em leitor de PDF" (e não "PAdES AD-RB").
+seguindo o caminho inteiro (tela → rota → controller → banco). Item parcial
+entrou apenas na parte que funciona — por exemplo, "assinatura qualificada com
+certificado A1" (o A3 não foi testado com token físico), "PDF assinado" (e não
+"PDF com todas as assinaturas"), "envelope criptográfico verificável em leitor
+de PDF" (e não "PAdES AD-RB").
 
-Quando duas medições divergiram, valeu a verificação no código: a aba de
-auditoria da ficha do documento foi dada como funcionando pela medição E, mas a
-tela espera `audit_logs`, `versoes` e `metadados` no nível de cima e o
-controller manda tudo dentro de `documento` — as abas ficam vazias.
+## Corrigido na branch `fix/pendencias-tr`
 
-## 🔴 Corrigir antes de oferecer este TR
+| Defeito encontrado na medição | Requisito do TR que passou a valer |
+| --- | --- |
+| Perfis e permissões só cadastrais; qualquer usuário entrava na administração | RS-008 |
+| Qualquer usuário criava ou editava conta `super_admin` | RS-009 |
+| Busca avançada e painéis mostravam dados de outras UGs | RT-005 |
+| Grau de sigilo gravado mas sem efeito; QR público expunha documento restrito | RF-023, RF-340 |
+| Dumps com CPF e hash de senha versionados; senhas no documento de deploy; `admin123` fixo no seeder | (operação — ver abaixo) |
+| Recusa não encerrava a solicitação, que virava "concluída" | RF-115 |
+| Certificado vencido ou inativado e CPF ausente não barravam a assinatura | RF-102 |
+| Manifesto de assinaturas baixável por qualquer usuário | RF-121 |
+| Envio para assinatura pela API duplicava o documento | RF-405 |
+| Editar tipo de processo em uso falhava | RF-151 |
+| Arquivos de todos os entes no mesmo diretório | (isolamento: `tenants/<ente>/`) |
+| Abas de versões, metadados e auditoria da ficha sempre vazias | RF-022, RF-032, RS-015 |
+| "Recentes" e "Mais acessados" sempre vazios | RF-053 |
+| Obrigatoriedade de metadado e de campo de formulário só visual | RF-021, RF-152 |
+| Anexos de processo e de comunicações sem rota de download | RF-157, RF-216 |
+| Comentário de processo postava em rota inexistente | RF-180 |
+| Receber, despachar e cancelar sem conferência no servidor; sem botão de receber e de cancelar | RF-177, RF-178, RF-179 |
+| Histórico do processo gravado e nunca exibido | RS-016 |
+| "Ver todas as notificações" abria JSON bruto | RF-232 |
+| Ordem de signatários gravada e ignorada | RF-114 |
+| Sem lixeira; reativação de pasta só no servidor | RF-003, RF-061 |
+| Link "Esqueceu a senha?" dava 404; login sem limite de tentativas | RS-010, RS-011 |
+| QR do termo de assinatura caía na tela genérica; página de verificação sem assinaturas | RF-107, RF-340 |
+| QR dos PDFs de memorando, ofício e circular apontava para rota inexistente | RF-217 |
+| A3: assinatura devolvida pelo token gravada sem conferência | (ainda fora do TR: falta token físico) |
+| Migration não criava `webhook_secret`: ente novo quebrava ao cadastrar sistema integrado | — |
 
-Defeitos que a medição encontrou e que **um edital ou uma prova de conceito
-expõem**, mesmo sem estar escritos no TR. Os quatro primeiros são de segurança.
+## 🔴 Ainda pendente
 
-| # | Defeito | Onde |
-| - | ------- | ---- |
-| 1 | **Escalada de privilégio:** qualquer usuário autenticado cria ou edita usuário com `super_admin = true` | `Admin/UsuarioController::validarUsuario` |
-| 2 | **Perfis e permissões não são aplicados:** nenhuma rota confere permissão; qualquer usuário entra em usuários, perfis e configurações | `routes/web.php` (sem middleware de permissão), `menus.js` sem filtro |
-| 3 | **Vazamento entre UGs:** a busca avançada e o painel do GED consultam as tabelas direto e ignoram a UG ativa; o contador de etapas atrasadas do painel de processos também | `BuscaController::index`, `DashboardController`, `ProcessoDashboardController` (Tramitacao) |
-| 4 | **Grau de sigilo não restringe nada:** "restrito" e "confidencial" são gravados, mas qualquer usuário da UG vê, baixa e exclui; a verificação pública por QR mostra os metadados | Controllers do GED sem `Gate`/`authorize`; `VerificacaoController::verificar` |
-| 5 | Dumps SQL de bases de municípios versionados e senha de banco em documento | `database/backups/*.sql`, `docs/DEPLOY_PRODUCAO.md` |
-| 6 | Validação de cadeia ICP-Brasil não ancorada na AC Raiz: intermediária vinda do próprio arquivo vira âncora; sem LCR/OCSP | `CertificadoService::tentarValidar` |
-| 7 | Recusa de assinatura não muda a solicitação: uma solicitação com recusa vira "concluída" e dispara `todas_concluidas` | `AssinaturaController::recusar` |
-| 8 | Certificado expirado ou inativado não é bloqueado no ato de assinar | `AssinaturaController::assinarIcp`, `prepararIcpA3` |
-| 9 | Manifesto de assinaturas sem conferência de permissão (qualquer ID) | `AssinaturaController::manifesto` |
-| 10 | Envio para assinatura pela API não é idempotente: reenvio do mesmo número duplica o documento | `IntegracaoDocumentoController::store` |
-| 11 | Editar tipo de processo em uso apaga e recria as etapas e falha por chave estrangeira | `TipoProcessoController::update` |
-| 12 | Arquivos de todos os entes de uma instalação no mesmo diretório; `TenantStorage` existe e não é usado | `config/filesystems.php`, `app/Tenant/TenantStorage.php` |
-
-## Correções rápidas que acrescentam requisitos ao TR
-
-Cada linha abaixo é um requisito **já redigido** na medição (`medicao/`) que
-entra no TR assim que o defeito indicado for corrigido.
-
-| Requisito que entraria | Falta |
-| ---------------------- | ----- |
-| Versionamento pela interface, com consulta das versões | Corrigir as props de `Documentos/Show.jsx` (`documento.versoes`) e criar envio de nova versão pela tela |
-| Trilha de auditoria por documento, consultável na ficha | Mesma correção de props (`documento.audit_logs`); registrar `visualizacao` |
-| Metadados do tipo documental na ficha | Mesma correção de props (`documento.metadados`) |
-| Recentes e mais acessados | Gravar a ação `visualizacao` na auditoria |
-| Obrigatoriedade de metadados e de campos do formulário de processo | Validar no servidor |
-| Juntada de documentos ao processo, memorando, ofício e circular | Criar as rotas de download de anexos (hoje 404) |
-| Comentários no processo | A tela posta em `/processos/{id}/comentarios`; o backend é `/tramitacoes/{id}/comentar` |
-| Recebimento formal, devolução e cancelamento de processo | Ligar os botões (backend existe) |
-| Histórico de auditoria do processo | Exibir `proc_historico` na tela |
-| Lista de notificações | `/notificacoes` devolve JSON bruto |
-| Ordem sequencial de signatários | A coluna `ordem` é gravada e nunca aplicada |
-| Lixeira e reativação de pasta | Tela de listagem/restauração (backend parcial) |
-| Recuperação de senha | O link `/forgot-password` da tela de login dá 404 |
-| Página de termo de assinatura com QR | O QR aponta para a página genérica de upload |
-| Verificação por QR de memorando, ofício e circular | As rotas citadas no PDF não existem |
-| Assinatura com certificado A3 | Verificar no servidor a assinatura devolvida pelo token e testar com hardware real; confirmar licença da extensão Web PKI em produção |
+| # | Pendência | Por quê não entrou |
+| - | --------- | ------------------ |
+| 1 | **Trocar as senhas** do Postgres de produção e dos logins `admin123` de paraguacu e arinos | Operação nos servidores, fora do código |
+| 2 | **Limpar o histórico do Git** (dumps e senhas continuam nos commits antigos) | Reescreve o histórico e exige push forçado: decisão da equipe |
+| 3 | **Validação de cadeia ICP-Brasil ancorada na AC Raiz**, com LCR/OCSP | Endurecer pode recusar certificados hoje aceitos até as demais raízes serem instaladas |
+| 4 | **Assinatura A3 com token físico** | O servidor já confere a assinatura, mas falta o teste com hardware e a licença da extensão Web PKI em produção |
 
 ## O que ficou de fora por não existir
 
@@ -105,7 +102,8 @@ existem** (detalhe e local da busca em `medicao/`):
   eliminação com termo; metadados do Decreto nº 10.278/2020; PDF/A;
   verificação periódica de integridade; captura de e-mail; importação de acervo
   legado; compartilhamento e link público com expiração; check-in/check-out;
-  etiquetas (só estrutura); relatórios gerenciais.
+  etiquetas (só estrutura); edição dos dados do documento pela tela;
+  relatórios gerenciais.
 - **Assinatura:** PAdES AD-RB conforme DOC-ICP-15.03; carimbo do tempo;
   PAdES-LT/LTA; LCR/OCSP; CAdES para não-PDF; assinatura avançada; gov.br;
   nuvem/HSM; assinador local; e-CNPJ; multi-assinatura criptográfica no mesmo
@@ -118,19 +116,12 @@ existem** (detalhe e local da busca em `medicao/`):
   em lote; relatórios.
 - **Portal:** gov.br; anexos na solicitação; consulta pública por protocolo;
   resposta do cidadão; avaliação de satisfação; ouvidoria; transparência;
-  CAPTCHA e limite de tentativas; LGPD/consentimento; acessibilidade.
-- **Segurança e continuidade:** 2FA; LDAP/SSO; bloqueio por tentativas;
-  política de senha; inativação de usuário; restrição por horário/IP; auditoria
+  CAPTCHA; LGPD/consentimento; acessibilidade.
+- **Segurança e continuidade:** 2FA; LDAP/SSO; política de senha além do
+  tamanho mínimo; inativação de usuário; restrição por horário/IP; auditoria
   administrativa e de login; consulta centralizada de auditoria; log imutável;
   backup automatizado; exportação integral da base; dicionário de dados;
   ajuda contextual.
-
-Por isso o TR **não** traz controle de acesso por perfil, sigilo de documento,
-auditoria consultável, versionamento pela tela nem segregação de dados por UG:
-hoje não passariam na prova de conceito. Um TR de GED sem perfis de acesso e sem
-auditoria fica estranho para quem lê, e é a primeira coisa que o concorrente
-aponta. **As correções 1 a 4 e as três correções de props da ficha do documento
-são o mínimo antes de oferecer este TR.**
 
 ## Cuidado de licitação
 
@@ -146,8 +137,8 @@ justificativa técnica. Por isso o texto:
 
 As obrigações de **cópia de segurança** (11.1.3) e de **entrega integral da
 base** (11.3.1) estão como serviço da contratada, não como função do sistema:
-hoje não há rotina automática nem exportação na aplicação, e cumpri-las depende
-de procedimento de operação. O **manual do usuário** (7.3.2) também não existe e
+não há rotina automática nem exportação na aplicação, e cumpri-las depende de
+procedimento de operação. O **manual do usuário** (7.3.2) também não existe e
 precisa ser produzido.
 
 O município tem de adaptar antes de publicar — quantitativos, prazos, dotação e
@@ -158,7 +149,7 @@ pronto.
 
 A planilha `requisitos-gpedocs.csv` é o acervo. Para cada item do edital
 alheio, localizar o requisito nosso equivalente e responder com ele. Quando não
-houver equivalente, consultar `medicao/`: se o item estiver lá como 🟡 ou ❌, a
-resposta é **não atende**, ou atende parcialmente dizendo qual parte. O item
+houver equivalente, consultar a lista acima e `medicao/`: se o item não existe,
+a resposta é **não atende**, ou atende parcialmente dizendo qual parte. O item
 13.2 deste TR existe justamente porque declarar atendimento que a prova de
 conceito derruba é o erro que desclassifica.
