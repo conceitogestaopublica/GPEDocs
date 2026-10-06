@@ -414,16 +414,16 @@ function NotificacoesDropdown({ count }) {
                         {count > 0 && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{count} novas</span>}
                     </div>
                     <div className="max-h-64 overflow-y-auto">
-                        {count === 0 ? (
-                            <div className="px-4 py-8 text-center text-gray-400">
+                        {count === 0 && (
+                            <div className="px-4 py-6 text-center text-gray-400">
                                 <i className="fas fa-bell-slash text-2xl mb-2 block" />
-                                <p className="text-sm">Nenhuma notificacao</p>
+                                <p className="text-sm">Nenhuma notificacao nova</p>
                             </div>
-                        ) : (
-                            <Link href="/notificacoes" className="block px-4 py-3 text-sm text-blue-600 hover:bg-blue-50 text-center font-medium">
-                                Ver todas as notificacoes
-                            </Link>
                         )}
+                        <Link href={count > 0 ? '/notificacoes?nao_lidas=1' : '/notificacoes'}
+                            className="block px-4 py-3 text-sm text-blue-600 hover:bg-blue-50 text-center font-medium">
+                            {count > 0 ? 'Ver notificacoes novas' : 'Ver todas as notificacoes'}
+                        </Link>
                     </div>
                 </div>
             )}
