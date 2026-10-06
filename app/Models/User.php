@@ -137,6 +137,11 @@ class User extends Authenticatable
         return $this->super_admin || in_array($nome, $this->permissoes(), true);
     }
 
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\RedefinirSenha($token));
+    }
+
     public function ehInterno(): bool
     {
         return $this->tipo === 'interno';

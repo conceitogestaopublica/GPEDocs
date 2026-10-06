@@ -145,7 +145,14 @@ Route::post('validar-assinatura', [VerificacaoController::class, 'validarPdf'])-
 // Guest
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'index'])->name('login');
-    Route::post('/login', [LoginController::class, 'store']);
+    // Limite de tentativas por IP: antes não havia nenhum contra força bruta.
+    Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:login');
+
+    // Recuperação de senha
+    Route::get('/forgot-password', [\App\Http\Controllers\Auth\SenhaController::class, 'solicitar'])->name('password.request');
+    Route::post('/forgot-password', [\App\Http\Controllers\Auth\SenhaController::class, 'enviar'])->name('password.email')->middleware('throttle:senha');
+    Route::get('/reset-password/{token}', [\App\Http\Controllers\Auth\SenhaController::class, 'formulario'])->name('password.reset');
+    Route::post('/reset-password', [\App\Http\Controllers\Auth\SenhaController::class, 'redefinir'])->name('password.update')->middleware('throttle:senha');
 });
 
 // Selecionar UG (autenticado, mas isento do EnsureUgSelected)
