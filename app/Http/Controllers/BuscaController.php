@@ -26,6 +26,8 @@ class BuscaController extends Controller
                 ->leftJoin('users', 'users.id', '=', 'ged_documentos.autor_id')
                 ->leftJoin('ged_pastas', 'ged_pastas.id', '=', 'ged_documentos.pasta_id')
                 ->whereNull('ged_documentos.deleted_at')
+                // DB::table não passa pelo escopo BelongsToUg — mesmo filtro, à mão.
+                ->when(session('ug_id'), fn ($q, $ugId) => $q->where('ged_documentos.ug_id', $ugId))
                 ->select(
                     'ged_documentos.id',
                     'ged_documentos.nome',
