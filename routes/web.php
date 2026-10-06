@@ -137,6 +137,10 @@ Route::domain(config('portal.domain'))->name('portal.')->group(function () {
 
 // Verificacao publica de documento (sem auth)
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
+// QR dos PDFs de memorando, ofício e circular
+Route::get('{tipo}/verificar/{token}', [\App\Http\Controllers\VerificacaoComunicacaoController::class, 'verificar'])
+    ->whereIn('tipo', ['memorandos', 'oficios', 'circulares'])
+    ->name('comunicacoes.verificar');
 
 // Validacao publica de assinatura ICP-Brasil em PDF (sem auth)
 Route::get('validar-assinatura', [VerificacaoController::class, 'validarPdfPagina'])->name('validar-assinatura');
