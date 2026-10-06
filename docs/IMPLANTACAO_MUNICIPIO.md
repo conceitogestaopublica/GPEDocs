@@ -46,6 +46,10 @@ GPE_LEGADO_DATABASE=gpesantoantoniodoamparo
 Não deixar `public/hot` na pasta do projeto: ele faz o navegador buscar o
 JavaScript num servidor Vite (o container `vite` só sobe se for pedido).
 
+Telas (JSX/CSS): o app e o nginx leem o `public/build` da pasta do projeto, como no
+servidor. Depois de alterar o front, rodar `npm run build` no host — não é preciso
+reconstruir a imagem.
+
 1. Subir: `docker compose up -d --build app nginx queue` → http://localhost:8090
 2. Tabelas de fila do GPEDocs no catálogo (uma vez):
    `docker exec app-docs php artisan migrate --database=landlord --path=database/migrations/landlord --force`

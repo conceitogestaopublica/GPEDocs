@@ -81,6 +81,10 @@ services:
       - "${APP_PORT:-80}:80"
     volumes:
       - storage:/var/www/html/storage:ro
+      # Mesmo public/ que o app lê: o app resolve os assets pelo manifest do host
+      # (public/build, gerado por `npm run build`) e o nginx precisa servir esses
+      # mesmos arquivos. Com a cópia da imagem os hashes divergiam e o CSS dava 404.
+      - ./public:/var/www/html/public:ro
     networks:
       - gpedocs
     depends_on:
