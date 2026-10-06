@@ -8,6 +8,7 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Modal from '../../../Components/Modal';
 import Card from '../../../Components/Card';
+import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
 
 // Configuracao visual de cada filtro rapido (titulo, icone, classes Tailwind explicitas).
 // Classes precisam ser strings literais pra Tailwind nao podar no build.
@@ -52,6 +53,8 @@ const FILTRO_RAPIDO_CONFIG = {
 };
 
 export default function Repositorio({ pastas, documentos, pasta_atual, breadcrumb, tipos_documentais = [], favorito_ids = [], filtros = {} }) {
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const [viewMode, setViewMode] = useState('list');
     const [selectedDoc, setSelectedDoc] = useState(null);
     const [showNewFolder, setShowNewFolder] = useState(false);
@@ -375,9 +378,9 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                             </div>
                         )}
                         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                            <div className="overflow-x-auto">
+                            <div ref={scrollRef} className="overflow-auto">
                                 <table className="w-full text-sm">
-                                    <thead className="bg-gray-50 text-gray-500 uppercase text-[10px]">
+                                    <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px]">
                                         <tr>
                                             <th className="px-3 py-2.5 w-8">
                                                 <input type="checkbox"

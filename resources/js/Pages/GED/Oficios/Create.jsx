@@ -9,8 +9,10 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import RichEditor from '../../../Components/RichEditor';
+import { useConfirm } from '../../../Components/ConfirmProvider';
 
 export default function OficiosCreate({ modelos = [], setores = [] }) {
+    const confirmar = useConfirm();
     // Monta nome hierarquico: "Orgao > Unidade > Setor"
     const buildPath = (s, all) => {
         const parts = [s.nome];
@@ -254,7 +256,7 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                                             </label>
                                             <select
                                                 value={modeloId}
-                                                onChange={(e) => {
+                                                onChange={async (e) => {
                                                     const id = e.target.value;
                                                     setModeloId(id);
                                                     if (!id) return;
@@ -262,7 +264,7 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                                                     if (!m) return;
                                                     // Confirma sobrescrita se ja houver conteudo digitado
                                                     if (data.conteudo && data.conteudo.replace(/<[^>]+>/g, '').trim().length > 10) {
-                                                        if (!confirm('Substituir o conteudo atual pelo modelo selecionado?')) {
+                                                        if (!await confirmar({ titulo: 'Substituir o conteúdo pelo modelo?', descricao: 'O texto já digitado no ofício será trocado pelo do modelo selecionado.', tom: 'atencao', rotuloConfirmar: 'Substituir' })) {
                                                             setModeloId('');
                                                             return;
                                                         }

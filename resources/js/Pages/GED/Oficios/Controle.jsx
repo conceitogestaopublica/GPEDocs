@@ -8,8 +8,11 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
 
 export default function ControleOficios({ oficios, anos = [], filtros = {} }) {
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const [ano, setAno]     = useState(filtros.ano || '');
     const [busca, setBusca] = useState(filtros.busca || '');
 
@@ -85,9 +88,9 @@ export default function ControleOficios({ oficios, anos = [], filtros = {} }) {
             </Card>
 
             <Card padding={false}>
-                <div className="overflow-x-auto">
+                <div ref={scrollRef} className="overflow-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
+                        <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
                             <tr>
                                 <th className="px-4 py-3 text-left w-32">Numero</th>
                                 <th className="px-4 py-3 text-left w-20">Ano</th>

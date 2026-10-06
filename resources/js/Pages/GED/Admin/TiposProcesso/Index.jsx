@@ -10,6 +10,7 @@ import PageHeader from '../../../../Components/PageHeader';
 import Button from '../../../../Components/Button';
 import Card from '../../../../Components/Card';
 import Modal from '../../../../Components/Modal';
+import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
 
 const categoriaOptions = [
     { value: 'administrativo', label: 'Administrativo' },
@@ -43,6 +44,8 @@ const emptyEtapa = { nome: '', tipo: 'analise', setor_destino: '', sla_horas: ''
 const emptyTemplate = { nome: '', conteudo: '' };
 
 export default function Index({ tipos }) {
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const lista = tipos?.data || tipos || [];
     const [showModal, setShowModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -183,9 +186,9 @@ export default function Index({ tipos }) {
                         <p className="text-sm font-medium">Nenhum tipo de processo cadastrado</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div ref={scrollRef} className="overflow-auto">
                         <table className="w-full text-sm">
-                            <thead>
+                            <thead className="sticky top-0 z-20 bg-gray-50">
                                 <tr className="border-b border-gray-200 bg-gray-50">
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Nome</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Sigla</th>

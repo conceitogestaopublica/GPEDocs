@@ -9,6 +9,7 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
 
 const statusColors = {
     aberto: 'bg-blue-100 text-blue-700',
@@ -53,6 +54,8 @@ const prioridadeOptions = [
 ];
 
 export default function Index({ processos, filters, tipos_processo }) {
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const f = filters || {};
     const [search, setSearch] = useState(f.search || '');
     const [tipoId, setTipoId] = useState(f.tipo_processo_id || '');
@@ -155,9 +158,9 @@ export default function Index({ processos, filters, tipos_processo }) {
                         <p className="text-sm font-medium">Nenhum processo encontrado</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div ref={scrollRef} className="overflow-auto">
                         <table className="w-full text-sm">
-                            <thead>
+                            <thead className="sticky top-0 z-20 bg-gray-50">
                                 <tr className="border-b border-gray-200 bg-gray-50">
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Protocolo</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Assunto</th>

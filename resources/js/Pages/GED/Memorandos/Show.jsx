@@ -10,8 +10,10 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import { useConfirm } from '../../../Components/ConfirmProvider';
 
 export default function MemorandosShow({ memorando, pode_receber, pode_tramitar, meu_status, unidades = [], usuarios = [] }) {
+    const confirmar = useConfirm();
     const memo = memorando || {};
     const respostas = memo.respostas || [];
     const destinatarios = memo.destinatarios || [];
@@ -57,8 +59,8 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
         return usuarios.filter(u => Number(u.unidade_id) === Number(tramiteForm.data.destino_unidade_id));
     }, [usuarios, tramiteForm.data.destino_unidade_id]);
 
-    const enviarReceber = () => {
-        if (confirm('Confirmar recebimento deste memorando?'))
+    const enviarReceber = async () => {
+        if (await confirmar({ titulo: 'Confirmar o recebimento deste memorando?', rotuloConfirmar: 'Confirmar recebimento' }))
             router.post(`/memorandos/${memo.id}/receber`, {}, { preserveScroll: true });
     };
 
@@ -156,8 +158,8 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
                         )}
                         {memo.status !== 'arquivado' && (
                             <Button variant="secondary" icon="fas fa-archive"
-                                onClick={() => {
-                                    if (confirm('Arquivar este memorando?'))
+                                onClick={async () => {
+                                    if (await confirmar({ titulo: 'Arquivar este memorando?', rotuloConfirmar: 'Arquivar' }))
                                         router.post(`/memorandos/${memo.id}/arquivar`);
                                 }}>
                                 Arquivar

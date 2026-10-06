@@ -4,8 +4,8 @@
  *   DIREITA:  card branco com o formulário de acesso.
  *
  * Marca GPE Docs (azul/ciano + laranja). Mantém o contrato do form:
- * campos email/password/remember, POST /login, e "lembrar" guarda o e-mail
- * no localStorage para auto-preencher no próximo acesso.
+ * campos login (e-mail OU CPF)/password/remember, POST /login, e "lembrar" guarda
+ * o login no localStorage para auto-preencher no próximo acesso.
  */
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
@@ -14,7 +14,7 @@ const STORAGE_KEY = 'gpe_remember_email';
 
 export default function Login({ flash = {} }) {
     const { data, setData, post, processing, errors } = useForm({
-        email: '',
+        login: '',
         password: '',
         remember: false,
     });
@@ -23,7 +23,7 @@ export default function Login({ flash = {} }) {
     useEffect(() => {
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) setData({ email: saved, password: '', remember: true });
+            if (saved) setData({ login: saved, password: '', remember: true });
         } catch (_) { /* localStorage indisponível */ }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -31,7 +31,7 @@ export default function Login({ flash = {} }) {
     const handleSubmit = (e) => {
         e.preventDefault();
         try {
-            if (data.remember && data.email) localStorage.setItem(STORAGE_KEY, data.email);
+            if (data.remember && data.login) localStorage.setItem(STORAGE_KEY, data.login);
             else localStorage.removeItem(STORAGE_KEY);
         } catch (_) { /* sem localStorage */ }
         post('/login');
@@ -113,23 +113,23 @@ export default function Login({ flash = {} }) {
                         )}
 
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            {/* E-mail */}
+                            {/* E-mail ou CPF */}
                             <div>
-                                <label className="block text-sm font-medium text-slate-600 mb-1.5">E-mail</label>
+                                <label className="block text-sm font-medium text-slate-600 mb-1.5">E-mail ou CPF</label>
                                 <div className="relative">
                                     <input
-                                        type="email"
-                                        value={data.email}
-                                        onChange={(e) => setData('email', e.target.value)}
-                                        placeholder="Digite seu e-mail"
+                                        type="text"
+                                        value={data.login}
+                                        onChange={(e) => setData('login', e.target.value)}
+                                        placeholder="Digite seu e-mail ou CPF"
                                         autoFocus
                                         autoComplete="username"
                                         className={`w-full pl-4 pr-11 py-3 rounded-xl text-sm text-slate-800 placeholder-slate-400 border bg-slate-50/60 outline-none transition-all
-                                            ${errors.email ? 'border-red-400 focus:ring-2 focus:ring-red-200' : 'border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'}`}
+                                            ${errors.login ? 'border-red-400 focus:ring-2 focus:ring-red-200' : 'border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'}`}
                                     />
                                     <i className="fas fa-user absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
                                 </div>
-                                {errors.email && <p className="mt-1.5 text-sm text-red-600 flex items-center gap-1.5"><i className="fas fa-exclamation-circle text-xs" /> {errors.email}</p>}
+                                {errors.login && <p className="mt-1.5 text-sm text-red-600 flex items-center gap-1.5"><i className="fas fa-exclamation-circle text-xs" /> {errors.login}</p>}
                             </div>
 
                             {/* Senha */}

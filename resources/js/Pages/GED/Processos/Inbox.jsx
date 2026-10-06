@@ -8,6 +8,7 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Card from '../../../Components/Card';
 import Button from '../../../Components/Button';
+import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
 
 function getSlaInfo(prazo) {
     if (!prazo) return { label: 'Sem prazo', color: 'bg-gray-100 text-gray-500', rowTint: '' };
@@ -27,6 +28,8 @@ function getSlaInfo(prazo) {
 }
 
 export default function Inbox({ tramitacoes }) {
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const lista = tramitacoes?.data || tramitacoes || [];
 
     const handleReceber = (id) => {
@@ -53,9 +56,9 @@ export default function Inbox({ tramitacoes }) {
                         <p className="text-xs mt-1">Nenhum processo aguardando sua acao</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div ref={scrollRef} className="overflow-auto">
                         <table className="w-full text-sm">
-                            <thead>
+                            <thead className="sticky top-0 z-20 bg-gray-50">
                                 <tr className="border-b border-gray-200 bg-gray-50">
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Protocolo</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Assunto</th>

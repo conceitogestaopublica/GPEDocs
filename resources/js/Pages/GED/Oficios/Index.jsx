@@ -8,6 +8,8 @@ import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
+import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
+import { useConfirm } from '../../../Components/ConfirmProvider';
 
 const STATUS_MAP = {
     rascunho:   { label: 'Rascunho',   color: 'bg-gray-100 text-gray-600',   icon: 'fas fa-edit',        desc: 'Em elaboracao' },
@@ -19,6 +21,9 @@ const STATUS_MAP = {
 };
 
 export default function OficiosIndex({ oficios, filters }) {
+    const confirmar = useConfirm();
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const data = oficios?.data || oficios || [];
     const [search, setSearch] = useState(filters?.search || '');
     const [statusFilter, setStatusFilter] = useState(filters?.status || '');
@@ -95,9 +100,9 @@ export default function OficiosIndex({ oficios, filters }) {
                 </div>
 
                 {/* Tabela */}
-                <div className="overflow-x-auto">
+                <div ref={scrollRef} className="overflow-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
+                        <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
                             <tr>
                                 <th className="px-4 py-3 text-left font-semibold">Numero</th>
                                 <th className="px-4 py-3 text-left font-semibold">Assunto</th>
@@ -160,8 +165,8 @@ export default function OficiosIndex({ oficios, filters }) {
                                                     onClick={() => router.visit(`/oficios/${oficio.id}`)} />
                                                 {oficio.status !== 'arquivado' && (
                                                     <ActionBtn icon="fas fa-archive" title="Arquivar"
-                                                        onClick={() => {
-                                                            if (confirm('Arquivar este oficio?'))
+                                                        onClick={async () => {
+                                                            if (await confirmar({ titulo: 'Arquivar este ofício?', rotuloConfirmar: 'Arquivar' }))
                                                                 router.post(`/oficios/${oficio.id}/arquivar`, {}, { preserveState: true, preserveScroll: true });
                                                         }} />
                                                 )}

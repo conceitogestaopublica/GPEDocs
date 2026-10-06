@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -15,21 +14,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Estrutura base (ordem importa por dependências de FK)
-        $this->call(GedSeeder::class);                 // tipos documentais, roles, permissões, tags, admin@ged.local, pastas-modelo
-        $this->call(EnderecosDemoSeeder::class);       // uf + municipio + bairro + logradouro (precisa vir antes da UG modelo)
+        // Só ESTRUTURA — a mesma lista, na mesma ordem, do docs:template-restore (que é o
+        // caminho normal de montar um tenant). Usuários vêm do legado (super admins), não de
+        // seeder. Os seeders de conteúdo demo (Documentos/Processos/MemorandosOficios/
+        // PortalSolicitacao) não entram: dependiam dos usuários demo, que foram removidos.
+        $this->call(GedSeeder::class);                 // tipos documentais, roles, permissões, tags, pastas-modelo
+        $this->call(EnderecosDemoSeeder::class);       // uf + municipio + bairro + logradouro (antes da UG modelo)
         $this->call(UgModeloSeeder::class);            // UG modelo + organograma 3 níveis
-
-        // Usuários demo + vínculos UG/roles
-        $this->call(UsuariosDemoSeeder::class);
-
-        // Conteúdo demo
-        $this->call(DocumentosDemoSeeder::class);      // documentos + versões + metadados + tags
-        $this->call(ProcessosDemoSeeder::class);       // tipos de processo + processos + tramitações
-        $this->call(MemorandosOficiosDemoSeeder::class);
-
-        // Portal do cidadão
-        $this->call(PortalServicosSeeder::class);      // categorias + serviços
-        $this->call(PortalSolicitacaoDemoSeeder::class); // cidadão + 1 solicitação
+        $this->call(PortalServicosSeeder::class);      // portal: categorias + serviços
     }
 }

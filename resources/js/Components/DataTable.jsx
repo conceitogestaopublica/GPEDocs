@@ -11,9 +11,11 @@
  *   - searchable: boolean — habilita campo de busca (default: true)
  *   - actions: function(row) — renderiza coluna de ações
  *   - emptyMessage: string — mensagem quando não há dados
+ *   - fillHeight: boolean — rola só por dentro, sem scroll da página (default: true, padrão gpe2)
  */
 import { useState } from 'react';
 import { Link, router } from '@inertiajs/react';
+import useFillViewportHeight from '../Hooks/useFillViewportHeight';
 
 export default function DataTable({
     columns = [],
@@ -23,8 +25,10 @@ export default function DataTable({
     actions = null,
     emptyMessage = 'Nenhum registro encontrado.',
     onSearch = null,
+    fillHeight = true,
 }) {
     const [search, setSearch] = useState('');
+    const scrollRef = useFillViewportHeight();
 
     const handleSearch = (e) => {
         e.preventDefault();
@@ -58,9 +62,10 @@ export default function DataTable({
             )}
 
             {/* Tabela */}
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <div ref={fillHeight ? scrollRef : undefined}
+                className={`${fillHeight ? 'overflow-auto' : 'overflow-x-auto'} rounded-lg border border-gray-200`}>
                 <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+                    <thead className={`bg-gray-50 text-gray-600 uppercase text-xs tracking-wider${fillHeight ? ' sticky top-0 z-20' : ''}`}>
                         <tr>
                             {columns.map((col) => (
                                 <th key={col.key} className={`px-4 py-3 font-semibold ${col.className || ''}`}>

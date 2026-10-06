@@ -10,6 +10,7 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import { useConfirm } from '../../../Components/ConfirmProvider';
 
 const STATUS_MAP = {
     rascunho:   { label: 'Rascunho',   color: 'bg-gray-100 text-gray-600',   icon: 'fas fa-edit' },
@@ -23,6 +24,7 @@ const STATUS_MAP = {
 const TIMELINE_STEPS = ['enviado', 'entregue', 'lido', 'respondido'];
 
 export default function OficiosShow({ oficio }) {
+    const confirmar = useConfirm();
     const of = oficio || {};
     const respostas = of.respostas || [];
     const anexos = of.anexos || [];
@@ -109,8 +111,8 @@ export default function OficiosShow({ oficio }) {
 
                         {of.status !== 'arquivado' && (
                             <Button variant="secondary" icon="fas fa-archive"
-                                onClick={() => {
-                                    if (confirm('Arquivar este oficio?'))
+                                onClick={async () => {
+                                    if (await confirmar({ titulo: 'Arquivar este ofício?', rotuloConfirmar: 'Arquivar' }))
                                         router.post(`/oficios/${of.id}/arquivar`);
                                 }}>
                                 Arquivar

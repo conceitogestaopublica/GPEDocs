@@ -9,6 +9,7 @@ import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
 import AssinarModal from '../../../Components/AssinarModal';
+import { useConfirm } from '../../../Components/ConfirmProvider';
 
 export default function Assinaturas({ pendentes, aguardando_outros, concluidas, assinadas, filtros = {}, sistemas_origem = [], tipos_documentais = [], pastas = [] }) {
     // Retro-compat: se backend antigo só mandar `assinadas`, usa ele como `concluidas`.
@@ -280,6 +281,7 @@ function AssinadasView({ assinadas, filtrosIniciais, emptyText, showAguardandoBa
 }
 
 function AssinadaRow({ a, showAguardandoBadge = false, permitirArquivar = false, selecionado = false, onToggleSel, onArquivar }) {
+    const confirmar = useConfirm();
     const ehQualificada = a.tipo_assinatura === 'qualificada';
     const dataFmt = a.assinado_em
         ? new Date(a.assinado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -356,7 +358,7 @@ function AssinadaRow({ a, showAguardandoBadge = false, permitirArquivar = false,
                         </a>
                     )}
                     {showAguardandoBadge && (
-                        <button onClick={() => simularRestantes(a.id)}
+                        <button onClick={() => simularRestantes(a.id, confirmar)}
                             className="text-[11px] px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors flex items-center gap-1"
                             title="DEV: simular assinatura dos signatários pendentes e fechar o ciclo">
                             <i className="fas fa-flask" /> Simular restantes
@@ -375,8 +377,8 @@ function AssinadaRow({ a, showAguardandoBadge = false, permitirArquivar = false,
     );
 }
 
-function simularRestantes(assinaturaId) {
-    if (! confirm('DEV ONLY — Marcar todas as assinaturas pendentes desta solicitação como assinadas (sem certificado real) e disparar o webhook final?')) return;
+async function simularRestantes(assinaturaId, confirmar) {
+    if (! await confirmar({ titulo: 'Simular as assinaturas restantes?', descricao: 'DEV ONLY — marca todas as assinaturas pendentes desta solicitação como assinadas (sem certificado real) e dispara o webhook final.', tom: 'atencao', rotuloConfirmar: 'Simular' })) return;
     router.post(`/assinaturas/${assinaturaId}/simular-restantes`, {}, {
         preserveScroll: true,
     });

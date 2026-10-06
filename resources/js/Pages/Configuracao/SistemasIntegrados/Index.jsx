@@ -9,8 +9,14 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
+import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
+import { useConfirm, useNotificar } from '../../../Components/ConfirmProvider';
 
 export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
+    const confirmar = useConfirm();
+    const notificar = useNotificar();
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const { props } = usePage();
     const tokenGerado = props.flash?.token_gerado;
 
@@ -63,9 +69,9 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                         <p className="text-xs mt-1">Cadastre um sistema para gerar API token e habilitar a integracao.</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div ref={scrollRef} className="overflow-auto">
                         <table className="w-full text-sm">
-                            <thead className="bg-gray-50 text-gray-500 uppercase text-[10px]">
+                            <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px]">
                                 <tr>
                                     <th className="px-3 py-2.5 text-left font-semibold">Codigo</th>
                                     <th className="px-3 py-2.5 text-left font-semibold">Nome</th>
@@ -117,8 +123,8 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                                                     className={`text-[11px] px-2 py-1 rounded bg-white border ${s.ativo ? 'border-orange-300 text-orange-700 hover:bg-orange-50' : 'border-green-300 text-green-700 hover:bg-green-50'}`}>
                                                     <i className={`fas fa-${s.ativo ? 'eye-slash' : 'eye'}`} />
                                                 </button>
-                                                <button onClick={() => {
-                                                        if (confirm('Excluir este sistema? Apenas se nao tiver documentos enviados.')) {
+                                                <button onClick={async () => {
+                                                        if (await confirmar({ titulo: 'Excluir este sistema?', descricao: 'Só é possível excluir um sistema que ainda não enviou documentos.', tom: 'perigo', rotuloConfirmar: 'Excluir' })) {
                                                             router.delete(`/configuracoes/sistemas-integrados/${s.id}`);
                                                         }
                                                     }} title="Excluir"
@@ -145,9 +151,9 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                             <p className="text-xs mt-1">Os logs aparecem aqui quando documentos sao assinados.</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
+                        <div ref={scrollRef} className="overflow-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-gray-50 text-gray-500 uppercase text-[10px]">
+                                <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px]">
                                     <tr>
                                         <th className="px-3 py-2.5 text-left font-semibold">Sistema</th>
                                         <th className="px-3 py-2.5 text-left font-semibold">Evento</th>
@@ -323,7 +329,7 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                                         className="ds-input font-mono text-xs flex-1" />
                                     <Button type="button" icon="fas fa-copy" onClick={() => {
                                         navigator.clipboard?.writeText(tokenExibido.token);
-                                        alert('Token copiado!');
+                                        notificar('Token copiado!');
                                     }}>Copiar</Button>
                                 </div>
                                 <p className="mt-1 text-[10px] text-gray-500">
@@ -344,7 +350,7 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                                         className="ds-input font-mono text-xs flex-1" />
                                     <Button type="button" icon="fas fa-copy" onClick={() => {
                                         navigator.clipboard?.writeText(tokenExibido.webhook_secret);
-                                        alert('Webhook secret copiado!');
+                                        notificar('Webhook secret copiado!');
                                     }}>Copiar</Button>
                                 </div>
                                 <p className="mt-1 text-[10px] text-gray-500">

@@ -7,6 +7,7 @@ import { Head, Link } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import StatCard from '../../../Components/StatCard';
 import Card from '../../../Components/Card';
+import FavoritarRotina from '../../../Components/FavoritarRotina';
 
 export default function Dashboard({ stats, atividade_recente, fluxos_pendentes }) {
     const s = stats || {};
@@ -18,7 +19,10 @@ export default function Dashboard({ stats, atividade_recente, fluxos_pendentes }
             {/* Header */}
             <div className="ds-page-header">
                 <div>
-                    <h1>Dashboard</h1>
+                    <div className="flex items-center gap-1.5">
+                        <h1>Dashboard</h1>
+                        <FavoritarRotina />
+                    </div>
                     <p>Visao geral do sistema de gestao documental</p>
                 </div>
             </div>
