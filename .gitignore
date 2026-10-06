@@ -28,8 +28,6 @@ Thumbs.db
 
 # Dumps de banco e pacotes de documentação contêm dados pessoais e credenciais:
 # nunca versionar (ficam só na máquina de quem faz o deploy).
-/database/backups/*.sql
-/database/backups/*.dump
-/database/backups/*.tar.gz
+/database/backups/*
 /docs/*.rar
 .env.bak*
