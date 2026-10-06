@@ -20,7 +20,7 @@ const TABS = [
     { key: 'auditoria', label: 'Auditoria', icon: 'fas fa-shield-alt' },
 ];
 
-export default function Show({ documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito, usuarios, versao_assinada }) {
+export default function Show({ documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito, usuarios, versao_assinada, pode_nova_versao }) {
     const confirmar = useConfirm();
     const [activeTab, setActiveTab] = useState('visualizar');
     const [statusOpen, setStatusOpen] = useState(false);
@@ -182,7 +182,7 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
                     {activeTab === 'visualizar' && <TabVisualizar documento={doc} versaoAssinada={versao_assinada} />}
                     {activeTab === 'metadados' && <TabMetadados metadados={metadados} documento={doc} />}
                     {activeTab === 'assinaturas' && <TabAssinaturas documento={doc} usuarios={usuarios || []} />}
-                    {activeTab === 'versoes' && <TabVersoes versoes={versoes} documentoId={doc.id} />}
+                    {activeTab === 'versoes' && <TabVersoes versoes={versoes} documentoId={doc.id} podeNovaVersao={pode_nova_versao} />}
                     {activeTab === 'auditoria' && <TabAuditoria logs={audit_logs} />}
                 </div>
             </div>
@@ -278,10 +278,47 @@ function TabMetadados({ metadados, documento }) {
     );
 }
 
-function TabVersoes({ versoes, documentoId }) {
+function TabVersoes({ versoes, documentoId, podeNovaVersao }) {
     const vers = versoes || [];
+    const confirmar = useConfirm();
+    const { data, setData, post, processing, reset, errors } = useForm({ arquivo: null, comentario: '' });
+
+    const enviar = (e) => {
+        e.preventDefault();
+        post(`/documentos/${documentoId}/versoes`, { forceFormData: true, onSuccess: () => reset() });
+    };
+
+    const restaurar = async (v) => {
+        if (await confirmar({
+            titulo: `Restaurar a versão ${v.versao}?`,
+            descricao: 'Ela vira a versão atual como uma nova versão. As versões existentes não são alteradas.',
+            rotuloConfirmar: 'Restaurar',
+        })) {
+            router.post(`/documentos/${documentoId}/versoes/${v.versao}/restaurar`);
+        }
+    };
+
     return (
-        <div>
+        <div className="space-y-4">
+            {podeNovaVersao ? (
+                <form onSubmit={enviar} className="bg-blue-50 rounded-xl p-4 flex flex-wrap items-end gap-3">
+                    <div className="flex-1 min-w-[220px]">
+                        <label className="text-xs font-medium text-blue-800 block mb-1">Nova versão</label>
+                        <input type="file" onChange={(e) => setData('arquivo', e.target.files[0])} className="ds-input !h-auto py-1.5" />
+                        {errors.arquivo && <p className="text-xs text-red-600 mt-1">{errors.arquivo}</p>}
+                    </div>
+                    <div className="flex-1 min-w-[220px]">
+                        <label className="text-xs font-medium text-blue-800 block mb-1">Comentário</label>
+                        <input type="text" value={data.comentario} onChange={(e) => setData('comentario', e.target.value)}
+                            className="ds-input" placeholder="O que mudou nesta versão" maxLength={500} />
+                    </div>
+                    <Button type="submit" size="sm" icon="fas fa-upload" loading={processing} disabled={!data.arquivo}>Enviar versão</Button>
+                </form>
+            ) : (
+                <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+                    <i className="fas fa-lock mr-1" />Novas versões ficam bloqueadas enquanto houver assinatura em andamento ou se o documento foi cancelado.
+                </p>
+            )}
             <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
                     <tr>
@@ -290,19 +327,29 @@ function TabVersoes({ versoes, documentoId }) {
                         <th className="px-4 py-3 text-left font-semibold">Tamanho</th>
                         <th className="px-4 py-3 text-left font-semibold">Data</th>
                         <th className="px-4 py-3 text-left font-semibold">Comentario</th>
-                        <th className="px-4 py-3 text-center font-semibold w-24">Acao</th>
+                        <th className="px-4 py-3 text-center font-semibold w-40">Acao</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                     {vers.map(v => (
                         <tr key={v.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium">v{v.versao}</td>
+                            <td className="px-4 py-3 font-medium">
+                                v{v.versao}
+                                {v.atual && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-semibold">atual</span>}
+                            </td>
                             <td className="px-4 py-3 text-gray-500">{v.autor_nome || '-'}</td>
                             <td className="px-4 py-3 text-gray-500">{formatBytes(v.tamanho)}</td>
                             <td className="px-4 py-3 text-gray-400 text-xs">{formatDate(v.created_at)}</td>
-                            <td className="px-4 py-3 text-gray-500 truncate max-w-xs">{v.comentario || '-'}</td>
-                            <td className="px-4 py-3 text-center">
-                                <button className="text-blue-600 hover:text-blue-800 text-xs font-medium">Restaurar</button>
+                            <td className="px-4 py-3 text-gray-500 truncate max-w-xs" title={v.hash ? `SHA-256 ${v.hash}` : ''}>{v.comentario || '-'}</td>
+                            <td className="px-4 py-3 text-center whitespace-nowrap">
+                                <a href={`/documentos/${documentoId}/versoes/${v.versao}/download`} className="text-blue-600 hover:text-blue-800 text-xs font-medium mr-3">
+                                    <i className="fas fa-download mr-1" />Baixar
+                                </a>
+                                {!v.atual && podeNovaVersao && (
+                                    <button onClick={() => restaurar(v)} className="text-blue-600 hover:text-blue-800 text-xs font-medium">
+                                        <i className="fas fa-undo mr-1" />Restaurar
+                                    </button>
+                                )}
                             </td>
                         </tr>
                     ))}
@@ -310,7 +357,7 @@ function TabVersoes({ versoes, documentoId }) {
             </table>
             {vers.length === 0 && (
                 <div className="py-8 text-center text-gray-400">
-                    <p className="text-sm">Nenhuma versao anterior</p>
+                    <p className="text-sm">Nenhuma versao registrada</p>
                 </div>
             )}
         </div>
@@ -337,9 +384,9 @@ function TabAuditoria({ logs }) {
                             <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(log.created_at)}</td>
                             <td className="px-4 py-3 text-gray-700 font-medium">{log.usuario_nome || '-'}</td>
                             <td className="px-4 py-3">
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{log.acao}</span>
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{ACOES_AUDITORIA[log.acao] || log.acao}</span>
                             </td>
-                            <td className="px-4 py-3 text-gray-500 text-xs truncate max-w-xs">{JSON.stringify(log.detalhes)}</td>
+                            <td className="px-4 py-3 text-gray-500 text-xs max-w-md">{descreverDetalhes(log.detalhes)}</td>
                             <td className="px-4 py-3 text-gray-400 text-xs">{log.ip || '-'}</td>
                         </tr>
                     ))}
@@ -618,6 +665,25 @@ function InfoRow({ label, value }) {
             <p className="text-sm text-gray-700 mt-0.5">{value || '-'}</p>
         </div>
     );
+}
+
+const ACOES_AUDITORIA = {
+    criacao: 'Criação', captura: 'Captura', visualizacao: 'Visualização', download: 'Download',
+    edicao: 'Edição', alteracao_status: 'Situação alterada', movimentacao: 'Mudança de pasta',
+    exclusao: 'Exclusão', nova_versao: 'Nova versão', solicitacao_assinatura: 'Assinatura solicitada',
+    assinatura: 'Assinatura', assinatura_qualificada_icp: 'Assinatura ICP-Brasil', recusa_assinatura: 'Assinatura recusada',
+    cancelado_via_integracao: 'Cancelado pela origem',
+};
+
+/** Detalhes do log em texto legível: "campo: antes → depois" ou "chave: valor". */
+function descreverDetalhes(detalhes) {
+    if (!detalhes || typeof detalhes !== 'object') return detalhes || '-';
+    const partes = Object.entries(detalhes).map(([k, v]) => {
+        if (v && typeof v === 'object' && 'de' in v) return `${k}: ${v.de ?? '—'} → ${v.para ?? '—'}`;
+        if (v && typeof v === 'object') return `${k}: ${JSON.stringify(v)}`;
+        return `${k}: ${v}`;
+    });
+    return partes.length ? partes.join(' · ') : '-';
 }
 
 function getFileIcon(mime) {

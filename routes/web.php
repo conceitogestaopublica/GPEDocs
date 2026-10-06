@@ -174,6 +174,9 @@ Route::middleware('auth')->group(function () {
     Route::get('documentos/{id}/download', [DocumentoController::class, 'download'])->name('documentos.download')->middleware('can:documento.download');
     Route::get('documentos/{id}/preview', [DocumentoController::class, 'preview'])->name('documentos.preview')->middleware('can:documento.visualizar');
     Route::post('documentos/{id}/favorito', [DocumentoController::class, 'toggleFavorito'])->name('documentos.favorito')->middleware('can:documento.visualizar');
+    Route::post('documentos/{id}/versoes', [DocumentoController::class, 'novaVersao'])->name('documentos.versoes.store')->middleware('can:documento.editar');
+    Route::post('documentos/{id}/versoes/{versao}/restaurar', [DocumentoController::class, 'restaurarVersao'])->name('documentos.versoes.restaurar')->middleware('can:documento.editar');
+    Route::get('documentos/{id}/versoes/{versao}/download', [DocumentoController::class, 'downloadVersao'])->name('documentos.versoes.download')->middleware('can:documento.download');
 
     // Rotinas favoritas (Ctrl+K → estrela) — por usuário × UG. Não são os documentos favoritos acima.
     Route::post('rotinas/favoritos', [\App\Http\Controllers\RotinaFavoritaController::class, 'store'])->name('rotinas.favoritos.store');
