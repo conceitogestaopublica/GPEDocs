@@ -933,6 +933,10 @@ class AssinaturaController extends Controller
             return response()->json(['erro' => 'Falha ao preparar assinatura: ' . $e->getMessage()], 500);
         }
 
+        // A sessão só pode ser finalizada por quem a abriu e para esta mesma assinatura.
+        \Illuminate\Support\Facades\Cache::put('icp_a3_dono:' . $resultado['sessao_id'],
+            ['user_id' => Auth::id(), 'assinatura_id' => $assinatura->id], now()->addMinutes(30));
+
         return response()->json([
             'sessao_id'        => $resultado['sessao_id'],
             'hash_a_assinar'   => $resultado['hash_a_assinar'],
@@ -971,6 +975,11 @@ class AssinaturaController extends Controller
         }
         if ($impedimento = $this->impedimentoDaSolicitacao($assinatura)) {
             return response()->json(['erro' => $impedimento], 409);
+        }
+
+        $dono = \Illuminate\Support\Facades\Cache::get('icp_a3_dono:' . $request->input('sessao_id'));
+        if (! $dono || $dono['user_id'] !== Auth::id() || $dono['assinatura_id'] !== $assinatura->id) {
+            return response()->json(['erro' => 'Sessão de assinatura inválida para esta assinatura.'], 403);
         }
 
         try {
