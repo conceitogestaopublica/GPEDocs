@@ -47,6 +47,14 @@ class AssinaturaController extends Controller
             ->where('status', 'pendente')
             // Solicitação recusada por outro signatário ou cancelada não pede mais nada.
             ->whereHas('solicitacao', fn ($q) => $q->whereNotIn('status', ['recusada', 'cancelada']))
+            // Em ordem: some até os de ordem menor assinarem.
+            ->whereNotExists(fn ($q) => $q->select(\DB::raw(1))
+                ->from('ged_assinaturas as anterior')
+                ->join('ged_solicitacoes_assinatura as sol', 'sol.id', '=', 'anterior.solicitacao_id')
+                ->where('sol.sequencial', true)
+                ->whereColumn('anterior.solicitacao_id', 'ged_assinaturas.solicitacao_id')
+                ->whereColumn('anterior.ordem', '<', 'ged_assinaturas.ordem')
+                ->where('anterior.status', '!=', 'assinado'))
             ->when($origem, $filtroOrigem)
             ->orderByDesc('created_at')
             ->get();
@@ -154,6 +162,7 @@ class AssinaturaController extends Controller
             'signatarios.*' => ['required', 'integer', 'exists:users,id'],
             'mensagem'      => ['nullable', 'string'],
             'prazo'         => ['nullable', 'date'],
+            'sequencial'    => ['nullable', 'boolean'],
         ]);
 
         $documento = Documento::with('versaoAtual')->findOrFail($documentoId);
@@ -164,6 +173,7 @@ class AssinaturaController extends Controller
             'status'        => 'pendente',
             'mensagem'      => $request->input('mensagem'),
             'prazo'         => $request->input('prazo'),
+            'sequencial'    => $request->boolean('sequencial'),
         ]);
 
         foreach ($request->input('signatarios') as $idx => $userId) {
@@ -177,6 +187,10 @@ class AssinaturaController extends Controller
                 'status'          => 'pendente',
                 'email_signatario'=> $user->email,
             ]);
+
+            if ($request->boolean('sequencial') && $idx > 0) {
+                continue; // em ordem: avisado quando chegar a vez (avisarProximos)
+            }
 
             Notificacao::create([
                 'usuario_id'      => $userId,
@@ -209,6 +223,7 @@ class AssinaturaController extends Controller
             'signatarios.*'  => ['required', 'integer', 'exists:users,id'],
             'mensagem'       => ['nullable', 'string'],
             'prazo'          => ['nullable', 'date'],
+            'sequencial'     => ['nullable', 'boolean'],
         ]);
 
         $count = 0;
@@ -222,6 +237,7 @@ class AssinaturaController extends Controller
                 'status'         => 'pendente',
                 'mensagem'       => $request->input('mensagem'),
                 'prazo'          => $request->input('prazo'),
+                'sequencial'     => $request->boolean('sequencial'),
             ]);
 
             foreach ($request->input('signatarios') as $idx => $userId) {
@@ -235,6 +251,10 @@ class AssinaturaController extends Controller
                     'status'           => 'pendente',
                     'email_signatario' => $user->email,
                 ]);
+
+                if ($request->boolean('sequencial') && $idx > 0) {
+                    continue; // em ordem: avisado quando chegar a vez
+                }
 
                 Notificacao::create([
                     'usuario_id'      => $userId,
@@ -297,6 +317,7 @@ class AssinaturaController extends Controller
         // Verificar se todas as assinaturas da solicitacao foram concluidas
         $solicitacao = $assinatura->solicitacao;
         $todasAssinadas = $this->todasAssinadas($solicitacao);
+        $this->avisarProximos($assinatura);
 
         // Webhook por assinatura individual (sistemas que escutam .individual)
         $this->dispararWebhook($solicitacao, 'assinatura.individual', [
@@ -348,8 +369,49 @@ class AssinaturaController extends Controller
         return match ($assinatura->solicitacao?->status) {
             'recusada'  => 'Esta solicitação foi recusada por um signatário e não aceita mais assinaturas.',
             'cancelada' => 'Esta solicitação foi cancelada.',
-            default     => null,
+            default     => $this->ehAVez($assinatura) ? null
+                : 'Esta solicitação é em ordem: aguarde a assinatura dos signatários anteriores.',
         };
+    }
+
+    /** Em solicitação sequencial, só assina quem não tem ninguém de ordem menor por assinar. */
+    private function ehAVez(Assinatura $assinatura): bool
+    {
+        if (! $assinatura->solicitacao?->sequencial) {
+            return true;
+        }
+
+        return ! Assinatura::where('solicitacao_id', $assinatura->solicitacao_id)
+            ->where('ordem', '<', $assinatura->ordem)
+            ->where('status', '!=', 'assinado')
+            ->exists();
+    }
+
+    /**
+     * Depois de uma assinatura em solicitação sequencial: se a ordem avançou, avisa quem
+     * passou a poder assinar (na criação só o primeiro foi avisado).
+     */
+    private function avisarProximos(Assinatura $assinada): void
+    {
+        $solicitacao = $assinada->solicitacao;
+        if (! $solicitacao?->sequencial) {
+            return;
+        }
+
+        $proximaOrdem = $solicitacao->assinaturas()->where('status', 'pendente')->min('ordem');
+        if ($proximaOrdem === null || $proximaOrdem <= $assinada->ordem) {
+            return; // ainda falta alguém da mesma ordem
+        }
+
+        $solicitacao->assinaturas()->where('status', 'pendente')->where('ordem', $proximaOrdem)->get()
+            ->each(fn (Assinatura $a) => Notificacao::create([
+                'usuario_id'      => $a->signatario_id,
+                'tipo'            => 'assinatura_pendente',
+                'titulo'          => 'Sua vez de assinar',
+                'mensagem'        => "Chegou a sua vez de assinar o documento \"{$solicitacao->documento?->nome}\".",
+                'referencia_tipo' => 'documento',
+                'referencia_id'   => $solicitacao->documento_id,
+            ]));
     }
 
     /** Concluída só quando TODAS foram assinadas — recusa não conta como assinatura. */
@@ -754,6 +816,7 @@ class AssinaturaController extends Controller
         $solicitacao = $assinatura->solicitacao;
         $todasAssinadas = $this->todasAssinadas($solicitacao);
         $solicitacao->update(['status' => $todasAssinadas ? 'concluida' : 'em_andamento']);
+        $this->avisarProximos($assinatura);
 
         // Webhook por assinatura individual (ICP-Brasil A1)
         $this->dispararWebhook($solicitacao, 'assinatura.individual', [
@@ -979,6 +1042,7 @@ class AssinaturaController extends Controller
         $solicitacao = $assinatura->solicitacao;
         $todasAssinadas = $this->todasAssinadas($solicitacao);
         $solicitacao->update(['status' => $todasAssinadas ? 'concluida' : 'em_andamento']);
+        $this->avisarProximos($assinatura);
 
         // Webhook por assinatura individual (ICP-Brasil A3)
         $this->dispararWebhook($solicitacao, 'assinatura.individual', [

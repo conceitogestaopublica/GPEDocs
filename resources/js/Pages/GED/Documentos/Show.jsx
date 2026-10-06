@@ -443,6 +443,7 @@ function TabAssinaturas({ documento, usuarios }) {
         signatarios: [],
         mensagem: '',
         prazo: '',
+        sequencial: false,
     });
 
     const toggleUser = (id) => {
@@ -484,9 +485,19 @@ function TabAssinaturas({ documento, usuarios }) {
                                     className="rounded border-gray-300 text-blue-600 w-3.5 h-3.5" />
                                 <span className="text-gray-700">{u.name}</span>
                                 <span className="text-xs text-gray-400">{u.email}</span>
+                                {data.sequencial && data.signatarios.includes(u.id) && (
+                                    <span className="ml-auto text-[10px] font-bold text-blue-700 bg-blue-100 rounded px-1.5">
+                                        {data.signatarios.indexOf(u.id) + 1}º
+                                    </span>
+                                )}
                             </label>
                         ))}
                     </div>
+                    <label className="flex items-center gap-2 text-sm text-blue-800 cursor-pointer">
+                        <input type="checkbox" checked={data.sequencial} onChange={(e) => setData('sequencial', e.target.checked)}
+                            className="rounded border-gray-300 text-blue-600 w-3.5 h-3.5" />
+                        Assinar na ordem de seleção (cada um só assina depois do anterior)
+                    </label>
                     <textarea value={data.mensagem} onChange={(e) => setData('mensagem', e.target.value)}
                         className="ds-input !h-auto" rows={2} placeholder="Mensagem opcional..." />
                     <div className="flex items-center gap-3">
@@ -527,6 +538,7 @@ function TabAssinaturas({ documento, usuarios }) {
                                         </span>
                                     </div>
                                     {sol.mensagem && <p className="text-xs text-gray-600 mt-0.5">{sol.mensagem}</p>}
+                                    {sol.sequencial && <p className="text-[10px] text-blue-700 mt-0.5"><i className="fas fa-sort-numeric-down mr-1" />Assinatura em ordem</p>}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {sol.status === 'concluida' && (

@@ -72,6 +72,7 @@ class IntegracaoDocumentoController extends Controller
             'signatarios.*.signature_position.h'      => ['nullable', 'numeric'],
             'callback_url'   => ['nullable', 'url', 'max:500'],
             'pasta_codigo'   => ['nullable', 'string', 'max:100'],
+            'sequencial'     => ['nullable', 'boolean'], // true: cada signatario so assina apos os de ordem menor
         ]);
 
         // 1. Resolve UG por codigo — consultas antes da transação: os 422 abaixo saíam
@@ -209,6 +210,7 @@ class IntegracaoDocumentoController extends Controller
                 'solicitante_id' => $solicitante->id,
                 'status'         => 'pendente',
                 'mensagem'       => "Documento {$validated['numero']} enviado por {$sistema->nome} para assinatura.",
+                'sequencial'     => (bool) ($validated['sequencial'] ?? false),
             ]);
 
             $assinaturasResp = [];
