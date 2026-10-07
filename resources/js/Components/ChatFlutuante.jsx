@@ -274,7 +274,7 @@ export default function ChatFlutuante() {
                             <div className="flex-1 overflow-y-auto">
                                 {contatosFiltrados.length === 0 && (
                                     <p className="text-xs text-gray-400 text-center py-8">
-                                        {contatos.length === 0 ? 'Nenhum usuario disponivel na sua UG' : 'Nenhum resultado'}
+                                        {contatos.length === 0 ? 'Nenhum usuário disponível na sua UG' : 'Nenhum resultado'}
                                     </p>
                                 )}
                                 {contatosFiltrados.map(c => (

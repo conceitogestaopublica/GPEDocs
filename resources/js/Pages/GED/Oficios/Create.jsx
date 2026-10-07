@@ -72,10 +72,10 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
 
     return (
         <AdminLayout>
-            <Head title="Novo Oficio" />
+            <Head title="Novo Ofício" />
             <PageHeader
-                title="Novo Oficio"
-                subtitle={isFisico ? 'Registro de oficio no livro de controle' : 'Envio eletronico para destinatario externo'}
+                title="Novo Ofício"
+                subtitle={isFisico ? 'Registro de ofício no livro de controle' : 'Envio eletrônico para destinatário externo'}
             >
                 <Button variant="secondary" icon="fas fa-arrow-left" href="/oficios/controle">Voltar</Button>
             </PageHeader>
@@ -88,7 +88,7 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                             {/* Modo de envio */}
                             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                                 <label className="block text-sm font-medium text-navy-900 mb-2">
-                                    Como o oficio sera enviado?
+                                    Como o ofício será enviado?
                                 </label>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     <label className={`flex items-start gap-2 p-3 rounded-lg cursor-pointer border-2 transition-colors
@@ -98,10 +98,10 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                                             className="mt-1" />
                                         <div>
                                             <p className="text-sm font-semibold text-gray-800">
-                                                <i className="fas fa-book mr-1 text-blue-600" />Fisico / Impresso
+                                                <i className="fas fa-book mr-1 text-blue-600" />Físico / Impresso
                                             </p>
                                             <p className="text-[11px] text-gray-500 mt-0.5">
-                                                Apenas registrar no livro de controle. Sera impresso e entregue manualmente.
+                                                Apenas registrar no livro de controle. Será impresso e entregue manualmente.
                                             </p>
                                         </div>
                                     </label>
@@ -112,7 +112,7 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                                             className="mt-1" />
                                         <div>
                                             <p className="text-sm font-semibold text-gray-800">
-                                                <i className="fas fa-paper-plane mr-1 text-cyan-600" />Eletronico (Email)
+                                                <i className="fas fa-paper-plane mr-1 text-cyan-600" />Eletrônico (Email)
                                             </p>
                                             <p className="text-[11px] text-gray-500 mt-0.5">
                                                 Enviar por e-mail com rastreio de entrega e abertura.
@@ -126,7 +126,7 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                             {isFisico && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Data do Oficio
+                                        Data do Ofício
                                     </label>
                                     <input type="date" value={data.data_envio}
                                         onChange={(e) => setData('data_envio', e.target.value)}
@@ -144,7 +144,7 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                                     value={data.assunto}
                                     onChange={(e) => setData('assunto', e.target.value)}
                                     className="ds-input"
-                                    placeholder="Assunto do oficio"
+                                    placeholder="Assunto do ofício"
                                     required
                                 />
                                 {errors.assunto && <p className="text-xs text-red-500 mt-1">{errors.assunto}</p>}
@@ -154,7 +154,7 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Nome do Destinatario <span className="text-red-500">*</span>
+                                        Nome do Destinatário <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
@@ -169,7 +169,7 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        E-mail do Destinatario {!isFisico && <span className="text-red-500">*</span>}
+                                        E-mail do Destinatário {!isFisico && <span className="text-red-500">*</span>}
                                         {isFisico && <span className="text-xs text-gray-400 font-normal ml-1">(opcional)</span>}
                                     </label>
                                     <input
@@ -185,14 +185,14 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Cargo do Destinatario
+                                        Cargo do Destinatário
                                     </label>
                                     <input
                                         type="text"
                                         value={data.destinatario_cargo}
                                         onChange={(e) => setData('destinatario_cargo', e.target.value)}
                                         className="ds-input"
-                                        placeholder="Ex: Secretario de Administracao"
+                                        placeholder="Ex: Secretário de Administração"
                                     />
                                     {errors.destinatario_cargo && <p className="text-xs text-red-500 mt-1">{errors.destinatario_cargo}</p>}
                                 </div>
@@ -247,7 +247,7 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                             <div>
                                 <div className="flex items-end justify-between mb-2 gap-2 flex-wrap">
                                     <label className="block text-sm font-medium text-gray-700">
-                                        Conteudo <span className="text-red-500">*</span>
+                                        Conteúdo <span className="text-red-500">*</span>
                                     </label>
                                     {modelos.length > 0 && (
                                         <div className="flex items-center gap-2">
@@ -286,7 +286,7 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                                     html={data.conteudo}
                                     onChange={(html) => setData('conteudo', html)}
                                     minHeight={420}
-                                    placeholder="Digite o conteudo do oficio ou selecione um modelo acima..."
+                                    placeholder="Digite o conteúdo do ofício ou selecione um modelo acima..."
                                 />
                                 {errors.conteudo && <p className="text-xs text-red-500 mt-1">{errors.conteudo}</p>}
                             </div>
@@ -315,7 +315,7 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                                     icon="fas fa-paper-plane"
                                     disabled={!data.destinatario_nome || !data.destinatario_email}
                                 >
-                                    Enviar Oficio
+                                    Enviar Ofício
                                 </Button>
                             </div>
                         </form>
@@ -327,28 +327,28 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                     <div className="bg-white rounded-xl border border-gray-200 p-5">
                         <h3 className="text-sm font-semibold text-gray-800 mb-3">
                             <i className="fas fa-info-circle text-blue-500 mr-1.5" />
-                            {isFisico ? 'Registro no Livro' : 'Envio Eletronico'}
+                            {isFisico ? 'Registro no Livro' : 'Envio Eletrônico'}
                         </h3>
                         <div className="space-y-3 text-xs text-gray-600 leading-relaxed">
                             {isFisico ? (
                                 <>
                                     <p>
-                                        O oficio sera <strong>registrado no livro de controle</strong> para
+                                        O ofício será <strong>registrado no livro de controle</strong> para
                                         fins de auditoria, sem disparo de e-mail.
                                     </p>
                                     <p>
-                                        Apos o cadastro, voce podera imprimir o documento e entrega-lo
-                                        ao destinatario por meios fisicos.
+                                        Após o cadastro, você poderá imprimir o documento e entrega-lo
+                                        ao destinatário por meios físicos.
                                     </p>
                                 </>
                             ) : (
                                 <>
                                     <p>
-                                        O oficio sera <strong>enviado por e-mail</strong> ao destinatario,
+                                        O ofício será <strong>enviado por e-mail</strong> ao destinatário,
                                         com rastreio de entrega e abertura.
                                     </p>
                                     <p>
-                                        Apos o envio, acompanhe o status em tempo real na pagina de detalhes.
+                                        Após o envio, acompanhe o status em tempo real na página de detalhes.
                                     </p>
                                 </>
                             )}
@@ -362,9 +362,9 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                                 Rastreamento
                             </h3>
                             <div className="space-y-2">
-                                <TrackStep icon="fas fa-paper-plane" color="blue" label="Enviado" desc="Oficio criado e enviado" />
+                                <TrackStep icon="fas fa-paper-plane" color="blue" label="Enviado" desc="Ofício criado e enviado" />
                                 <TrackStep icon="fas fa-envelope" color="yellow" label="Entregue" desc="E-mail entregue na caixa" />
-                                <TrackStep icon="fas fa-eye" color="green" label="Lido" desc="Destinatario abriu o oficio" />
+                                <TrackStep icon="fas fa-eye" color="green" label="Lido" desc="Destinatário abriu o ofício" />
                                 <TrackStep icon="fas fa-reply" color="purple" label="Respondido" desc="Resposta recebida" />
                             </div>
                         </div>

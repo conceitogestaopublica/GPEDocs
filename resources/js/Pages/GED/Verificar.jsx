@@ -6,7 +6,7 @@ import { Head } from '@inertiajs/react';
 export default function Verificar({ documento, valido, assinaturas = [] }) {
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-            <Head title={valido ? 'Documento Verificado' : 'Verificacao'} />
+            <Head title={valido ? 'Documento Verificado' : 'Verificação'} />
 
             <div className="w-full max-w-lg">
                 {/* Header */}
@@ -14,8 +14,8 @@ export default function Verificar({ documento, valido, assinaturas = [] }) {
                     <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-blue-200 mb-3">
                         <i className="fas fa-archive text-white text-xl" />
                     </div>
-                    <h1 className="text-xl font-bold text-gray-800">GED - Verificacao de Documento</h1>
-                    <p className="text-sm text-gray-500">Conceito Gestao Publica</p>
+                    <h1 className="text-xl font-bold text-gray-800">GED - Verificação de Documento</h1>
+                    <p className="text-sm text-gray-500">Conceito Gestão Pública</p>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
@@ -27,7 +27,7 @@ export default function Verificar({ documento, valido, assinaturas = [] }) {
                                     <i className="fas fa-check-circle text-green-600 text-lg" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-semibold text-green-800">Documento Autentico</p>
+                                    <p className="text-sm font-semibold text-green-800">Documento Autêntico</p>
                                     <p className="text-xs text-green-600">Este documento foi registrado e verificado no sistema GED</p>
                                 </div>
                             </div>
@@ -46,8 +46,8 @@ export default function Verificar({ documento, valido, assinaturas = [] }) {
                                     </>
                                 )}
                                 <InfoRow label="Status" value={documento.status} />
-                                <InfoRow label="Classificacao" value={documento.classificacao} />
-                                <InfoRow label="Versao" value={`v${documento.versao}`} />
+                                <InfoRow label="Classificação" value={documento.classificacao} />
+                                <InfoRow label="Versão" value={`v${documento.versao}`} />
                                 <InfoRow label="Criado em" value={documento.criado_em} />
                                 <InfoRow label="Atualizado em" value={documento.atualizado_em} />
 
@@ -92,8 +92,8 @@ export default function Verificar({ documento, valido, assinaturas = [] }) {
                                     <i className="fas fa-times-circle text-red-600 text-lg" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-semibold text-red-800">Documento Nao Encontrado</p>
-                                    <p className="text-xs text-red-600">O codigo informado nao corresponde a nenhum documento registrado</p>
+                                    <p className="text-sm font-semibold text-red-800">Documento Não Encontrado</p>
+                                    <p className="text-xs text-red-600">O código informado não corresponde a nenhum documento registrado</p>
                                 </div>
                             </div>
 
@@ -106,7 +106,7 @@ export default function Verificar({ documento, valido, assinaturas = [] }) {
                 </div>
 
                 <p className="text-center text-[10px] text-gray-400 mt-4">
-                    GED — Gestao Eletronica de Documentos — Conceito Gestao Publica
+                    GED — Gestão Eletrônica de Documentos — Conceito Gestão Pública
                 </p>
             </div>
         </div>

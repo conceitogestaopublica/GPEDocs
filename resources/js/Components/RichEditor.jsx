@@ -45,11 +45,11 @@ export default function RichEditor({ html, onChange, minHeight = 350, placeholde
                     onChange={(e) => { exec('formatBlock', e.target.value); e.target.value = ''; }}
                     defaultValue="">
                     <option value="" disabled>Estilo</option>
-                    <option value="P">Paragrafo normal</option>
-                    <option value="H1">Titulo 1</option>
-                    <option value="H2">Titulo 2</option>
-                    <option value="H3">Titulo 3</option>
-                    <option value="BLOCKQUOTE">Citacao</option>
+                    <option value="P">Parágrafo normal</option>
+                    <option value="H1">Título 1</option>
+                    <option value="H2">Título 2</option>
+                    <option value="H3">Título 3</option>
+                    <option value="BLOCKQUOTE">Citação</option>
                     <option value="PRE">Pre-formatado</option>
                 </select>
 
@@ -83,7 +83,7 @@ export default function RichEditor({ html, onChange, minHeight = 350, placeholde
                 <Sep />
 
                 <BtnTb onClick={() => exec('bold')} title="Negrito (Ctrl+B)"><b>N</b></BtnTb>
-                <BtnTb onClick={() => exec('italic')} title="Italico (Ctrl+I)"><i>I</i></BtnTb>
+                <BtnTb onClick={() => exec('italic')} title="Itálico (Ctrl+I)"><i>I</i></BtnTb>
                 <BtnTb onClick={() => exec('underline')} title="Sublinhado (Ctrl+U)"><u>S</u></BtnTb>
                 <BtnTb onClick={() => exec('strikeThrough')} title="Tachado"><s>T</s></BtnTb>
 
@@ -118,7 +118,7 @@ export default function RichEditor({ html, onChange, minHeight = 350, placeholde
 
                 <BtnTb onClick={() => exec('undo')} title="Desfazer (Ctrl+Z)"><i className="fas fa-undo" /></BtnTb>
                 <BtnTb onClick={() => exec('redo')} title="Refazer (Ctrl+Y)"><i className="fas fa-redo" /></BtnTb>
-                <BtnTb onClick={() => exec('removeFormat')} title="Limpar formatacao"><i className="fas fa-eraser" /></BtnTb>
+                <BtnTb onClick={() => exec('removeFormat')} title="Limpar formatação"><i className="fas fa-eraser" /></BtnTb>
             </div>
 
             {/* Area de edicao — estilo "pagina Word" */}

@@ -9,7 +9,7 @@ import { Head } from '@inertiajs/react';
 export default function Rastreio({ valido, oficio }) {
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-            <Head title={valido ? 'Oficio Recebido' : 'Rastreio de Oficio'} />
+            <Head title={valido ? 'Ofício Recebido' : 'Rastreio de Ofício'} />
 
             <div className="w-full max-w-lg">
                 {/* Header */}
@@ -17,8 +17,8 @@ export default function Rastreio({ valido, oficio }) {
                     <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-blue-200 mb-3">
                         <i className="fas fa-file-alt text-white text-xl" />
                     </div>
-                    <h1 className="text-xl font-bold text-gray-800">GED - Rastreio de Oficio</h1>
-                    <p className="text-sm text-gray-500">Conceito Gestao Publica</p>
+                    <h1 className="text-xl font-bold text-gray-800">GED - Rastreio de Ofício</h1>
+                    <p className="text-sm text-gray-500">Conceito Gestão Pública</p>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
@@ -30,13 +30,13 @@ export default function Rastreio({ valido, oficio }) {
                                     <i className="fas fa-check-circle text-green-600 text-lg" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-semibold text-green-800">Oficio Recebido com Sucesso</p>
+                                    <p className="text-sm font-semibold text-green-800">Ofício Recebido com Sucesso</p>
                                     <p className="text-xs text-green-600">O recebimento foi registrado no sistema</p>
                                 </div>
                             </div>
 
                             <div className="px-6 py-5 space-y-4">
-                                <InfoRow label="Numero" value={oficio.numero} />
+                                <InfoRow label="Número" value={oficio.numero} />
                                 <InfoRow label="Assunto" value={oficio.assunto} />
                                 {oficio.lido_em && (
                                     <InfoRow label="Recebido em" value={oficio.lido_em} />
@@ -46,10 +46,10 @@ export default function Rastreio({ valido, oficio }) {
                                     <div className="flex items-start gap-2">
                                         <i className="fas fa-info-circle text-blue-500 mt-0.5" />
                                         <div className="text-xs text-blue-700 leading-relaxed">
-                                            <p className="font-medium mb-1">Confirmacao de Recebimento</p>
+                                            <p className="font-medium mb-1">Confirmação de Recebimento</p>
                                             <p>
                                                 A data e hora do seu acesso foram registradas automaticamente.
-                                                O remetente sera notificado do recebimento deste oficio.
+                                                O remetente será notificado do recebimento deste ofício.
                                             </p>
                                         </div>
                                     </div>
@@ -64,8 +64,8 @@ export default function Rastreio({ valido, oficio }) {
                                     <i className="fas fa-times-circle text-red-600 text-lg" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-semibold text-red-800">Oficio Nao Encontrado</p>
-                                    <p className="text-xs text-red-600">O codigo informado nao corresponde a nenhum oficio registrado</p>
+                                    <p className="text-sm font-semibold text-red-800">Ofício Não Encontrado</p>
+                                    <p className="text-xs text-red-600">O código informado não corresponde a nenhum ofício registrado</p>
                                 </div>
                             </div>
 
@@ -78,7 +78,7 @@ export default function Rastreio({ valido, oficio }) {
                 </div>
 
                 <p className="text-center text-[10px] text-gray-400 mt-4">
-                    GED — Gestao Eletronica de Documentos — Conceito Gestao Publica
+                    GED — Gestão Eletrônica de Documentos — Conceito Gestão Pública
                 </p>
             </div>
         </div>

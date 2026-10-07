@@ -22,9 +22,9 @@ const statusColors = {
 
 const statusLabels = {
     aberto: 'Aberto',
-    em_tramitacao: 'Em Tramitacao',
+    em_tramitacao: 'Em Tramitação',
     aguardando_assinatura: 'Aguardando Assinatura',
-    concluido: 'Concluido',
+    concluido: 'Concluído',
     cancelado: 'Cancelado',
     arquivado: 'Arquivado',
 };
@@ -39,8 +39,8 @@ const prioridadeColors = {
 const statusOptions = [
     { value: '', label: 'Todos os status' },
     { value: 'aberto', label: 'Aberto' },
-    { value: 'em_tramitacao', label: 'Em Tramitacao' },
-    { value: 'concluido', label: 'Concluido' },
+    { value: 'em_tramitacao', label: 'Em Tramitação' },
+    { value: 'concluido', label: 'Concluído' },
     { value: 'cancelado', label: 'Cancelado' },
     { value: 'arquivado', label: 'Arquivado' },
 ];

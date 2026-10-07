@@ -47,7 +47,7 @@ class UgOrganogramaController extends Controller
         $nivel = $parent ? ($parent->nivel + 1) : 1;
 
         if ($nivel > 3) {
-            abort(422, 'Nao e possivel adicionar abaixo do nivel 3.');
+            abort(422, 'Não é possível adicionar abaixo do nível 3.');
         }
 
         return Inertia::render('Configuracao/Ugs/OrganogramaForm', [

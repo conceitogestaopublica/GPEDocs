@@ -84,7 +84,7 @@ export default function PortalHome({ ug, categorias, maisAcessados, totalServico
 
     return (
         <PortalLayout ug={ug}>
-            <Head title={`${ug.nome} — Carta de Servicos`} />
+            <Head title={`${ug.nome} — Carta de Serviços`} />
 
             {ug?.banners?.length > 0 && (
                 <div className="mb-8 -mt-4">
@@ -96,11 +96,11 @@ export default function PortalHome({ ug, categorias, maisAcessados, totalServico
                 <div className="mb-8">
                     <div className="flex items-center justify-between mb-3">
                         <div>
-                            <h2 className="text-lg font-bold text-gray-800">Ola, {cidadao.nome.split(' ')[0]}!</h2>
+                            <h2 className="text-lg font-bold text-gray-800">Olá, {cidadao.nome.split(' ')[0]}!</h2>
                             <p className="text-sm text-gray-500">
                                 {totalAbertas > 0
-                                    ? <>Voce tem <strong className="text-blue-600">{totalAbertas}</strong> solicitacao(oes) em andamento</>
-                                    : 'Suas solicitacoes recentes'}
+                                    ? <>Você tem <strong className="text-blue-600">{totalAbertas}</strong> solicitação(oes) em andamento</>
+                                    : 'Suas solicitações recentes'}
                             </p>
                         </div>
                         <Link href="/minhas-solicitacoes"
@@ -142,9 +142,9 @@ export default function PortalHome({ ug, categorias, maisAcessados, totalServico
             <div className="mb-10">
                 <div className="flex items-center justify-between mb-1">
                     <h2 className="text-xl font-bold text-gray-800">Categorias</h2>
-                    <span className="text-xs text-gray-500">{totalServicos} servicos disponiveis</span>
+                    <span className="text-xs text-gray-500">{totalServicos} serviços disponíveis</span>
                 </div>
-                <p className="text-sm text-gray-500">Navegue por area de interesse</p>
+                <p className="text-sm text-gray-500">Navegue por área de interesse</p>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12">
@@ -160,7 +160,7 @@ export default function PortalHome({ ug, categorias, maisAcessados, totalServico
                         <h3 className="text-sm font-bold text-gray-800 mb-1">{cat.nome}</h3>
                         <p className="text-[11px] text-gray-500 leading-relaxed line-clamp-2">{cat.descricao}</p>
                         <p className="text-[10px] text-blue-600 font-semibold mt-2 uppercase tracking-wide">
-                            {cat.servicos_publicados_count || 0} servicos
+                            {cat.servicos_publicados_count || 0} serviços
                         </p>
                     </Link>
                 ))}
@@ -169,7 +169,7 @@ export default function PortalHome({ ug, categorias, maisAcessados, totalServico
             {(maisAcessados || []).length > 0 && (
                 <div className="mb-10">
                     <h2 className="text-xl font-bold text-gray-800 mb-1">Mais procurados</h2>
-                    <p className="text-sm text-gray-500 mb-4">Servicos com maior numero de visualizacoes</p>
+                    <p className="text-sm text-gray-500 mb-4">Serviços com maior número de visualizações</p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {maisAcessados.map(servico => (

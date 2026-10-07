@@ -22,7 +22,7 @@ export default function AssinarModal({ assinatura, onClose }) {
 
     const opcoes = [
         { key: 'simples',     icon: 'pen-nib',     cor: 'blue',   titulo: 'Simples',
-          desc: 'Lei 14.063/2020 art. 4, I — CPF + IP + geolocalizacao' },
+          desc: 'Lei 14.063/2020 art. 4, I — CPF + IP + geolocalização' },
         { key: 'qualificada', icon: 'shield-alt',  cor: 'green',  titulo: 'Qualificada A1',
           desc: 'Art. 4, III — certificado A1 (.pfx) ICP-Brasil', badge: 'ICP-Brasil' },
         { key: 'qualificadaA3', icon: 'usb',       cor: 'purple', titulo: 'Qualificada A3',
@@ -110,14 +110,14 @@ function FormSimples({ assinatura, onClose }) {
             <div className="bg-gray-50 rounded-xl p-3">
                 <p className="text-[10px] text-gray-500">
                     <i className="fas fa-info-circle mr-1" />
-                    Serao coletados: e-mail, CPF, IP, geolocalizacao (se permitida), data/hora e hash do documento — Lei 14.063/2020 art. 4, I.
+                    Serão coletados: e-mail, CPF, IP, geolocalização (se permitida), data/hora e hash do documento — Lei 14.063/2020 art. 4, I.
                 </p>
             </div>
 
             <label className="flex items-start gap-2 cursor-pointer">
                 <input type="checkbox" checked={concordo} onChange={(e) => setConcordo(e.target.checked)}
                     className="rounded border-gray-300 text-blue-600 mt-0.5" />
-                <span className="text-sm text-gray-700">Declaro que li e concordo com o conteudo deste documento</span>
+                <span className="text-sm text-gray-700">Declaro que li e concordo com o conteúdo deste documento</span>
             </label>
 
             <div className="flex justify-end gap-2">
@@ -132,7 +132,7 @@ function FormIcp({ assinatura, onClose }) {
     const { data, setData, post, processing, errors } = useForm({
         pfx: null,
         senha: '',
-        razao: 'Assinatura Eletronica Qualificada (Lei 14.063/2020 art. 4, III)',
+        razao: 'Assinatura Eletrônica Qualificada (Lei 14.063/2020 art. 4, III)',
         local: 'Brasil',
         geolocalizacao: '',
     });
@@ -163,7 +163,7 @@ function FormIcp({ assinatura, onClose }) {
                 <p className="text-[11px] text-green-800 leading-tight">
                     <i className="fas fa-shield-alt mr-1" />
                     <strong>Assinatura Qualificada ICP-Brasil</strong> — equivale juridicamente a assinatura manuscrita.
-                    Sera gerado um PDF assinado em PAdES-BES, validavel em qualquer leitor compativel.
+                    Será gerado um PDF assinado em PAdES-BES, validável em qualquer leitor compatível.
                 </p>
             </div>
 
@@ -181,14 +181,14 @@ function FormIcp({ assinatura, onClose }) {
                 <input type="password" value={data.senha} onChange={(e) => setData('senha', e.target.value)}
                     autoComplete="off" className="ds-input" placeholder="Senha do .pfx" />
                 {errors.senha && <p className="mt-1 text-xs text-red-600">{errors.senha}</p>}
-                <p className="mt-1 text-[10px] text-gray-500">A senha e usada apenas em memoria para decriptar o PFX e nunca e armazenada.</p>
+                <p className="mt-1 text-[10px] text-gray-500">A senha e usada apenas em memória para decriptar o PFX e nunca e armazenada.</p>
             </div>
 
             <details className="bg-gray-50 rounded-xl p-3">
-                <summary className="text-xs font-medium text-gray-700 cursor-pointer">Opcoes avancadas</summary>
+                <summary className="text-xs font-medium text-gray-700 cursor-pointer">Opções avançadas</summary>
                 <div className="mt-3 space-y-2">
                     <div>
-                        <label className="block text-[11px] text-gray-600 mb-1">Razao</label>
+                        <label className="block text-[11px] text-gray-600 mb-1">Razão</label>
                         <input type="text" value={data.razao} onChange={(e) => setData('razao', e.target.value)}
                             className="ds-input text-xs" maxLength={200} />
                     </div>
@@ -204,7 +204,7 @@ function FormIcp({ assinatura, onClose }) {
                 <input type="checkbox" checked={concordo} onChange={(e) => setConcordo(e.target.checked)}
                     className="rounded border-gray-300 text-green-600 mt-0.5" />
                 <span className="text-sm text-gray-700">
-                    Declaro que li, concordo com o conteudo do documento e que sou o titular do certificado digital fornecido
+                    Declaro que li, concordo com o conteúdo do documento e que sou o titular do certificado digital fornecido
                 </span>
             </label>
 
@@ -328,10 +328,10 @@ function FormIcpA3({ assinatura, onClose }) {
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                     <p className="text-sm font-semibold text-amber-800 mb-1">
                         <i className="fas fa-puzzle-piece mr-1" />
-                        Extensao Web PKI nao detectada
+                        Extensão Web PKI não detectada
                     </p>
                     <p className="text-xs text-amber-700 mb-3">
-                        Para assinar com token/smartcard, voce precisa instalar a extensao gratuita Web PKI da Lacuna.
+                        Para assinar com token/smartcard, você precisa instalar a extensão gratuita Web PKI da Lacuna.
                     </p>
                     <a href="https://get.webpkiplugin.com" target="_blank" rel="noopener"
                         className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-700">
@@ -350,14 +350,14 @@ function FormIcpA3({ assinatura, onClose }) {
             <div className="bg-purple-50 border border-purple-200 rounded-xl p-3">
                 <p className="text-[11px] text-purple-800 leading-tight">
                     <i className="fas fa-usb mr-1" />
-                    <strong>Assinatura A3 (token/smartcard)</strong> — sua chave privada permanece no hardware. O token solicitara o PIN no momento da assinatura.
+                    <strong>Assinatura A3 (token/smartcard)</strong> — sua chave privada permanece no hardware. O token solicitará o PIN no momento da assinatura.
                 </p>
             </div>
 
             {(estado === 'inicializando' || estado === 'listando') && (
                 <div className="text-center py-4 text-xs text-gray-500">
                     <i className="fas fa-spinner fa-spin mr-2" />
-                    {estado === 'inicializando' ? 'Conectando com Web PKI...' : 'Listando certificados disponiveis...'}
+                    {estado === 'inicializando' ? 'Conectando com Web PKI...' : 'Listando certificados disponíveis...'}
                 </div>
             )}
 
@@ -374,7 +374,7 @@ function FormIcpA3({ assinatura, onClose }) {
                                     <option key={c.thumbprint} value={c.thumbprint}>
                                         {c.subjectName || c.commonName || c.thumbprint.slice(0,8)}
                                         {c.issuerName ? ` — ${c.issuerName}` : ''}
-                                        {c.validityEnd ? ` (valido ate ${new Date(c.validityEnd).toLocaleDateString('pt-BR')})` : ''}
+                                        {c.validityEnd ? ` (válido até ${new Date(c.validityEnd).toLocaleDateString('pt-BR')})` : ''}
                                     </option>
                                 ))}
                             </select>
@@ -382,10 +382,10 @@ function FormIcpA3({ assinatura, onClose }) {
                     </div>
 
                     <details className="bg-gray-50 rounded-xl p-3">
-                        <summary className="text-xs font-medium text-gray-700 cursor-pointer">Opcoes avancadas</summary>
+                        <summary className="text-xs font-medium text-gray-700 cursor-pointer">Opções avançadas</summary>
                         <div className="mt-3 space-y-2">
                             <div>
-                                <label className="block text-[11px] text-gray-600 mb-1">Razao</label>
+                                <label className="block text-[11px] text-gray-600 mb-1">Razão</label>
                                 <input type="text" value={razao} onChange={(e) => setRazao(e.target.value)}
                                     className="ds-input text-xs" maxLength={200} disabled={estado === 'assinando'} />
                             </div>
@@ -401,7 +401,7 @@ function FormIcpA3({ assinatura, onClose }) {
                         <input type="checkbox" checked={concordo} onChange={(e) => setConcordo(e.target.checked)}
                             className="rounded border-gray-300 text-purple-600 mt-0.5" disabled={estado === 'assinando'} />
                         <span className="text-sm text-gray-700">
-                            Declaro que li e concordo com o conteudo deste documento e que sou o titular do certificado selecionado
+                            Declaro que li e concordo com o conteúdo deste documento e que sou o titular do certificado selecionado
                         </span>
                     </label>
 

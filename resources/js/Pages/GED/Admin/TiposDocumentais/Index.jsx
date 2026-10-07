@@ -12,9 +12,9 @@ import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
 
 const TIPOS_CAMPO = [
     { value: 'text', label: 'Texto' },
-    { value: 'number', label: 'Numero' },
+    { value: 'number', label: 'Número' },
     { value: 'date', label: 'Data' },
-    { value: 'select', label: 'Lista de opcoes' },
+    { value: 'select', label: 'Lista de opções' },
 ];
 
 export default function TiposDocumentais({ tipos }) {
@@ -43,11 +43,11 @@ export default function TiposDocumentais({ tipos }) {
                         <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-xs">
                             <tr>
                                 <th className="px-4 py-3 text-left font-semibold">Nome</th>
-                                <th className="px-4 py-3 text-left font-semibold">Descricao</th>
+                                <th className="px-4 py-3 text-left font-semibold">Descrição</th>
                                 <th className="px-4 py-3 text-center font-semibold">Campos</th>
                                 <th className="px-4 py-3 text-center font-semibold">Documentos</th>
                                 <th className="px-4 py-3 text-center font-semibold">Status</th>
-                                <th className="px-4 py-3 text-center font-semibold w-32">Acoes</th>
+                                <th className="px-4 py-3 text-center font-semibold w-32">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -207,13 +207,13 @@ function TipoFormModal({ show, onClose, tipo }) {
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
                         <input type="text" value={data.nome} onChange={(e) => setData('nome', e.target.value)}
-                            className="ds-input" placeholder="Ex: Oficio, Contrato..." autoFocus />
+                            className="ds-input" placeholder="Ex: Ofício, Contrato..." autoFocus />
                         {errors.nome && <p className="mt-1 text-xs text-red-600">{errors.nome}</p>}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                         <input type="text" value={data.descricao} onChange={(e) => setData('descricao', e.target.value)}
-                            className="ds-input" placeholder="Descricao breve" />
+                            className="ds-input" placeholder="Descrição breve" />
                     </div>
                 </div>
 
@@ -256,7 +256,7 @@ function TipoFormModal({ show, onClose, tipo }) {
                                         <div className="sm:col-span-2">
                                             <input type="text" value={campo.label}
                                                 onChange={(e) => updateCampo(idx, 'label', e.target.value)}
-                                                className="ds-input !text-xs" placeholder="Label (ex: Numero do Oficio)" />
+                                                className="ds-input !text-xs" placeholder="Label (ex: Número do Ofício)" />
                                         </div>
                                         <div>
                                             <select value={campo.tipo}
@@ -279,7 +279,7 @@ function TipoFormModal({ show, onClose, tipo }) {
                                             <div className="sm:col-span-4">
                                                 <input type="text" value={campo.opcoes || ''}
                                                     onChange={(e) => updateCampo(idx, 'opcoes', e.target.value)}
-                                                    className="ds-input !text-xs" placeholder="Opcoes separadas por virgula (ex: Sim,Nao,Talvez)" />
+                                                    className="ds-input !text-xs" placeholder="Opções separadas por vírgula (ex: Sim,Não,Talvez)" />
                                             </div>
                                         )}
                                     </div>
@@ -328,7 +328,7 @@ function DeleteTipoModal({ tipo, onClose }) {
                     <div>
                         <p className="text-sm font-medium text-red-800">Tem certeza?</p>
                         <p className="text-sm text-red-600 mt-1">
-                            O tipo <strong>"{tipo.nome}"</strong> sera excluido permanentemente.
+                            O tipo <strong>"{tipo.nome}"</strong> será excluído permanentemente.
                         </p>
                     </div>
                 </div>

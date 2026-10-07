@@ -36,7 +36,7 @@ export default function Usuarios({ usuarios, filtros = {} }) {
     };
 
     const columns = [
-        { key: 'name', label: 'Usuario', render: (row) => (
+        { key: 'name', label: 'Usuário', render: (row) => (
             <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                     row.tipo === 'externo'
@@ -60,7 +60,7 @@ export default function Usuarios({ usuarios, filtros = {} }) {
                 {row.tipo === 'externo' ? 'Externo' : 'Interno'}
             </span>
         )},
-        { key: 'unidade', label: 'Vinculo', render: (row) => (
+        { key: 'unidade', label: 'Vínculo', render: (row) => (
             <div className="text-xs text-gray-600">
                 {row.ug ? (
                     <>
@@ -84,12 +84,12 @@ export default function Usuarios({ usuarios, filtros = {} }) {
 
     return (
         <AdminLayout>
-            <Head title="Usuarios" />
-            <PageHeader title="Usuarios" subtitle="Cadastro de usuarios e vinculo com organograma">
+            <Head title="Usuários" />
+            <PageHeader title="Usuários" subtitle="Cadastro de usuários e vínculo com organograma">
                 <Link href="/configuracoes/usuarios/create"
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors">
                     <i className="fas fa-user-plus" />
-                    Novo Usuario
+                    Novo Usuário
                 </Link>
             </PageHeader>
 
@@ -115,7 +115,7 @@ export default function Usuarios({ usuarios, filtros = {} }) {
                         </button>
                     )}
                     <span className="text-xs text-gray-400 ml-auto">
-                        {usuarios?.total ?? data.length} usuario(s)
+                        {usuarios?.total ?? data.length} usuário(s)
                     </span>
                 </form>
             </div>

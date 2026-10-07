@@ -31,7 +31,7 @@ export default function Assinaturas({ pendentes, aguardando_outros, concluidas, 
     return (
         <AdminLayout>
             <Head title="Assinaturas" />
-            <PageHeader title="Assinaturas" subtitle="Pendentes de sua assinatura e historico assinado" />
+            <PageHeader title="Assinaturas" subtitle="Pendentes de sua assinatura e histórico assinado" />
 
             {/* Tabs */}
             <div className="flex gap-2 mb-6 items-center">
@@ -191,7 +191,7 @@ function AssinadasView({ assinadas, filtrosIniciais, emptyText, showAguardandoBa
                         <input type="date" value={dataDe} onChange={(e) => setDataDe(e.target.value)} className="ds-input w-40" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-navy-900 mb-1">Ate</label>
+                        <label className="block text-sm font-medium text-navy-900 mb-1">Até</label>
                         <input type="date" value={dataAte} onChange={(e) => setDataAte(e.target.value)} className="ds-input w-40" />
                     </div>
                     <Button type="submit" icon="fas fa-filter">Filtrar</Button>
@@ -227,7 +227,7 @@ function AssinadasView({ assinadas, filtrosIniciais, emptyText, showAguardandoBa
                             </button>
                             <button onClick={() => setSelecionados(new Set())}
                                 className="text-xs text-gray-500 hover:text-gray-800">
-                                <i className="fas fa-times mr-1" />Limpar selecao
+                                <i className="fas fa-times mr-1" />Limpar seleção
                             </button>
                         </div>
                     )}
@@ -455,18 +455,18 @@ function ClassificarArquivarModal({ target, tiposDocumentais = [], pastas = [], 
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                         Tipo Documental
                         {semTipo > 0 && <span className="text-amber-600 text-xs ml-1">({semTipo} sem tipo)</span>}
-                        {semTipo === 0 && <span className="text-gray-400 text-xs ml-1">(opcional — todos ja tem)</span>}
+                        {semTipo === 0 && <span className="text-gray-400 text-xs ml-1">(opcional — todos já tem)</span>}
                     </label>
                     <select value={data.tipo_documental_id}
                         onChange={(e) => setData('tipo_documental_id', e.target.value)}
                         className="ds-input">
-                        <option value="">— {semTipo > 0 ? 'Selecione (sera aplicado nos sem tipo)' : 'Manter o existente'} —</option>
+                        <option value="">— {semTipo > 0 ? 'Selecione (será aplicado nos sem tipo)' : 'Manter o existente'} —</option>
                         {tiposDocumentais.map(t => (
                             <option key={t.id} value={t.id}>{t.nome}</option>
                         ))}
                     </select>
                     <p className="mt-1 text-[10px] text-gray-400">
-                        Documentos que ja tem tipo nao serao alterados. So preenche os que estao sem.
+                        Documentos que já tem tipo não serão alterados. Só preenche os que estão sem.
                     </p>
                     {errors.tipo_documental_id && <p className="mt-1 text-xs text-red-600">{errors.tipo_documental_id}</p>}
                 </div>
@@ -478,7 +478,7 @@ function ClassificarArquivarModal({ target, tiposDocumentais = [], pastas = [], 
                     </label>
                     {pastasTree.length === 0 ? (
                         <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-                            Nenhuma pasta cadastrada. Crie no Repositorio antes de arquivar.
+                            Nenhuma pasta cadastrada. Crie no Repositório antes de arquivar.
                         </p>
                     ) : (
                         <>

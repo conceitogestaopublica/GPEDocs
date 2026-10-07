@@ -15,7 +15,7 @@ const STATUS_MAP = {
     rascunho:   { label: 'Rascunho',   color: 'bg-gray-100 text-gray-600',   icon: 'fas fa-edit',        desc: 'Em elaboracao' },
     enviado:    { label: 'Enviado',     color: 'bg-blue-100 text-blue-700',   icon: 'fas fa-paper-plane', desc: 'Aguardando entrega' },
     entregue:   { label: 'Entregue',    color: 'bg-yellow-100 text-yellow-700', icon: 'fas fa-envelope',  desc: 'E-mail enviado' },
-    lido:       { label: 'Lido',        color: 'bg-green-100 text-green-700', icon: 'fas fa-eye',         desc: 'Destinatario abriu' },
+    lido:       { label: 'Lido',        color: 'bg-green-100 text-green-700', icon: 'fas fa-eye',         desc: 'Destinatário abriu' },
     respondido: { label: 'Respondido',  color: 'bg-purple-100 text-purple-700', icon: 'fas fa-reply',     desc: 'Tem resposta' },
     arquivado:  { label: 'Arquivado',   color: 'bg-gray-100 text-gray-500',  icon: 'fas fa-archive',     desc: 'Arquivado' },
 };
@@ -46,12 +46,12 @@ export default function OficiosIndex({ oficios, filters }) {
 
     return (
         <AdminLayout>
-            <Head title="Oficios Eletronicos" />
+            <Head title="Ofícios Eletrônicos" />
             <PageHeader
-                title="Oficios Eletronicos"
-                subtitle="Envio de documentos oficiais para destinatarios externos"
+                title="Ofícios Eletrônicos"
+                subtitle="Envio de documentos oficiais para destinatários externos"
             >
-                <Button icon="fas fa-plus" href="/oficios/create">Novo Oficio</Button>
+                <Button icon="fas fa-plus" href="/oficios/create">Novo Ofício</Button>
             </PageHeader>
 
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -90,7 +90,7 @@ export default function OficiosIndex({ oficios, filters }) {
                         <span className="text-sm text-gray-500 font-medium shrink-0">Filtrar Resultados:</span>
                         <div className="relative flex-1 max-w-sm">
                             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Buscar por assunto, numero, destinatario..."
+                                placeholder="Buscar por assunto, número, destinatário..."
                                 className="w-full pl-3 pr-8 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
                             <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600">
                                 <i className="fas fa-search text-xs" />
@@ -104,12 +104,12 @@ export default function OficiosIndex({ oficios, filters }) {
                     <table className="w-full text-sm">
                         <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
                             <tr>
-                                <th className="px-4 py-3 text-left font-semibold">Numero</th>
+                                <th className="px-4 py-3 text-left font-semibold">Número</th>
                                 <th className="px-4 py-3 text-left font-semibold">Assunto</th>
-                                <th className="px-4 py-3 text-left font-semibold">Destinatario</th>
+                                <th className="px-4 py-3 text-left font-semibold">Destinatário</th>
                                 <th className="px-4 py-3 text-left font-semibold">Status</th>
                                 <th className="px-4 py-3 text-left font-semibold">Data Envio</th>
-                                <th className="px-4 py-3 text-center font-semibold w-32">Acoes</th>
+                                <th className="px-4 py-3 text-center font-semibold w-32">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -117,7 +117,7 @@ export default function OficiosIndex({ oficios, filters }) {
                                 <tr>
                                     <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
                                         <i className="fas fa-file-alt text-3xl mb-2 block" />
-                                        Nenhum oficio encontrado.
+                                        Nenhum ofício encontrado.
                                     </td>
                                 </tr>
                             ) : data.map(oficio => {

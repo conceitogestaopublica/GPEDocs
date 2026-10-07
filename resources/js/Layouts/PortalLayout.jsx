@@ -30,8 +30,8 @@ export default function PortalLayout({ ug, children, hideSearchBar = false }) {
                             </div>
                         )}
                         <div className="leading-tight">
-                            <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Portal do Cidadao</p>
-                            <p className="text-base font-bold text-gray-800 group-hover:text-blue-700 transition-colors">{ug?.nome || 'Carta de Servicos'}</p>
+                            <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Portal do Cidadão</p>
+                            <p className="text-base font-bold text-gray-800 group-hover:text-blue-700 transition-colors">{ug?.nome || 'Carta de Serviços'}</p>
                             {ug?.cidade && <p className="text-[11px] text-gray-500">{ug.cidade}{ug.uf ? ` — ${ug.uf}` : ''}</p>}
                         </div>
                     </Link>
@@ -39,17 +39,17 @@ export default function PortalLayout({ ug, children, hideSearchBar = false }) {
                     <nav className="hidden md:flex items-center gap-1 text-sm">
                         <Link href="/"
                             className="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-blue-700 font-medium">
-                            <i className="fas fa-home text-xs mr-1.5" /> Inicio
+                            <i className="fas fa-home text-xs mr-1.5" /> Início
                         </Link>
                         <Link href="/buscar"
                             className="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-blue-700 font-medium">
-                            <i className="fas fa-search text-xs mr-1.5" /> Todos os Servicos
+                            <i className="fas fa-search text-xs mr-1.5" /> Todos os Serviços
                         </Link>
                         {cidadao ? (
                             <>
                                 <Link href="/minhas-solicitacoes"
                                     className="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-blue-700 font-medium">
-                                    <i className="fas fa-clipboard-list text-xs mr-1.5" /> Minhas Solicitacoes
+                                    <i className="fas fa-clipboard-list text-xs mr-1.5" /> Minhas Solicitações
                                 </Link>
                                 <div className="ml-2 flex items-center gap-2 pl-3 border-l border-gray-200">
                                     <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
@@ -86,7 +86,7 @@ export default function PortalLayout({ ug, children, hideSearchBar = false }) {
                                         type="text"
                                         value={busca}
                                         onChange={(e) => setBusca(e.target.value)}
-                                        placeholder="Busque por servico, palavra-chave ou categoria..."
+                                        placeholder="Busque por serviço, palavra-chave ou categoria..."
                                         className="w-full pl-12 pr-4 py-3 rounded-xl bg-white text-gray-800 placeholder-gray-500 shadow-md focus:outline-none focus:ring-2 focus:ring-white/60 text-sm"
                                     />
                                 </div>
@@ -107,7 +107,7 @@ export default function PortalLayout({ ug, children, hideSearchBar = false }) {
             <footer className="bg-gray-900 text-gray-400 mt-12">
                 <div className="max-w-6xl mx-auto px-4 lg:px-6 py-8 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
                     <div>
-                        <p className="text-white font-bold mb-2">{ug?.nome || 'Portal do Cidadao'}</p>
+                        <p className="text-white font-bold mb-2">{ug?.nome || 'Portal do Cidadão'}</p>
                         {ug?.cidade && <p>{ug.cidade}{ug.uf ? ` — ${ug.uf}` : ''}</p>}
                         {ug?.telefone && <p className="mt-1"><i className="fas fa-phone text-xs mr-2" />{ug.telefone}</p>}
                         {ug?.email && <p className="mt-1"><i className="fas fa-envelope text-xs mr-2" />{ug.email}</p>}
@@ -118,19 +118,19 @@ export default function PortalLayout({ ug, children, hideSearchBar = false }) {
                         )}
                     </div>
                     <div>
-                        <p className="text-white font-bold mb-2">Acesso rapido</p>
+                        <p className="text-white font-bold mb-2">Acesso rápido</p>
                         <ul className="space-y-1">
-                            <li><Link href="/" className="hover:text-white">Pagina inicial</Link></li>
-                            <li><Link href="/buscar" className="hover:text-white">Todos os servicos</Link></li>
+                            <li><Link href="/" className="hover:text-white">Página inicial</Link></li>
+                            <li><Link href="/buscar" className="hover:text-white">Todos os serviços</Link></li>
                         </ul>
                     </div>
                     <div>
-                        <p className="text-white font-bold mb-2">Legislacao</p>
-                        <p className="text-xs">Carta de Servicos publicada nos termos da Lei 13.460/2017 e do Decreto 9.094/2017.</p>
+                        <p className="text-white font-bold mb-2">Legislação</p>
+                        <p className="text-xs">Carta de Serviços publicada nos termos da Lei 13.460/2017 e do Decreto 9.094/2017.</p>
                     </div>
                 </div>
                 <div className="border-t border-gray-800 py-4 text-center text-xs">
-                    &copy; {new Date().getFullYear()} {ug?.nome} — Plataforma desenvolvida por Conceito Gestao Publica
+                    &copy; {new Date().getFullYear()} {ug?.nome} — Plataforma desenvolvida por Conceito Gestão Pública
                 </div>
             </footer>
         </div>

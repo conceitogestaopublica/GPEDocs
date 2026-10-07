@@ -196,7 +196,7 @@ class AssinaturaController extends Controller
                 'usuario_id'      => $userId,
                 'tipo'            => 'assinatura_pendente',
                 'titulo'          => 'Assinatura solicitada',
-                'mensagem'        => "Voce tem uma solicitacao de assinatura para o documento \"{$documento->nome}\".",
+                'mensagem'        => "Você tem uma solicitação de assinatura para o documento \"{$documento->nome}\".",
                 'referencia_tipo' => 'documento',
                 'referencia_id'   => $documento->id,
             ]);
@@ -211,7 +211,7 @@ class AssinaturaController extends Controller
             'user_agent'   => $request->userAgent(),
         ]);
 
-        return redirect()->back()->with('success', 'Solicitacao de assinatura enviada com sucesso.');
+        return redirect()->back()->with('success', 'Solicitação de assinatura enviada com sucesso.');
     }
 
     public function solicitarLote(Request $request)
@@ -260,7 +260,7 @@ class AssinaturaController extends Controller
                     'usuario_id'      => $userId,
                     'tipo'            => 'assinatura_pendente',
                     'titulo'          => 'Assinatura solicitada',
-                    'mensagem'        => "Voce tem uma solicitacao de assinatura para o documento \"{$documento->nome}\".",
+                    'mensagem'        => "Você tem uma solicitação de assinatura para o documento \"{$documento->nome}\".",
                     'referencia_tipo' => 'documento',
                     'referencia_id'   => $documento->id,
                 ]);
@@ -291,11 +291,11 @@ class AssinaturaController extends Controller
         $assinatura = Assinatura::with(['documento.versaoAtual', 'solicitacao'])->findOrFail($id);
 
         if ($assinatura->signatario_id !== Auth::id()) {
-            return redirect()->back()->with('error', 'Voce nao tem permissao para assinar este documento.');
+            return redirect()->back()->with('error', 'Você não tem permissão para assinar este documento.');
         }
 
         if ($assinatura->status !== 'pendente') {
-            return redirect()->back()->with('error', 'Esta assinatura ja foi processada.');
+            return redirect()->back()->with('error', 'Esta assinatura já foi processada.');
         }
         if ($impedimento = $this->impedimentoDaSolicitacao($assinatura)) {
             return redirect()->back()->with('error', $impedimento);
@@ -593,11 +593,11 @@ class AssinaturaController extends Controller
         $assinatura = Assinatura::with(['documento', 'solicitacao'])->findOrFail($id);
 
         if ($assinatura->signatario_id !== Auth::id()) {
-            return redirect()->back()->with('error', 'Voce nao tem permissao.');
+            return redirect()->back()->with('error', 'Você não tem permissão.');
         }
         // Antes a recusa sobrescrevia uma assinatura já feita.
         if ($assinatura->status !== 'pendente') {
-            return redirect()->back()->with('error', 'Esta assinatura ja foi processada.');
+            return redirect()->back()->with('error', 'Esta assinatura já foi processada.');
         }
         if ($impedimento = $this->impedimentoDaSolicitacao($assinatura)) {
             return redirect()->back()->with('error', $impedimento);
@@ -667,11 +667,11 @@ class AssinaturaController extends Controller
         $assinatura = Assinatura::with(['documento.versaoAtual', 'solicitacao'])->findOrFail($id);
 
         if ($assinatura->signatario_id !== Auth::id()) {
-            return redirect()->back()->with('error', 'Voce nao tem permissao para assinar este documento.');
+            return redirect()->back()->with('error', 'Você não tem permissão para assinar este documento.');
         }
 
         if ($assinatura->status !== 'pendente') {
-            return redirect()->back()->with('error', 'Esta assinatura ja foi processada.');
+            return redirect()->back()->with('error', 'Esta assinatura já foi processada.');
         }
         if ($impedimento = $this->impedimentoDaSolicitacao($assinatura)) {
             return redirect()->back()->with('error', $impedimento);

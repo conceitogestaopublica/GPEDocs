@@ -126,31 +126,31 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
 
     return (
         <AdminLayout>
-            <Head title={isEdit ? `Editar ${usuario.name}` : 'Novo Usuario'} />
+            <Head title={isEdit ? `Editar ${usuario.name}` : 'Novo Usuário'} />
 
             <CadastroLayout
-                titulo={isEdit ? 'Editar Usuario' : 'Novo Usuario'}
-                subtitulo={isEdit ? `Atualize os dados de ${usuario.name}` : 'Cadastre um usuario interno ou externo'}
+                titulo={isEdit ? 'Editar Usuário' : 'Novo Usuário'}
+                subtitulo={isEdit ? `Atualize os dados de ${usuario.name}` : 'Cadastre um usuário interno ou externo'}
                 voltarHref="/configuracoes/usuarios"
-                voltarLabel="Voltar para usuarios"
+                voltarLabel="Voltar para usuários"
                 resumo={resumo}
                 obrigatoriosFaltando={obrigatoriosFaltando}
                 onCancelar={onCancelar}
                 onSalvar={onSalvar}
                 processing={processing}
-                labelSalvar={isEdit ? 'Salvar alteracoes' : 'Criar Usuario'}
+                labelSalvar={isEdit ? 'Salvar alterações' : 'Criar Usuário'}
                 iconeSalvar={isEdit ? 'fas fa-save' : 'fas fa-user-plus'}
             >
                 {/* Tipo de usuario */}
                 <CadastroSecao
                     icone="fa-user-tag"
-                    titulo="Tipo de Usuario"
-                    descricao="Define se o usuario faz parte da estrutura interna ou e um cidadao/parceiro externo"
+                    titulo="Tipo de Usuário"
+                    descricao="Define se o usuário faz parte da estrutura interna ou e um cidadao/parceiro externo"
                 >
                     <div className="grid grid-cols-2 gap-2">
                         {[
                             { v: 'interno', icone: 'fa-id-badge',  cor: 'blue',  titulo: 'Interno', desc: 'Vinculado a uma unidade do organograma' },
-                            { v: 'externo', icone: 'fa-user-tag',  cor: 'amber', titulo: 'Externo', desc: 'Cidadao/parceiro, sem vinculo com unidade' },
+                            { v: 'externo', icone: 'fa-user-tag',  cor: 'amber', titulo: 'Externo', desc: 'Cidadao/parceiro, sem vínculo com unidade' },
                         ].map(op => {
                             const ativo = data.tipo === op.v;
                             const sel = ativo
@@ -176,7 +176,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                 {/* Identificacao */}
                 <CadastroSecao
                     icone="fa-user"
-                    titulo="Identificacao"
+                    titulo="Identificação"
                     descricao="Nome, CPF e dados de acesso"
                 >
                     <div className="grid grid-cols-2 gap-3">
@@ -207,7 +207,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                             </label>
                             <input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)}
                                 className="ds-input" autoComplete="new-password"
-                                placeholder={isEdit ? '••••••••' : 'Minimo 8 caracteres'} />
+                                placeholder={isEdit ? '••••••••' : 'Mínimo 8 caracteres'} />
                             {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
                         </div>
                     </div>
@@ -217,7 +217,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                 <CadastroSecao
                     icone="fa-building"
                     titulo="Unidades Gestoras com acesso"
-                    descricao="O usuario podera escolher entre estas UGs ao logar. A primeira marcada e a UG principal (define a unidade do organograma)."
+                    descricao="O usuário poderá escolher entre estas UGs ao logar. A primeira marcada e a UG principal (define a unidade do organograma)."
                 >
                     {ugs.length === 0 ? (
                         <p className="text-xs text-gray-400">Nenhuma UG cadastrada.</p>
@@ -275,7 +275,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                         />
                         {unidadesDaUg.length === 0 && (
                             <p className="mt-1 text-[10px] text-amber-600">
-                                Esta UG ainda nao possui organograma cadastrado.
+                                Esta UG ainda não possui organograma cadastrado.
                             </p>
                         )}
                     </CadastroSecao>
@@ -286,7 +286,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                     <CadastroSecao
                         icone="fa-eye"
                         titulo="Acesso a toda a UG"
-                        descricao="Quando marcado, o usuario ve a Caixa Entrada Setor da UG inteira (todas as unidades), em vez de apenas a unidade onde esta lotado. Util para chefes de gabinete, secretarios e gestores."
+                        descricao="Quando marcado, o usuário vê a Caixa Entrada Setor da UG inteira (todas as unidades), em vez de apenas a unidade onde esta lotado. Útil para chefes de gabinete, secretários e gestores."
                     >
                         <label className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${
                             data.acesso_geral_ug ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:bg-gray-50'
@@ -300,7 +300,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                                     Conceder acesso a toda a UG
                                 </p>
                                 <p className="text-[11px] text-gray-500 leading-tight">
-                                    Ignora o filtro por unidade do organograma na Caixa Entrada Setor. O usuario continua restrito as UGs marcadas acima.
+                                    Ignora o filtro por unidade do organograma na Caixa Entrada Setor. O usuário continua restrito as UGs marcadas acima.
                                 </p>
                             </div>
                         </label>
@@ -312,7 +312,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                 <CadastroSecao
                     icone="fa-crown"
                     titulo="Super Administrador"
-                    descricao="Super-admins veem dados de todas as UGs e podem trocar entre elas livremente. Use com moderacao."
+                    descricao="Super-admins veem dados de todas as UGs e podem trocar entre elas livremente. Use com moderação."
                 >
                     <label className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${
                         data.super_admin ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:bg-gray-50'
@@ -323,7 +323,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                         <div>
                             <p className="text-sm font-semibold text-gray-800">
                                 <i className="fas fa-crown text-amber-500 mr-1" />
-                                Conceder privilegios de super-admin
+                                Conceder privilégios de super-admin
                             </p>
                             <p className="text-[11px] text-gray-500 leading-tight">
                                 Permite acessar dados de qualquer UG e ignorar o filtro multi-tenant.
@@ -336,11 +336,11 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                 {/* Perfis */}
                 <CadastroSecao
                     icone="fa-shield-alt"
-                    titulo="Perfis e Permissoes"
-                    descricao="Selecione um ou mais perfis para definir o que o usuario pode acessar"
+                    titulo="Perfis e Permissões"
+                    descricao="Selecione um ou mais perfis para definir o que o usuário pode acessar"
                 >
                     {roles.length === 0 ? (
-                        <p className="text-xs text-gray-400">Nenhum perfil cadastrado. Cadastre em Configuracoes → Perfis e Permissoes.</p>
+                        <p className="text-xs text-gray-400">Nenhum perfil cadastrado. Cadastre em Configurações → Perfis e Permissões.</p>
                     ) : (
                         <div className="grid grid-cols-2 gap-2">
                             {roles.map(role => {
@@ -410,7 +410,7 @@ function UnidadeCombo({ value, onChange, unidades, ugPrincipal }) {
                         {selecionada.nome}
                     </span>
                 ) : (
-                    <span className="text-gray-400">— Sem vinculo de unidade —</span>
+                    <span className="text-gray-400">— Sem vínculo de unidade —</span>
                 )}
                 <i className={`fas fa-chevron-down text-[10px] text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
@@ -422,7 +422,7 @@ function UnidadeCombo({ value, onChange, unidades, ugPrincipal }) {
                             <i className="fas fa-search text-gray-400 text-xs" />
                             <input autoFocus type="text" value={busca}
                                 onChange={(e) => setBusca(e.target.value)}
-                                placeholder="Pesquisar unidade ou codigo..."
+                                placeholder="Pesquisar unidade ou código..."
                                 className="flex-1 bg-transparent text-sm outline-none" />
                             {busca && (
                                 <button type="button" onClick={() => setBusca('')}
@@ -439,7 +439,7 @@ function UnidadeCombo({ value, onChange, unidades, ugPrincipal }) {
                                 onClick={() => { onChange(''); setOpen(false); setBusca(''); }}
                                 className={`w-full text-left px-3 py-1.5 text-xs italic flex items-center gap-2
                                     ${! value ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-500 hover:bg-gray-50'}`}>
-                                <i className="fas fa-ban text-[10px]" /> Sem vinculo de unidade
+                                <i className="fas fa-ban text-[10px]" /> Sem vínculo de unidade
                             </button>
                         </li>
                         {filtradas.length === 0 ? (

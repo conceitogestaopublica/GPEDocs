@@ -41,13 +41,13 @@ export default function Organograma({ ug, arvore }) {
                 <div className="flex items-center gap-3">
                     <i className="fas fa-sitemap text-blue-600" />
                     <div className="text-xs text-blue-800">
-                        Niveis: <strong>{labels[1]}</strong> &gt; <strong>{labels[2]}</strong> &gt; <strong>{labels[3]}</strong>
+                        Níveis: <strong>{labels[1]}</strong> &gt; <strong>{labels[2]}</strong> &gt; <strong>{labels[3]}</strong>
                     </div>
                 </div>
                 <button onClick={() => setLabelsModal(true)}
                     className="text-[11px] px-3 py-1 rounded-lg text-blue-700 hover:bg-blue-100 transition-colors">
                     <i className="fas fa-edit mr-1" />
-                    Renomear niveis
+                    Renomear níveis
                 </button>
             </div>
 
@@ -63,7 +63,7 @@ export default function Organograma({ ug, arvore }) {
                         <i className="fas fa-sitemap text-4xl mb-3 block" />
                         <p className="text-sm">Organograma vazio</p>
                         <p className="text-xs mt-1">
-                            Adicione o primeiro {labels[1]} para comecar a montar a estrutura.
+                            Adicione o primeiro {labels[1]} para começar a montar a estrutura.
                         </p>
                     </div>
                 </Card>
@@ -194,14 +194,14 @@ function LabelsModal({ show, ug, onClose }) {
     };
 
     return (
-        <Modal show={show} onClose={onClose} title="Renomear niveis do organograma">
+        <Modal show={show} onClose={onClose} title="Renomear níveis do organograma">
             <form onSubmit={submit} className="space-y-3">
                 <p className="text-xs text-gray-500">
-                    Estes labels sao especificos desta UG e podem ser diferentes em outras.
+                    Estes labels são específicos desta UG e podem ser diferentes em outras.
                 </p>
                 {[1, 2, 3].map(n => (
                     <div key={n}>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Nivel {n}</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Nível {n}</label>
                         <input type="text" value={data[`nivel_${n}_label`]}
                             onChange={(e) => setData(`nivel_${n}_label`, e.target.value)}
                             className="ds-input" maxLength={60} />

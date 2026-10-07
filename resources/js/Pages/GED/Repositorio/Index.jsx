@@ -15,26 +15,26 @@ import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
 const FILTRO_RAPIDO_CONFIG = {
     favoritos: {
         titulo: 'Favoritos',
-        subtitulo: 'Documentos que voce marcou como favoritos',
+        subtitulo: 'Documentos que você marcou como favoritos',
         icone: 'fas fa-star',
         bannerClasses: 'bg-amber-50 border-amber-200 text-amber-800',
         iconeClasses: 'text-amber-600',
         botaoClasses: 'bg-white border-amber-200 hover:bg-amber-100',
-        vazioMsg: 'Voce ainda nao favoritou nenhum documento.',
+        vazioMsg: 'Você ainda não favoritou nenhum documento.',
         vazioDica: 'Clique na estrela ao lado de qualquer documento para favoritar.',
     },
     recentes: {
         titulo: 'Recentes',
-        subtitulo: 'Documentos que voce visualizou nos ultimos 30 dias',
+        subtitulo: 'Documentos que você visualizou nos últimos 30 dias',
         icone: 'fas fa-clock',
         bannerClasses: 'bg-cyan-50 border-cyan-200 text-cyan-800',
         iconeClasses: 'text-cyan-600',
         botaoClasses: 'bg-white border-cyan-200 hover:bg-cyan-100',
-        vazioMsg: 'Sem visualizacoes recentes nos ultimos 30 dias.',
+        vazioMsg: 'Sem visualizações recentes nos últimos 30 dias.',
     },
     populares: {
         titulo: 'Mais Acessados',
-        subtitulo: 'Documentos com mais visualizacoes nos ultimos 30 dias',
+        subtitulo: 'Documentos com mais visualizações nos últimos 30 dias',
         icone: 'fas fa-fire',
         bannerClasses: 'bg-orange-50 border-orange-200 text-orange-800',
         iconeClasses: 'text-orange-600',
@@ -166,10 +166,10 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
 
     return (
         <AdminLayout>
-            <Head title={rapidoCfg?.titulo || 'Repositorio'} />
+            <Head title={rapidoCfg?.titulo || 'Repositório'} />
 
             <PageHeader
-                title={rapidoCfg?.titulo || 'Repositorio'}
+                title={rapidoCfg?.titulo || 'Repositório'}
                 subtitle={rapidoCfg?.subtitulo || 'Navegar, visualizar e gerenciar documentos e pastas'}
             >
                 <Button variant="secondary" icon="fas fa-folder-plus" onClick={() => setShowNewFolder(true)}>
@@ -250,11 +250,11 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
 
                         <div className="flex border border-gray-200 rounded-lg overflow-hidden">
                             <button onClick={() => setViewMode('grid')}
-                                className={`px-3 py-1.5 text-xs ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`} title="Visao em grade">
+                                className={`px-3 py-1.5 text-xs ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`} title="Visão em grade">
                                 <i className="fas fa-th" />
                             </button>
                             <button onClick={() => setViewMode('list')}
-                                className={`px-3 py-1.5 text-xs ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`} title="Visao em lista">
+                                className={`px-3 py-1.5 text-xs ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`} title="Visão em lista">
                                 <i className="fas fa-list" />
                             </button>
                         </div>
@@ -267,7 +267,7 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                                 <label className="block text-sm font-medium text-navy-900 mb-1">Buscar</label>
                                 <i className="fas fa-search absolute left-3 top-[60%] -translate-y-1/2 text-gray-400 text-xs" />
                                 <input type="text" value={busca} onChange={(e) => setBusca(e.target.value)}
-                                    placeholder="Nome ou descricao..." className="ds-input pl-9" />
+                                    placeholder="Nome ou descrição..." className="ds-input pl-9" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-navy-900 mb-1">Tipo</label>
@@ -292,7 +292,7 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                                 <input type="date" value={dataDe} onChange={(e) => setDataDe(e.target.value)} className="ds-input w-40" />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-navy-900 mb-1">Ate</label>
+                                <label className="block text-sm font-medium text-navy-900 mb-1">Até</label>
                                 <input type="date" value={dataAte} onChange={(e) => setDataAte(e.target.value)} className="ds-input w-40" />
                             </div>
                             <Button type="submit" icon="fas fa-filter">Filtrar</Button>
@@ -399,7 +399,7 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                                             <th className="px-3 py-2.5 text-left font-semibold">Status</th>
                                             <th className="px-3 py-2.5 text-left font-semibold">Criado em</th>
                                             <th className="px-3 py-2.5 text-left font-semibold">Modificado</th>
-                                            <th className="px-3 py-2.5 text-center font-semibold w-40">Acoes</th>
+                                            <th className="px-3 py-2.5 text-center font-semibold w-40">Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
@@ -828,8 +828,8 @@ function NewFolderModal({ show, onClose, pastaAtualId, pastaAtualNome, pastas = 
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
                     <i className="fas fa-info-circle mr-1" />
                     {paiNome
-                        ? <>A nova pasta sera criada <strong>dentro de "{paiNome}"</strong> (subpasta).</>
-                        : <>A nova pasta sera criada na <strong>raiz</strong> do repositorio.</>
+                        ? <>A nova pasta será criada <strong>dentro de "{paiNome}"</strong> (subpasta).</>
+                        : <>A nova pasta será criada na <strong>raiz</strong> do repositório.</>
                     }
                 </div>
 
@@ -844,12 +844,12 @@ function NewFolderModal({ show, onClose, pastaAtualId, pastaAtualNome, pastas = 
 
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Descricao <span className="text-gray-400 text-xs">(opcional)</span>
+                        Descrição <span className="text-gray-400 text-xs">(opcional)</span>
                     </label>
                     <input type="text" value={data.descricao} onChange={(e) => setData('descricao', e.target.value)}
-                        className="ds-input" placeholder="Ex: Documentos contabeis arquivados em definitivo" />
+                        className="ds-input" placeholder="Ex: Documentos contábeis arquivados em definitivo" />
                     <p className="mt-1 text-[10px] text-gray-400">
-                        Aparece quando o usuario for arquivar um documento — ajuda a saber qual pasta escolher.
+                        Aparece quando o usuário for arquivar um documento — ajuda a saber qual pasta escolher.
                     </p>
                 </div>
 
@@ -908,7 +908,7 @@ function RenameFolderModal({ pasta, onClose }) {
                     {errors.nome && <p className="mt-1 text-xs text-red-600">{errors.nome}</p>}
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                     <input type="text" value={data.descricao} onChange={(e) => setData('descricao', e.target.value)}
                         className="ds-input" placeholder="Opcional" />
                 </div>
@@ -943,8 +943,8 @@ function DeleteFolderModal({ pasta, onClose }) {
                     <div>
                         <p className="text-sm font-medium text-red-800">Tem certeza que deseja excluir?</p>
                         <p className="text-sm text-red-600 mt-1">
-                            A pasta <strong>"{pasta.nome}"</strong> sera excluida permanentemente.
-                            Esta acao nao pode ser desfeita.
+                            A pasta <strong>"{pasta.nome}"</strong> será excluída permanentemente.
+                            Esta ação não pode ser desfeita.
                         </p>
                     </div>
                 </div>
@@ -979,8 +979,8 @@ function InativarFolderModal({ pasta, onClose }) {
                     <div>
                         <p className="text-sm font-medium text-amber-800">Inativar pasta</p>
                         <p className="text-sm text-amber-600 mt-1">
-                            A pasta <strong>"{pasta.nome}"</strong> e suas subpastas serao ocultadas
-                            do sistema. Os documentos serao preservados e a pasta podera ser reativada
+                            A pasta <strong>"{pasta.nome}"</strong> e suas subpastas serão ocultadas
+                            do sistema. Os documentos serão preservados e a pasta poderá ser reativada
                             posteriormente.
                         </p>
                     </div>

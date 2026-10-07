@@ -229,12 +229,12 @@ class PastaController extends Controller
             $hasDocumentos = Documento::where('pasta_id', $id)->whereNull('deleted_at')->exists();
 
             if ($hasChildren || $hasDocumentos) {
-                return redirect()->back()->with('error', 'Nao e possivel excluir pasta com subpastas ou documentos. Use a opcao Inativar.');
+                return redirect()->back()->with('error', 'Não é possível excluir pasta com subpastas ou documentos. Use a opção Inativar.');
             }
 
             $pasta->delete();
 
-            return redirect()->back()->with('success', 'Pasta excluida com sucesso.');
+            return redirect()->back()->with('success', 'Pasta excluída com sucesso.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Erro ao excluir pasta: ' . $e->getMessage());
         }

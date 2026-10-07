@@ -195,7 +195,7 @@ class OficioController extends Controller
                 'usuario_id'      => Auth::id(),
                 'tipo'            => 'oficio_enviado',
                 'titulo'          => 'Oficio enviado',
-                'mensagem'        => "Oficio {$numero} - {$oficio->assunto} enviado para {$oficio->destinatario_nome}.",
+                'mensagem'        => "Ofício {$numero} - {$oficio->assunto} enviado para {$oficio->destinatario_nome}.",
                 'referencia_tipo' => 'oficio',
                 'referencia_id'   => $oficio->id,
                 'lida'            => false,
@@ -211,7 +211,7 @@ class OficioController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return redirect()->back()->with('error', 'Erro ao enviar oficio: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Erro ao enviar ofício: ' . $e->getMessage());
         }
     }
 
@@ -236,7 +236,7 @@ class OficioController extends Controller
         ])->findOrFail($id);
 
         if ($oficio->remetente_id !== Auth::id()) {
-            abort(403, 'Voce nao tem permissao para visualizar este oficio.');
+            abort(403, 'Você não tem permissão para visualizar este ofício.');
         }
 
         return Inertia::render('GED/Oficios/Show', [
@@ -253,7 +253,7 @@ class OficioController extends Controller
         $oficio = Oficio::findOrFail($id);
 
         if ($oficio->remetente_id !== Auth::id()) {
-            abort(403, 'Voce nao tem permissao para responder a este oficio.');
+            abort(403, 'Você não tem permissão para responder a este ofício.');
         }
 
         OficioResposta::create([
@@ -277,7 +277,7 @@ class OficioController extends Controller
         $oficio = Oficio::findOrFail($id);
 
         if ($oficio->remetente_id !== Auth::id()) {
-            abort(403, 'Voce nao tem permissao para arquivar este oficio.');
+            abort(403, 'Você não tem permissão para arquivar este ofício.');
         }
 
         $oficio->update([
@@ -285,7 +285,7 @@ class OficioController extends Controller
             'arquivado_em' => now(),
         ]);
 
-        return redirect()->back()->with('success', 'Oficio arquivado com sucesso.');
+        return redirect()->back()->with('success', 'Ofício arquivado com sucesso.');
     }
 
     public function arquivarNoGed(Request $request, $id)
@@ -296,7 +296,7 @@ class OficioController extends Controller
 
         $pasta = DB::table('ged_pastas')->where('id', $request->input('pasta_id'))->first();
         if (! $pasta || $pasta->ug_id !== $oficio->ug_id) {
-            return redirect()->back()->with('error', 'A pasta selecionada nao pertence a UG deste oficio.');
+            return redirect()->back()->with('error', 'A pasta selecionada não pertence a UG deste ofício.');
         }
 
         try {
@@ -307,7 +307,7 @@ class OficioController extends Controller
                 if ($documento) {
                     $documento->update(['pasta_id' => (int) $request->input('pasta_id'), 'status' => 'arquivado']);
                     DB::commit();
-                    return redirect()->back()->with('success', "Oficio arquivado na pasta \"{$pasta->nome}\".");
+                    return redirect()->back()->with('success', "Ofício arquivado na pasta \"{$pasta->nome}\".");
                 }
             }
 
@@ -355,7 +355,7 @@ class OficioController extends Controller
             $oficio->update(['documento_id' => $documento->id]);
 
             DB::commit();
-            return redirect()->back()->with('success', "Oficio arquivado na pasta \"{$pasta->nome}\".");
+            return redirect()->back()->with('success', "Ofício arquivado na pasta \"{$pasta->nome}\".");
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Erro ao arquivar: ' . $e->getMessage());
@@ -370,7 +370,7 @@ class OficioController extends Controller
         ])->findOrFail($id);
 
         if ($oficio->remetente_id !== Auth::id()) {
-            abort(403, 'Voce nao tem permissao para baixar este oficio.');
+            abort(403, 'Você não tem permissão para baixar este ofício.');
         }
 
         $qrCodeUrl = url("/oficios/verificar/{$oficio->qr_code_token}");

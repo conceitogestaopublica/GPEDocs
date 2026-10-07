@@ -215,7 +215,7 @@ class ProcessoController extends Controller
                     'usuario_id'     => (int) $uid,
                     'tipo'           => 'processo',
                     'titulo'         => 'Novo processo recebido',
-                    'mensagem'       => "Processo {$protocolo} - {$processo->assunto} foi encaminhado para voce.",
+                    'mensagem'       => "Processo {$protocolo} - {$processo->assunto} foi encaminhado para você.",
                     'referencia_tipo'=> 'processo',
                     'referencia_id'  => $processo->id,
                     'lida'           => false,
@@ -460,7 +460,7 @@ class ProcessoController extends Controller
                     'documento_id'   => $documento->id,
                     'solicitante_id' => Auth::id(),
                     'status'         => 'pendente',
-                    'mensagem'       => "Decisao do processo {$processo->numero_protocolo} (" . strtoupper($decisao) . ") - assinar para tornar oficial.",
+                    'mensagem'       => "Decisão do processo {$processo->numero_protocolo} (" . strtoupper($decisao) . ") - assinar para tornar oficial.",
                 ]);
 
                 Assinatura::create([
@@ -515,11 +515,11 @@ class ProcessoController extends Controller
 
             if ($exigeAssinatura) {
                 return redirect()->back()->with('success',
-                    'Decisao registrada. Para tornar oficial, assine digitalmente o documento de decisao (Lei 14.063/2020).');
+                    'Decisão registrada. Para tornar oficial, assine digitalmente o documento de decisão (Lei 14.063/2020).');
             }
 
             if ($pularAssinatura) {
-                return redirect()->back()->with('success', 'Resposta enviada ao cidadao. Processo encerrado.');
+                return redirect()->back()->with('success', 'Resposta enviada ao cidadão. Processo encerrado.');
             }
 
             return redirect()->back()->with('success', 'Processo arquivado.');
@@ -590,7 +590,7 @@ class ProcessoController extends Controller
         $processo = Processo::findOrFail($id);
 
         if ($processo->status !== 'concluido') {
-            return redirect()->back()->with('error', 'So processos concluidos podem ser arquivados no GPE Docs.');
+            return redirect()->back()->with('error', 'Só processos concluídos podem ser arquivados no GPE Docs.');
         }
 
         // Localiza o Documento da decisao — preferencia para documento_decisao_id (coluna
@@ -608,13 +608,13 @@ class ProcessoController extends Controller
 
         $documento = Documento::find($documentoId);
         if (! $documento) {
-            return redirect()->back()->with('error', 'Documento nao encontrado.');
+            return redirect()->back()->with('error', 'Documento não encontrado.');
         }
 
         // Valida que a pasta esta na mesma UG do processo
         $pasta = DB::table('ged_pastas')->where('id', $request->input('pasta_id'))->first();
         if (! $pasta || $pasta->ug_id !== $processo->ug_id) {
-            return redirect()->back()->with('error', 'A pasta selecionada nao pertence a UG deste processo.');
+            return redirect()->back()->with('error', 'A pasta selecionada não pertence a UG deste processo.');
         }
 
         $documento->update([
@@ -633,7 +633,7 @@ class ProcessoController extends Controller
             ],
         ]);
 
-        return redirect()->back()->with('success', "Decisao arquivada na pasta \"{$pasta->nome}\" do GPE Docs.");
+        return redirect()->back()->with('success', "Decisão arquivada na pasta \"{$pasta->nome}\" do GPE Docs.");
     }
 
     /**
@@ -645,7 +645,7 @@ class ProcessoController extends Controller
         $processo = Processo::findOrFail($id);
 
         if ($processo->status !== 'aguardando_assinatura') {
-            return redirect()->back()->with('error', 'Processo nao esta aguardando assinatura.');
+            return redirect()->back()->with('error', 'Processo não esta aguardando assinatura.');
         }
 
         $processo->update([
@@ -660,7 +660,7 @@ class ProcessoController extends Controller
             'detalhes'    => ['decisao' => $processo->decisao],
         ]);
 
-        return redirect()->back()->with('success', 'Decisao assinada digitalmente. Processo encerrado oficialmente.');
+        return redirect()->back()->with('success', 'Decisão assinada digitalmente. Processo encerrado oficialmente.');
     }
 
     public function cancelar(Request $request, $id)

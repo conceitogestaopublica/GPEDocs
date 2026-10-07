@@ -120,9 +120,9 @@ export default function CircularesCreate({ usuarios }) {
                         </label>
                         <div className="flex flex-wrap gap-4">
                             {[
-                                { value: 'todos', label: 'Toda Organizacao', icon: 'fas fa-building' },
-                                { value: 'setores', label: 'Setores Especificos', icon: 'fas fa-sitemap' },
-                                { value: 'usuarios', label: 'Usuarios Especificos', icon: 'fas fa-users' },
+                                { value: 'todos', label: 'Toda Organização', icon: 'fas fa-building' },
+                                { value: 'setores', label: 'Setores Específicos', icon: 'fas fa-sitemap' },
+                                { value: 'usuarios', label: 'Usuários Específicos', icon: 'fas fa-users' },
                             ].map(opt => (
                                 <label key={opt.value}
                                     className={`flex items-center gap-2 px-4 py-3 rounded-xl border cursor-pointer transition-all
@@ -172,7 +172,7 @@ export default function CircularesCreate({ usuarios }) {
                                     onChange={(e) => setSetorInput(e.target.value)}
                                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSetor(); } }}
                                     className="ds-input flex-1"
-                                    placeholder="Digite nomes de setores separados por virgula"
+                                    placeholder="Digite nomes de setores separados por vírgula"
                                 />
                                 <Button type="button" variant="secondary" onClick={addSetor}>Adicionar</Button>
                             </div>
@@ -184,7 +184,7 @@ export default function CircularesCreate({ usuarios }) {
                     {data.destino_tipo === 'usuarios' && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Destinatarios <span className="text-red-500">*</span>
+                                Destinatários <span className="text-red-500">*</span>
                             </label>
                             {data.destinatarios.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mb-2">
@@ -209,7 +209,7 @@ export default function CircularesCreate({ usuarios }) {
                                         type="text"
                                         value={searchUser}
                                         onChange={(e) => setSearchUser(e.target.value)}
-                                        placeholder="Buscar usuario..."
+                                        placeholder="Buscar usuário..."
                                         className="w-full text-sm outline-none"
                                     />
                                 </div>
@@ -227,7 +227,7 @@ export default function CircularesCreate({ usuarios }) {
                                         </label>
                                     ))}
                                     {filteredUsers.length === 0 && (
-                                        <p className="text-xs text-gray-400 text-center py-3">Nenhum usuario encontrado</p>
+                                        <p className="text-xs text-gray-400 text-center py-3">Nenhum usuário encontrado</p>
                                     )}
                                 </div>
                             </div>
@@ -238,14 +238,14 @@ export default function CircularesCreate({ usuarios }) {
                     {/* Conteudo */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Conteudo <span className="text-red-500">*</span>
+                            Conteúdo <span className="text-red-500">*</span>
                         </label>
                         <textarea
                             value={data.conteudo}
                             onChange={(e) => setData('conteudo', e.target.value)}
                             className="ds-input !h-auto"
                             rows={10}
-                            placeholder="Digite o conteudo da circular..."
+                            placeholder="Digite o conteúdo da circular..."
                             required
                         />
                         {errors.conteudo && <p className="text-xs text-red-500 mt-1">{errors.conteudo}</p>}

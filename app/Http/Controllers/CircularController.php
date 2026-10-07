@@ -151,7 +151,7 @@ class CircularController extends Controller
 
             DB::commit();
 
-            return redirect("/circulares/{$circular->id}")->with('success', 'Circular enviada com sucesso. Numero: ' . $numero);
+            return redirect("/circulares/{$circular->id}")->with('success', 'Circular enviada com sucesso. Número: ' . $numero);
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -185,7 +185,7 @@ class CircularController extends Controller
         $isDestinatario = $circular->destinatarios->contains('usuario_id', $userId);
 
         if (! $isRemetente && ! $isDestinatario) {
-            abort(403, 'Voce nao tem permissao para visualizar esta circular.');
+            abort(403, 'Você não tem permissão para visualizar esta circular.');
         }
 
         if ($isDestinatario) {
@@ -223,7 +223,7 @@ class CircularController extends Controller
 
         $pasta = DB::table('ged_pastas')->where('id', $request->input('pasta_id'))->first();
         if (! $pasta || $pasta->ug_id !== $circular->ug_id) {
-            return redirect()->back()->with('error', 'A pasta selecionada nao pertence a UG desta circular.');
+            return redirect()->back()->with('error', 'A pasta selecionada não pertence a UG desta circular.');
         }
 
         try {

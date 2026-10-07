@@ -15,7 +15,7 @@ import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
 const categoriaOptions = [
     { value: 'administrativo', label: 'Administrativo' },
     { value: 'financeiro', label: 'Financeiro' },
-    { value: 'juridico', label: 'Juridico' },
+    { value: 'juridico', label: 'Jurídico' },
     { value: 'rh', label: 'Recursos Humanos' },
     { value: 'compras', label: 'Compras/Licitacao' },
     { value: 'outro', label: 'Outro' },
@@ -23,17 +23,17 @@ const categoriaOptions = [
 
 const tiposCampo = [
     { value: 'text', label: 'Texto' },
-    { value: 'number', label: 'Numero' },
+    { value: 'number', label: 'Número' },
     { value: 'date', label: 'Data' },
-    { value: 'select', label: 'Selecao' },
+    { value: 'select', label: 'Seleção' },
     { value: 'textarea', label: 'Texto longo' },
-    { value: 'money', label: 'Monetario' },
+    { value: 'money', label: 'Monetário' },
 ];
 
 const tiposEtapa = [
     { value: 'analise', label: 'Analise' },
     { value: 'parecer', label: 'Parecer' },
-    { value: 'aprovacao', label: 'Aprovacao' },
+    { value: 'aprovacao', label: 'Aprovação' },
     { value: 'assinatura', label: 'Assinatura' },
     { value: 'despacho', label: 'Despacho' },
     { value: 'arquivamento', label: 'Arquivamento' },
@@ -163,8 +163,8 @@ export default function Index({ tipos }) {
     };
 
     const sections = [
-        { key: 'basic', label: 'Dados Basicos', icon: 'fas fa-info-circle' },
-        { key: 'schema', label: 'Formulario', icon: 'fas fa-list-alt' },
+        { key: 'basic', label: 'Dados Básicos', icon: 'fas fa-info-circle' },
+        { key: 'schema', label: 'Formulário', icon: 'fas fa-list-alt' },
         { key: 'etapas', label: 'Etapas', icon: 'fas fa-route' },
         { key: 'templates', label: 'Templates', icon: 'fas fa-file-alt' },
     ];
@@ -196,7 +196,7 @@ export default function Index({ tipos }) {
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">SLA (h)</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Processos</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
-                                    <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Acoes</th>
+                                    <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Ações</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -246,7 +246,7 @@ export default function Index({ tipos }) {
                                                             : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
                                                     }`}
                                                     disabled={(tipo.processos_count ?? 0) > 0}
-                                                    title={(tipo.processos_count ?? 0) > 0 ? 'Nao pode excluir: possui processos' : 'Excluir'}
+                                                    title={(tipo.processos_count ?? 0) > 0 ? 'Não pode excluir: possui processos' : 'Excluir'}
                                                 >
                                                     <i className="fas fa-trash" />
                                                 </button>
@@ -332,7 +332,7 @@ export default function Index({ tipos }) {
                                         value={data.nome}
                                         onChange={(e) => setData('nome', e.target.value)}
                                         className="ds-input"
-                                        placeholder="Ex: Licenca Premios"
+                                        placeholder="Ex: Licença Prêmios"
                                     />
                                     {errors.nome && <p className="mt-1 text-xs text-red-600">{errors.nome}</p>}
                                 </div>
@@ -348,13 +348,13 @@ export default function Index({ tipos }) {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                                 <textarea
                                     value={data.descricao}
                                     onChange={(e) => setData('descricao', e.target.value)}
                                     className="ds-input !h-auto"
                                     rows={3}
-                                    placeholder="Descricao do tipo de processo..."
+                                    placeholder="Descrição do tipo de processo..."
                                 />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -371,7 +371,7 @@ export default function Index({ tipos }) {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">SLA Padrao (horas)</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">SLA Padrão (horas)</label>
                                     <input
                                         type="number"
                                         value={data.sla_padrao_horas}
@@ -390,7 +390,7 @@ export default function Index({ tipos }) {
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <p className="text-sm text-gray-500">
-                                    Defina os campos que serao exibidos ao abrir um processo deste tipo.
+                                    Defina os campos que serão exibidos ao abrir um processo deste tipo.
                                 </p>
                                 <button
                                     type="button"
@@ -406,7 +406,7 @@ export default function Index({ tipos }) {
                                 <div className="py-8 text-center text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
                                     <i className="fas fa-list-alt text-2xl mb-2 block" />
                                     <p className="text-sm">Nenhum campo configurado</p>
-                                    <p className="text-xs mt-1">Clique em "Adicionar Campo" para comecar</p>
+                                    <p className="text-xs mt-1">Clique em "Adicionar Campo" para começar</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -459,7 +459,7 @@ export default function Index({ tipos }) {
                                                         value={field.label}
                                                         onChange={(e) => updateField(idx, 'label', e.target.value)}
                                                         className="ds-input text-xs"
-                                                        placeholder="Nome de exibicao"
+                                                        placeholder="Nome de exibição"
                                                     />
                                                 </div>
                                                 <div className="flex items-end gap-3">
@@ -470,13 +470,13 @@ export default function Index({ tipos }) {
                                                             onChange={(e) => updateField(idx, 'obrigatorio', e.target.checked)}
                                                             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                                         />
-                                                        Obrigatorio
+                                                        Obrigatório
                                                     </label>
                                                 </div>
                                             </div>
                                             {(field.tipo === 'select') && (
                                                 <div className="mt-3">
-                                                    <label className="block text-[11px] font-medium text-gray-500 mb-1">Opcoes (separadas por virgula)</label>
+                                                    <label className="block text-[11px] font-medium text-gray-500 mb-1">Opções (separadas por vírgula)</label>
                                                     <input
                                                         type="text"
                                                         value={field.opcoes || ''}
@@ -498,7 +498,7 @@ export default function Index({ tipos }) {
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <p className="text-sm text-gray-500">
-                                    Defina as etapas do fluxo de tramitacao deste tipo de processo.
+                                    Defina as etapas do fluxo de tramitação deste tipo de processo.
                                 </p>
                                 <button
                                     type="button"
@@ -572,7 +572,7 @@ export default function Index({ tipos }) {
                                                         value={etapa.setor_destino}
                                                         onChange={(e) => updateEtapa(idx, 'setor_destino', e.target.value)}
                                                         className="ds-input text-xs"
-                                                        placeholder="Setor responsavel"
+                                                        placeholder="Setor responsável"
                                                     />
                                                 </div>
                                                 <div>
@@ -594,7 +594,7 @@ export default function Index({ tipos }) {
                                                     onChange={(e) => updateEtapa(idx, 'template_texto', e.target.value)}
                                                     className="ds-input !h-auto text-xs"
                                                     rows={2}
-                                                    placeholder="Texto padrao para esta etapa..."
+                                                    placeholder="Texto padrão para esta etapa..."
                                                 />
                                             </div>
                                         </div>
@@ -646,11 +646,11 @@ export default function Index({ tipos }) {
                                                         value={tmpl.nome}
                                                         onChange={(e) => updateTemplate(idx, 'nome', e.target.value)}
                                                         className="ds-input text-xs"
-                                                        placeholder="Ex: Deferimento padrao"
+                                                        placeholder="Ex: Deferimento padrão"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[11px] font-medium text-gray-500 mb-1">Conteudo</label>
+                                                    <label className="block text-[11px] font-medium text-gray-500 mb-1">Conteúdo</label>
                                                     <textarea
                                                         value={tmpl.conteudo}
                                                         onChange={(e) => updateTemplate(idx, 'conteudo', e.target.value)}
@@ -673,7 +673,7 @@ export default function Index({ tipos }) {
                             Cancelar
                         </Button>
                         <Button type="submit" loading={processing} icon="fas fa-save">
-                            {editingId ? 'Salvar Alteracoes' : 'Criar Tipo'}
+                            {editingId ? 'Salvar Alterações' : 'Criar Tipo'}
                         </Button>
                     </div>
                 </form>
@@ -686,7 +686,7 @@ export default function Index({ tipos }) {
                         <div className="flex items-start gap-3 p-4 bg-yellow-50 rounded-xl">
                             <i className="fas fa-exclamation-triangle text-yellow-500 mt-0.5" />
                             <div>
-                                <p className="text-sm font-medium text-yellow-800">Nao e possivel excluir</p>
+                                <p className="text-sm font-medium text-yellow-800">Não é possível excluir</p>
                                 <p className="text-sm text-yellow-600 mt-1">
                                     Este tipo possui <strong>{deleteTarget.processos_count}</strong> processo(s) vinculado(s).
                                     Remova ou migre os processos antes de excluir.
@@ -698,9 +698,9 @@ export default function Index({ tipos }) {
                             <div className="flex items-start gap-3 p-4 bg-red-50 rounded-xl">
                                 <i className="fas fa-exclamation-triangle text-red-500 mt-0.5" />
                                 <div>
-                                    <p className="text-sm font-medium text-red-800">Atencao</p>
+                                    <p className="text-sm font-medium text-red-800">Atenção</p>
                                     <p className="text-sm text-red-600 mt-1">
-                                        Deseja excluir o tipo <strong>"{deleteTarget?.nome}"</strong>? Esta acao nao pode ser desfeita.
+                                        Deseja excluir o tipo <strong>"{deleteTarget?.nome}"</strong>? Esta ação não pode ser desfeita.
                                     </p>
                                 </div>
                             </div>

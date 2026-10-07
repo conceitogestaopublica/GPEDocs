@@ -183,7 +183,7 @@ class TramitacaoController extends Controller
                     'usuario_id'     => (int) $uid,
                     'tipo'           => 'processo',
                     'titulo'         => 'Processo despachado para voce',
-                    'mensagem'       => "Processo {$processo->numero_protocolo} - {$processo->assunto} foi despachado para voce.",
+                    'mensagem'       => "Processo {$processo->numero_protocolo} - {$processo->assunto} foi despachado para você.",
                     'referencia_tipo'=> 'processo',
                     'referencia_id'  => $processo->id,
                     'lida'           => false,
@@ -254,7 +254,7 @@ class TramitacaoController extends Controller
                 'usuario_id'     => $tramitacaoAtual->remetente_id,
                 'tipo'           => 'processo',
                 'titulo'         => 'Processo devolvido',
-                'mensagem'       => "Processo {$processo->numero_protocolo} - {$processo->assunto} foi devolvido para voce.",
+                'mensagem'       => "Processo {$processo->numero_protocolo} - {$processo->assunto} foi devolvido para você.",
                 'referencia_tipo'=> 'processo',
                 'referencia_id'  => $processo->id,
                 'lida'           => false,
@@ -304,11 +304,11 @@ class TramitacaoController extends Controller
 
             DB::commit();
 
-            return redirect()->back()->with('success', 'Comentario adicionado com sucesso.');
+            return redirect()->back()->with('success', 'Comentário adicionado com sucesso.');
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return redirect()->back()->with('error', 'Erro ao adicionar comentario: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Erro ao adicionar comentário: ' . $e->getMessage());
         }
     }
 

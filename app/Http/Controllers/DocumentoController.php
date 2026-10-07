@@ -405,7 +405,7 @@ class DocumentoController extends Controller
                 'user_agent'   => request()->userAgent(),
             ]);
 
-            return redirect('/documentos')->with('success', 'Documento excluido com sucesso.');
+            return redirect('/documentos')->with('success', 'Documento excluído com sucesso.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Erro ao excluir documento: ' . $e->getMessage());
         }
@@ -471,12 +471,12 @@ class DocumentoController extends Controller
         $versao = $documento->versaoAtual;
 
         if (!$versao) {
-            return redirect()->back()->with('error', 'Arquivo nao encontrado.');
+            return redirect()->back()->with('error', 'Arquivo não encontrado.');
         }
 
         if ($documento->status === 'cancelado') {
             return redirect()->back()->with('error',
-                'Documento cancelado pela origem (sistema externo). Download nao disponivel.'
+                'Documento cancelado pela origem (sistema externo). Download não disponível.'
             );
         }
 
@@ -486,7 +486,7 @@ class DocumentoController extends Controller
             : $this->caminhoVersaoOficial($documento, $versao);
 
         if (! Storage::disk('documentos')->exists($caminho)) {
-            return redirect()->back()->with('error', 'Arquivo nao encontrado.');
+            return redirect()->back()->with('error', 'Arquivo não encontrado.');
         }
 
         AuditLog::create([
@@ -507,7 +507,7 @@ class DocumentoController extends Controller
         $versao = $documento->versaoAtual;
 
         if (!$versao) {
-            return redirect()->back()->with('error', 'Arquivo nao encontrado.');
+            return redirect()->back()->with('error', 'Arquivo não encontrado.');
         }
 
         // Quando ?original=1, ignora assinatura e retorna o PDF pre-assinatura
@@ -516,7 +516,7 @@ class DocumentoController extends Controller
             : $this->caminhoVersaoOficial($documento, $versao);
 
         if (! Storage::disk('documentos')->exists($caminho)) {
-            return redirect()->back()->with('error', 'Arquivo nao encontrado.');
+            return redirect()->back()->with('error', 'Arquivo não encontrado.');
         }
 
         return Storage::disk('documentos')->response($caminho, $this->sanitizarNomeArquivo($documento), [

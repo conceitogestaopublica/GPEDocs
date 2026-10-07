@@ -19,8 +19,8 @@ const statusColors = {
 
 const statusLabels = {
     aberto: 'Aberto',
-    em_tramitacao: 'Em Tramitacao',
-    concluido: 'Concluido',
+    em_tramitacao: 'Em Tramitação',
+    concluido: 'Concluído',
     cancelado: 'Cancelado',
     arquivado: 'Arquivado',
 };
@@ -41,13 +41,13 @@ export default function Dashboard({ stats, processos_recentes, inbox_count }) {
         <AdminLayout>
             <Head title="Processos - Dashboard" />
 
-            <PageHeader title="Processos" subtitle="Visao geral do modulo de processos" />
+            <PageHeader title="Processos" subtitle="Visão geral do módulo de processos" />
 
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
                 <StatCard title="Abertos" value={s.total_abertos || s.abertos || 0} icon="fas fa-folder-open" color="blue" />
-                <StatCard title="Em Tramitacao" value={s.em_tramitacao || 0} icon="fas fa-exchange-alt" color="yellow" />
-                <StatCard title="Concluidos no Mes" value={s.concluidos_mes || 0} icon="fas fa-check-circle" color="green" />
+                <StatCard title="Em Tramitação" value={s.em_tramitacao || 0} icon="fas fa-exchange-alt" color="yellow" />
+                <StatCard title="Concluídos no Mês" value={s.concluidos_mes || 0} icon="fas fa-check-circle" color="green" />
                 <StatCard title="Atrasados" value={s.atrasados || 0} icon="fas fa-exclamation-triangle" color="red" />
             </div>
 
@@ -62,7 +62,7 @@ export default function Dashboard({ stats, processos_recentes, inbox_count }) {
                     </div>
                     <div className="flex-1">
                         <p className="text-sm font-semibold text-gray-800">Minha Caixa de Entrada</p>
-                        <p className="text-xs text-gray-400">Processos aguardando sua acao</p>
+                        <p className="text-xs text-gray-400">Processos aguardando sua ação</p>
                     </div>
                     <div className="flex items-center gap-2">
                         {(inbox_count || s.inbox_count || 0) > 0 && (
@@ -76,7 +76,7 @@ export default function Dashboard({ stats, processos_recentes, inbox_count }) {
             </div>
 
             {/* Processos Recentes */}
-            <Card title="Processos Recentes" subtitle="Ultimos 10 processos">
+            <Card title="Processos Recentes" subtitle="Últimos 10 processos">
                 {lista.length === 0 ? (
                     <div className="py-8 text-center text-gray-400">
                         <i className="fas fa-folder text-2xl mb-2 block" />

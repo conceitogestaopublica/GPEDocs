@@ -98,7 +98,7 @@ export default function CadastroLayout({
                         <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3">
                             <p className="text-[11px] text-amber-800 leading-relaxed">
                                 <i className="fas fa-exclamation-triangle mr-1" />
-                                Preencha os campos obrigatorios para continuar
+                                Preencha os campos obrigatórios para continuar
                             </p>
                         </div>
                     )}

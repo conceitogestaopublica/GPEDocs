@@ -169,13 +169,13 @@ class TipoProcessoController extends Controller
         $tipo = TipoProcesso::withCount('processos')->findOrFail($id);
 
         if ($tipo->processos_count > 0) {
-            return redirect()->back()->with('error', 'Nao e possivel excluir tipo com processos vinculados. Use a opcao inativar.');
+            return redirect()->back()->with('error', 'Não é possível excluir tipo com processos vinculados. Use a opção inativar.');
         }
 
         $tipo->etapas()->delete();
         $tipo->delete();
 
-        return redirect()->back()->with('success', 'Tipo de processo excluido com sucesso.');
+        return redirect()->back()->with('success', 'Tipo de processo excluído com sucesso.');
     }
 
     public function toggleAtivo($id)

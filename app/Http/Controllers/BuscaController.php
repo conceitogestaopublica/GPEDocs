@@ -135,6 +135,6 @@ class BuscaController extends Controller
     {
         BuscaSalva::where('id', $id)->where('usuario_id', Auth::id())->delete();
 
-        return redirect()->back()->with('success', 'Busca excluida.');
+        return redirect()->back()->with('success', 'Busca excluída.');
     }
 }

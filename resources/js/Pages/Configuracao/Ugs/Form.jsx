@@ -99,12 +99,12 @@ export default function UgForm({ ug }) {
     const cidadeUf    = [data.cidade, data.uf].filter(Boolean).join('/');
 
     const resumo = [
-        { icone: 'fa-hashtag',     label: 'Codigo',     valor: data.codigo, vazio: ! data.codigo },
+        { icone: 'fa-hashtag',     label: 'Código',     valor: data.codigo, vazio: ! data.codigo },
         { icone: 'fa-building',    label: 'Nome',       valor: data.nome,   vazio: ! data.nome },
         { icone: 'fa-id-card-alt', label: 'CNPJ',       valor: data.cnpj,   vazio: ! data.cnpj },
-        { icone: 'fa-map-marker-alt', label: 'Endereco', valor: enderecoStr, vazio: ! enderecoStr },
+        { icone: 'fa-map-marker-alt', label: 'Endereço', valor: enderecoStr, vazio: ! enderecoStr },
         { icone: 'fa-city',        label: 'Cidade',     valor: cidadeUf,    vazio: ! cidadeUf },
-        { icone: 'fa-sitemap',     label: 'Niveis',
+        { icone: 'fa-sitemap',     label: 'Níveis',
           valor: `${data.nivel_1_label} > ${data.nivel_2_label} > ${data.nivel_3_label}` },
     ];
 
@@ -114,7 +114,7 @@ export default function UgForm({ ug }) {
 
             <CadastroLayout
                 titulo={isEdit ? 'Editar Unidade Gestora' : 'Nova Unidade Gestora'}
-                subtitulo={isEdit ? `Atualize os dados de ${ug.nome}` : 'Cadastre uma UG e configure os niveis do organograma'}
+                subtitulo={isEdit ? `Atualize os dados de ${ug.nome}` : 'Cadastre uma UG e configure os níveis do organograma'}
                 voltarHref="/configuracoes/ugs"
                 voltarLabel="Voltar para UGs"
                 resumo={resumo}
@@ -122,18 +122,18 @@ export default function UgForm({ ug }) {
                 onCancelar={onCancelar}
                 onSalvar={onSalvar}
                 processing={processing}
-                labelSalvar={isEdit ? 'Salvar alteracoes' : 'Criar UG'}
+                labelSalvar={isEdit ? 'Salvar alterações' : 'Criar UG'}
                 iconeSalvar={isEdit ? 'fas fa-save' : 'fas fa-plus'}
             >
                 <CadastroSecao
                     icone="fa-info-circle"
-                    titulo="Identificacao"
-                    descricao="Codigo, nome e CNPJ da UG"
+                    titulo="Identificação"
+                    descricao="Código, nome e CNPJ da UG"
                 >
                     <div className="grid grid-cols-3 gap-3">
                         <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Codigo <span className="text-red-500">*</span>
+                                Código <span className="text-red-500">*</span>
                             </label>
                             <input type="text" value={data.codigo} onChange={(e) => setData('codigo', e.target.value)}
                                 className="ds-input" maxLength={20} placeholder="Ex: 0001" />
@@ -157,7 +157,7 @@ export default function UgForm({ ug }) {
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Subdominio do Portal Cidadao
+                                Subdomínio do Portal Cidadão
                             </label>
                             <div className="flex items-center gap-1">
                                 <input
@@ -170,7 +170,7 @@ export default function UgForm({ ug }) {
                                 />
                                 <span className="text-xs text-gray-400 whitespace-nowrap">.gpedocs.com.br</span>
                             </div>
-                            <p className="text-[11px] text-gray-400 mt-1">Endereco publico da Carta de Servicos. Letras minusculas, numeros e hifen.</p>
+                            <p className="text-[11px] text-gray-400 mt-1">Endereço público da Carta de Serviços. Letras minúsculas, números e hífen.</p>
                             {errors.portal_slug && <p className="mt-1 text-xs text-red-600">{errors.portal_slug}</p>}
                         </div>
                     </div>
@@ -178,22 +178,22 @@ export default function UgForm({ ug }) {
 
                 <CadastroSecao
                     icone="fa-map-marker-alt"
-                    titulo="Endereco"
-                    descricao="Endereco principal — sera herdado pelas unidades do organograma quando elas nao tiverem endereco proprio"
+                    titulo="Endereço"
+                    descricao="Endereço principal — será herdado pelas unidades do organograma quando elas não tiverem endereço próprio"
                 >
                     <EnderecoForm data={data} setData={setData} errors={errors} />
                 </CadastroSecao>
 
                 <CadastroSecao
                     icone="fa-sitemap"
-                    titulo="Niveis do Organograma"
+                    titulo="Níveis do Organograma"
                     descricao='Cada UG pode usar uma nomenclatura diferente. Exemplos: "Secretaria/Departamento/Setor", "Diretoria/Coordenacao/Nucleo"'
                 >
                     <div className="grid grid-cols-3 gap-3">
                         {[1, 2, 3].map(n => (
                             <div key={n}>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                                    Nivel {n} <span className="text-red-500">*</span>
+                                    Nível {n} <span className="text-red-500">*</span>
                                 </label>
                                 <input type="text" value={data[`nivel_${n}_label`]}
                                     onChange={(e) => setData(`nivel_${n}_label`, e.target.value)}
@@ -205,8 +205,8 @@ export default function UgForm({ ug }) {
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <p className="text-[11px] text-blue-800">
                             <i className="fas fa-arrow-down mr-1" />
-                            Hierarquia: <strong>{data.nivel_1_label}</strong> contem
-                            <strong> {data.nivel_2_label}</strong>, que contem
+                            Hierarquia: <strong>{data.nivel_1_label}</strong> contém
+                            <strong> {data.nivel_2_label}</strong>, que contém
                             <strong> {data.nivel_3_label}</strong>.
                         </p>
                     </div>
@@ -215,20 +215,20 @@ export default function UgForm({ ug }) {
                 <CadastroSecao
                     icone="fa-image"
                     titulo="Identidade Visual"
-                    descricao="Brasao oficial — usado nos cabecalhos dos PDFs (memorando, oficio, circular, decisao de processo)"
+                    descricao="Brasão oficial — usado nos cabeçalhos dos PDFs (memorando, ofício, circular, decisão de processo)"
                 >
                     <div className="flex items-start gap-4">
                         <div className="w-32 h-32 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
                             {brasaoPreview ? (
                                 <img src={brasaoPreview} alt="Preview" className="max-w-full max-h-full object-contain" />
                             ) : ug?.brasao_url && ! data.remover_brasao ? (
-                                <img src={ug.brasao_url} alt="Brasao atual" className="max-w-full max-h-full object-contain" />
+                                <img src={ug.brasao_url} alt="Brasão atual" className="max-w-full max-h-full object-contain" />
                             ) : (
                                 <i className="fas fa-shield-alt text-3xl text-gray-300" />
                             )}
                         </div>
                         <div className="flex-1 space-y-2">
-                            <label className="block text-xs font-medium text-gray-700">Enviar imagem (PNG ou JPG, ate 5MB)</label>
+                            <label className="block text-xs font-medium text-gray-700">Enviar imagem (PNG ou JPG, até 5MB)</label>
                             <input type="file" accept="image/png,image/jpeg,image/jpg"
                                 onChange={handleBrasaoChange}
                                 className="block w-full text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
@@ -238,12 +238,12 @@ export default function UgForm({ ug }) {
                                     <input type="checkbox" checked={data.remover_brasao}
                                         onChange={(e) => setData('remover_brasao', e.target.checked)}
                                         className="rounded border-gray-300 text-red-600" />
-                                    Remover brasao atual
+                                    Remover brasão atual
                                 </label>
                             )}
                             <p className="text-[10px] text-gray-400">
                                 <i className="fas fa-info-circle mr-1" />
-                                A imagem aparece a esquerda do cabecalho dos PDFs, com tamanho aproximado de 60px de largura.
+                                A imagem aparece a esquerda do cabeçalho dos PDFs, com tamanho aproximado de 60px de largura.
                             </p>
                         </div>
                     </div>
@@ -252,7 +252,7 @@ export default function UgForm({ ug }) {
                 {isEdit && (
                     <CadastroSecao
                         icone="fa-bullhorn"
-                        titulo="Banners do Portal do Cidadao"
+                        titulo="Banners do Portal do Cidadão"
                         descricao="Carrossel de imagens promocionais na home do portal"
                     >
                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-4">
@@ -275,7 +275,7 @@ export default function UgForm({ ug }) {
                 <CadastroSecao
                     icone="fa-phone"
                     titulo="Contato Institucional"
-                    descricao="Telefone, e-mail e site oficiais — exibidos no cabecalho dos PDFs"
+                    descricao="Telefone, e-mail e site oficiais — exibidos no cabeçalho dos PDFs"
                 >
                     <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -301,11 +301,11 @@ export default function UgForm({ ug }) {
 
                 <CadastroSecao
                     icone="fa-clipboard"
-                    titulo="Observacoes"
+                    titulo="Observações"
                     descricao="Notas livres sobre a UG (opcional)"
                 >
                     <textarea value={data.observacoes} onChange={(e) => setData('observacoes', e.target.value)}
-                        className="ds-input !h-auto" rows={3} placeholder="Anote informacoes adicionais..." />
+                        className="ds-input !h-auto" rows={3} placeholder="Anote informações adicionais..." />
                 </CadastroSecao>
             </CadastroLayout>
         </AdminLayout>

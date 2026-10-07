@@ -66,20 +66,20 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                     <div className="py-16 text-center text-gray-400">
                         <i className="fas fa-plug text-4xl mb-3 block" />
                         <p className="text-sm font-medium">Nenhum sistema integrado cadastrado</p>
-                        <p className="text-xs mt-1">Cadastre um sistema para gerar API token e habilitar a integracao.</p>
+                        <p className="text-xs mt-1">Cadastre um sistema para gerar API token e habilitar a integração.</p>
                     </div>
                 ) : (
                     <div ref={scrollRef} className="overflow-auto">
                         <table className="w-full text-sm">
                             <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px]">
                                 <tr>
-                                    <th className="px-3 py-2.5 text-left font-semibold">Codigo</th>
+                                    <th className="px-3 py-2.5 text-left font-semibold">Código</th>
                                     <th className="px-3 py-2.5 text-left font-semibold">Nome</th>
                                     <th className="px-3 py-2.5 text-left font-semibold">Token</th>
                                     <th className="px-3 py-2.5 text-left font-semibold">Documentos</th>
-                                    <th className="px-3 py-2.5 text-left font-semibold">Ultimo uso</th>
+                                    <th className="px-3 py-2.5 text-left font-semibold">Último uso</th>
                                     <th className="px-3 py-2.5 text-left font-semibold">Status</th>
-                                    <th className="px-3 py-2.5 text-center font-semibold w-44">Acoes</th>
+                                    <th className="px-3 py-2.5 text-center font-semibold w-44">Ações</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -148,7 +148,7 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                         <div className="py-16 text-center text-gray-400">
                             <i className="fas fa-paper-plane text-4xl mb-3 block" />
                             <p className="text-sm font-medium">Nenhum webhook enviado ainda</p>
-                            <p className="text-xs mt-1">Os logs aparecem aqui quando documentos sao assinados.</p>
+                            <p className="text-xs mt-1">Os logs aparecem aqui quando documentos são assinados.</p>
                         </div>
                     ) : (
                         <div ref={scrollRef} className="overflow-auto">
@@ -161,7 +161,7 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                                         <th className="px-3 py-2.5 text-left font-semibold">URL</th>
                                         <th className="px-3 py-2.5 text-left font-semibold">Status</th>
                                         <th className="px-3 py-2.5 text-left font-semibold">Quando</th>
-                                        <th className="px-3 py-2.5 text-center font-semibold w-32">Acoes</th>
+                                        <th className="px-3 py-2.5 text-center font-semibold w-32">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -235,15 +235,15 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                             Header: Authorization: Bearer {'{token}'}
                         </code>
                         <p className="text-[11px] text-blue-700">
-                            Documentacao completa cobre: endpoints, payload, eventos de webhook (individual,
-                            recusada, todas_concluidas), validacao HMAC-SHA256, exemplos em PHP e Node.js,
-                            fluxo de uso e limitacoes.
+                            Documentação completa cobre: endpoints, payload, eventos de webhook (individual,
+                            recusada, todas_concluidas), validação HMAC-SHA256, exemplos em PHP e Node.js,
+                            fluxo de uso e limitações.
                         </p>
                     </div>
                     <div className="flex flex-col gap-2 shrink-0">
                         <a href="/docs/integracao-externa.md" download
                             className="ds-btn ds-btn-primary text-xs whitespace-nowrap">
-                            <i className="fas fa-download mr-1" />Baixar documentacao (.md)
+                            <i className="fas fa-download mr-1" />Baixar documentação (.md)
                         </a>
                         <a href="/docs/integracao-externa" target="_blank" rel="noopener"
                             className="ds-btn ds-btn-outline text-xs whitespace-nowrap">
@@ -262,7 +262,7 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                             <div><span className="text-gray-500">Sistema:</span> <code className="bg-violet-50 px-1 rounded">{logDetalhe.sistema_origem}</code></div>
                             <div><span className="text-gray-500">Status:</span> {logDetalhe.sucesso ? <span className="text-green-700 font-bold">{logDetalhe.http_status} OK</span> : <span className="text-red-700 font-bold">{logDetalhe.http_status || 'ERRO'}</span>}</div>
                             <div><span className="text-gray-500">Tentativas:</span> {logDetalhe.tentativas}</div>
-                            <div><span className="text-gray-500">Duracao:</span> {logDetalhe.duracao_ms}ms</div>
+                            <div><span className="text-gray-500">Duração:</span> {logDetalhe.duracao_ms}ms</div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-navy-900 mb-1">URL</label>
@@ -310,10 +310,10 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                         <div className="bg-amber-50 border border-amber-300 rounded-xl p-3">
                             <p className="text-xs text-amber-800 font-semibold mb-1">
                                 <i className="fas fa-exclamation-triangle mr-1" />
-                                Estas credenciais sao exibidas APENAS uma vez
+                                Estas credenciais são exibidas APENAS uma vez
                             </p>
                             <p className="text-[11px] text-amber-700">
-                                Copie e guarde em local seguro. Para gerar novas, use os botoes "Regenerar".
+                                Copie e guarde em local seguro. Para gerar novas, use os botões "Regenerar".
                             </p>
                         </div>
 
@@ -354,7 +354,7 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                                     }}>Copiar</Button>
                                 </div>
                                 <p className="mt-1 text-[10px] text-gray-500">
-                                    Cada webhook que o GPE Docs enviar tera o header <code>X-GpeDocs-Signature: sha256=&lt;hmac&gt;</code>.
+                                    Cada webhook que o GPE Docs enviar terá o header <code>X-GpeDocs-Signature: sha256=&lt;hmac&gt;</code>.
                                     Use este secret pra validar a autenticidade do payload.
                                 </p>
                             </div>
@@ -381,15 +381,15 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                         <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-800">
                             <i className="fas fa-exclamation-triangle mr-1" />
                             {confirmRegenerar.tipo === 'secret' ? (
-                                <>O webhook secret atual sera <strong>invalidado imediatamente</strong>. Webhooks
-                                enviados depois disso virao com nova assinatura — atualize o validador no client.</>
+                                <>O webhook secret atual será <strong>invalidado imediatamente</strong>. Webhooks
+                                enviados depois disso virão com nova assinatura — atualize o validador no client.</>
                             ) : (
-                                <>O API token atual sera <strong>invalidado imediatamente</strong>. Qualquer integracao
-                                que use o token antigo vai parar de funcionar ate ser atualizada.</>
+                                <>O API token atual será <strong>invalidado imediatamente</strong>. Qualquer integração
+                                que use o token antigo vai parar de funcionar até ser atualizada.</>
                             )}
                         </div>
                         <p className="text-sm text-gray-700">
-                            Confirmar regeneracao{confirmRegenerar.tipo === 'secret' ? ' do webhook secret' : ' do API token'} de <code className="bg-gray-100 px-1 rounded">{confirmRegenerar.codigo}</code>?
+                            Confirmar regeneração{confirmRegenerar.tipo === 'secret' ? ' do webhook secret' : ' do API token'} de <code className="bg-gray-100 px-1 rounded">{confirmRegenerar.codigo}</code>?
                         </p>
                         <div className="flex justify-end gap-2">
                             <Button variant="secondary" onClick={() => setConfirmRegenerar(null)}>Cancelar</Button>
@@ -427,32 +427,32 @@ function NovoSistemaModal({ onClose }) {
             <form onSubmit={submit} className="space-y-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Codigo <span className="text-red-500">*</span>
+                        Código <span className="text-red-500">*</span>
                     </label>
                     <input type="text" value={data.codigo}
                         onChange={(e) => setData('codigo', e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
                         className="ds-input font-mono"
-                        placeholder="gpe, rh, patrimonio..."
+                        placeholder="gpe, rh, patrimônio..."
                         maxLength={50} autoFocus />
                     <p className="mt-1 text-[10px] text-gray-400">
-                        So letras minusculas, numeros, hifen e underscore. Sera usado em logs e identificacao.
+                        Só letras minúsculas, números, hífen e underscore. Será usado em logs e identificação.
                     </p>
                     {errors.codigo && <p className="mt-1 text-xs text-red-600">{errors.codigo}</p>}
                 </div>
 
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Nome amigavel <span className="text-red-500">*</span>
+                        Nome amigável <span className="text-red-500">*</span>
                     </label>
                     <input type="text" value={data.nome}
                         onChange={(e) => setData('nome', e.target.value)}
                         className="ds-input"
-                        placeholder='Ex: GPE - Sistema de Gestao Publica' />
+                        placeholder='Ex: GPE - Sistema de Gestão Pública' />
                     {errors.nome && <p className="mt-1 text-xs text-red-600">{errors.nome}</p>}
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                     <textarea value={data.descricao}
                         onChange={(e) => setData('descricao', e.target.value)}
                         rows={3} className="ds-input !h-auto"
@@ -461,7 +461,7 @@ function NovoSistemaModal({ onClose }) {
 
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-[11px] text-blue-800">
                     <i className="fas fa-info-circle mr-1" />
-                    Apos criar, um <strong>token unico</strong> sera gerado e exibido <strong>uma unica vez</strong>.
+                    Após criar, um <strong>token único</strong> será gerado e exibido <strong>uma única vez</strong>.
                     Copie e use no header HTTP <code className="bg-white px-1 rounded">Authorization: Bearer ...</code>
                 </div>
 
@@ -489,10 +489,10 @@ function EditarSistemaModal({ sistema, onClose }) {
         <Modal show={true} onClose={onClose} title={`Editar ${sistema.codigo}`}>
             <form onSubmit={submit} className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Codigo</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
                     <input type="text" value={sistema.codigo} readOnly disabled
                         className="ds-input font-mono bg-gray-50 cursor-not-allowed" />
-                    <p className="mt-1 text-[10px] text-gray-400">Codigo nao pode ser alterado.</p>
+                    <p className="mt-1 text-[10px] text-gray-400">Código não pode ser alterado.</p>
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nome <span className="text-red-500">*</span></label>
@@ -502,7 +502,7 @@ function EditarSistemaModal({ sistema, onClose }) {
                     {errors.nome && <p className="mt-1 text-xs text-red-600">{errors.nome}</p>}
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                     <textarea value={data.descricao}
                         onChange={(e) => setData('descricao', e.target.value)}
                         rows={3} className="ds-input !h-auto" />

@@ -38,7 +38,7 @@ export default function SolicitacaoShow({ ug, solicitacao, anexos = [], decisaoP
             <Head title={`${solicitacao.codigo} — ${solicitacao.servico?.titulo}`} />
 
             <nav className="text-xs text-gray-500 mb-4">
-                <Link href="/minhas-solicitacoes" className="hover:text-blue-600">Minhas Solicitacoes</Link>
+                <Link href="/minhas-solicitacoes" className="hover:text-blue-600">Minhas Solicitações</Link>
                 <i className="fas fa-chevron-right mx-2 text-[10px]" />
                 <span className="text-gray-700 font-medium font-mono">{solicitacao.codigo}</span>
             </nav>
@@ -65,7 +65,7 @@ export default function SolicitacaoShow({ ug, solicitacao, anexos = [], decisaoP
                             </div>
                         </div>
 
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Sua descricao</h3>
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Sua descrição</h3>
                         <p className="text-sm text-gray-700 whitespace-pre-line bg-gray-50 rounded-lg p-4 leading-relaxed">{solicitacao.descricao}</p>
                     </div>
 
@@ -95,7 +95,7 @@ export default function SolicitacaoShow({ ug, solicitacao, anexos = [], decisaoP
                             {decisaoPdf && (
                                 <div className="mt-4 pt-4 border-t border-gray-100">
                                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
-                                        <i className="fas fa-file-signature mr-1" /> Documento oficial da decisao
+                                        <i className="fas fa-file-signature mr-1" /> Documento oficial da decisão
                                     </p>
                                     <a href={`/minhas-solicitacoes/${solicitacao.id}/decisao`} target="_blank" rel="noreferrer"
                                         className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-colors group
@@ -108,7 +108,7 @@ export default function SolicitacaoShow({ ug, solicitacao, anexos = [], decisaoP
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-bold text-gray-800">
-                                                Decisao — {decisaoPdf.numero}
+                                                Decisão — {decisaoPdf.numero}
                                             </p>
                                             <div className="flex items-center gap-2 mt-1 flex-wrap">
                                                 {decisaoPdf.assinado ? (
@@ -180,7 +180,7 @@ export default function SolicitacaoShow({ ug, solicitacao, anexos = [], decisaoP
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="text-sm font-semibold text-gray-800">{ev.autor_nome}</p>
                                             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">
-                                                {ev.autor_tipo === 'cidadao' ? 'Voce' : ev.autor_tipo === 'atendente' ? 'Atendente' : 'Sistema'}
+                                                {ev.autor_tipo === 'cidadao' ? 'Você' : ev.autor_tipo === 'atendente' ? 'Atendente' : 'Sistema'}
                                             </span>
                                         </div>
                                         <p className="text-[11px] text-gray-400">{new Date(ev.created_at).toLocaleString('pt-BR')}</p>
@@ -205,7 +205,7 @@ export default function SolicitacaoShow({ ug, solicitacao, anexos = [], decisaoP
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Detalhes</h3>
                         <dl className="space-y-2 text-sm">
                             <div>
-                                <dt className="text-[10px] uppercase tracking-wider text-gray-400">Servico</dt>
+                                <dt className="text-[10px] uppercase tracking-wider text-gray-400">Serviço</dt>
                                 <dd className="font-semibold text-gray-800">
                                     <Link href={`/servico/${solicitacao.servico?.slug}`} className="hover:text-blue-600">
                                         {solicitacao.servico?.titulo}
@@ -229,8 +229,8 @@ export default function SolicitacaoShow({ ug, solicitacao, anexos = [], decisaoP
 
                     {podeCancelar && (
                         <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
-                            <h3 className="text-sm font-bold text-red-800 mb-1">Cancelar solicitacao</h3>
-                            <p className="text-xs text-red-700 mb-3">Use apenas se nao precisar mais deste servico.</p>
+                            <h3 className="text-sm font-bold text-red-800 mb-1">Cancelar solicitação</h3>
+                            <p className="text-xs text-red-700 mb-3">Use apenas se não precisar mais deste serviço.</p>
                             <button onClick={cancelar}
                                 className="w-full px-4 py-2 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700">
                                 <i className="fas fa-ban mr-1" /> Cancelar

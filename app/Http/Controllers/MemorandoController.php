@@ -173,7 +173,7 @@ class MemorandoController extends Controller
 
             DB::commit();
 
-            return redirect("/memorandos/{$memorando->id}")->with('success', 'Memorando enviado com sucesso. Numero: ' . $numero);
+            return redirect("/memorandos/{$memorando->id}")->with('success', 'Memorando enviado com sucesso. Número: ' . $numero);
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -235,7 +235,7 @@ class MemorandoController extends Controller
         $acessoGeral = (bool) $user->acesso_geral_ug;
 
         if (! $this->podeVer($memorando, $user)) {
-            abort(403, 'Voce nao tem permissao para visualizar este memorando.');
+            abort(403, 'Você não tem permissão para visualizar este memorando.');
         }
 
         // Tramitacao ativa enderecada a esse user/setor (ordenada por id desc para pegar a mais recente)
@@ -270,7 +270,7 @@ class MemorandoController extends Controller
         // Status do usuario logado em relacao ao documento (pra banner)
         $meuStatus = null;
         if ($isRemetente && ! $tramiteAtivo && ! $destinatarioAtivo) {
-            $meuStatus = ['estado' => 'remetente', 'mensagem' => 'Voce e o remetente. Aguardando recebimento do destino.'];
+            $meuStatus = ['estado' => 'remetente', 'mensagem' => 'Você e o remetente. Aguardando recebimento do destino.'];
         } elseif ($tramiteAtivo && ! $tramiteAtivo->finalizado) {
             $meuStatus = ['estado' => 'pendente', 'mensagem' => 'Aguardando seu recebimento. Clique em "Receber" para acusar.'];
         } elseif ($tramiteAtivo && $tramiteAtivo->finalizado) {
@@ -280,7 +280,7 @@ class MemorandoController extends Controller
         } elseif ($destinatarioAtivo) {
             $meuStatus = ['estado' => 'recebido', 'mensagem' => 'Recebido em ' . ($destinatarioAtivo->lido_em?->format('d/m/Y H:i') ?? '-') . '. Voce pode tramitar, responder ou arquivar.'];
         } elseif ($isTramiteOrigem) {
-            $meuStatus = ['estado' => 'tramitou', 'mensagem' => 'Voce ja tramitou este memorando para frente. Acompanhando.'];
+            $meuStatus = ['estado' => 'tramitou', 'mensagem' => 'Você já tramitou este memorando para frente. Acompanhando.'];
         }
 
         // Lista de unidades + usuarios pra modal de tramitar
@@ -382,7 +382,7 @@ class MemorandoController extends Controller
         }
 
         $quando = now()->format('d/m/Y H:i');
-        return redirect()->back()->with('success', "Recebimento confirmado em {$quando}. Agora voce pode encaminhar, responder ou arquivar.");
+        return redirect()->back()->with('success', "Recebimento confirmado em {$quando}. Agora você pode encaminhar, responder ou arquivar.");
     }
 
     /**
@@ -460,7 +460,7 @@ class MemorandoController extends Controller
                         'usuario_id'      => $memorando->remetente_id,
                         'tipo'            => 'memorando_resposta',
                         'titulo'          => 'Resposta no memorando',
-                        'mensagem'        => "O memorando {$memorando->numero} recebeu uma resposta junto com a tramitacao.",
+                        'mensagem'        => "O memorando {$memorando->numero} recebeu uma resposta junto com a tramitação.",
                         'referencia_tipo' => 'memorando',
                         'referencia_id'   => $memorando->id,
                         'lida'            => false,
@@ -480,7 +480,7 @@ class MemorandoController extends Controller
                     'usuario_id'      => (int) $uid,
                     'tipo'            => 'memorando_tramitado',
                     'titulo'          => 'Memorando tramitado para voce',
-                    'mensagem'        => "Memorando {$memorando->numero} - {$memorando->assunto} chegou via tramitacao.",
+                    'mensagem'        => "Memorando {$memorando->numero} - {$memorando->assunto} chegou via tramitação.",
                     'referencia_tipo' => 'memorando',
                     'referencia_id'   => $memorando->id,
                     'lida'            => false,
@@ -520,7 +520,7 @@ class MemorandoController extends Controller
         // Valida pasta na mesma UG
         $pasta = DB::table('ged_pastas')->where('id', $request->input('pasta_id'))->first();
         if (! $pasta || $pasta->ug_id !== $memorando->ug_id) {
-            return redirect()->back()->with('error', 'A pasta selecionada nao pertence a UG deste memorando.');
+            return redirect()->back()->with('error', 'A pasta selecionada não pertence a UG deste memorando.');
         }
 
         try {

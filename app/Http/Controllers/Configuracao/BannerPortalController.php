@@ -98,7 +98,7 @@ class BannerPortalController extends Controller
             Storage::disk('documentos')->delete($banner->imagem_path);
         }
         $banner->delete();
-        return back()->with('success', 'Banner excluido.');
+        return back()->with('success', 'Banner excluído.');
     }
 
     public function move(int $ugId, int $bannerId, string $direcao)

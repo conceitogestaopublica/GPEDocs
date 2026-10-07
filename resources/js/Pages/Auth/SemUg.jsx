@@ -14,12 +14,12 @@ export default function SemUg({ user }) {
                 </div>
 
                 <h1 className="text-xl font-bold text-gray-800 mb-2">
-                    Voce ainda nao tem acesso a nenhuma UG
+                    Você ainda não tem acesso a nenhuma UG
                 </h1>
 
                 <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-                    Voce esta logado como <strong className="text-gray-800">{user.name}</strong>,
-                    mas seu usuario nao foi vinculado a nenhuma Unidade Gestora.
+                    Você esta logado como <strong className="text-gray-800">{user.name}</strong>,
+                    mas seu usuário não foi vinculado a nenhuma Unidade Gestora.
                     Procure o administrador do sistema para liberar seu acesso.
                 </p>
 
