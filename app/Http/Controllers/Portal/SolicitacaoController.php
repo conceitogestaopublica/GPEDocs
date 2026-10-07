@@ -31,7 +31,7 @@ class SolicitacaoController extends Controller
         // Se nao logado e o servico NAO permite anonimo: vai pro login
         if (! $cidadao && ! $servico->permite_anonimo) {
             return redirect('/entrar')
-                ->with('warning', 'Faca login ou cadastre-se para solicitar este servico.');
+                ->with('warning', 'Faça login ou cadastre-se para solicitar este serviço.');
         }
 
         return Inertia::render('Portal/Solicitar', [
@@ -61,7 +61,7 @@ class SolicitacaoController extends Controller
             // Identificada: precisa estar logada
             if (! $cidadao) {
                 return redirect('/entrar')
-                    ->with('warning', 'Faca login ou cadastre-se para solicitar este servico.');
+                    ->with('warning', 'Faça login ou cadastre-se para solicitar este serviço.');
             }
             $regrasBase['telefone_contato'] = ['nullable', 'string', 'max:30'];
             $regrasBase['email_contato']    = ['nullable', 'email', 'max:150'];
@@ -125,7 +125,7 @@ class SolicitacaoController extends Controller
         }
 
         return redirect("/minhas-solicitacoes/{$solicitacao->id}")
-            ->with('success', "Solicitacao {$solicitacao->codigo} registrada. Voce sera notificado por email sobre o andamento.");
+            ->with('success', "Solicitação {$solicitacao->codigo} registrada. Você será notificado por email sobre o andamento.");
     }
 
     public function minhasSolicitacoes(Request $request, string $ug): Response
@@ -320,7 +320,7 @@ class SolicitacaoController extends Controller
             ->firstOrFail();
 
         if (in_array($solicitacao->status, Solicitacao::STATUS_FINAIS, true)) {
-            return back()->with('error', 'Solicitacao ja finalizada nao pode ser cancelada.');
+            return back()->with('error', 'Solicitação já finalizada não pode ser cancelada.');
         }
 
         DB::transaction(function () use ($solicitacao, $cidadao) {
@@ -335,11 +335,11 @@ class SolicitacaoController extends Controller
                 'autor_cidadao_id' => $cidadao->id,
                 'status_anterior'  => $statusAnterior,
                 'status_novo'      => 'cancelada',
-                'mensagem'         => 'Cancelada pelo cidadao.',
+                'mensagem'         => 'Cancelada pelo cidadão.',
             ]);
         });
 
-        return back()->with('success', 'Solicitacao cancelada.');
+        return back()->with('success', 'Solicitação cancelada.');
     }
 
     private function resolverUg(string $slug): Ug

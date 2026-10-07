@@ -23,6 +23,7 @@ class TipoEtapa extends Model
         'sla_horas',
         'template_texto',
         'obrigatorio',
+        'ativo',
     ];
 
     protected function casts(): array

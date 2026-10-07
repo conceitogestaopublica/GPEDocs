@@ -85,7 +85,7 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                             </div>
                         </div>
 
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Descricao do cidadao</h3>
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Descrição do cidadão</h3>
                         <p className="text-sm text-gray-700 whitespace-pre-line bg-gray-50 rounded-lg p-4 leading-relaxed">{solicitacao.descricao}</p>
                     </Card>
 
@@ -115,17 +115,17 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                                 </div>
                                 <div>
                                     <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                                        Resposta ao cidadao <span className="text-gray-400 font-normal">(opcional, sera enviada por email)</span>
+                                        Resposta ao cidadão <span className="text-gray-400 font-normal">(opcional, será enviada por email)</span>
                                     </label>
                                     <textarea value={formStatus.data.resposta} onChange={(e) => formStatus.setData('resposta', e.target.value)}
                                         rows={5} maxLength={5000}
-                                        placeholder="Escreva uma resposta ou orientacao..."
+                                        placeholder="Escreva uma resposta ou orientação..."
                                         className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm" />
                                 </div>
                                 <div className="flex justify-end pt-2">
                                     <button type="submit" disabled={formStatus.processing}
                                         className="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 text-sm">
-                                        {formStatus.processing ? 'Salvando...' : 'Atualizar e notificar cidadao'}
+                                        {formStatus.processing ? 'Salvando...' : 'Atualizar e notificar cidadão'}
                                     </button>
                                 </div>
                             </form>
@@ -135,7 +135,7 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                                     <label className="text-xs font-semibold text-gray-600 mb-1 block">Mensagem</label>
                                     <textarea value={formComentario.data.mensagem} onChange={(e) => formComentario.setData('mensagem', e.target.value)}
                                         rows={4} required maxLength={5000}
-                                        placeholder="Escreva uma mensagem para o cidadao (sera enviada por email)..."
+                                        placeholder="Escreva uma mensagem para o cidadão (será enviada por email)..."
                                         className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm" />
                                 </div>
                                 <div className="flex justify-end pt-2">
@@ -171,7 +171,7 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="text-sm font-semibold text-gray-800">{ev.autor_nome}</p>
                                             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">
-                                                {ev.autor_tipo === 'cidadao' ? 'Cidadao' : ev.autor_tipo === 'atendente' ? 'Atendente' : 'Sistema'}
+                                                {ev.autor_tipo === 'cidadao' ? 'Cidadão' : ev.autor_tipo === 'atendente' ? 'Atendente' : 'Sistema'}
                                             </span>
                                         </div>
                                         <p className="text-[11px] text-gray-400">{new Date(ev.created_at).toLocaleString('pt-BR')}</p>
@@ -210,13 +210,13 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
 
                     <Card>
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
-                            {solicitacao.anonima ? 'Solicitante' : 'Cidadao'}
+                            {solicitacao.anonima ? 'Solicitante' : 'Cidadão'}
                         </h3>
                         {solicitacao.anonima ? (
                             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
                                 <i className="fas fa-user-secret text-amber-600 text-2xl mb-1" />
-                                <p className="text-sm font-bold text-amber-800">Solicitacao Anonima</p>
-                                <p className="text-[11px] text-amber-700 mt-1">A identidade do solicitante nao foi registrada.</p>
+                                <p className="text-sm font-bold text-amber-800">Solicitação Anônima</p>
+                                <p className="text-[11px] text-amber-700 mt-1">A identidade do solicitante não foi registrada.</p>
                             </div>
                         ) : (
                             <>
@@ -246,7 +246,7 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                                 <div className="flex items-start gap-2">
                                     <i className="fas fa-envelope text-gray-400 w-4 text-center mt-0.5" />
                                     <div>
-                                        <p className="text-[10px] text-gray-400">Email de contato (especifico)</p>
+                                        <p className="text-[10px] text-gray-400">Email de contato (específico)</p>
                                         <span className="text-gray-700">{solicitacao.email_contato}</span>
                                     </div>
                                 </div>
@@ -255,7 +255,7 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                                 <div className="flex items-start gap-2">
                                     <i className="fas fa-phone text-gray-400 w-4 text-center mt-0.5" />
                                     <div>
-                                        <p className="text-[10px] text-gray-400">Telefone de contato (especifico)</p>
+                                        <p className="text-[10px] text-gray-400">Telefone de contato (específico)</p>
                                         <span className="text-gray-700">{solicitacao.telefone_contato}</span>
                                     </div>
                                 </div>

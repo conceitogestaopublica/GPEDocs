@@ -15,55 +15,55 @@ import AssinarModal from '../../../Components/AssinarModal';
 const VISTA_CONFIG = {
     pessoal: {
         titulo: 'Caixa Pessoal',
-        subtitulo: 'Itens enderecados pessoalmente a voce, em estado ativo',
+        subtitulo: 'Itens endereçados pessoalmente a você, em estado ativo',
         icone: 'fa-inbox',
         cor: 'blue',
-        emptyTitulo: 'Sem itens pendentes pra voce',
-        emptyTexto: 'Quando alguem encaminhar algo diretamente a voce, aparece aqui.',
+        emptyTitulo: 'Sem itens pendentes pra você',
+        emptyTexto: 'Quando alguem encaminhar algo diretamente a você, aparece aqui.',
     },
     setor: {
         titulo: 'Caixa Setor',
-        subtitulo: 'Itens enderecados ao seu setor (qualquer um pode pegar)',
+        subtitulo: 'Itens endereçados ao seu setor (qualquer um pode pegar)',
         icone: 'fa-users',
         cor: 'indigo',
         emptyTitulo: 'Sem itens pendentes no setor',
-        emptyTexto: 'Itens encaminhados a sua unidade sem destinatario especifico aparecem aqui.',
+        emptyTexto: 'Itens encaminhados a sua unidade sem destinatário específico aparecem aqui.',
     },
     aguardando_assinatura: {
         titulo: 'Aguardando Assinatura',
-        subtitulo: 'Voce decidiu, falta assinar digitalmente para tornar oficial',
+        subtitulo: 'Você decidiu, falta assinar digitalmente para tornar oficial',
         icone: 'fa-file-signature',
         cor: 'purple',
         emptyTitulo: 'Sem assinaturas pendentes',
-        emptyTexto: 'Decisoes de processo que voce tomar aparecem aqui ate serem assinadas (Lei 14.063/2020).',
+        emptyTexto: 'Decisoes de processo que você tomar aparecem aqui até serem assinadas (Lei 14.063/2020).',
     },
     em_tramitacao: {
-        titulo: 'Em Tramitacao',
-        subtitulo: 'Itens em fluxo onde voce participa, ainda nao finalizados',
+        titulo: 'Em Tramitação',
+        subtitulo: 'Itens em fluxo onde você participa, ainda não finalizados',
         icone: 'fa-share',
         cor: 'orange',
-        emptyTitulo: 'Nada em tramitacao',
-        emptyTexto: 'Itens que voce originou ou recebeu e ainda estao em andamento aparecem aqui.',
+        emptyTitulo: 'Nada em tramitação',
+        emptyTexto: 'Itens que você originou ou recebeu e ainda estão em andamento aparecem aqui.',
     },
     concluidos: {
-        titulo: 'Concluidos',
+        titulo: 'Concluídos',
         subtitulo: 'Itens finalizados — deferidos, indeferidos, arquivados ou cancelados',
         icone: 'fa-check-double',
         cor: 'green',
-        emptyTitulo: 'Nenhum item concluido ainda',
-        emptyTexto: 'Itens com decisao final ou arquivados aparecem aqui.',
+        emptyTitulo: 'Nenhum item concluído ainda',
+        emptyTexto: 'Itens com decisão final ou arquivados aparecem aqui.',
     },
     saida: {
-        titulo: 'Saida (Originados)',
-        subtitulo: 'Tudo que voce criou — em qualquer estado',
+        titulo: 'Saída (Originados)',
+        subtitulo: 'Tudo que você criou — em qualquer estado',
         icone: 'fa-paper-plane',
         cor: 'emerald',
-        emptyTitulo: 'Voce ainda nao originou nada',
-        emptyTexto: 'Memorandos, oficios e processos que voce criar aparecem aqui.',
+        emptyTitulo: 'Você ainda não originou nada',
+        emptyTexto: 'Memorandos, ofícios e processos que você criar aparecem aqui.',
     },
     rascunhos: {
         titulo: 'Rascunhos',
-        subtitulo: 'Documentos que voce comecou e ainda nao enviou',
+        subtitulo: 'Documentos que você começou e ainda não enviou',
         icone: 'fa-pencil-alt',
         cor: 'yellow',
         emptyTitulo: 'Nenhum rascunho',
@@ -74,7 +74,7 @@ const VISTA_CONFIG = {
 const TIPO_CONFIG = {
     memorando: { label: 'Memorando', icone: 'fa-envelope',     cor: 'amber',  link: 'memorandos' },
     circular:  { label: 'Circular',  icone: 'fa-bullhorn',     cor: 'rose',   link: 'circulares' },
-    oficio:    { label: 'Oficio',    icone: 'fa-file-alt',     cor: 'cyan',   link: 'oficios' },
+    oficio:    { label: 'Ofício',    icone: 'fa-file-alt',     cor: 'cyan',   link: 'oficios' },
     processo:  { label: 'Processo',  icone: 'fa-folder-open',  cor: 'indigo', link: 'processos' },
 };
 
@@ -157,8 +157,8 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-start gap-2">
                     <i className="fas fa-exclamation-triangle text-amber-600 mt-0.5" />
                     <div>
-                        <p className="text-xs font-semibold text-amber-800">Voce nao esta vinculado a nenhuma unidade do organograma</p>
-                        <p className="text-[11px] text-amber-700">Peca ao admin para vincular seu usuario a uma unidade. Sem isso a Inbox do Setor fica vazia.</p>
+                        <p className="text-xs font-semibold text-amber-800">Você não esta vinculado a nenhuma unidade do organograma</p>
+                        <p className="text-[11px] text-amber-700">Peça ao admin para vincular seu usuário a uma unidade. Sem isso a Inbox do Setor fica vazia.</p>
                     </div>
                 </div>
             )}
@@ -167,33 +167,33 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
             <div className="bg-white rounded-xl border border-gray-200 p-3 mb-3">
                 <form onSubmit={aplicar} className="flex flex-wrap items-end gap-2">
                     <div className="relative flex-1 min-w-[260px]">
-                        <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">Buscar</label>
+                        <label className="block text-sm font-medium text-navy-900 mb-1">Buscar</label>
                         <i className="fas fa-search absolute left-3 top-[60%] -translate-y-1/2 text-gray-400 text-xs" />
                         <input type="text" value={busca} onChange={(e) => setBusca(e.target.value)}
-                            placeholder="Numero ou assunto..." className="ds-input pl-9" />
+                            placeholder="Número ou assunto..." className="ds-input pl-9" />
                     </div>
                     <div>
-                        <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">Tipo</label>
+                        <label className="block text-sm font-medium text-navy-900 mb-1">Tipo</label>
                         <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="ds-input w-44">
                             <option value="">Todos</option>
                             <option value="memorando">Memorandos</option>
-                            <option value="oficio">Oficios</option>
+                            <option value="oficio">Ofícios</option>
                             <option value="processo">Processos</option>
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">De</label>
+                        <label className="block text-sm font-medium text-navy-900 mb-1">De</label>
                         <input type="date" value={dataDe} onChange={(e) => setDataDe(e.target.value)} className="ds-input w-40" />
                     </div>
                     <div>
-                        <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">Ate</label>
+                        <label className="block text-sm font-medium text-navy-900 mb-1">Até</label>
                         <input type="date" value={dataAte} onChange={(e) => setDataAte(e.target.value)} className="ds-input w-40" />
                     </div>
                     {(vista === 'pessoal' || vista === 'setor') && (
                         <label className="flex items-center gap-2 cursor-pointer pb-2.5">
                             <input type="checkbox" checked={naoLidos} onChange={(e) => setNaoLidos(e.target.checked)}
                                 className="rounded border-gray-300 text-blue-600" />
-                            <span className="text-xs text-gray-700">Apenas nao lidos</span>
+                            <span className="text-xs text-gray-700">Apenas não lidos</span>
                         </label>
                     )}
                     <Button type="submit" icon="fas fa-filter">Filtrar</Button>
@@ -220,7 +220,7 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                             <ItemRow key={item.id} item={item}
                                 onAssinar={() => setAssinarItem({
                                     id: item.assinatura_id,
-                                    documento: { nome: `Decisao - ${item.numero}` },
+                                    documento: { nome: `Decisão - ${item.numero}` },
                                     solicitacao: { mensagem: item.assunto },
                                 })}
                                 onArquivar={() => setArquivarItem({
@@ -267,7 +267,7 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                     <form onSubmit={handleArquivar} className="space-y-4">
                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
                             <i className="fas fa-info-circle mr-1" />
-                            O PDF assinado da decisao sera movido para a pasta escolhida.
+                            O PDF assinado da decisão será movido para a pasta escolhida.
                         </div>
                         {pastasTree.length === 0 ? (
                             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
@@ -333,10 +333,10 @@ function ItemRow({ item, onAssinar, onArquivar }) {
 
     const statusBadge = {
         aguardando_assinatura: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Aguardando' },
-        concluido:             { bg: 'bg-green-100',  text: 'text-green-700',  label: 'Concluido' },
+        concluido:             { bg: 'bg-green-100',  text: 'text-green-700',  label: 'Concluído' },
         cancelado:             { bg: 'bg-red-100',    text: 'text-red-700',    label: 'Cancelado' },
         arquivado:             { bg: 'bg-gray-100',   text: 'text-gray-600',   label: 'Arquivado' },
-        em_tramitacao:         { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Em Tramitacao' },
+        em_tramitacao:         { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Em Tramitação' },
     }[item.status] || null;
 
     return (
@@ -387,7 +387,7 @@ function ItemRow({ item, onAssinar, onArquivar }) {
                     {item.pode_assinar && (
                         <button onClick={onAssinar}
                             className="text-[11px] px-2.5 py-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors"
-                            title="Assinar decisao agora">
+                            title="Assinar decisão agora">
                             <i className="fas fa-pen-nib mr-1" />Assinar
                         </button>
                     )}
@@ -414,7 +414,7 @@ function ItemRow({ item, onAssinar, onArquivar }) {
                     {item.tipo === 'processo' && item.documento_id && (
                         <a href={`/documentos/${item.documento_id}/download`} target="_blank" rel="noopener noreferrer"
                             className="text-[11px] px-2.5 py-1.5 rounded-lg bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-                            title="Baixar decisao">
+                            title="Baixar decisão">
                             <i className="fas fa-file-pdf" />
                         </a>
                     )}

@@ -86,7 +86,7 @@ class SistemaIntegradoController extends Controller
                 'token'          => $tokenPuro,
                 'webhook_secret' => $sistema->webhook_secret,
             ])
-            ->with('success', "Sistema '{$sistema->codigo}' cadastrado. Copie o token e o webhook secret agora — nao serao exibidos novamente.");
+            ->with('success', "Sistema '{$sistema->codigo}' cadastrado. Copie o token e o webhook secret agora — não serão exibidos novamente.");
     }
 
     public function update(Request $request, $id)
@@ -153,10 +153,10 @@ class SistemaIntegradoController extends Controller
         $totalDocs = Documento::where('sistema_origem', $sistema->codigo)->count();
         if ($totalDocs > 0) {
             return redirect()->back()->with('error',
-                "Nao e possivel excluir: {$totalDocs} documento(s) ja foram enviados por este sistema. Use 'Desativar' em vez de excluir.");
+                "Não é possível excluir: {$totalDocs} documento(s) já foram enviados por este sistema. Use 'Desativar' em vez de excluir.");
         }
 
         $sistema->delete();
-        return redirect()->back()->with('success', 'Sistema excluido.');
+        return redirect()->back()->with('success', 'Sistema excluído.');
     }
 }

@@ -25,9 +25,9 @@ const statusColors = {
 
 const statusLabels = {
     aberto: 'Aberto',
-    em_tramitacao: 'Em Tramitacao',
+    em_tramitacao: 'Em Tramitação',
     aguardando_assinatura: 'Aguardando Assinatura',
-    concluido: 'Concluido',
+    concluido: 'Concluído',
     cancelado: 'Cancelado',
     arquivado: 'Arquivado',
 };
@@ -60,8 +60,9 @@ function getSlaInfo(prazo) {
 
 const tabList = [
     { key: 'detalhes', label: 'Detalhes', icon: 'fas fa-info-circle' },
-    { key: 'tramitacao', label: 'Tramitacao', icon: 'fas fa-route' },
-    { key: 'comentarios', label: 'Comentarios', icon: 'fas fa-comments' },
+    { key: 'tramitacao', label: 'Tramitação', icon: 'fas fa-route' },
+    { key: 'comentarios', label: 'Comentários', icon: 'fas fa-comments' },
+    { key: 'historico', label: 'Histórico', icon: 'fas fa-history' },
 ];
 
 export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null }) {
@@ -75,7 +76,9 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     const requerente = proc.requerente || {};
     const tipoProcesso = proc.tipo_processo || {};
     const templatesDespacho = tipoProcesso.templates_despacho || [];
-    const etapaAtual = proc.etapa_atual || tramitacoes.find(t => t.status === 'pendente' || t.status === 'recebido');
+    const etapaAtual = proc.etapa_atual || tramitacoes
+        .filter(t => t.status === 'pendente' || t.status === 'recebido')
+        .reduce((ult, t) => (!ult || t.id > ult.id ? t : ult), null);
     const userList = usuarios || [];
 
     // Hierarquia de unidades para o dropdown de despacho (filhos sob o pai)
@@ -101,6 +104,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     const [activeTab, setActiveTab] = useState('detalhes');
     const [showConcluirModal, setShowConcluirModal] = useState(false);
     const [showCancelarModal, setShowCancelarModal] = useState(false);
+    const [motivoCancelamento, setMotivoCancelamento] = useState('');
     const [assinarOpen, setAssinarOpen] = useState(false);
     const [arquivarGedOpen, setArquivarGedOpen] = useState(false);
 
@@ -190,7 +194,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
 
     const handleArquivar = async () => {
         if (! await confirmar({ titulo: 'Arquivar este processo?', descricao: 'Ele será encerrado sem decisão formal.', tom: 'atencao', rotuloConfirmar: 'Arquivar' })) return;
-        concluirForm.transform((data) => ({ ...data, decisao: 'arquivado', observacao_conclusao: data.observacao_conclusao || 'Arquivado sem decisao formal' }));
+        concluirForm.transform((data) => ({ ...data, decisao: 'arquivado', observacao_conclusao: data.observacao_conclusao || 'Arquivado sem decisão formal' }));
         concluirForm.post(`/processos/${proc.id}/concluir`, {
             preserveScroll: true,
             onSuccess: () => concluirForm.reset(),
@@ -198,7 +202,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     };
 
     const handleCancelar = () => {
-        router.post(`/processos/${proc.id}/cancelar`, {}, {
+        router.post(`/processos/${proc.id}/cancelar`, { motivo: motivoCancelamento }, {
             onSuccess: () => setShowCancelarModal(false),
         });
     };
@@ -257,13 +261,13 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                     <i className="fas fa-file-signature text-purple-600 text-xl mt-0.5" />
                     <div className="flex-1">
                         <p className="text-sm font-semibold text-purple-900">
-                            Decisao registrada — pendente de assinatura digital
+                            Decisão registrada — pendente de assinatura digital
                         </p>
                         <p className="text-xs text-purple-700 mt-0.5">
                             {proc.decisao && decisaoLabels[proc.decisao] && (
                                 <><i className={`fas ${decisaoLabels[proc.decisao].icone} mr-1`} /><strong>{decisaoLabels[proc.decisao].texto}</strong> · </>
                             )}
-                            Para tornar oficial conforme Lei 14.063/2020 (art. 4 III), assine digitalmente o documento de decisao.
+                            Para tornar oficial conforme Lei 14.063/2020 (art. 4 III), assine digitalmente o documento de decisão.
                         </p>
                     </div>
                     {assinatura_pendente ? (
@@ -271,7 +275,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             <i className="fas fa-pen-nib mr-1" /> Assinar Agora
                         </button>
                     ) : (
-                        <span className="text-xs text-purple-600 italic">Outro signatario esta assinando.</span>
+                        <span className="text-xs text-purple-600 italic">Outro signatário esta assinando.</span>
                     )}
                 </div>
             )}
@@ -299,7 +303,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                     <i className={`fas ${decisaoLabels[proc.decisao].icone} text-${decisaoLabels[proc.decisao].cor}-600 text-lg mt-0.5`} />
                     <div className="flex-1">
                         <p className="text-sm font-semibold text-gray-800">
-                            Decisao final: <strong>{decisaoLabels[proc.decisao].texto}</strong>
+                            Decisão final: <strong>{decisaoLabels[proc.decisao].texto}</strong>
                         </p>
                         {proc.observacao_conclusao && (
                             <p className="text-xs text-gray-600 mt-0.5">{proc.observacao_conclusao}</p>
@@ -325,7 +329,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             <a href={`/documentos/${decisao_assinada.documento_id}/download`}
                                 target="_blank" rel="noopener noreferrer"
                                 className="ds-btn ds-btn-outline text-xs whitespace-nowrap"
-                                title="Documento original da decisao">
+                                title="Documento original da decisão">
                                 <i className="fas fa-print mr-1" />Imprimir
                             </a>
                             {decisao_assinada.arquivado_no_ged ? (
@@ -336,7 +340,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             ) : (
                                 <button onClick={() => setArquivarGedOpen(true)}
                                     className="ds-btn ds-btn-outline text-xs whitespace-nowrap"
-                                    title="Mover documento da decisao para uma pasta do GPE Docs">
+                                    title="Mover documento da decisão para uma pasta do GPE Docs">
                                     <i className="fas fa-folder-plus mr-1" />Arquivar no GPE Docs
                                 </button>
                             )}
@@ -351,7 +355,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                     <form onSubmit={handleArquivarGed} className="space-y-4">
                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
                             <i className="fas fa-info-circle mr-1" />
-                            O PDF assinado da decisao sera movido para a pasta escolhida e ficara disponivel no GPE Docs.
+                            O PDF assinado da decisão será movido para a pasta escolhida e ficará disponível no GPE Docs.
                         </div>
 
                         {pastasTree.length === 0 ? (
@@ -426,16 +430,28 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                     <div className="flex items-center gap-2">
                         {proc.status !== 'concluido' && proc.status !== 'cancelado' && (
                             <>
+                                {pode_receber && etapaAtual && (
+                                    <Button variant="secondary" icon="fas fa-inbox"
+                                        onClick={() => router.post(`/tramitacoes/${etapaAtual.id}/receber`, {}, { preserveScroll: true })}>
+                                        Receber
+                                    </Button>
+                                )}
                                 {pode_concluir && (
                                     <Button variant="primary" icon="fas fa-bolt"
                                         onClick={() => setActiveTab('tramitacao')}>
                                         Tramitar
                                     </Button>
                                 )}
+                                {pode_concluir && (
+                                    <Button variant="danger" icon="fas fa-ban"
+                                        onClick={() => setShowCancelarModal(true)}>
+                                        Cancelar
+                                    </Button>
+                                )}
                                 {! pode_concluir && (
                                     <span className="text-xs text-gray-500 italic">
                                         <i className="fas fa-clock mr-1" />
-                                        Aguardando acao do destino atual
+                                        Aguardando ação do destino atual
                                     </span>
                                 )}
                             </>
@@ -452,7 +468,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                 {activeTab === 'detalhes' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Dados do formulario */}
-                        <Card title="Dados do Formulario">
+                        <Card title="Dados do Formulário">
                             {Object.keys(dadosFormulario).length === 0 ? (
                                 <p className="text-sm text-gray-400">Nenhum dado preenchido</p>
                             ) : (
@@ -520,7 +536,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                     </div>
                                                 </div>
                                                 <a
-                                                    href={anexo.url || `/anexos/${anexo.id}/download`}
+                                                    href={anexo.url || `/processos/anexos/${anexo.id}/download`}
                                                     className="text-blue-600 hover:text-blue-800 transition-colors"
                                                     target="_blank"
                                                     rel="noopener noreferrer"
@@ -539,11 +555,11 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                 {/* ── Tab: Tramitacao (Timeline + Acoes) ── */}
                 {activeTab === 'tramitacao' && (
                     <div className="space-y-4">
-                    <Card title="Historico de Tramitacao">
+                    <Card title="Histórico de Tramitação">
                         {tramitacoes.length === 0 ? (
                             <div className="py-8 text-center text-gray-400">
                                 <i className="fas fa-route text-2xl mb-2 block" />
-                                <p className="text-sm">Nenhuma tramitacao registrada</p>
+                                <p className="text-sm">Nenhuma tramitação registrada</p>
                             </div>
                         ) : (
                             <div className="relative">
@@ -627,13 +643,13 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
 
                     {/* Painel de acao unificado */}
                     {pode_concluir && ! ['concluido', 'cancelado', 'aguardando_assinatura'].includes(proc.status) && (
-                    <Card title="O que voce deseja fazer?" className="overflow-visible">
+                    <Card title="O que você deseja fazer?" className="overflow-visible">
                         {/* Mode picker */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
                             {[
                                 { v: 'encaminhar', icone: 'fa-paper-plane', cor: 'blue',    titulo: 'Encaminhar',         desc: 'Mandar para outro setor/pessoa' },
                                 { v: 'decidir',    icone: 'fa-gavel',       cor: 'emerald', titulo: 'Decidir e Encerrar', desc: 'Deferir/Indeferir/Parcial' },
-                                { v: 'arquivar',   icone: 'fa-archive',     cor: 'gray',    titulo: 'Arquivar',           desc: 'Encerrar sem decisao formal' },
+                                { v: 'arquivar',   icone: 'fa-archive',     cor: 'gray',    titulo: 'Arquivar',           desc: 'Encerrar sem decisão formal' },
                             ].map(op => {
                                 const ativo = acaoMode === op.v;
                                 const corMap = { blue: 'border-blue-500 bg-blue-50', emerald: 'border-emerald-500 bg-emerald-50', gray: 'border-gray-500 bg-gray-50' };
@@ -665,7 +681,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                 <div className="space-y-4">
                                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 flex items-start gap-2">
                                         <i className="fas fa-info-circle mt-0.5" />
-                                        <p>Despache para um <strong>setor</strong> (qualquer pessoa do setor pode receber) e, opcionalmente, indique uma <strong>pessoa especifica</strong> daquele setor.</p>
+                                        <p>Despache para um <strong>setor</strong> (qualquer pessoa do setor pode receber) e, opcionalmente, indique uma <strong>pessoa específica</strong> daquele setor.</p>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="relative">
@@ -722,7 +738,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                Pessoa especifica <span className="text-gray-400 text-xs">(opcional)</span>
+                                                Pessoa específica <span className="text-gray-400 text-xs">(opcional)</span>
                                             </label>
                                             <select
                                                 value={despacharForm.data.destinatario_id}
@@ -738,7 +754,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                     ))}
                                             </select>
                                             <p className="mt-1 text-[10px] text-gray-400">
-                                                Se vazio, qualquer um do setor podera receber via Caixa Setor.
+                                                Se vazio, qualquer um do setor poderá receber via Caixa Setor.
                                             </p>
                                             {despacharForm.errors.destinatario_id && (
                                                 <p className="mt-1 text-xs text-red-600">{despacharForm.errors.destinatario_id}</p>
@@ -837,7 +853,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             <div className="space-y-4">
                                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 flex items-start gap-2">
                                     <i className="fas fa-info-circle mt-0.5" />
-                                    <p>Registre a <strong>decisao final</strong> sobre o pedido. O processo sera <strong>encerrado</strong> apos a decisao.</p>
+                                    <p>Registre a <strong>decisão final</strong> sobre o pedido. O processo será <strong>encerrado</strong> após a decisão.</p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -846,14 +862,14 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                     <textarea value={concluirForm.data.observacao_conclusao}
                                         onChange={(e) => concluirForm.setData('observacao_conclusao', e.target.value)}
                                         rows={5} className="ds-input !h-auto"
-                                        placeholder="Justificativa da decisao..." />
+                                        placeholder="Justificativa da decisão..." />
                                     {concluirForm.errors.observacao_conclusao && (
                                         <p className="mt-1 text-xs text-red-600">{concluirForm.errors.observacao_conclusao}</p>
                                     )}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Anexar documento <span className="text-gray-400 font-normal">(opcional, ate 50MB)</span>
+                                        Anexar documento <span className="text-gray-400 font-normal">(opcional, até 50MB)</span>
                                     </label>
                                     {concluirForm.data.anexo ? (
                                         <div className="flex items-center gap-2 p-2 bg-gray-50 border border-gray-200 rounded-lg">
@@ -881,10 +897,10 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
                                         <p className="text-xs text-blue-900 font-bold mb-1 flex items-center gap-2">
                                             <i className="fas fa-user-circle" />
-                                            Origem: Portal do Cidadao ({solicitacao_portal.codigo})
+                                            Origem: Portal do Cidadão ({solicitacao_portal.codigo})
                                         </p>
                                         <p className="text-[11px] text-blue-700">
-                                            Voce pode <strong>responder direto ao cidadao</strong> (sem assinatura ICP-Brasil) ou seguir o fluxo formal com assinatura digital.
+                                            Você pode <strong>responder direto ao cidadão</strong> (sem assinatura ICP-Brasil) ou seguir o fluxo formal com assinatura digital.
                                         </p>
                                     </div>
                                 )}
@@ -905,7 +921,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                             <div className="w-full border-t border-gray-200 my-2" />
                                             <div className="w-full bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[11px] text-amber-800">
                                                 <p className="font-semibold"><i className="fas fa-info-circle mr-1" /> Fluxo formal (Lei 14.063/2020):</p>
-                                                <p className="mt-0.5">O cidadao sera notificado <strong>somente apos a assinatura digital</strong> ser concluida, com o PDF assinado em anexo no email.</p>
+                                                <p className="mt-0.5">O cidadão será notificado <strong>somente após a assinatura digital</strong> ser concluída, com o PDF assinado em anexo no email.</p>
                                             </div>
                                         </>
                                     ) : null}
@@ -942,7 +958,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             <div className="space-y-4">
                                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-start gap-2">
                                     <i className="fas fa-exclamation-triangle mt-0.5" />
-                                    <p>Arquivar o processo <strong>encerra-o sem decisao formal</strong> (deferido/indeferido). Use quando o pedido perdeu objeto, foi desistido, ou nao se aplica mais.</p>
+                                    <p>Arquivar o processo <strong>encerra-o sem decisão formal</strong> (deferido/indeferido). Use quando o pedido perdeu objeto, foi desistido, ou não se aplica mais.</p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Motivo do arquivamento (opcional)</label>
@@ -965,10 +981,44 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                 )}
 
                 {/* ── Tab: Comentarios ── */}
+                {activeTab === 'historico' && (
+                    <Card title="Histórico do processo">
+                        {(proc.historico || []).length === 0 ? (
+                            <div className="py-8 text-center text-gray-400">
+                                <i className="fas fa-history text-2xl mb-2 block" />
+                                <p className="text-sm">Nenhum registro</p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left font-semibold">Data/Hora</th>
+                                        <th className="px-4 py-3 text-left font-semibold">Usuário</th>
+                                        <th className="px-4 py-3 text-left font-semibold">Ação</th>
+                                        <th className="px-4 py-3 text-left font-semibold">IP</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {[...proc.historico].sort((a, b) => b.id - a.id).map(h => (
+                                        <tr key={h.id} className="hover:bg-gray-50">
+                                            <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(h.created_at)}</td>
+                                            <td className="px-4 py-3 text-gray-700">{h.usuario?.name || '-'}</td>
+                                            <td className="px-4 py-3">
+                                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{ACOES_HISTORICO[h.acao] || h.acao}</span>
+                                            </td>
+                                            <td className="px-4 py-3 text-gray-400 text-xs">{h.ip || '-'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </Card>
+                )}
+
                 {activeTab === 'comentarios' && (
                     <div className="space-y-6">
                         {/* Form novo comentario */}
-                        <Card title="Novo Comentario">
+                        <Card title="Novo Comentário">
                             <form onSubmit={handleComentario}>
                                 <div className="space-y-3">
                                     <textarea
@@ -976,7 +1026,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                         onChange={(e) => comentarioForm.setData('conteudo', e.target.value)}
                                         className="ds-input !h-auto"
                                         rows={3}
-                                        placeholder="Escreva seu comentario..."
+                                        placeholder="Escreva seu comentário..."
                                     />
                                     {comentarioForm.errors.conteudo && (
                                         <p className="text-xs text-red-600">{comentarioForm.errors.conteudo}</p>
@@ -989,7 +1039,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                 onChange={(e) => comentarioForm.setData('interno', e.target.checked)}
                                                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                             />
-                                            Comentario interno
+                                            Comentário interno
                                         </label>
                                         <Button type="submit" loading={comentarioForm.processing} icon="fas fa-comment" size="sm">
                                             Comentar
@@ -1000,11 +1050,11 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                         </Card>
 
                         {/* Lista de comentarios */}
-                        <Card title={`Comentarios (${comentarios.length})`}>
+                        <Card title={`Comentários (${comentarios.length})`}>
                             {comentarios.length === 0 ? (
                                 <div className="py-8 text-center text-gray-400">
                                     <i className="fas fa-comments text-2xl mb-2 block" />
-                                    <p className="text-sm">Nenhum comentario</p>
+                                    <p className="text-sm">Nenhum comentário</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
@@ -1016,7 +1066,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                         <i className="fas fa-user text-blue-600 text-xs" />
                                                     </div>
                                                     <span className="text-sm font-medium text-gray-700">
-                                                        {com.usuario?.name || com.usuario_nome || 'Usuario'}
+                                                        {com.usuario?.name || com.usuario_nome || 'Usuário'}
                                                     </span>
                                                     {com.interno && (
                                                         <span className="text-[10px] px-1.5 py-0.5 bg-yellow-200 text-yellow-700 rounded font-medium">
@@ -1026,7 +1076,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                 </div>
                                                 <span className="text-xs text-gray-400">{formatDate(com.created_at)}</span>
                                             </div>
-                                            <p className="text-sm text-gray-600 whitespace-pre-wrap">{com.conteudo}</p>
+                                            <p className="text-sm text-gray-600 whitespace-pre-wrap">{com.texto || com.conteudo}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -1044,13 +1094,13 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             Deseja concluir o processo <strong>{proc.numero_protocolo}</strong>?
                         </p>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Observacao</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Observação</label>
                             <textarea
                                 value={concluirForm.data.observacao_conclusao}
                                 onChange={(e) => concluirForm.setData('observacao_conclusao', e.target.value)}
                                 className="ds-input !h-auto"
                                 rows={3}
-                                placeholder="Observacao sobre a conclusao..."
+                                placeholder="Observação sobre a conclusão..."
                             />
                         </div>
                         <div className="flex items-center justify-end gap-2 pt-2">
@@ -1058,7 +1108,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                 Cancelar
                             </Button>
                             <Button type="submit" variant="accent" loading={concluirForm.processing} icon="fas fa-check">
-                                Confirmar Conclusao
+                                Confirmar Conclusão
                             </Button>
                         </div>
                     </div>
@@ -1071,12 +1121,14 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                     <div className="flex items-start gap-3 p-4 bg-red-50 rounded-xl">
                         <i className="fas fa-exclamation-triangle text-red-500 mt-0.5" />
                         <div>
-                            <p className="text-sm font-medium text-red-800">Atencao</p>
+                            <p className="text-sm font-medium text-red-800">Atenção</p>
                             <p className="text-sm text-red-600 mt-1">
-                                Esta acao cancelara o processo <strong>{proc.numero_protocolo}</strong> e nao podera ser desfeita.
+                                Esta ação cancelará o processo <strong>{proc.numero_protocolo}</strong> e não poderá ser desfeita.
                             </p>
                         </div>
                     </div>
+                    <textarea value={motivoCancelamento} onChange={(e) => setMotivoCancelamento(e.target.value)}
+                        className="ds-input !h-auto" rows={3} placeholder="Motivo do cancelamento" />
                     <div className="flex items-center justify-end gap-2 pt-2">
                         <Button variant="secondary" onClick={() => setShowCancelarModal(false)}>
                             Voltar
@@ -1099,6 +1151,12 @@ function getFileIcon(mime) {
     if (mime.includes('sheet') || mime.includes('excel')) return 'fas fa-file-excel text-green-400';
     return 'fas fa-file text-gray-400';
 }
+
+const ACOES_HISTORICO = {
+    abertura: 'Abertura', recebimento: 'Recebimento', despacho: 'Despacho', devolucao: 'Devolucao',
+    comentario: 'Comentário', anexo: 'Anexo', conclusao: 'Conclusão', cancelamento: 'Cancelamento',
+    assinatura_decisao: 'Decisão assinada', arquivado_no_ged: 'Arquivado no repositório',
+};
 
 function formatDate(dateStr) {
     if (!dateStr) return '';

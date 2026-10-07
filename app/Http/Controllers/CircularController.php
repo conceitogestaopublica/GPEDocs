@@ -123,7 +123,7 @@ class CircularController extends Controller
 
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('circulares', 'documentos');
+                    $path = $file->store(\App\Tenant\TenantStorage::pasta('circulares'), 'documentos');
 
                     CircularAnexo::create([
                         'circular_id'  => $circular->id,
@@ -151,12 +151,25 @@ class CircularController extends Controller
 
             DB::commit();
 
-            return redirect("/circulares/{$circular->id}")->with('success', 'Circular enviada com sucesso. Numero: ' . $numero);
+            return redirect("/circulares/{$circular->id}")->with('success', 'Circular enviada com sucesso. Número: ' . $numero);
         } catch (\Exception $e) {
             DB::rollBack();
 
             return redirect()->back()->with('error', 'Erro ao enviar circular: ' . $e->getMessage());
         }
+    }
+
+    /** Download de anexo (a rota que a tela usava não existia). Mesma regra de ver a circular. */
+    public function downloadAnexo($id, $anexoId)
+    {
+        $circular = Circular::with('destinatarios')->findOrFail($id);
+        $userId = Auth::id();
+        if ($circular->remetente_id !== $userId && ! $circular->destinatarios->contains('usuario_id', $userId)) {
+            abort(403);
+        }
+        $anexo = \App\Models\Processo\CircularAnexo::where('circular_id', $circular->id)->findOrFail($anexoId);
+
+        return \App\Support\Anexos::baixar($anexo->arquivo_path, $anexo->nome);
     }
 
     public function show($id): Response
@@ -172,7 +185,7 @@ class CircularController extends Controller
         $isDestinatario = $circular->destinatarios->contains('usuario_id', $userId);
 
         if (! $isRemetente && ! $isDestinatario) {
-            abort(403, 'Voce nao tem permissao para visualizar esta circular.');
+            abort(403, 'Você não tem permissão para visualizar esta circular.');
         }
 
         if ($isDestinatario) {
@@ -210,7 +223,7 @@ class CircularController extends Controller
 
         $pasta = DB::table('ged_pastas')->where('id', $request->input('pasta_id'))->first();
         if (! $pasta || $pasta->ug_id !== $circular->ug_id) {
-            return redirect()->back()->with('error', 'A pasta selecionada nao pertence a UG desta circular.');
+            return redirect()->back()->with('error', 'A pasta selecionada não pertence a UG desta circular.');
         }
 
         try {
@@ -234,7 +247,7 @@ class CircularController extends Controller
             $pdfBytes = $pdf->output();
 
             $filename = 'circular-' . str_replace(['/', '\\'], '-', $circular->numero) . '.pdf';
-            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             \Illuminate\Support\Facades\Storage::disk('documentos')->put($path, $pdfBytes);
 
             $textoPesquisavel = collect([
@@ -245,7 +258,7 @@ class CircularController extends Controller
             $documento = \App\Models\Documento::create([
                 'nome'              => 'Circular ' . $circular->numero,
                 'descricao'         => $circular->assunto,
-                'tipo_documental_id'=> 2,
+                'tipo_documental_id'=> \App\Support\TiposDocumentais::id('Circular'),
                 'pasta_id'          => (int) $request->input('pasta_id'),
                 'versao_atual'      => 1,
                 'tamanho'           => strlen($pdfBytes),

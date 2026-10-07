@@ -112,6 +112,36 @@ class User extends Authenticatable
         return $this->ugs()->where('ugs.id', $ugId)->exists();
     }
 
+    /** @var list<string>|null memo por requisição — o menu e cada rota consultam várias vezes */
+    private ?array $permissoesMemo = null;
+
+    /**
+     * Nomes das permissões do usuário, somadas de todos os perfis. Super admin não
+     * passa por aqui: o Gate::before o libera antes (AppServiceProvider).
+     *
+     * @return list<string>
+     */
+    public function permissoes(): array
+    {
+        return $this->permissoesMemo ??= \Illuminate\Support\Facades\DB::table('ged_user_roles as ur')
+            ->join('ged_role_permissions as rp', 'rp.role_id', '=', 'ur.role_id')
+            ->join('ged_permissions as p', 'p.id', '=', 'rp.permission_id')
+            ->where('ur.user_id', $this->id)
+            ->distinct()
+            ->pluck('p.nome')
+            ->all();
+    }
+
+    public function temPermissao(string $nome): bool
+    {
+        return $this->super_admin || in_array($nome, $this->permissoes(), true);
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\RedefinirSenha($token));
+    }
+
     public function ehInterno(): bool
     {
         return $this->tipo === 'interno';

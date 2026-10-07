@@ -18,11 +18,12 @@ class SolicitacaoAssinatura extends Model
         'status',
         'mensagem',
         'prazo',
+        'sequencial',
     ];
 
     protected function casts(): array
     {
-        return ['prazo' => 'datetime'];
+        return ['prazo' => 'datetime', 'sequencial' => 'boolean'];
     }
 
     public function documento(): BelongsTo

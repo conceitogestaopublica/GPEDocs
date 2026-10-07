@@ -113,6 +113,11 @@ class ProcessoController extends Controller
             'files.*'            => ['file', 'max:51200'],
         ]);
 
+        // Campos do formulário de abertura definidos no tipo de processo (obrigatoriedade e tipo).
+        $tipoProcesso = TipoProcesso::find($request->input('tipo_processo_id'));
+        [$regras, $nomes] = \App\Support\CamposDinamicos::regras($tipoProcesso?->schema_formulario, 'dados_formulario');
+        $request->validate($regras, [], $nomes);
+
         try {
             DB::beginTransaction();
 
@@ -170,7 +175,7 @@ class ProcessoController extends Controller
             // Armazenar anexos
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('processos', 'documentos');
+                    $path = $file->store(\App\Tenant\TenantStorage::pasta('processos'), 'documentos');
 
                     ProcessoAnexo::create([
                         'processo_id'   => $processo->id,
@@ -210,7 +215,7 @@ class ProcessoController extends Controller
                     'usuario_id'     => (int) $uid,
                     'tipo'           => 'processo',
                     'titulo'         => 'Novo processo recebido',
-                    'mensagem'       => "Processo {$protocolo} - {$processo->assunto} foi encaminhado para voce.",
+                    'mensagem'       => "Processo {$protocolo} - {$processo->assunto} foi encaminhado para você.",
                     'referencia_tipo'=> 'processo',
                     'referencia_id'  => $processo->id,
                     'lida'           => false,
@@ -262,23 +267,11 @@ class ProcessoController extends Controller
         $unidadeId = $user->unidade_id;
         $acessoGeral = (bool) $user->acesso_geral_ug;
 
-        $etapaAtual = $processo->tramitacoes
-            ->whereIn('status', ['pendente', 'recebido'])
-            ->sortByDesc('id')
-            ->first();
-
-        $souAtivoNaEtapa = $etapaAtual && (
-            $etapaAtual->destinatario_id === $user->id
-            || ($unidadeId && $etapaAtual->destino_unidade_id === $unidadeId)
-            || ($acessoGeral && $etapaAtual->destino_unidade_id !== null)
-        );
-
-        $podeReceber = $etapaAtual && $etapaAtual->status === 'pendente' && $souAtivoNaEtapa;
-        $podeDespachar = $etapaAtual && $etapaAtual->status === 'recebido' && $souAtivoNaEtapa;
-        // So pode concluir/cancelar quem esta na etapa ativa OU o autor (caso ainda nao tenha sido despachado)
-        $souAutor = $processo->aberto_por === $user->id;
-        $semDespachoAinda = $processo->tramitacoes->count() <= 1 && $etapaAtual && $etapaAtual->status === 'pendente';
-        $podeConcluir = $souAtivoNaEtapa || ($souAutor && $semDespachoAinda);
+        // Mesma regra que o servidor confere em cada ação (App\Services\AcaoNoProcesso).
+        $acoes = \App\Services\AcaoNoProcesso::avaliar($processo, $user);
+        $podeReceber = $acoes['receber'];
+        $podeDespachar = $acoes['despachar'];
+        $podeConcluir = $acoes['concluir'];
 
         // Se ha solicitacao de assinatura pendente, passa a assinatura do usuario logado
         $assinaturaPendente = null;
@@ -379,6 +372,10 @@ class ProcessoController extends Controller
             DB::beginTransaction();
 
             $processo = Processo::with(['tipoProcesso', 'abertoPor', 'tramitacoes.remetente'])->findOrFail($id);
+            if (! \App\Services\AcaoNoProcesso::avaliar($processo, Auth::user())['concluir']) {
+                DB::rollBack();
+                abort(403, 'Só quem está na etapa ativa (ou o autor, antes do primeiro despacho) encerra o processo.');
+            }
             $decisao = $request->input('decisao');
             $pularAssinatura = (bool) $request->input('pular_assinatura', false);
             // So permite pular assinatura se processo for do Portal Cidadao (resposta informal)
@@ -416,7 +413,7 @@ class ProcessoController extends Controller
             $pdfBytes = $pdf->output();
 
             $filename = 'decisao-' . str_replace(['/', '\\'], '-', $processo->numero_protocolo) . '.pdf';
-            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             Storage::disk('documentos')->put($path, $pdfBytes);
 
             // Texto pesquisavel: junta dados do processo + parecer + dados do formulario
@@ -435,7 +432,7 @@ class ProcessoController extends Controller
             $documento = Documento::create([
                 'nome'              => 'Decisao - ' . $processo->numero_protocolo,
                 'descricao'         => "Decisao administrativa do processo {$processo->numero_protocolo}: " . strtoupper($decisao),
-                'tipo_documental_id'=> 25,
+                'tipo_documental_id'=> \App\Support\TiposDocumentais::id('Decisão Administrativa', 'Decisão final de processo administrativo'),
                 'pasta_id'          => null,
                 'versao_atual'      => 1,
                 'tamanho'           => strlen($pdfBytes),
@@ -463,7 +460,7 @@ class ProcessoController extends Controller
                     'documento_id'   => $documento->id,
                     'solicitante_id' => Auth::id(),
                     'status'         => 'pendente',
-                    'mensagem'       => "Decisao do processo {$processo->numero_protocolo} (" . strtoupper($decisao) . ") - assinar para tornar oficial.",
+                    'mensagem'       => "Decisão do processo {$processo->numero_protocolo} (" . strtoupper($decisao) . ") - assinar para tornar oficial.",
                 ]);
 
                 Assinatura::create([
@@ -481,7 +478,7 @@ class ProcessoController extends Controller
             // Anexo opcional do parecer (anexa ao processo)
             if ($request->hasFile('anexo')) {
                 $file = $request->file('anexo');
-                $anexoPath = $file->store('processos', 'documentos');
+                $anexoPath = $file->store(\App\Tenant\TenantStorage::pasta('processos'), 'documentos');
                 ProcessoAnexo::create([
                     'processo_id'   => $processo->id,
                     'tramitacao_id' => $processo->etapa_atual_id,
@@ -518,11 +515,11 @@ class ProcessoController extends Controller
 
             if ($exigeAssinatura) {
                 return redirect()->back()->with('success',
-                    'Decisao registrada. Para tornar oficial, assine digitalmente o documento de decisao (Lei 14.063/2020).');
+                    'Decisão registrada. Para tornar oficial, assine digitalmente o documento de decisão (Lei 14.063/2020).');
             }
 
             if ($pularAssinatura) {
-                return redirect()->back()->with('success', 'Resposta enviada ao cidadao. Processo encerrado.');
+                return redirect()->back()->with('success', 'Resposta enviada ao cidadão. Processo encerrado.');
             }
 
             return redirect()->back()->with('success', 'Processo arquivado.');
@@ -538,6 +535,52 @@ class ProcessoController extends Controller
      * Move o documento gerado (PDF da decisao) para a pasta escolhida e
      * marca como `arquivado` para sair da listagem de rascunhos do GED.
      */
+    /**
+     * Comentário no processo. A tela postava aqui com `conteudo` e a rota não existia
+     * (o backend só tinha /tramitacoes/{id}/comentar com `texto`). Liga o comentário à
+     * tramitação mais recente quando houver, e funciona também com o processo encerrado.
+     */
+    public function comentar(Request $request, $id)
+    {
+        $request->validate([
+            'conteudo' => ['required', 'string', 'max:5000'],
+            'interno'  => ['nullable', 'boolean'],
+        ]);
+
+        $processo = Processo::findOrFail($id);
+        $tramitacaoId = $processo->tramitacoes()->max('id');
+
+        DB::transaction(function () use ($request, $processo, $tramitacaoId) {
+            \App\Models\Processo\ProcessoComentario::create([
+                'processo_id'   => $processo->id,
+                'tramitacao_id' => $tramitacaoId,
+                'usuario_id'    => Auth::id(),
+                'texto'         => $request->input('conteudo'),
+                'interno'       => $request->boolean('interno'),
+            ]);
+
+            ProcessoHistorico::create([
+                'processo_id' => $processo->id,
+                'usuario_id'  => Auth::id(),
+                'acao'        => 'comentario',
+                'detalhes'    => ['tramitacao_id' => $tramitacaoId, 'interno' => $request->boolean('interno')],
+                'ip'          => $request->ip(),
+                'user_agent'  => $request->userAgent(),
+            ]);
+        });
+
+        return back()->with('success', 'Comentário adicionado.');
+    }
+
+    /** Download de anexo do processo — a tela apontava para /anexos/{id}/download, que não existia. */
+    public function downloadAnexo($anexoId)
+    {
+        $anexo = ProcessoAnexo::findOrFail($anexoId);
+        Processo::findOrFail($anexo->processo_id); // escopo de UG: anexo de processo de outra UG dá 404
+
+        return \App\Support\Anexos::baixar($anexo->arquivo_path, $anexo->nome);
+    }
+
     public function arquivarNoGed(Request $request, $id)
     {
         $request->validate([
@@ -547,7 +590,7 @@ class ProcessoController extends Controller
         $processo = Processo::findOrFail($id);
 
         if ($processo->status !== 'concluido') {
-            return redirect()->back()->with('error', 'So processos concluidos podem ser arquivados no GPE Docs.');
+            return redirect()->back()->with('error', 'Só processos concluídos podem ser arquivados no GPE Docs.');
         }
 
         // Localiza o Documento da decisao — preferencia para documento_decisao_id (coluna
@@ -565,13 +608,13 @@ class ProcessoController extends Controller
 
         $documento = Documento::find($documentoId);
         if (! $documento) {
-            return redirect()->back()->with('error', 'Documento nao encontrado.');
+            return redirect()->back()->with('error', 'Documento não encontrado.');
         }
 
         // Valida que a pasta esta na mesma UG do processo
         $pasta = DB::table('ged_pastas')->where('id', $request->input('pasta_id'))->first();
         if (! $pasta || $pasta->ug_id !== $processo->ug_id) {
-            return redirect()->back()->with('error', 'A pasta selecionada nao pertence a UG deste processo.');
+            return redirect()->back()->with('error', 'A pasta selecionada não pertence a UG deste processo.');
         }
 
         $documento->update([
@@ -590,7 +633,7 @@ class ProcessoController extends Controller
             ],
         ]);
 
-        return redirect()->back()->with('success', "Decisao arquivada na pasta \"{$pasta->nome}\" do GPE Docs.");
+        return redirect()->back()->with('success', "Decisão arquivada na pasta \"{$pasta->nome}\" do GPE Docs.");
     }
 
     /**
@@ -602,7 +645,7 @@ class ProcessoController extends Controller
         $processo = Processo::findOrFail($id);
 
         if ($processo->status !== 'aguardando_assinatura') {
-            return redirect()->back()->with('error', 'Processo nao esta aguardando assinatura.');
+            return redirect()->back()->with('error', 'Processo não esta aguardando assinatura.');
         }
 
         $processo->update([
@@ -617,7 +660,7 @@ class ProcessoController extends Controller
             'detalhes'    => ['decisao' => $processo->decisao],
         ]);
 
-        return redirect()->back()->with('success', 'Decisao assinada digitalmente. Processo encerrado oficialmente.');
+        return redirect()->back()->with('success', 'Decisão assinada digitalmente. Processo encerrado oficialmente.');
     }
 
     public function cancelar(Request $request, $id)
@@ -630,6 +673,10 @@ class ProcessoController extends Controller
             DB::beginTransaction();
 
             $processo = Processo::findOrFail($id);
+            if (! \App\Services\AcaoNoProcesso::avaliar($processo, Auth::user())['concluir']) {
+                DB::rollBack();
+                abort(403, 'Só quem está na etapa ativa (ou o autor, antes do primeiro despacho) cancela o processo.');
+            }
             $processo->update([
                 'status' => 'cancelado',
             ]);

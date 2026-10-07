@@ -74,12 +74,12 @@ class TipoDocumentalController extends Controller
         $tipo = TipoDocumental::withCount('documentos')->findOrFail($id);
 
         if ($tipo->documentos_count > 0) {
-            return redirect()->back()->with('error', 'Nao e possivel excluir tipo com documentos vinculados. Use a opcao inativar.');
+            return redirect()->back()->with('error', 'Não é possível excluir tipo com documentos vinculados. Use a opção inativar.');
         }
 
         $tipo->delete();
 
-        return redirect()->back()->with('success', 'Tipo documental excluido com sucesso.');
+        return redirect()->back()->with('success', 'Tipo documental excluído com sucesso.');
     }
 
     public function toggleAtivo($id)

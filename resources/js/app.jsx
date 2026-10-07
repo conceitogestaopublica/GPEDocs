@@ -14,7 +14,7 @@ createInertiaApp({
         const pages = import.meta.glob('./Pages/**/*.jsx', { eager: true });
         const page = pages[`./Pages/${name}.jsx`];
         if (!page) {
-            throw new Error(`Pagina nao encontrada: ./Pages/${name}.jsx`);
+            throw new Error(`Página não encontrada: ./Pages/${name}.jsx`);
         }
         return page;
     },

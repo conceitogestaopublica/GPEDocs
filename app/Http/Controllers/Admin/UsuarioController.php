@@ -21,9 +21,25 @@ class UsuarioController extends Controller
     {
         $busca = trim((string) $request->input('busca', ''));
         $tipoFiltro = $request->input('tipo'); // null | 'interno' | 'externo'
+        $ugAtualId = (int) ($request->session()->get('ug_id') ?? 0);
+        // Toggle visivel apenas para super_admin: mostrar users de TODAS as UGs
+        $todasUgs = $request->boolean('todas_ugs') && (bool) $request->user()?->super_admin;
 
         $usuarios = User::select('users.*')
             ->with(['roles', 'ug:id,codigo,nome', 'unidade:id,ug_id,nivel,nome'])
+            // Filtra por UG ativa (multi-tenant). Super_admin pode optar por ver tudo
+            // marcando ?todas_ugs=1; usuarios externos ficam sempre fora desse filtro.
+            ->when(! $todasUgs && $ugAtualId, function ($q) use ($ugAtualId) {
+                $q->where(function ($q) use ($ugAtualId) {
+                    $q->where('users.tipo', 'externo')
+                      ->orWhereExists(function ($sub) use ($ugAtualId) {
+                          $sub->select(DB::raw(1))
+                              ->from('user_ugs')
+                              ->whereColumn('user_ugs.user_id', 'users.id')
+                              ->where('user_ugs.ug_id', $ugAtualId);
+                      });
+                });
+            })
             ->when($busca !== '', function ($q) use ($busca) {
                 $q->where(function ($q) use ($busca) {
                     $termo = "%{$busca}%";
@@ -43,8 +59,9 @@ class UsuarioController extends Controller
         return Inertia::render('GED/Admin/Usuarios/Index', [
             'usuarios' => $usuarios,
             'filtros'  => [
-                'busca' => $busca,
-                'tipo'  => $tipoFiltro,
+                'busca'     => $busca,
+                'tipo'      => $tipoFiltro,
+                'todas_ugs' => $todasUgs,
             ],
         ]);
     }
@@ -86,6 +103,9 @@ class UsuarioController extends Controller
     public function store(Request $request)
     {
         $validated = $this->validarUsuario($request, criando: true);
+        // Só quem já é super admin concede o privilégio — sem isto, qualquer usuário com
+        // acesso à tela de usuários se promovia criando uma conta super_admin.
+        $validated['super_admin'] = $request->user()->super_admin && ($validated['super_admin'] ?? false);
 
         $tipo      = $validated['tipo'];
         $unidadeId = $tipo === 'externo' ? null : ($validated['unidade_id'] ?? null);
@@ -126,7 +146,12 @@ class UsuarioController extends Controller
 
     public function update(Request $request, $id)
     {
+        $this->bloquearAlteracaoDeSuperAdmin($request, (int) $id);
         $validated = $this->validarUsuario($request, criando: false, userId: (int) $id);
+        if (! $request->user()->super_admin) {
+            // Mantém o que está gravado: quem não é super admin não concede nem retira.
+            $validated['super_admin'] = (bool) User::whereKey($id)->value('super_admin');
+        }
 
         $tipo      = $validated['tipo'];
         $unidadeId = $tipo === 'externo' ? null : ($validated['unidade_id'] ?? null);
@@ -206,8 +231,18 @@ class UsuarioController extends Controller
         $user->ugs()->sync($sync);
     }
 
-    public function destroy($id)
+    /** Conta super admin só é alterada ou excluída por outro super admin. */
+    private function bloquearAlteracaoDeSuperAdmin(Request $request, int $alvoId): void
     {
+        if (! $request->user()->super_admin && User::whereKey($alvoId)->value('super_admin')) {
+            abort(403, 'Somente um super administrador altera outro super administrador.');
+        }
+    }
+
+    public function destroy(Request $request, $id)
+    {
+        $this->bloquearAlteracaoDeSuperAdmin($request, (int) $id);
+
         try {
             $user = User::findOrFail($id);
 

@@ -19,9 +19,9 @@ class AutenticarCidadao
     {
         if (! Auth::guard('cidadao')->check()) {
             if ($request->expectsJson()) {
-                return response()->json(['message' => 'Autenticacao necessaria.'], 401);
+                return response()->json(['message' => 'Autenticação necessária.'], 401);
             }
-            return redirect('/entrar')->with('warning', 'Faca login para continuar.');
+            return redirect('/entrar')->with('warning', 'Faça login para continuar.');
         }
         return $next($request);
     }

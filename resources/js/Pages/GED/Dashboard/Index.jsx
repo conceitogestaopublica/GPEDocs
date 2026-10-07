@@ -23,14 +23,14 @@ export default function Dashboard({ stats, atividade_recente, fluxos_pendentes }
                         <h1>Dashboard</h1>
                         <FavoritarRotina />
                     </div>
-                    <p>Visao geral do sistema de gestao documental</p>
+                    <p>Visão geral do sistema de gestão documental</p>
                 </div>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
                 <StatCard title="Total de Documentos" value={s.total_documentos || 0} icon="fas fa-file-alt" color="blue" />
-                <StatCard title="Pendentes de Revisao" value={s.pendentes_revisao || 0} icon="fas fa-clock" color="yellow" />
+                <StatCard title="Pendentes de Revisão" value={s.pendentes_revisao || 0} icon="fas fa-clock" color="yellow" />
                 <StatCard title="Fluxos Ativos" value={s.fluxos_ativos || 0} icon="fas fa-project-diagram" color="purple" />
                 <StatCard title="Armazenamento" value={formatBytes(s.armazenamento || 0)} icon="fas fa-hdd" color="green" />
             </div>
@@ -51,7 +51,7 @@ export default function Dashboard({ stats, atividade_recente, fluxos_pendentes }
                         <i className="fas fa-folder-open text-emerald-600 group-hover:text-white transition-colors" />
                     </div>
                     <div>
-                        <p className="text-sm font-semibold text-gray-800">Ver Repositorio</p>
+                        <p className="text-sm font-semibold text-gray-800">Ver Repositório</p>
                         <p className="text-xs text-gray-400">Navegar pastas e arquivos</p>
                     </div>
                 </Link>
@@ -68,7 +68,7 @@ export default function Dashboard({ stats, atividade_recente, fluxos_pendentes }
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Atividade Recente */}
-                <Card title="Atividade Recente" subtitle="Ultimas acoes no sistema">
+                <Card title="Atividade Recente" subtitle="Últimas ações no sistema">
                     <div className="divide-y divide-gray-100">
                         {(!atividade_recente || atividade_recente.length === 0) ? (
                             <div className="py-8 text-center text-gray-400">
@@ -96,7 +96,7 @@ export default function Dashboard({ stats, atividade_recente, fluxos_pendentes }
                 </Card>
 
                 {/* Fluxos Pendentes */}
-                <Card title="Fluxos Pendentes" subtitle="Aguardando sua acao">
+                <Card title="Fluxos Pendentes" subtitle="Aguardando sua ação">
                     <div className="divide-y divide-gray-100">
                         {(!fluxos_pendentes || fluxos_pendentes.length === 0) ? (
                             <div className="py-8 text-center text-gray-400">

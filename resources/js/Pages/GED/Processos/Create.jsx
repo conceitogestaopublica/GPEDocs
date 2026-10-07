@@ -156,13 +156,13 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                                         value={data.assunto}
                                         onChange={(e) => setData('assunto', e.target.value)}
                                         className="ds-input"
-                                        placeholder="Descricao breve do processo"
+                                        placeholder="Descrição breve do processo"
                                     />
                                     {errors.assunto && <p className="mt-1 text-xs text-red-600">{errors.assunto}</p>}
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                                     <textarea
                                         value={data.descricao}
                                         onChange={(e) => setData('descricao', e.target.value)}
@@ -191,7 +191,7 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
 
                         {/* Campos dinamicos do tipo de processo */}
                         {schemaCampos.length > 0 && (
-                            <Card title={`Formulario - ${tipoSelecionado.nome}`}>
+                            <Card title={`Formulário - ${tipoSelecionado.nome}`}>
                                 <div className="space-y-4">
                                     {schemaCampos.map((campo) => (
                                         <div key={campo.campo}>
@@ -210,7 +210,7 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                         )}
 
                         {/* Requerente */}
-                        <Card title="Requerente" subtitle="Informacoes do solicitante (opcional)">
+                        <Card title="Requerente" subtitle="Informações do solicitante (opcional)">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
@@ -256,7 +256,7 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                         </Card>
 
                         {/* Destino inicial — para onde o processo vai */}
-                        <Card title="Para qual setor enviar" subtitle="Setor que vai receber o processo na Caixa de Entrada (obrigatorio)" className="overflow-visible">
+                        <Card title="Para qual setor enviar" subtitle="Setor que vai receber o processo na Caixa de Entrada (obrigatório)" className="overflow-visible">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="relative">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -312,7 +312,7 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Pessoa especifica <span className="text-gray-400 text-xs">(opcional)</span>
+                                        Pessoa específica <span className="text-gray-400 text-xs">(opcional)</span>
                                     </label>
                                     <select
                                         value={data.destinatario_inicial}
@@ -325,7 +325,7 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                                         ))}
                                     </select>
                                     <p className="mt-1 text-[10px] text-gray-400">
-                                        Se vazio, qualquer um do setor podera receber via Caixa Setor.
+                                        Se vazio, qualquer um do setor poderá receber via Caixa Setor.
                                     </p>
                                 </div>
                             </div>
@@ -417,7 +417,7 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                                 <div className="text-center py-4 text-gray-400">
                                     <i className="fas fa-info-circle text-2xl mb-2 block" />
                                     <p className="text-sm font-medium">Selecione um tipo</p>
-                                    <p className="text-xs mt-1">As informacoes do tipo de processo serao exibidas aqui</p>
+                                    <p className="text-xs mt-1">As informações do tipo de processo serão exibidas aqui</p>
                                 </div>
                             </Card>
                         )}
@@ -427,15 +427,15 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                             <div className="space-y-3 text-sm text-gray-500">
                                 <div className="flex items-start gap-2">
                                     <i className="fas fa-lightbulb text-yellow-400 mt-0.5" />
-                                    <p>Selecione o tipo de processo para que os campos especificos sejam exibidos automaticamente.</p>
+                                    <p>Selecione o tipo de processo para que os campos específicos sejam exibidos automaticamente.</p>
                                 </div>
                                 <div className="flex items-start gap-2">
                                     <i className="fas fa-lightbulb text-yellow-400 mt-0.5" />
-                                    <p>O numero de protocolo sera gerado automaticamente apos a abertura.</p>
+                                    <p>O número de protocolo será gerado automaticamente após a abertura.</p>
                                 </div>
                                 <div className="flex items-start gap-2">
                                     <i className="fas fa-lightbulb text-yellow-400 mt-0.5" />
-                                    <p>Processos urgentes terao prioridade na fila de tramitacao.</p>
+                                    <p>Processos urgentes terão prioridade na fila de tramitação.</p>
                                 </div>
                             </div>
                         </Card>

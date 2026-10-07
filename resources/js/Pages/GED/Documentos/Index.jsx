@@ -28,14 +28,14 @@ export default function DocumentosIndex({ documentos, filters, favorito_ids, usu
 
     const titleMap = {
         favoritos: 'Favoritos',
-        recentes: 'Ultimos Acessados',
+        recentes: 'Últimos Acessados',
         populares: 'Mais Acessados',
         arquivados: 'Arquivados',
     };
     const subtitleMap = {
         favoritos: 'Documentos marcados como favoritos',
         recentes: 'Documentos acessados recentemente',
-        populares: 'Documentos mais acessados por voce',
+        populares: 'Documentos mais acessados por você',
         arquivados: 'Documentos com status arquivado',
     };
 
@@ -109,7 +109,7 @@ export default function DocumentosIndex({ documentos, filters, favorito_ids, usu
             <Head title={titleMap[filtro] || 'Meus Documentos'} />
             <PageHeader
                 title={titleMap[filtro] || 'Meus Documentos'}
-                subtitle={subtitleMap[filtro] || 'Documentos criados ou compartilhados com voce'}
+                subtitle={subtitleMap[filtro] || 'Documentos criados ou compartilhados com você'}
             >
                 <Button icon="fas fa-upload" href="/capturar">Novo Documento</Button>
             </PageHeader>
@@ -132,8 +132,8 @@ export default function DocumentosIndex({ documentos, filters, favorito_ids, usu
 
                 {/* Toolbar de acoes horizontal */}
                 <div className="px-4 py-2.5 border-b border-gray-100 flex flex-wrap items-center gap-1.5">
-                    <ToolBtn label="Selecionar Pagina" onClick={selectPage} />
-                    <ToolBtn label="Desmarcar Pagina" onClick={deselectPage} />
+                    <ToolBtn label="Selecionar Página" onClick={selectPage} />
+                    <ToolBtn label="Desmarcar Página" onClick={deselectPage} />
                     <ToolBtn label="Selecionar Tudo" onClick={toggleAll} />
                     <ToolBtn label="Desmarcar Tudo" onClick={() => setSelected([])} />
                     <ToolSep />
@@ -178,7 +178,7 @@ export default function DocumentosIndex({ documentos, filters, favorito_ids, usu
                                         className="rounded border-gray-300 text-blue-600 w-3.5 h-3.5" />
                                 </th>
                                 <th className="px-3 py-3 text-left font-semibold">Preview</th>
-                                <th className="px-3 py-3 text-left font-semibold">Acoes</th>
+                                <th className="px-3 py-3 text-left font-semibold">Ações</th>
                                 <th className="px-3 py-3 text-left font-semibold">Status</th>
                                 <th className="px-3 py-3 text-left font-semibold">Tipo Documental</th>
                                 <th className="px-3 py-3 text-left font-semibold">Pasta</th>
@@ -339,7 +339,7 @@ function InlineStatus({ documentoId, status }) {
 
     const cfg = {
         rascunho:  { bg: 'bg-yellow-100 text-yellow-700', label: 'Rascunho' },
-        revisao:   { bg: 'bg-blue-100 text-blue-700', label: 'Revisao' },
+        revisao:   { bg: 'bg-blue-100 text-blue-700', label: 'Revisão' },
         publicado: { bg: 'bg-green-100 text-green-700', label: 'Publicado' },
         arquivado: { bg: 'bg-gray-100 text-gray-600', label: 'Arquivado' },
     };
@@ -387,7 +387,7 @@ function BulkStatusDropdown({ onSelect, disabled }) {
             {open && (
                 <div className="absolute left-0 top-8 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 animate-fadeIn">
                     {[
-                        { v: 'rascunho', l: 'Rascunho' }, { v: 'revisao', l: 'Em Revisao' },
+                        { v: 'rascunho', l: 'Rascunho' }, { v: 'revisao', l: 'Em Revisão' },
                         { v: 'publicado', l: 'Publicado' }, { v: 'arquivado', l: 'Arquivado' },
                     ].map(s => (
                         <button key={s.v} onClick={() => { setOpen(false); onSelect(s.v); }}
@@ -432,12 +432,12 @@ function AssinaturaLoteModal({ show, onClose, documentoIds, usuarios, onSuccess 
                 <div className="bg-blue-50 rounded-xl p-3">
                     <p className="text-xs text-blue-700">
                         <i className="fas fa-info-circle mr-1" />
-                        A assinatura sera solicitada para <strong>{documentoIds.length}</strong> documento(s) selecionado(s).
+                        A assinatura será solicitada para <strong>{documentoIds.length}</strong> documento(s) selecionado(s).
                     </p>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Selecione os signatarios</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Selecione os signatários</label>
                     <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-xl p-2 space-y-1">
                         {usuarios.map(u => (
                             <label key={u.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 rounded px-2 py-1.5">
@@ -449,7 +449,7 @@ function AssinaturaLoteModal({ show, onClose, documentoIds, usuarios, onSuccess 
                             </label>
                         ))}
                         {usuarios.length === 0 && (
-                            <p className="text-xs text-gray-400 text-center py-3">Nenhum usuario disponivel</p>
+                            <p className="text-xs text-gray-400 text-center py-3">Nenhum usuário disponível</p>
                         )}
                     </div>
                 </div>
@@ -457,7 +457,7 @@ function AssinaturaLoteModal({ show, onClose, documentoIds, usuarios, onSuccess 
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Mensagem (opcional)</label>
                     <textarea value={data.mensagem} onChange={(e) => setData('mensagem', e.target.value)}
-                        className="ds-input !h-auto" rows={2} placeholder="Mensagem para os signatarios..." />
+                        className="ds-input !h-auto" rows={2} placeholder="Mensagem para os signatários..." />
                 </div>
 
                 <div>
@@ -470,7 +470,7 @@ function AssinaturaLoteModal({ show, onClose, documentoIds, usuarios, onSuccess 
                     <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
                     <Button type="submit" loading={processing} icon="fas fa-paper-plane"
                         disabled={data.signatarios.length === 0}>
-                        Enviar para {data.signatarios.length} signatario(s)
+                        Enviar para {data.signatarios.length} signatário(s)
                     </Button>
                 </div>
             </form>

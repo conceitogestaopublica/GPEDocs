@@ -17,7 +17,7 @@ const PERMISSION_GROUPS = [
         permissions: ['documento.visualizar', 'documento.criar', 'documento.editar', 'documento.excluir', 'documento.download'],
     },
     {
-        label: 'Repositorio',
+        label: 'Repositório',
         icon: 'fas fa-folder-open',
         permissions: ['pasta.visualizar', 'pasta.criar', 'pasta.editar', 'pasta.excluir'],
     },
@@ -27,7 +27,7 @@ const PERMISSION_GROUPS = [
         permissions: ['fluxo.visualizar', 'fluxo.criar', 'fluxo.editar', 'fluxo.gerenciar'],
     },
     {
-        label: 'Administracao',
+        label: 'Administração',
         icon: 'fas fa-cog',
         permissions: ['admin.usuarios', 'admin.roles', 'admin.configuracoes'],
     },
@@ -37,7 +37,8 @@ export default function Roles({ roles, permissions }) {
     const confirmar = useConfirm();
     const [showForm, setShowForm] = useState(false);
     const [editingRole, setEditingRole] = useState(null);
-    const rolesList = roles || [];
+    // O controller pagina (objeto com data); aceita também lista simples.
+    const rolesList = Array.isArray(roles) ? roles : (roles?.data || []);
     const permList = permissions || [];
 
     const openEdit = (role) => {
@@ -52,8 +53,8 @@ export default function Roles({ roles, permissions }) {
 
     return (
         <AdminLayout>
-            <Head title="Perfis e Permissoes" />
-            <PageHeader title="Perfis e Permissoes" subtitle="Configurar papeis de acesso (RBAC)">
+            <Head title="Perfis e Permissões" />
+            <PageHeader title="Perfis e Permissões" subtitle="Configurar papéis de acesso (RBAC)">
                 <Button icon="fas fa-plus" onClick={openNew}>Novo Perfil</Button>
             </PageHeader>
 
@@ -81,11 +82,11 @@ export default function Roles({ roles, permissions }) {
                                 <span key={p.id} className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{p.nome}</span>
                             ))}
                             {(!role.permissions || role.permissions.length === 0) && (
-                                <span className="text-xs text-gray-400">Sem permissoes</span>
+                                <span className="text-xs text-gray-400">Sem permissões</span>
                             )}
                         </div>
                         <div className="mt-3 pt-3 border-t border-gray-100">
-                            <p className="text-xs text-gray-400">{role.users_count || 0} usuarios</p>
+                            <p className="text-xs text-gray-400">{role.users_count || 0} usuários</p>
                         </div>
                     </Card>
                 ))}
@@ -140,14 +141,14 @@ function RoleFormModal({ show, onClose, role, permissions }) {
                         {errors.nome && <p className="mt-1 text-xs text-red-600">{errors.nome}</p>}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                         <input type="text" value={data.descricao} onChange={(e) => setData('descricao', e.target.value)}
-                            className="ds-input" placeholder="Descricao do perfil" />
+                            className="ds-input" placeholder="Descrição do perfil" />
                     </div>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">Permissoes</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">Permissões</label>
                     <div className="space-y-4 max-h-64 overflow-y-auto">
                         {PERMISSION_GROUPS.map(group => {
                             const groupPermIds = permissions.filter(p => group.permissions.includes(p.nome)).map(p => p.id);
@@ -181,7 +182,7 @@ function RoleFormModal({ show, onClose, role, permissions }) {
                 <div className="flex justify-end gap-2 pt-2">
                     <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
                     <Button type="submit" loading={processing} icon="fas fa-save">
-                        {isEdit ? 'Salvar Alteracoes' : 'Criar Perfil'}
+                        {isEdit ? 'Salvar Alterações' : 'Criar Perfil'}
                     </Button>
                 </div>
             </form>

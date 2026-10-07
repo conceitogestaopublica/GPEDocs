@@ -98,6 +98,7 @@ class TipoProcessoController extends Controller
             'templates_despacho'      => ['nullable', 'array'],
             'sla_padrao_horas'        => ['required', 'integer'],
             'etapas'                  => ['nullable', 'array'],
+            'etapas.*.id'             => ['nullable', 'integer'],
             'etapas.*.nome'           => ['required', 'string'],
             'etapas.*.tipo'           => ['required', 'string'],
             'etapas.*.setor_destino'  => ['nullable', 'string'],
@@ -121,21 +122,36 @@ class TipoProcessoController extends Controller
                 'sla_padrao_horas'  => $request->input('sla_padrao_horas'),
             ]);
 
-            $tipo->etapas()->delete();
+            // Sincroniza pelo id em vez de apagar e recriar: as tramitações guardam
+            // tipo_etapa_id, e o delete falhava por chave estrangeira em tipo já em uso.
+            $existentes = $tipo->todasEtapas()->get()->keyBy('id');
+            $mantidas = [];
 
-            if ($request->filled('etapas')) {
-                foreach ($request->input('etapas') as $index => $etapa) {
-                    TipoEtapa::create([
-                        'tipo_processo_id' => $tipo->id,
-                        'nome'             => $etapa['nome'],
-                        'tipo'             => $etapa['tipo'],
-                        'setor_destino'    => $etapa['setor_destino'] ?? null,
-                        'sla_horas'        => $etapa['sla_horas'] ?? null,
-                        'template_texto'   => $etapa['template_texto'] ?? null,
-                        'obrigatorio'      => $etapa['obrigatorio'] ?? false,
-                        'ordem'            => $etapa['ordem'] ?? $index + 1,
-                    ]);
+            foreach ((array) $request->input('etapas', []) as $index => $etapa) {
+                $dados = [
+                    'nome'           => $etapa['nome'],
+                    'tipo'           => $etapa['tipo'],
+                    'setor_destino'  => $etapa['setor_destino'] ?? null,
+                    'sla_horas'      => $etapa['sla_horas'] ?? null,
+                    'template_texto' => $etapa['template_texto'] ?? null,
+                    'obrigatorio'    => $etapa['obrigatorio'] ?? false,
+                    'ordem'          => $etapa['ordem'] ?? $index + 1,
+                    'ativo'          => true,
+                ];
+
+                $atual = isset($etapa['id']) ? $existentes->get((int) $etapa['id']) : null;
+                if ($atual) {
+                    $atual->update($dados);
+                    $mantidas[] = $atual->id;
+                } else {
+                    $mantidas[] = TipoEtapa::create($dados + ['tipo_processo_id' => $tipo->id])->id;
                 }
+            }
+
+            // Retiradas: sem tramitação, apaga; com tramitação, desativa (o histórico aponta para ela).
+            foreach ($existentes->except($mantidas) as $retirada) {
+                $emUso = DB::table('proc_tramitacoes')->where('tipo_etapa_id', $retirada->id)->exists();
+                $emUso ? $retirada->update(['ativo' => false]) : $retirada->delete();
             }
 
             DB::commit();
@@ -153,13 +169,13 @@ class TipoProcessoController extends Controller
         $tipo = TipoProcesso::withCount('processos')->findOrFail($id);
 
         if ($tipo->processos_count > 0) {
-            return redirect()->back()->with('error', 'Nao e possivel excluir tipo com processos vinculados. Use a opcao inativar.');
+            return redirect()->back()->with('error', 'Não é possível excluir tipo com processos vinculados. Use a opção inativar.');
         }
 
         $tipo->etapas()->delete();
         $tipo->delete();
 
-        return redirect()->back()->with('success', 'Tipo de processo excluido com sucesso.');
+        return redirect()->back()->with('success', 'Tipo de processo excluído com sucesso.');
     }
 
     public function toggleAtivo($id)

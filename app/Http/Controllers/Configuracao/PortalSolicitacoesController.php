@@ -168,6 +168,6 @@ class PortalSolicitacoesController extends Controller
                 ));
         }
 
-        return back()->with('success', 'Mensagem enviada ao cidadao por email.');
+        return back()->with('success', 'Mensagem enviada ao cidadão por email.');
     }
 }

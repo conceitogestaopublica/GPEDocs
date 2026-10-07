@@ -37,6 +37,10 @@ class TramitacaoController extends Controller
             DB::beginTransaction();
 
             $tramitacao = Tramitacao::findOrFail($id);
+            \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacao, Auth::user());
+            if ($tramitacao->status !== 'pendente') {
+                abort(409, 'Esta etapa já foi recebida.');
+            }
             $tramitacao->update([
                 'status'      => 'recebido',
                 'recebido_por'=> Auth::id(),
@@ -88,11 +92,15 @@ class TramitacaoController extends Controller
             DB::beginTransaction();
 
             $tramitacaoAtual = Tramitacao::with('processo.tipoProcesso.etapas')->findOrFail($id);
+            \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacaoAtual, Auth::user());
             $processo = $tramitacaoAtual->processo;
 
             // Finalizar tramitacao atual
             $tramitacaoAtual->update([
                 'status'        => 'despachado',
+                // Despachar etapa ainda pendente vale como recebimento por quem despacha.
+                'recebido_por'  => $tramitacaoAtual->recebido_por ?? Auth::id(),
+                'recebido_em'   => $tramitacaoAtual->recebido_em ?? now(),
                 'despachado_em' => now(),
                 'despacho'      => $request->input('despacho'),
             ]);
@@ -100,9 +108,9 @@ class TramitacaoController extends Controller
             // Determinar proxima etapa
             $proximaEtapa = null;
             if ($tramitacaoAtual->tipo_etapa_id) {
-                $etapaAtual = $processo->tipoProcesso->etapas
-                    ->where('id', $tramitacaoAtual->tipo_etapa_id)
-                    ->first();
+                // A etapa atual pode ter sido retirada do tipo depois (fica inativa): ainda
+                // vale a ordem dela para achar a próxima entre as vigentes.
+                $etapaAtual = \App\Models\Processo\TipoEtapa::find($tramitacaoAtual->tipo_etapa_id);
 
                 if ($etapaAtual) {
                     $proximaEtapa = $processo->tipoProcesso->etapas
@@ -132,7 +140,7 @@ class TramitacaoController extends Controller
             // Armazenar anexos
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('processos', 'documentos');
+                    $path = $file->store(\App\Tenant\TenantStorage::pasta('processos'), 'documentos');
 
                     ProcessoAnexo::create([
                         'processo_id'   => $processo->id,
@@ -175,7 +183,7 @@ class TramitacaoController extends Controller
                     'usuario_id'     => (int) $uid,
                     'tipo'           => 'processo',
                     'titulo'         => 'Processo despachado para voce',
-                    'mensagem'       => "Processo {$processo->numero_protocolo} - {$processo->assunto} foi despachado para voce.",
+                    'mensagem'       => "Processo {$processo->numero_protocolo} - {$processo->assunto} foi despachado para você.",
                     'referencia_tipo'=> 'processo',
                     'referencia_id'  => $processo->id,
                     'lida'           => false,
@@ -202,6 +210,7 @@ class TramitacaoController extends Controller
             DB::beginTransaction();
 
             $tramitacaoAtual = Tramitacao::findOrFail($id);
+            \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacaoAtual, Auth::user());
             $processo = $tramitacaoAtual->processo;
 
             // Finalizar tramitacao atual
@@ -245,7 +254,7 @@ class TramitacaoController extends Controller
                 'usuario_id'     => $tramitacaoAtual->remetente_id,
                 'tipo'           => 'processo',
                 'titulo'         => 'Processo devolvido',
-                'mensagem'       => "Processo {$processo->numero_protocolo} - {$processo->assunto} foi devolvido para voce.",
+                'mensagem'       => "Processo {$processo->numero_protocolo} - {$processo->assunto} foi devolvido para você.",
                 'referencia_tipo'=> 'processo',
                 'referencia_id'  => $processo->id,
                 'lida'           => false,
@@ -295,11 +304,11 @@ class TramitacaoController extends Controller
 
             DB::commit();
 
-            return redirect()->back()->with('success', 'Comentario adicionado com sucesso.');
+            return redirect()->back()->with('success', 'Comentário adicionado com sucesso.');
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return redirect()->back()->with('error', 'Erro ao adicionar comentario: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Erro ao adicionar comentário: ' . $e->getMessage());
         }
     }
 
@@ -314,10 +323,11 @@ class TramitacaoController extends Controller
             DB::beginTransaction();
 
             $tramitacao = Tramitacao::findOrFail($id);
+            \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacao, Auth::user());
             $anexosNomes = [];
 
             foreach ($request->file('files') as $file) {
-                $path = $file->store('processos', 'documentos');
+                $path = $file->store(\App\Tenant\TenantStorage::pasta('processos'), 'documentos');
 
                 ProcessoAnexo::create([
                     'processo_id'   => $tramitacao->processo_id,

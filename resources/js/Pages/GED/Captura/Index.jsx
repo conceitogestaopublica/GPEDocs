@@ -96,7 +96,7 @@ export default function Captura({ tipos_documentais, pastas }) {
         } catch (err) {
             setCameraError(
                 err.name === 'NotAllowedError'
-                    ? 'Permissao de camera negada. Habilite nas configuracoes do navegador.'
+                    ? 'Permissão de camera negada. Habilite nas configurações do navegador.'
                     : err.name === 'NotFoundError'
                     ? 'Nenhuma camera encontrada neste dispositivo.'
                     : 'Erro ao acessar camera: ' + err.message
@@ -343,7 +343,7 @@ export default function Captura({ tipos_documentais, pastas }) {
                                             <div className="flex flex-col items-center justify-center text-gray-400 py-20">
                                                 <i className="fas fa-camera text-5xl mb-4" />
                                                 <p className="text-sm font-medium">Camera desligada</p>
-                                                <p className="text-xs mt-1 text-gray-500">Clique em "Iniciar Camera" para comecar a digitalizar</p>
+                                                <p className="text-xs mt-1 text-gray-500">Clique em "Iniciar Camera" para começar a digitalizar</p>
                                             </div>
                                         )}
 
@@ -438,7 +438,7 @@ export default function Captura({ tipos_documentais, pastas }) {
                                                 <div className="w-px h-8 bg-gray-200 mx-1" />
 
                                                 <button type="button" onClick={() => removePage(selectedPage)}
-                                                    className="p-2 bg-red-50 rounded-lg hover:bg-red-100 text-red-600 transition-colors" title="Excluir pagina">
+                                                    className="p-2 bg-red-50 rounded-lg hover:bg-red-100 text-red-600 transition-colors" title="Excluir página">
                                                     <i className="fas fa-trash" />
                                                 </button>
 
@@ -456,7 +456,7 @@ export default function Captura({ tipos_documentais, pastas }) {
 
                                         {/* Info de paginas */}
                                         <div className="ml-auto text-sm text-gray-500">
-                                            Pagina: {selectedPageData
+                                            Página: {selectedPageData
                                                 ? `${capturedPages.findIndex(p => p.id === selectedPage) + 1} de ${capturedPages.length}`
                                                 : `${capturedPages.length} capturada(s)`
                                             }
@@ -466,7 +466,7 @@ export default function Captura({ tipos_documentais, pastas }) {
 
                                 {/* Thumbnails das paginas capturadas */}
                                 {capturedPages.length > 0 && (
-                                    <Card title={`Paginas capturadas (${capturedPages.length})`}
+                                    <Card title={`Páginas capturadas (${capturedPages.length})`}
                                         actions={
                                             <button
                                                 type="button"
@@ -578,6 +578,9 @@ export default function Captura({ tipos_documentais, pastas }) {
                                                         ))}
                                                     </select>
                                                 )}
+                                                {errors[`metadados.${campo.campo}`] && (
+                                                    <p className="mt-1 text-xs text-red-600">{errors[`metadados.${campo.campo}`]}</p>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -598,13 +601,13 @@ export default function Captura({ tipos_documentais, pastas }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Classificacao</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Classificação</label>
                                     <select
                                         value={data.classificacao}
                                         onChange={(e) => setData('classificacao', e.target.value)}
                                         className="ds-input"
                                     >
-                                        <option value="publico">Publico</option>
+                                        <option value="publico">Público</option>
                                         <option value="interno">Interno</option>
                                         <option value="confidencial">Confidencial</option>
                                         <option value="restrito">Restrito</option>
@@ -612,13 +615,13 @@ export default function Captura({ tipos_documentais, pastas }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                                     <textarea
                                         value={data.descricao}
                                         onChange={(e) => setData('descricao', e.target.value)}
                                         className="ds-input !h-auto"
                                         rows={3}
-                                        placeholder="Descricao opcional do documento..."
+                                        placeholder="Descrição opcional do documento..."
                                     />
                                 </div>
                             </div>

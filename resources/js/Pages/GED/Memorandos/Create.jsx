@@ -145,9 +145,9 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
                         </label>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
                             {[
-                                { v: 'todos_setores', icone: 'fa-broadcast-tower', cor: 'rose',    titulo: 'Todos os Setores',     desc: 'Toda a UG ve na Caixa Setor' },
-                                { v: 'setor',         icone: 'fa-users',           cor: 'indigo',  titulo: 'Apenas um Setor',      desc: 'Setor especifico (Caixa Setor)' },
-                                { v: 'usuario',       icone: 'fa-user',            cor: 'blue',    titulo: 'Setor + Usuario',      desc: 'Pessoa especifica (Caixa Pessoal)' },
+                                { v: 'todos_setores', icone: 'fa-broadcast-tower', cor: 'rose',    titulo: 'Todos os Setores',     desc: 'Toda a UG vê na Caixa Setor' },
+                                { v: 'setor',         icone: 'fa-users',           cor: 'indigo',  titulo: 'Apenas um Setor',      desc: 'Setor específico (Caixa Setor)' },
+                                { v: 'usuario',       icone: 'fa-user',            cor: 'blue',    titulo: 'Setor + Usuário',      desc: 'Pessoa específica (Caixa Pessoal)' },
                             ].map(op => {
                                 const ativo = data.tipo_destino === op.v;
                                 const corMap = { rose: 'border-rose-500 bg-rose-50', indigo: 'border-indigo-500 bg-indigo-50', blue: 'border-blue-500 bg-blue-50' };
@@ -172,7 +172,7 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
                         {data.tipo_destino === 'todos_setores' && (
                             <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800">
                                 <i className="fas fa-info-circle mr-1" />
-                                O memorando sera enviado para <strong>todos os setores</strong> da UG ativa. Cada setor vera o documento na sua Caixa Entrada Setor.
+                                O memorando será enviado para <strong>todos os setores</strong> da UG ativa. Cada setor verá o documento na sua Caixa Entrada Setor.
                             </div>
                         )}
 
@@ -251,7 +251,7 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
                                             </label>
                                         ))}
                                         {filteredUsers.length === 0 && (
-                                            <p className="text-xs text-gray-400 text-center py-3">Nenhum usuario encontrado{data.unidade_id ? ' nesse setor' : ''}</p>
+                                            <p className="text-xs text-gray-400 text-center py-3">Nenhum usuário encontrado{data.unidade_id ? ' nesse setor' : ''}</p>
                                         )}
                                     </div>
                                 </div>
@@ -263,14 +263,14 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
                     {/* Conteudo */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Conteudo <span className="text-red-500">*</span>
+                            Conteúdo <span className="text-red-500">*</span>
                         </label>
                         <textarea
                             value={data.conteudo}
                             onChange={(e) => setData('conteudo', e.target.value)}
                             className="ds-input !h-auto"
                             rows={10}
-                            placeholder="Digite o conteudo do memorando..."
+                            placeholder="Digite o conteúdo do memorando..."
                             required
                         />
                         {errors.conteudo && <p className="text-xs text-red-500 mt-1">{errors.conteudo}</p>}
@@ -319,7 +319,7 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
                             </span>
                         </label>
                         <p className="text-xs text-gray-400 mt-1 ml-6">
-                            Memorandos confidenciais so podem ser visualizados pelos destinatarios.
+                            Memorandos confidenciais só podem ser visualizados pelos destinatários.
                         </p>
                     </div>
 

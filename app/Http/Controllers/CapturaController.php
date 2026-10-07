@@ -43,6 +43,11 @@ class CapturaController extends Controller
             'metadados'          => ['nullable', 'array'],
         ]);
 
+        // Obrigatoriedade, tipo e opções de cada metadado definidos no tipo documental.
+        $tipoDoc = \App\Models\TipoDocumental::find($request->input('tipo_documental_id'));
+        [$regras, $nomes] = \App\Support\CamposDinamicos::regras($tipoDoc?->schema_metadados, 'metadados');
+        $request->validate($regras, [], $nomes);
+
         try {
             DB::beginTransaction();
 
@@ -51,7 +56,7 @@ class CapturaController extends Controller
             $criados = 0;
 
             foreach ($arquivos as $file) {
-                $path = $file->store('documentos', 'documentos');
+                $path = $file->store(\App\Tenant\TenantStorage::pasta('documentos'), 'documentos');
                 $nome = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
 
                 $ocrTexto = null;

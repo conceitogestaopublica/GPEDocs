@@ -134,7 +134,7 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
                         {memo.qr_code_token && (
                             <div className="relative group">
                                 <button className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
-                                    title="QR Code de verificacao">
+                                    title="QR Code de verificação">
                                     <i className="fas fa-qrcode" />
                                 </button>
                                 <div className="absolute right-0 top-12 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-50 hidden group-hover:block animate-fadeIn">
@@ -152,7 +152,7 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
                         )}
                         {pode_tramitar && (
                             <Button icon="fas fa-share" onClick={() => setTramitarOpen(true)}
-                                title="Encaminhar para outro setor ou usuario (com parecer opcional)">
+                                title="Encaminhar para outro setor ou usuário (com parecer opcional)">
                                 Encaminhar
                             </Button>
                         )}
@@ -179,7 +179,7 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
                 {/* Coluna principal */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Conteudo */}
-                    <Card title="Conteudo">
+                    <Card title="Conteúdo">
                         <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
                             {memo.conteudo}
                         </div>
@@ -225,7 +225,7 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-sm font-semibold text-gray-800">{resp.user?.name || 'Usuario'}</span>
+                                                <span className="text-sm font-semibold text-gray-800">{resp.user?.name || 'Usuário'}</span>
                                                 <span className="text-[10px] text-gray-400">
                                                     {resp.created_at ? new Date(resp.created_at).toLocaleDateString('pt-BR', {
                                                         day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -267,7 +267,7 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
                 {/* Coluna lateral */}
                 <div className="space-y-6">
                     {/* Informacoes */}
-                    <Card title="Informacoes">
+                    <Card title="Informações">
                         <div className="space-y-4">
                             <InfoRow label="Remetente" value={memo.remetente?.name || '-'} />
                             {memo.setor_origem && <InfoRow label="Setor de Origem" value={memo.setor_origem} />}
@@ -277,7 +277,7 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
                                 }) : '-'
                             } />
                             {memo.data_arquivamento_auto && (
-                                <InfoRow label="Arquivamento Automatico" value={
+                                <InfoRow label="Arquivamento Automático" value={
                                     new Date(memo.data_arquivamento_auto).toLocaleDateString('pt-BR')
                                 } />
                             )}
@@ -286,7 +286,7 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
 
                     {/* Cadeia de Tramitacao */}
                     {tramitacoes.length > 0 && (
-                        <Card title={`Tramitacao (${tramitacoes.length})`}>
+                        <Card title={`Tramitação (${tramitacoes.length})`}>
                             <div className="space-y-3">
                                 {tramitacoes.map((t, i) => {
                                     const origem = t.origem_usuario?.name || '?';
@@ -326,9 +326,9 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
                     )}
 
                     {/* Destinatarios */}
-                    <Card title="Destinatarios">
+                    <Card title="Destinatários">
                         {destinatarios.length === 0 ? (
-                            <p className="text-xs text-gray-400 text-center py-3">Nenhum destinatario</p>
+                            <p className="text-xs text-gray-400 text-center py-3">Nenhum destinatário</p>
                         ) : (
                             <div className="space-y-2">
                                 {destinatarios.map((dest, i) => {
@@ -354,7 +354,7 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
                                                 ) : (
                                                     <p className="text-[10px] text-gray-400">
                                                         <i className="fas fa-clock mr-0.5" />
-                                                        Nao lido
+                                                        Não lido
                                                     </p>
                                                 )}
                                             </div>
@@ -389,7 +389,7 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
                                 <div className="grid grid-cols-2 gap-2">
                                     {[
                                         { v: 'setor',   icone: 'fa-users', titulo: 'Setor' },
-                                        { v: 'usuario', icone: 'fa-user',  titulo: 'Usuario' },
+                                        { v: 'usuario', icone: 'fa-user',  titulo: 'Usuário' },
                                     ].map(op => {
                                         const ativo = tramiteForm.data.tipo_destino === op.v;
                                         return (
@@ -436,11 +436,11 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">Usuario de destino <span className="text-red-500">*</span></label>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Usuário de destino <span className="text-red-500">*</span></label>
                                         <select value={tramiteForm.data.destino_usuario_id}
                                             onChange={(e) => tramiteForm.setData('destino_usuario_id', e.target.value)}
                                             className="ds-input">
-                                            <option value="">— Selecione o usuario —</option>
+                                            <option value="">— Selecione o usuário —</option>
                                             {usuariosFiltrados.map(u => (
                                                 <option key={u.id} value={u.id}>{u.name} · {u.email}</option>
                                             ))}
@@ -467,10 +467,10 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
                                 <div>
                                     <p className="text-sm font-semibold text-gray-800">
                                         <i className="fas fa-comment-dots text-emerald-500 mr-1" />
-                                        Tambem registrar como resposta no thread
+                                        Também registrar como resposta no thread
                                     </p>
                                     <p className="text-[11px] text-gray-500 leading-tight">
-                                        O texto acima ficara visivel para o remetente original na aba Respostas e gerara notificacao para ele.
+                                        O texto acima ficará visível para o remetente original na aba Respostas e gerará notificação para ele.
                                     </p>
                                 </div>
                             </label>

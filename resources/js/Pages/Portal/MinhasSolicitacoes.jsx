@@ -15,18 +15,18 @@ const STATUS_CORES = {
 export default function MinhasSolicitacoes({ ug, solicitacoes, statusList }) {
     return (
         <PortalLayout ug={ug} hideSearchBar>
-            <Head title="Minhas Solicitacoes" />
+            <Head title="Minhas Solicitações" />
 
-            <h1 className="text-2xl font-bold text-gray-800 mb-1">Minhas Solicitacoes</h1>
-            <p className="text-sm text-gray-500 mb-6">Acompanhe o andamento dos servicos solicitados</p>
+            <h1 className="text-2xl font-bold text-gray-800 mb-1">Minhas Solicitações</h1>
+            <p className="text-sm text-gray-500 mb-6">Acompanhe o andamento dos serviços solicitados</p>
 
             {solicitacoes.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
                     <i className="fas fa-inbox text-4xl text-gray-300 mb-3" />
-                    <p className="text-gray-600 font-medium mb-1">Nenhuma solicitacao registrada</p>
-                    <p className="text-xs text-gray-400 mb-4">Voce ainda nao solicitou nenhum servico</p>
+                    <p className="text-gray-600 font-medium mb-1">Nenhuma solicitação registrada</p>
+                    <p className="text-xs text-gray-400 mb-4">Você ainda não solicitou nenhum serviço</p>
                     <Link href="/buscar" className="inline-block px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
-                        Ver servicos disponiveis
+                        Ver serviços disponíveis
                     </Link>
                 </div>
             ) : (

@@ -22,7 +22,7 @@ class AutenticaSistemaIntegrado
 
         if (! $token) {
             return response()->json([
-                'erro'    => 'Token de autenticacao ausente.',
+                'erro'    => 'Token de autenticação ausente.',
                 'detalhe' => 'Envie o header: Authorization: Bearer {seu_token}',
             ], 401);
         }
@@ -31,7 +31,7 @@ class AutenticaSistemaIntegrado
 
         if (! $sistema) {
             return response()->json([
-                'erro'    => 'Token invalido, expirado ou sistema inativo.',
+                'erro'    => 'Token inválido, expirado ou sistema inativo.',
             ], 401);
         }
 

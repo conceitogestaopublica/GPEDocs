@@ -3,29 +3,30 @@
  */
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import ModuloIcon from '../Components/ModuloIcon';
+import { entradaDoModulo } from '../menus';
 
 const MODULOS = [
     {
         key: 'ged',
-        nome: 'Gestao Eletronica de Documentos',
+        nome: 'Gestão Eletrônica de Documentos',
         sigla: 'GPE Docs',
-        descricao: 'Repositorio, captura, busca e controle de documentos',
+        descricao: 'Repositório, captura, busca e controle de documentos',
         iconText: 'Docs',
         href: '/dashboard',
     },
     {
         key: 'gepsp',
-        nome: 'Fluxos e Tramitacao Eletronica',
+        nome: 'Fluxos e Tramitação Eletrônica',
         sigla: 'GPE Flow',
-        descricao: 'Protocolo eletronico, processos e fluxos administrativos',
+        descricao: 'Protocolo eletrônico, processos e fluxos administrativos',
         iconText: 'Flow',
         href: '/processos/dashboard',
     },
     {
         key: 'configuracoes',
-        nome: 'Configuracoes do Sistema',
+        nome: 'Configurações do Sistema',
         sigla: 'GPE Config',
-        descricao: 'Unidades gestoras, organograma, usuarios e perfis',
+        descricao: 'Unidades gestoras, organograma, usuários e perfis',
         iconText: 'Conf',
         href: '/configuracoes',
     },
@@ -35,12 +36,15 @@ export default function Modulos() {
     const { auth, tenant } = usePage().props;
     const user = auth?.user;
     const ugAtual = tenant?.atual;
+    const modulos = MODULOS
+        .map((mod) => ({ ...mod, href: entradaDoModulo(mod.key, user?.permissoes, mod.href) }))
+        .filter((mod) => mod.href);
 
     const trocarUg = () => router.post('/trocar-ug');
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-            <Head title="Modulos" />
+            <Head title="Módulos" />
 
             {/* Header */}
             <header className="bg-white border-b border-gray-200 shadow-sm">
@@ -50,7 +54,7 @@ export default function Modulos() {
                             <i className="fas fa-cubes text-white text-sm" />
                         </div>
                         <div>
-                            <p className="text-sm font-bold text-gray-800 leading-tight">Conceito Gestao Publica</p>
+                            <p className="text-sm font-bold text-gray-800 leading-tight">Conceito Gestão Pública</p>
                             <p className="text-[10px] text-gray-400 leading-tight">Plataforma Digital Integrada</p>
                         </div>
                     </div>
@@ -84,7 +88,7 @@ export default function Modulos() {
                         ))}
 
                         <div className="text-right hidden sm:block">
-                            <p className="text-sm font-semibold text-gray-700">{user?.name || 'Usuario'}</p>
+                            <p className="text-sm font-semibold text-gray-700">{user?.name || 'Usuário'}</p>
                             <p className="text-[11px] text-gray-400">{user?.email}</p>
                         </div>
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
@@ -101,12 +105,12 @@ export default function Modulos() {
             {/* Conteudo */}
             <main className="max-w-4xl mx-auto px-6 py-12">
                 <div className="text-center mb-10">
-                    <h1 className="text-2xl font-bold text-gray-800">Selecionar Modulo</h1>
-                    <p className="text-sm text-gray-500 mt-1">Escolha o modulo que deseja acessar</p>
+                    <h1 className="text-2xl font-bold text-gray-800">Selecionar Módulo</h1>
+                    <p className="text-sm text-gray-500 mt-1">Escolha o módulo que deseja acessar</p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {MODULOS.map(mod => (
+                    {modulos.map(mod => (
                         <Link
                             key={mod.key}
                             href={mod.href}
@@ -125,7 +129,7 @@ export default function Modulos() {
 
             {/* Footer */}
             <footer className="text-center py-6 text-xs text-gray-400">
-                <span className="font-medium text-gray-500">Conceito Gestao Publica</span> — Plataforma Digital Integrada &copy; {new Date().getFullYear()}
+                <span className="font-medium text-gray-500">Conceito Gestão Pública</span> — Plataforma Digital Integrada &copy; {new Date().getFullYear()}
             </footer>
         </div>
     );

@@ -67,7 +67,7 @@ export default function EnderecoForm({ data, setData, errors = {}, disabled = fa
 
             <div className="grid grid-cols-3 gap-2">
                 <div>
-                    <label className="block text-[11px] font-medium text-gray-700 mb-1">Numero</label>
+                    <label className="block text-[11px] font-medium text-gray-700 mb-1">Número</label>
                     <input type="text" value={data.numero || ''}
                         onChange={(e) => setData('numero', e.target.value)}
                         disabled={disabled}

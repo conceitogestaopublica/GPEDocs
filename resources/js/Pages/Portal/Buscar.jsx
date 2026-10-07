@@ -26,9 +26,9 @@ export default function PortalBuscar({ ug, servicos, categorias, publicos, filtr
 
     return (
         <PortalLayout ug={ug} hideSearchBar>
-            <Head title={`Buscar servicos — ${ug.nome}`} />
+            <Head title={`Buscar serviços — ${ug.nome}`} />
 
-            <h1 className="text-2xl font-bold text-gray-800 mb-1">Todos os servicos</h1>
+            <h1 className="text-2xl font-bold text-gray-800 mb-1">Todos os serviços</h1>
             <p className="text-sm text-gray-500 mb-6">Use os filtros para encontrar o que precisa</p>
 
             <form onSubmit={aplicar} className="bg-white rounded-2xl border border-gray-200 p-4 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3">
@@ -38,7 +38,7 @@ export default function PortalBuscar({ ug, servicos, categorias, publicos, filtr
                         type="text"
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        placeholder="Palavra-chave, titulo ou descricao..."
+                        placeholder="Palavra-chave, título ou descrição..."
                         className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-300 text-sm"
                     />
                 </div>
@@ -57,7 +57,7 @@ export default function PortalBuscar({ ug, servicos, categorias, publicos, filtr
                     onChange={(e) => setPublicoAlvo(e.target.value)}
                     className="md:col-span-2 px-3 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-300 text-sm"
                 >
-                    <option value="">Todos publicos</option>
+                    <option value="">Todos públicos</option>
                     {Object.entries(publicos || {}).map(([v, l]) => (
                         <option key={v} value={v}>{l}</option>
                     ))}
@@ -103,7 +103,7 @@ export default function PortalBuscar({ ug, servicos, categorias, publicos, filtr
                 {(servicos.data || []).length === 0 && (
                     <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
                         <i className="fas fa-search text-4xl text-gray-300 mb-3" />
-                        <p className="text-gray-500">Nenhum servico encontrado com os filtros aplicados.</p>
+                        <p className="text-gray-500">Nenhum serviço encontrado com os filtros aplicados.</p>
                     </div>
                 )}
             </div>

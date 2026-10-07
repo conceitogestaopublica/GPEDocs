@@ -57,17 +57,17 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
 
     return (
         <AdminLayout>
-            <Head title="Carta de Servicos" />
+            <Head title="Carta de Serviços" />
 
             <PageHeader
-                title="Carta de Servicos"
-                subtitle="Catalogo publicado no Portal do Cidadao da sua UG"
+                title="Carta de Serviços"
+                subtitle="Catálogo publicado no Portal do Cidadão da sua UG"
             >
                 <Button icon="fas fa-tag" onClick={() => { setEditCat(null); setShowCatForm(true); }} variant="secondary">
                     Nova Categoria
                 </Button>
                 <Button icon="fas fa-plus" onClick={() => { setEditServ(null); setShowServForm(true); }}>
-                    Novo Servico
+                    Novo Serviço
                 </Button>
             </PageHeader>
 
@@ -106,7 +106,7 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
                     <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                     <input
                         type="text" value={busca} onChange={(e) => setBusca(e.target.value)}
-                        placeholder="Buscar por titulo ou descricao..."
+                        placeholder="Buscar por título ou descrição..."
                         className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
                     />
                 </div>
@@ -117,7 +117,7 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
                 </select>
                 <select value={filtroPub} onChange={(e) => setFiltroPub(e.target.value)}
                     className="md:col-span-2 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
-                    <option value="">Todos publicos</option>
+                    <option value="">Todos públicos</option>
                     {Object.entries(publicos).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
                 <button type="submit" className="md:col-span-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
@@ -131,12 +131,12 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
                     <table className="w-full text-sm">
                         <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-xs">
                             <tr>
-                                <th className="px-4 py-3 text-left font-semibold">Servico</th>
+                                <th className="px-4 py-3 text-left font-semibold">Serviço</th>
                                 <th className="px-4 py-3 text-left font-semibold">Categoria</th>
-                                <th className="px-4 py-3 text-center font-semibold">Publico</th>
-                                <th className="px-4 py-3 text-center font-semibold">Visualizacoes</th>
+                                <th className="px-4 py-3 text-center font-semibold">Público</th>
+                                <th className="px-4 py-3 text-center font-semibold">Visualizações</th>
                                 <th className="px-4 py-3 text-center font-semibold">Status</th>
-                                <th className="px-4 py-3 text-center font-semibold w-32">Acoes</th>
+                                <th className="px-4 py-3 text-center font-semibold w-32">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -192,7 +192,7 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
                             {(servicos.data || []).length === 0 && (
                                 <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400">
                                     <i className="fas fa-folder-open text-3xl mb-2 block" />
-                                    Nenhum servico cadastrado.
+                                    Nenhum serviço cadastrado.
                                 </td></tr>
                             )}
                         </tbody>
@@ -251,7 +251,7 @@ function CategoriaForm({ categoria, onClose }) {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                     <div>
-                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Icone (FontAwesome)</label>
+                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Ícone (FontAwesome)</label>
                         <input type="text" value={data.icone} onChange={(e) => setData('icone', e.target.value)}
                             placeholder="fas fa-folder"
                             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono" />
@@ -270,7 +270,7 @@ function CategoriaForm({ categoria, onClose }) {
                     </div>
                 </div>
                 <div>
-                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Descricao</label>
+                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Descrição</label>
                     <textarea value={data.descricao} onChange={(e) => setData('descricao', e.target.value)}
                         rows={2}
                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
@@ -358,17 +358,17 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, on
     };
 
     return (
-        <Modal show onClose={onClose} title={isEdit ? 'Editar servico' : 'Novo servico'} maxWidth="4xl">
+        <Modal show onClose={onClose} title={isEdit ? 'Editar serviço' : 'Novo serviço'} maxWidth="4xl">
             <form onSubmit={submit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="md:col-span-2">
-                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Titulo *</label>
+                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Título *</label>
                         <input type="text" value={data.titulo} onChange={(e) => setData('titulo', e.target.value)}
                             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" required />
                         {errors.titulo && <p className="text-xs text-red-500 mt-1">{errors.titulo}</p>}
                     </div>
                     <div>
-                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Icone</label>
+                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Ícone</label>
                         <input type="text" value={data.icone} onChange={(e) => setData('icone', e.target.value)}
                             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono" />
                     </div>
@@ -393,7 +393,7 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, on
                 </div>
 
                 <div>
-                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Descricao curta</label>
+                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Descrição curta</label>
                     <textarea value={data.descricao_curta} onChange={(e) => setData('descricao_curta', e.target.value)}
                         rows={2} maxLength={500}
                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
@@ -401,11 +401,11 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, on
                 </div>
 
                 <div>
-                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Descricao completa</label>
+                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Descrição completa</label>
                     <textarea value={data.descricao_completa} onChange={(e) => setData('descricao_completa', e.target.value)}
                         rows={4}
                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                        placeholder="Texto detalhado sobre o servico" />
+                        placeholder="Texto detalhado sobre o serviço" />
                 </div>
 
                 <div>
@@ -416,7 +416,7 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, on
                 </div>
 
                 <div>
-                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Documentos necessarios</label>
+                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Documentos necessários</label>
                     <div className="space-y-1.5">
                         {data.documentos_necessarios.map((d, i) => (
                             <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-1.5">
@@ -443,7 +443,7 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, on
                     <div>
                         <label className="text-xs font-semibold text-gray-600 mb-1 block">Prazo de entrega</label>
                         <input type="text" value={data.prazo_entrega} onChange={(e) => setData('prazo_entrega', e.target.value)}
-                            placeholder="Ex: Ate 5 dias uteis"
+                            placeholder="Ex: Até 5 dias úteis"
                             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
                     </div>
                     <div>
@@ -475,19 +475,19 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, on
                             className="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm" />
                         <input type="text" value={data.canais.observacoes || ''}
                             onChange={(e) => setData('canais', { ...data.canais, observacoes: e.target.value })}
-                            placeholder="Observacoes (opcional)"
+                            placeholder="Observações (opcional)"
                             className="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm" />
                     </div>
                 </div>
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
                     <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
-                        <i className="fas fa-project-diagram" /> Integracao com GPE Flow
+                        <i className="fas fa-project-diagram" /> Integração com GPE Flow
                     </h4>
-                    <p className="text-[11px] text-blue-700">Quando configurado, cada solicitacao deste servico abre automaticamente um processo no setor responsavel.</p>
+                    <p className="text-[11px] text-blue-700">Quando configurado, cada solicitação deste serviço abre automaticamente um processo no setor responsável.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                            <label className="text-xs font-semibold text-gray-600 mb-1 block">Setor responsavel (organograma)</label>
+                            <label className="text-xs font-semibold text-gray-600 mb-1 block">Setor responsável (organograma)</label>
                             <select value={data.setor_responsavel_id} onChange={(e) => setData('setor_responsavel_id', e.target.value)}
                                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white">
                                 <option value="">— Nenhum (sem processo no Flow) —</option>
@@ -511,22 +511,22 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, on
                             onChange={(e) => setData('permite_anonimo', e.target.checked)}
                             className="mt-0.5" />
                         <div>
-                            <p className="text-sm font-semibold text-amber-900">Permitir solicitacao anonima</p>
-                            <p className="text-[11px] text-amber-700">Util para denuncias e ouvidoria. Quando marcado, o cidadao pode solicitar sem fazer login.</p>
+                            <p className="text-sm font-semibold text-amber-900">Permitir solicitação anônima</p>
+                            <p className="text-[11px] text-amber-700">Útil para denúncias e ouvidoria. Quando marcado, o cidadão pode solicitar sem fazer login.</p>
                         </div>
                     </label>
                 </div>
 
                 <div>
-                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Orgao responsavel (texto livre)</label>
+                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Órgão responsável (texto livre)</label>
                     <input type="text" value={data.orgao_responsavel} onChange={(e) => setData('orgao_responsavel', e.target.value)}
-                        placeholder="Ex: Secretaria de Saude"
+                        placeholder="Ex: Secretaria de Saúde"
                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                    <p className="text-[10px] text-gray-400 mt-1">Aparece na pagina publica do servico. Pode complementar o setor do organograma.</p>
+                    <p className="text-[10px] text-gray-400 mt-1">Aparece na página pública do serviço. Pode complementar o setor do organograma.</p>
                 </div>
 
                 <div>
-                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Legislacao de referencia</label>
+                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Legislação de referência</label>
                     <textarea value={data.legislacao} onChange={(e) => setData('legislacao', e.target.value)}
                         rows={2}
                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
@@ -570,7 +570,7 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, on
                     <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
                     <button type="submit" disabled={processing}
                         className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
-                        {isEdit ? 'Salvar' : 'Criar servico'}
+                        {isEdit ? 'Salvar' : 'Criar serviço'}
                     </button>
                 </div>
             </form>

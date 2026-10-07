@@ -3,10 +3,10 @@
  */
 import { Head } from '@inertiajs/react';
 
-export default function Verificar({ documento, valido }) {
+export default function Verificar({ documento, valido, assinaturas = [] }) {
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-            <Head title={valido ? 'Documento Verificado' : 'Verificacao'} />
+            <Head title={valido ? 'Documento Verificado' : 'Verificação'} />
 
             <div className="w-full max-w-lg">
                 {/* Header */}
@@ -14,8 +14,8 @@ export default function Verificar({ documento, valido }) {
                     <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-blue-200 mb-3">
                         <i className="fas fa-archive text-white text-xl" />
                     </div>
-                    <h1 className="text-xl font-bold text-gray-800">GED - Verificacao de Documento</h1>
-                    <p className="text-sm text-gray-500">Conceito Gestao Publica</p>
+                    <h1 className="text-xl font-bold text-gray-800">GED - Verificação de Documento</h1>
+                    <p className="text-sm text-gray-500">Conceito Gestão Pública</p>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
@@ -27,18 +27,27 @@ export default function Verificar({ documento, valido }) {
                                     <i className="fas fa-check-circle text-green-600 text-lg" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-semibold text-green-800">Documento Autentico</p>
+                                    <p className="text-sm font-semibold text-green-800">Documento Autêntico</p>
                                     <p className="text-xs text-green-600">Este documento foi registrado e verificado no sistema GED</p>
                                 </div>
                             </div>
 
                             <div className="px-6 py-5 space-y-4">
-                                <InfoRow label="Nome" value={documento.nome} />
-                                <InfoRow label="Tipo Documental" value={documento.tipo_documental || '-'} />
-                                <InfoRow label="Autor" value={documento.autor} />
+                                {documento.sigiloso ? (
+                                    <p className="text-xs text-gray-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                                        <i className="fas fa-lock text-amber-500 mr-1" />
+                                        Documento de acesso restrito: a autenticidade está confirmada, mas o nome, o autor e o tipo não são exibidos publicamente.
+                                    </p>
+                                ) : (
+                                    <>
+                                        <InfoRow label="Nome" value={documento.nome} />
+                                        <InfoRow label="Tipo Documental" value={documento.tipo_documental || '-'} />
+                                        <InfoRow label="Autor" value={documento.autor} />
+                                    </>
+                                )}
                                 <InfoRow label="Status" value={documento.status} />
-                                <InfoRow label="Classificacao" value={documento.classificacao} />
-                                <InfoRow label="Versao" value={`v${documento.versao}`} />
+                                <InfoRow label="Classificação" value={documento.classificacao} />
+                                <InfoRow label="Versão" value={`v${documento.versao}`} />
                                 <InfoRow label="Criado em" value={documento.criado_em} />
                                 <InfoRow label="Atualizado em" value={documento.atualizado_em} />
 
@@ -48,6 +57,31 @@ export default function Verificar({ documento, valido }) {
                                         <p className="text-[11px] text-gray-600 font-mono bg-gray-50 rounded-lg px-3 py-2 break-all">{documento.hash}</p>
                                     </div>
                                 )}
+
+                                <div>
+                                    <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wide mb-1">
+                                        Assinaturas registradas ({assinaturas.length})
+                                    </p>
+                                    {assinaturas.length === 0 ? (
+                                        <p className="text-xs text-gray-500">Nenhuma assinatura concluída.</p>
+                                    ) : (
+                                        <ul className="space-y-1.5">
+                                            {assinaturas.map((a, i) => (
+                                                <li key={i} className="text-xs bg-gray-50 rounded-lg px-3 py-2 text-gray-700">
+                                                    <i className="fas fa-file-signature text-emerald-600 mr-1.5" />
+                                                    {a.signatario ? <strong>{a.signatario}</strong> : 'Signatário'}
+                                                    {a.cpf && <span className="text-gray-500"> · CPF {a.cpf}</span>}
+                                                    <span className="text-gray-500"> · {a.modalidade}</span>
+                                                    {a.ac && <span className="text-gray-500"> · {a.ac}</span>}
+                                                    <span className="text-gray-400"> · {a.assinado_em}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    <a href="/validar-assinatura" className="inline-block mt-2 text-xs text-blue-600 hover:underline">
+                                        <i className="fas fa-shield-alt mr-1" />Verificar a integridade de um PDF assinado
+                                    </a>
+                                </div>
                             </div>
                         </>
                     ) : (
@@ -58,8 +92,8 @@ export default function Verificar({ documento, valido }) {
                                     <i className="fas fa-times-circle text-red-600 text-lg" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-semibold text-red-800">Documento Nao Encontrado</p>
-                                    <p className="text-xs text-red-600">O codigo informado nao corresponde a nenhum documento registrado</p>
+                                    <p className="text-sm font-semibold text-red-800">Documento Não Encontrado</p>
+                                    <p className="text-xs text-red-600">O código informado não corresponde a nenhum documento registrado</p>
                                 </div>
                             </div>
 
@@ -72,7 +106,7 @@ export default function Verificar({ documento, valido }) {
                 </div>
 
                 <p className="text-center text-[10px] text-gray-400 mt-4">
-                    GED — Gestao Eletronica de Documentos — Conceito Gestao Publica
+                    GED — Gestão Eletrônica de Documentos — Conceito Gestão Pública
                 </p>
             </div>
         </div>

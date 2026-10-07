@@ -10,11 +10,11 @@ import Button from '../../../Components/Button';
 
 // Node types for the palette
 const NODE_TYPES = [
-    { type: 'inicio', label: 'Inicio', icon: 'fas fa-play', color: 'bg-green-500' },
-    { type: 'aprovacao', label: 'Aprovacao', icon: 'fas fa-check-circle', color: 'bg-blue-500' },
-    { type: 'revisao', label: 'Revisao', icon: 'fas fa-search', color: 'bg-purple-500' },
-    { type: 'notificacao', label: 'Notificacao', icon: 'fas fa-bell', color: 'bg-amber-500' },
-    { type: 'condicao', label: 'Condicao', icon: 'fas fa-code-branch', color: 'bg-orange-500' },
+    { type: 'inicio', label: 'Início', icon: 'fas fa-play', color: 'bg-green-500' },
+    { type: 'aprovacao', label: 'Aprovação', icon: 'fas fa-check-circle', color: 'bg-blue-500' },
+    { type: 'revisao', label: 'Revisão', icon: 'fas fa-search', color: 'bg-purple-500' },
+    { type: 'notificacao', label: 'Notificação', icon: 'fas fa-bell', color: 'bg-amber-500' },
+    { type: 'condicao', label: 'Condição', icon: 'fas fa-code-branch', color: 'bg-orange-500' },
     { type: 'assinatura', label: 'Assinatura', icon: 'fas fa-pen-nib', color: 'bg-indigo-500' },
     { type: 'arquivar', label: 'Arquivar', icon: 'fas fa-archive', color: 'bg-teal-500' },
     { type: 'fim', label: 'Fim', icon: 'fas fa-stop', color: 'bg-red-500' },
@@ -25,7 +25,7 @@ export default function Builder({ fluxo }) {
     const [nome, setNome] = useState(fluxo?.nome || '');
     const [descricao, setDescricao] = useState(fluxo?.descricao || '');
     const [nodes, setNodes] = useState(fluxo?.definicao?.nodes || [
-        { id: '1', type: 'inicio', position: { x: 250, y: 50 }, data: { label: 'Inicio' } },
+        { id: '1', type: 'inicio', position: { x: 250, y: 50 }, data: { label: 'Início' } },
     ]);
     const [edges, setEdges] = useState(fluxo?.definicao?.edges || []);
     const [selectedNode, setSelectedNode] = useState(null);
@@ -131,7 +131,7 @@ export default function Builder({ fluxo }) {
                                             </div>
                                             <div className="flex-1">
                                                 <p className="text-sm font-semibold text-gray-700">{node.data.label}</p>
-                                                {node.data.responsavel && <p className="text-xs text-gray-400">Responsavel: {node.data.responsavel}</p>}
+                                                {node.data.responsavel && <p className="text-xs text-gray-400">Responsável: {node.data.responsavel}</p>}
                                             </div>
                                             {node.type !== 'inicio' && (
                                                 <button onClick={(e) => { e.stopPropagation(); removeNode(node.id); }}
@@ -156,7 +156,7 @@ export default function Builder({ fluxo }) {
                 {selectedNode && (
                     <div className="w-72 shrink-0 bg-white rounded-xl border border-gray-200 p-5 overflow-y-auto">
                         <div className="flex items-center justify-between mb-4">
-                            <p className="text-sm font-bold text-gray-700">Configuracao</p>
+                            <p className="text-sm font-bold text-gray-700">Configuração</p>
                             <button onClick={() => setSelectedNode(null)} className="text-gray-400 hover:text-gray-600">
                                 <i className="fas fa-times text-xs" />
                             </button>
@@ -173,7 +173,7 @@ export default function Builder({ fluxo }) {
                             {['aprovacao', 'revisao', 'assinatura'].includes(selectedNode.type) && (
                                 <>
                                     <div>
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">Responsavel</label>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Responsável</label>
                                         <input type="text" value={selectedNode.data.responsavel || ''}
                                             onChange={(e) => updateNodeData(selectedNode.id, 'responsavel', e.target.value)}
                                             className="ds-input" placeholder="Nome ou grupo" />
@@ -192,7 +192,7 @@ export default function Builder({ fluxo }) {
                                     <label className="block text-xs font-medium text-gray-600 mb-1">Mensagem</label>
                                     <textarea value={selectedNode.data.mensagem || ''}
                                         onChange={(e) => updateNodeData(selectedNode.id, 'mensagem', e.target.value)}
-                                        className="ds-input !h-auto" rows={3} placeholder="Texto da notificacao..." />
+                                        className="ds-input !h-auto" rows={3} placeholder="Texto da notificação..." />
                                 </div>
                             )}
                         </div>
