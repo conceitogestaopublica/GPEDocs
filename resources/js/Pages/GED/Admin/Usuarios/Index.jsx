@@ -120,21 +120,21 @@ export default function Usuarios({ usuarios, filtros = {} }) {
                 </form>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="ds-card">
                 <DataTable
+                    searchable={false}
                     columns={columns}
                     data={data}
                     pagination={usuarios?.links ? usuarios : null}
                     actions={(row) => (
                         <>
-                            <Link href={`/configuracoes/usuarios/${row.id}/edit`}
-                                className="text-blue-500 hover:text-blue-700 px-1 text-xs">
-                                <i className="fas fa-edit" /> Editar
-                            </Link>
+                            <Button variant="secondary" size="sm" icon="fas fa-pen text-xs" href={`/configuracoes/usuarios/${row.id}/edit`}>
+                                Editar
+                            </Button>
                             <button onClick={async () => {
                                 if (await confirmar({ titulo: `Excluir o usuário "${row.name}"?`, tom: 'perigo', rotuloConfirmar: 'Excluir' })) router.delete(`/configuracoes/usuarios/${row.id}`);
-                            }} className="text-red-400 hover:text-red-600 px-1 text-xs ml-2">
-                                <i className="fas fa-trash" /> Excluir
+                            }} className="ds-btn ds-btn-sm ds-btn-danger" title="Excluir">
+                                <i className="fas fa-trash text-xs" />
                             </button>
                         </>
                     )}

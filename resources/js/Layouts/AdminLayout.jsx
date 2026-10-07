@@ -76,7 +76,7 @@ export default function AdminLayout({ children }) {
             <div className={`${contentMargin} print:!ml-0 min-w-0 overflow-x-clip min-h-screen flex flex-col transition-all duration-300`}>
                 <header className="h-[70px] bg-white border-b border-mist-200 flex items-center justify-between gap-2 px-4 sm:px-5 lg:px-8 sticky top-0 z-30 has-[[data-topbar-dropdown]]:z-[60] no-print">
                     {/* ESQUERDA — menu + contexto (UG ativa) */}
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                         <button onClick={toggleSidebar} title="Menu"
                             className="w-9 h-9 rounded-xl border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors shrink-0">
                             <i className="fas fa-bars text-sm" />
@@ -152,7 +152,7 @@ function UgPill({ tenant }) {
             {multiplas && <i className="fas fa-exchange-alt text-[9px] shrink-0 opacity-70" />}
         </>
     );
-    const classe = 'flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-2 rounded-xl text-xs font-semibold max-w-48 lg:max-w-80 xl:max-w-[30rem]';
+    const classe = 'min-w-0 flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-2 rounded-xl text-xs font-semibold max-w-48 lg:max-w-80 xl:max-w-[30rem]';
 
     return multiplas ? (
         <button type="button" onClick={() => router.post('/trocar-ug')} title={`${atual.codigo} · ${atual.nome} — trocar UG`}

@@ -171,14 +171,14 @@ function AssinadasView({ assinadas, filtrosIniciais, emptyText, showAguardandoBa
             <div className="bg-white rounded-xl border border-gray-200 p-3 mb-3">
                 <form onSubmit={aplicar} className="flex flex-wrap items-end gap-2">
                     <div className="relative flex-1 min-w-[260px]">
-                        <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">Buscar</label>
+                        <label className="block text-sm font-medium text-navy-900 mb-1">Buscar</label>
                         <i className="fas fa-search absolute left-3 top-[60%] -translate-y-1/2 text-gray-400 text-xs" />
                         <input type="text" value={busca} onChange={(e) => setBusca(e.target.value)}
                             placeholder="Documento, mensagem, e-mail ou CPF..."
                             className="ds-input pl-9" />
                     </div>
                     <div>
-                        <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">Tipo</label>
+                        <label className="block text-sm font-medium text-navy-900 mb-1">Tipo</label>
                         <select value={tipo} onChange={(e) => { setTipo(e.target.value); }}
                             className="ds-input w-44">
                             <option value="">Todos</option>
@@ -187,11 +187,11 @@ function AssinadasView({ assinadas, filtrosIniciais, emptyText, showAguardandoBa
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">De</label>
+                        <label className="block text-sm font-medium text-navy-900 mb-1">De</label>
                         <input type="date" value={dataDe} onChange={(e) => setDataDe(e.target.value)} className="ds-input w-40" />
                     </div>
                     <div>
-                        <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">Ate</label>
+                        <label className="block text-sm font-medium text-navy-900 mb-1">Ate</label>
                         <input type="date" value={dataAte} onChange={(e) => setDataAte(e.target.value)} className="ds-input w-40" />
                     </div>
                     <Button type="submit" icon="fas fa-filter">Filtrar</Button>

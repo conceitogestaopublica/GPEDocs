@@ -67,12 +67,12 @@ export default function ControleOficios({ oficios, anos = [], filtros = {} }) {
             <Card className="mb-3">
                 <form onSubmit={aplicar} className="flex flex-wrap items-end gap-2">
                     <div className="flex-1 min-w-[260px]">
-                        <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">Buscar</label>
+                        <label className="block text-sm font-medium text-navy-900 mb-1">Buscar</label>
                         <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
                             placeholder="Numero, assunto, destinatario ou orgao" className="ds-input" />
                     </div>
                     <div>
-                        <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">Ano</label>
+                        <label className="block text-sm font-medium text-navy-900 mb-1">Ano</label>
                         <select value={ano} onChange={e => setAno(e.target.value)} className="ds-input w-32">
                             <option value="">Todos</option>
                             {anos.map(a => <option key={a} value={a}>{a}</option>)}

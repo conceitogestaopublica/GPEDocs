@@ -46,12 +46,12 @@ export default function FluxosIndex({ fluxos }) {
                     pagination={fluxos?.links ? fluxos : null}
                     actions={(row) => (
                         <>
-                            <Link href={`/fluxos/${row.id}/edit`} className="text-blue-500 hover:text-blue-700 px-1">
-                                <i className="fas fa-edit text-xs" />
-                            </Link>
+                            <Button variant="secondary" size="sm" icon="fas fa-pen text-xs" href={`/fluxos/${row.id}/edit`}>
+                                Editar
+                            </Button>
                             <button onClick={async () => {
                                 if (await confirmar({ titulo: 'Excluir este fluxo?', tom: 'perigo', rotuloConfirmar: 'Excluir' })) router.delete(`/fluxos/${row.id}`);
-                            }} className="text-red-400 hover:text-red-600 px-1">
+                            }} className="ds-btn ds-btn-sm ds-btn-danger" title="Excluir">
                                 <i className="fas fa-trash text-xs" />
                             </button>
                         </>

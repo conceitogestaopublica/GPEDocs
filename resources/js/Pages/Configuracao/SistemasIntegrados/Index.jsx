@@ -265,28 +265,28 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                             <div><span className="text-gray-500">Duracao:</span> {logDetalhe.duracao_ms}ms</div>
                         </div>
                         <div>
-                            <label className="block text-[10px] uppercase tracking-wide font-semibold text-gray-500 mb-1">URL</label>
+                            <label className="block text-sm font-medium text-navy-900 mb-1">URL</label>
                             <code className="block bg-gray-50 border border-gray-200 rounded p-2 text-[10px] break-all">{logDetalhe.callback_url}</code>
                         </div>
                         {logDetalhe.signature_header && (
                             <div>
-                                <label className="block text-[10px] uppercase tracking-wide font-semibold text-gray-500 mb-1">X-GpeDocs-Signature</label>
+                                <label className="block text-sm font-medium text-navy-900 mb-1">X-GpeDocs-Signature</label>
                                 <code className="block bg-gray-50 border border-gray-200 rounded p-2 text-[10px] break-all">{logDetalhe.signature_header}</code>
                             </div>
                         )}
                         <div>
-                            <label className="block text-[10px] uppercase tracking-wide font-semibold text-gray-500 mb-1">Payload</label>
+                            <label className="block text-sm font-medium text-navy-900 mb-1">Payload</label>
                             <pre className="bg-gray-50 border border-gray-200 rounded p-2 text-[10px] max-h-48 overflow-auto">{JSON.stringify(logDetalhe.payload, null, 2)}</pre>
                         </div>
                         {logDetalhe.response_body && (
                             <div>
-                                <label className="block text-[10px] uppercase tracking-wide font-semibold text-gray-500 mb-1">Response body (truncado em 2000 chars)</label>
+                                <label className="block text-sm font-medium text-navy-900 mb-1">Response body (truncado em 2000 chars)</label>
                                 <pre className="bg-gray-50 border border-gray-200 rounded p-2 text-[10px] max-h-32 overflow-auto whitespace-pre-wrap">{logDetalhe.response_body}</pre>
                             </div>
                         )}
                         {logDetalhe.erro && (
                             <div>
-                                <label className="block text-[10px] uppercase tracking-wide font-semibold text-red-500 mb-1">Erro</label>
+                                <label className="block text-sm font-medium text-red-600 mb-1">Erro</label>
                                 <pre className="bg-red-50 border border-red-200 rounded p-2 text-[10px] text-red-800 whitespace-pre-wrap">{logDetalhe.erro}</pre>
                             </div>
                         )}

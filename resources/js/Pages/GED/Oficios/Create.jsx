@@ -87,7 +87,7 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                         <form onSubmit={submit} className="space-y-6">
                             {/* Modo de envio */}
                             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                                <label className="block text-sm font-medium text-navy-900 mb-2">
                                     Como o oficio sera enviado?
                                 </label>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -251,7 +251,7 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                                     </label>
                                     {modelos.length > 0 && (
                                         <div className="flex items-center gap-2">
-                                            <label className="text-[10px] text-gray-500 uppercase font-semibold tracking-wide">
+                                            <label className="text-sm font-medium text-navy-900">
                                                 Carregar modelo:
                                             </label>
                                             <select
