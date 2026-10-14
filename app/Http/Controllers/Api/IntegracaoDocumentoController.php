@@ -598,4 +598,186 @@ class IntegracaoDocumentoController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Arquiva um arquivo (imagem, PDF, anexo) SEM fluxo de assinatura.
+     * Usado por sistemas externos (ex.: foto do servidor no RH) que só precisam
+     * guardar o binário no GPE Docs como Documento oficial.
+     *
+     * Idempotente por (sistema_origem, ug, numero): reenviar o mesmo `numero`
+     * cria uma nova Versao no documento existente (não duplica).
+     *
+     * POST /api/integracoes/arquivos
+     *   { "tipo", "ug_codigo", "numero", "nome", "arquivo_base64", "mime_type",
+     *     "extensao"?, "pasta_codigo"?, "descricao"?, "classificacao"?, "metadados"? }
+     */
+    public function arquivar(Request $request): JsonResponse
+    {
+        /** @var SistemaIntegrado $sistema */
+        $sistema = $request->attributes->get('sistema_integrado');
+
+        $validated = $request->validate([
+            'tipo'           => ['required', 'string', 'max:100'],
+            'ug_codigo'      => ['required', 'string', 'max:20'],
+            'numero'         => ['required', 'string', 'max:100'],
+            'nome'           => ['required', 'string', 'max:255'],
+            'arquivo_base64' => ['required', 'string'],
+            'mime_type'      => ['required', 'string', 'max:100'],
+            'extensao'       => ['nullable', 'string', 'max:10'],
+            'pasta_codigo'   => ['nullable', 'string', 'max:100'],
+            'descricao'      => ['nullable', 'string'],
+            'classificacao'  => ['nullable', 'string', 'max:30'],
+            'metadados'      => ['nullable', 'array'],
+        ]);
+
+        $ug = \App\Models\Ug::where('codigo', $validated['ug_codigo'])->first();
+        if (! $ug) {
+            return response()->json(['erro' => "UG nao encontrada: {$validated['ug_codigo']}"], 422);
+        }
+
+        $tipoDoc = TipoDocumental::where('ativo', true)
+            ->whereRaw('LOWER(nome) = ?', [strtolower($validated['tipo'])])
+            ->first();
+        if (! $tipoDoc) {
+            return response()->json(['erro' => "Tipo documental nao cadastrado: {$validated['tipo']}"], 422);
+        }
+
+        $pastaId = null;
+        if (! empty($validated['pasta_codigo'])) {
+            $pasta = DB::table('ged_pastas')
+                ->where('ug_id', $ug->id)
+                ->whereRaw('LOWER(nome) = ?', [strtolower($validated['pasta_codigo'])])
+                ->first();
+            $pastaId = $pasta?->id;
+        }
+
+        $bytes = base64_decode($validated['arquivo_base64'], true);
+        if ($bytes === false || strlen($bytes) < 1) {
+            return response()->json(['erro' => 'arquivo_base64 invalido ou vazio.'], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $autor = $this->usuarioDoSistema($sistema, $ug->id);
+
+            // Idempotência: mesmo (sistema, numero) → nova versão no documento existente
+            $documento = Documento::where('sistema_origem', $sistema->codigo)
+                ->where('numero_externo', $validated['numero'])
+                ->where('ug_id', $ug->id)
+                ->first();
+
+            $ext  = strtolower($validated['extensao'] ?? pathinfo($validated['nome'], PATHINFO_EXTENSION) ?: 'bin');
+            $novo = ! $documento;
+
+            if ($novo) {
+                $documento = Documento::create([
+                    'ug_id'              => $ug->id,
+                    'nome'               => $validated['nome'],
+                    'descricao'          => $validated['descricao'] ?? null,
+                    'tipo_documental_id' => $tipoDoc->id,
+                    'pasta_id'           => $pastaId,
+                    'versao_atual'       => 1,
+                    'tamanho'            => strlen($bytes),
+                    'mime_type'          => $validated['mime_type'],
+                    'autor_id'           => $autor->id,
+                    'status'             => 'arquivado',
+                    'classificacao'      => $validated['classificacao'] ?? 'restrito',
+                    'sistema_origem'     => $sistema->codigo,
+                    'numero_externo'     => $validated['numero'],
+                    'metadados_externos' => $validated['metadados'] ?? null,
+                ]);
+                $versaoNum = 1;
+            } else {
+                $versaoNum = ((int) $documento->versao_atual) + 1;
+            }
+
+            $filename = 'arquivo-' . $sistema->codigo . '-' . str_replace(['/', '\\'], '-', $validated['numero']) . '-v' . $versaoNum . '.' . $ext;
+            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            Storage::disk('documentos')->put($path, $bytes);
+
+            Versao::create([
+                'documento_id' => $documento->id,
+                'versao'       => $versaoNum,
+                'arquivo_path' => $path,
+                'tamanho'      => strlen($bytes),
+                'hash_sha256'  => hash('sha256', $bytes),
+                'autor_id'     => $autor->id,
+                'comentario'   => $novo ? "Arquivado via API ({$sistema->nome})" : "Nova versao via API ({$sistema->nome})",
+            ]);
+
+            if (! $novo) {
+                $documento->update([
+                    'versao_atual'       => $versaoNum,
+                    'tamanho'            => strlen($bytes),
+                    'mime_type'          => $validated['mime_type'],
+                    'nome'               => $validated['nome'],
+                    'metadados_externos' => $validated['metadados'] ?? $documento->metadados_externos,
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'id'             => $documento->id,
+                'numero_externo' => $documento->numero_externo,
+                'sistema_origem' => $documento->sistema_origem,
+                'versao_atual'   => $versaoNum,
+                'mime_type'      => $documento->mime_type,
+                'url_visualizacao' => url("/documentos/{$documento->id}"),
+                'criado_em'      => $documento->created_at->toIso8601String(),
+            ], $novo ? 201 : 200);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json(['erro' => 'Falha ao arquivar arquivo.', 'detalhe' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Devolve os bytes da versão atual de um arquivo arquivado — para o sistema
+     * externo exibir a imagem via proxy (sem sessão no GPE Docs). Escopado ao
+     * próprio sistema chamador (não lê documento de outro sistema).
+     *
+     * GET /api/integracoes/arquivos/{id}/conteudo
+     */
+    public function conteudo(Request $request, int $id)
+    {
+        /** @var SistemaIntegrado $sistema */
+        $sistema = $request->attributes->get('sistema_integrado');
+
+        $documento = Documento::where('id', $id)
+            ->where('sistema_origem', $sistema->codigo)
+            ->first();
+        if (! $documento) {
+            return response()->json(['erro' => 'Arquivo nao encontrado para este sistema.'], 404);
+        }
+
+        $versao = Versao::where('documento_id', $documento->id)
+            ->orderByDesc('versao')->first();
+        if (! $versao || ! Storage::disk('documentos')->exists($versao->arquivo_path)) {
+            return response()->json(['erro' => 'Conteudo indisponivel.'], 404);
+        }
+
+        return Storage::disk('documentos')->response($versao->arquivo_path, null, [
+            'Content-Type'  => $documento->mime_type ?: 'application/octet-stream',
+            'Cache-Control' => 'private, max-age=60',
+        ]);
+    }
+
+    /** Usuário-sistema (tipo externo) que consta como autor dos arquivos de uma integração. */
+    private function usuarioDoSistema(SistemaIntegrado $sistema, int $ugId): User
+    {
+        $email = 'sistema-' . strtolower($sistema->codigo) . '@externo.local';
+
+        return User::firstOrCreate(
+            ['email' => $email],
+            [
+                'name'     => 'Sistema ' . $sistema->nome,
+                'cpf'      => null,
+                'password' => bcrypt(Str::random(32)),
+                'tipo'     => 'externo',
+                'ug_id'    => $ugId,
+            ],
+        );
+    }
 }
