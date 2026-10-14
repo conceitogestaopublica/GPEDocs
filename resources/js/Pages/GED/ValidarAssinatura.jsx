@@ -72,7 +72,7 @@ export default function ValidarAssinatura({ resultado, arquivo_nome }) {
 
                             <div className="mt-4 flex items-center justify-between">
                                 <p className="text-[10px] text-gray-500">
-                                    O arquivo nao e armazenado. Toda validacao ocorre em memoria.
+                                    O arquivo não é armazenado. Toda validação ocorre em memória.
                                 </p>
                                 <button
                                     type="submit"
@@ -96,7 +96,7 @@ export default function ValidarAssinatura({ resultado, arquivo_nome }) {
                 )}
 
                 <p className="text-center text-[10px] text-gray-400 mt-6">
-                    GED — Gestao Eletronica de Documentos — Conceito Gestao Publica
+                    GED — Gestão Eletrônica de Documentos — Conceito Gestão Pública
                 </p>
             </div>
         </div>
@@ -123,7 +123,7 @@ function Resultado({ resultado, arquivoNome, onNovo }) {
             wrap:  'bg-red-50 border-b border-red-100',
             badge: 'bg-red-100', icon: 'fa-times-circle text-red-600',
             titulo: 'text-red-800', desc: 'text-red-600',
-            tituloTxt: 'Problemas na Validacao',
+            tituloTxt: 'Problemas na Validação',
             descTxt:   'Algumas verificacoes falharam — confira os detalhes abaixo.',
             iconName:  'times-circle',
         },
@@ -132,7 +132,7 @@ function Resultado({ resultado, arquivoNome, onNovo }) {
             badge: 'bg-gray-100', icon: 'fa-question-circle text-gray-600',
             titulo: 'text-gray-800', desc: 'text-gray-600',
             tituloTxt: 'PDF Sem Assinatura',
-            descTxt:   'O PDF nao contem assinaturas digitais embutidas.',
+            descTxt:   'O PDF não contém assinaturas digitais embutidas.',
             iconName:  'question-circle',
         },
     }[status];
@@ -147,7 +147,7 @@ function Resultado({ resultado, arquivoNome, onNovo }) {
                     <p className={`text-base font-semibold ${statusConfig.titulo}`}>{statusConfig.tituloTxt}</p>
                     <p className={`text-xs ${statusConfig.desc}`}>{statusConfig.descTxt}</p>
                 </div>
-                <button onClick={onNovo} className="text-xs text-blue-600 hover:underline">Nova validacao</button>
+                <button onClick={onNovo} className="text-xs text-blue-600 hover:underline">Nova validação</button>
             </div>
 
             <div className="px-6 py-4 border-b border-gray-100">
@@ -178,8 +178,8 @@ function Resultado({ resultado, arquivoNome, onNovo }) {
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
                 <p className="text-[10px] text-gray-500 leading-relaxed">
                     <i className="fas fa-info-circle mr-1" />
-                    Validacao realizada offline contra a truststore ICP-Brasil instalada no servidor.
-                    Nao inclui consulta OCSP/CRL para revogacao em tempo real.
+                    Validação realizada offline contra a truststore ICP-Brasil instalada no servidor.
+                    Não inclui consulta OCSP/CRL para revogação em tempo real.
                 </p>
             </div>
         </div>
@@ -205,18 +205,18 @@ function Assinatura({ a }) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs mb-3">
-                <CheckBox ok={a.verificacao} label="Integridade criptografica" />
+                <CheckBox ok={a.verificacao} label="Integridade criptográfica" />
                 <CheckBox ok={a.cadeia_valida} label="Cadeia ICP-Brasil" />
-                <CheckBox ok={a.cert_valido_no_tempo} label="Cert valido no momento" />
+                <CheckBox ok={a.cert_valido_no_tempo} label="Cert válido no momento" />
             </div>
 
             {a.signatario && (
                 <div className="bg-gray-50 rounded-lg p-3 space-y-1.5 text-xs">
-                    <Linha label="Signatario" valor={a.signatario.cn} />
+                    <Linha label="Signatário" valor={a.signatario.cn} />
                     {a.signatario.cpf && <Linha label="CPF" valor={a.signatario.cpf} />}
                     {a.signatario.cnpj && <Linha label="CNPJ" valor={a.signatario.cnpj} />}
                     <Linha label="AC Emissora" valor={a.signatario.issuer_cn} />
-                    <Linha label="Numero de serie" valor={a.signatario.serial} mono />
+                    <Linha label="Número de série" valor={a.signatario.serial} mono />
                     <Linha label="Validade do cert" valor={`${a.signatario.valido_de} ate ${a.signatario.valido_ate}`} />
                     <Linha label="Thumbprint SHA-256" valor={a.signatario.thumbprint_sha256} mono />
                 </div>
@@ -224,7 +224,7 @@ function Assinatura({ a }) {
 
             {(a.extras?.reason || a.extras?.location || a.extras?.modificado) && (
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                    {a.extras.reason && <Linha label="Razao" valor={a.extras.reason} />}
+                    {a.extras.reason && <Linha label="Razão" valor={a.extras.reason} />}
                     {a.extras.location && <Linha label="Local" valor={a.extras.location} />}
                     {a.extras.modificado && <Linha label="Carimbo de tempo" valor={a.extras.modificado} />}
                     {a.extras.sub_filter && <Linha label="SubFilter" valor={a.extras.sub_filter} mono />}

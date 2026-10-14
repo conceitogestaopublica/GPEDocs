@@ -124,7 +124,7 @@ class CartaServicosController extends Controller
         }
 
         $categoria->delete();
-        return back()->with('success', 'Categoria excluida.');
+        return back()->with('success', 'Categoria excluída.');
     }
 
     // ---- Servicos ----
@@ -135,7 +135,7 @@ class CartaServicosController extends Controller
         $data['slug'] = $this->slugUnicoServico($data['titulo']);
         Servico::create($data);
 
-        return back()->with('success', 'Servico criado com sucesso.');
+        return back()->with('success', 'Serviço criado com sucesso.');
     }
 
     public function updateServico(Request $request, int $id)
@@ -148,14 +148,14 @@ class CartaServicosController extends Controller
         }
 
         $servico->update($data);
-        return back()->with('success', 'Servico atualizado com sucesso.');
+        return back()->with('success', 'Serviço atualizado com sucesso.');
     }
 
     public function destroyServico(int $id)
     {
         $servico = Servico::findOrFail($id);
         $servico->delete();
-        return back()->with('success', 'Servico excluido.');
+        return back()->with('success', 'Serviço excluído.');
     }
 
     public function togglePublicado(int $id)
@@ -163,7 +163,7 @@ class CartaServicosController extends Controller
         $servico = Servico::findOrFail($id);
         $servico->update(['publicado' => ! $servico->publicado]);
         $estado = $servico->publicado ? 'publicado' : 'despublicado';
-        return back()->with('success', "Servico {$estado}.");
+        return back()->with('success', "Serviço {$estado}.");
     }
 
     private function validateServico(Request $request): array

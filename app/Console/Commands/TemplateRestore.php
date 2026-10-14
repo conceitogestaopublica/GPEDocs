@@ -310,14 +310,18 @@ class TemplateRestore extends Command
         DB::purge('gpe_legado');
 
         try {
-            $rows = DB::connection('gpe_legado')->select("
-                SELECT u.id, u.login, TRIM(COALESCE(NULLIF(TRIM(u.email), ''), p.email)) AS email,
-                       p.nome, p.doc, u.password
-                  FROM usuario u
-                  JOIN pessoa p ON p.id = u.pessoa_id
-                 WHERE u.isSuperAdmin = 1 AND u.ativo = 1
-                 ORDER BY u.id
-            ");
+            // Query builder (e não SQL cru): o nome camelCase "isSuperAdmin" precisa ser
+            // citado no PostgreSQL do gpe2 e o builder cita conforme o driver.
+            $rows = DB::connection('gpe_legado')->table('usuario as u')
+                ->join('pessoa as p', 'p.id', '=', 'u.pessoa_id')
+                ->where('u.isSuperAdmin', 1)
+                ->where('u.ativo', 1)
+                ->orderBy('u.id')
+                ->get(['u.id', 'u.login', 'u.email as email_usuario', 'p.email as email_pessoa', 'p.nome', 'p.doc', 'u.password'])
+                ->each(function ($r) {
+                    $r->email = trim((string) ($r->email_usuario ?: $r->email_pessoa));
+                })
+                ->all();
         } catch (\Throwable $e) {
             $this->error("Não foi possível ler os super admins do legado '{$banco}' em "
                 .config('database.connections.gpe_legado.host').'. Nada foi alterado no tenant.');

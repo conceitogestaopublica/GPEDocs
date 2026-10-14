@@ -58,7 +58,7 @@ class SelecionarUgController extends Controller
         $ug = Ug::where('ativo', true)->findOrFail($id);
 
         if (! $user->super_admin && ! $user->temAcessoUg($ug->id)) {
-            abort(403, 'Voce nao tem acesso a esta UG.');
+            abort(403, 'Você não tem acesso a esta UG.');
         }
 
         session(['ug_id' => $ug->id]);

@@ -31,7 +31,7 @@ export default function Banners({ ug, banners }) {
             <Head title={`Banners — ${ug.nome}`} />
 
             <PageHeader
-                title="Banners do Portal Cidadao"
+                title="Banners do Portal Cidadão"
                 subtitle={`Carrossel exibido na home de ${ug.nome}`}
             >
                 <Link href={`/configuracoes/ugs/${ug.id}/edit`}
@@ -46,7 +46,7 @@ export default function Banners({ ug, banners }) {
             {ug.portal_slug && (
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 mb-4">
                     <i className="fas fa-info-circle mr-1" />
-                    Portal publico: <strong>{ug.portal_slug}.gpedocs.com.br</strong> (em dev: <strong>{ug.portal_slug}.lvh.me:8000</strong>)
+                    Portal público: <strong>{ug.portal_slug}.gpedocs.com.br</strong> (em dev: <strong>{ug.portal_slug}.lvh.me:8000</strong>)
                 </div>
             )}
 
@@ -74,7 +74,7 @@ export default function Banners({ ug, banners }) {
                                         </span>
                                         <span className="text-[10px] uppercase tracking-wider text-gray-400">Ordem #{b.ordem}</span>
                                     </div>
-                                    <h3 className="text-base font-bold text-gray-800">{b.titulo || <span className="text-gray-400 italic">(sem titulo)</span>}</h3>
+                                    <h3 className="text-base font-bold text-gray-800">{b.titulo || <span className="text-gray-400 italic">(sem título)</span>}</h3>
                                     {b.subtitulo && <p className="text-xs text-gray-600 mt-0.5">{b.subtitulo}</p>}
                                     {b.link_url && (
                                         <p className="text-[11px] text-blue-600 mt-1 truncate">
@@ -182,7 +182,7 @@ function BannerForm({ ugId, banner, onClose }) {
 
                 <div>
                     <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                        Imagem {isEdit ? '(opcional, mantem a atual se vazio)' : '*'} (PNG/JPG, ate 10MB — recomendado 1600x320px)
+                        Imagem {isEdit ? '(opcional, mantém a atual se vazio)' : '*'} (PNG/JPG, até 10MB — recomendado 1600x320px)
                     </label>
                     <input type="file" accept="image/png,image/jpeg,image/jpg" onChange={handleImagem}
                         className="block w-full text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
@@ -191,25 +191,25 @@ function BannerForm({ ugId, banner, onClose }) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Titulo (opcional)</label>
+                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Título (opcional)</label>
                         <input type="text" value={data.titulo} onChange={(e) => setData('titulo', e.target.value)}
                             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" maxLength={200}
-                            placeholder="Ex: Inauguracao do novo CRAS" />
+                            placeholder="Ex: Inauguração do novo CRAS" />
                     </div>
                     <div>
-                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Subtitulo (opcional)</label>
+                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Subtítulo (opcional)</label>
                         <input type="text" value={data.subtitulo} onChange={(e) => setData('subtitulo', e.target.value)}
                             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                            placeholder="Ex: Atendimento comeca dia 12" />
+                            placeholder="Ex: Atendimento começa dia 12" />
                     </div>
                     <div>
-                        <label className="text-xs font-semibold text-gray-600 mb-1 block">URL do botao (opcional)</label>
+                        <label className="text-xs font-semibold text-gray-600 mb-1 block">URL do botão (opcional)</label>
                         <input type="url" value={data.link_url} onChange={(e) => setData('link_url', e.target.value)}
                             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" maxLength={500}
                             placeholder="https://..." />
                     </div>
                     <div>
-                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Texto do botao (opcional)</label>
+                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Texto do botão (opcional)</label>
                         <input type="text" value={data.link_label} onChange={(e) => setData('link_label', e.target.value)}
                             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" maxLength={60}
                             placeholder="Ex: Saiba mais" />

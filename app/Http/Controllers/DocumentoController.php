@@ -103,12 +103,187 @@ class DocumentoController extends Controller
             'assinatura_id'=> $assinada->id,
         ] : null;
 
+        $this->registrarVisualizacao($documento);
+        $documento->load('auditLogs.usuario'); // inclui a visualização que acabou de ser registrada
+
+        // A tela lê versões, metadados, auditoria e etiquetas no nível de cima — antes iam
+        // só aninhados em `documento` e as abas ficavam sempre vazias.
+        $versaoAtualNumero = (int) $documento->versoes->max('versao');
+
         return Inertia::render('GED/Documentos/Show', [
-            'documento'        => $documento,
+            'documento'        => $documento->setAttribute('tipo_nome', $documento->tipoDocumental?->nome)
+                                            ->setAttribute('autor_nome', $documento->autor?->name),
+            'versoes'          => $documento->versoes->sortByDesc('versao')->values()->map(fn ($v) => [
+                'id'         => $v->id,
+                'versao'     => $v->versao,
+                'tamanho'    => $v->tamanho,
+                'hash'       => $v->hash_sha256,
+                'comentario' => $v->comentario,
+                'autor_nome' => $v->autor?->name,
+                'created_at' => $v->created_at,
+                'atual'      => $v->versao === $versaoAtualNumero,
+            ]),
+            'metadados'        => $documento->metadados,
+            'tags'             => $documento->tags,
+            'audit_logs'       => $documento->auditLogs->sortByDesc('created_at')->values()->map(fn ($l) => [
+                'id'           => $l->id,
+                'acao'         => $l->acao,
+                'detalhes'     => $l->detalhes,
+                'ip'           => $l->ip,
+                'created_at'   => $l->created_at,
+                'usuario_nome' => $l->usuario?->name,
+            ]),
+            'pode_nova_versao' => ! $this->assinaturaEmCurso($documento) && $documento->status !== 'cancelado',
             'is_favorito'      => $isFavorito,
             'usuarios'         => $usuarios,
             'versao_assinada'  => $versaoAssinada,
         ]);
+    }
+
+    /**
+     * Registra a abertura da ficha — é o que alimenta "Recentes" e "Mais acessados", que
+     * contam a ação `visualizacao` e ficavam sempre vazios. A mesma pessoa reabrindo em
+     * até 10 minutos não gera novo registro.
+     */
+    private function registrarVisualizacao(Documento $documento): void
+    {
+        $recente = AuditLog::where('documento_id', $documento->id)
+            ->where('usuario_id', Auth::id())
+            ->where('acao', 'visualizacao')
+            ->where('created_at', '>=', now()->subMinutes(10))
+            ->exists();
+
+        if (! $recente) {
+            AuditLog::create([
+                'documento_id' => $documento->id,
+                'usuario_id'   => Auth::id(),
+                'acao'         => 'visualizacao',
+                'detalhes'     => ['versao' => $documento->versao_atual],
+                'ip'           => request()->ip(),
+                'user_agent'   => request()->userAgent(),
+            ]);
+        }
+    }
+
+    /** Trocar o arquivo durante a coleta de assinaturas invalidaria o que já foi assinado. */
+    private function assinaturaEmCurso(Documento $documento): bool
+    {
+        return \App\Models\SolicitacaoAssinatura::where('documento_id', $documento->id)
+            ->whereIn('status', ['pendente', 'em_andamento'])
+            ->exists();
+    }
+
+    /** Nova versão pela interface (antes só a integração externa criava versões). */
+    public function novaVersao(Request $request, $id)
+    {
+        $request->validate([
+            'arquivo'    => ['required', 'file', 'max:51200'],
+            'comentario' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $documento = Documento::findOrFail($id);
+        if ($documento->status === 'cancelado') {
+            return back()->with('error', 'Documento cancelado: não recebe novas versões.');
+        }
+        if ($this->assinaturaEmCurso($documento)) {
+            return back()->with('error', 'Há assinatura em andamento: conclua ou cancele a solicitação antes de enviar outra versão.');
+        }
+
+        $file = $request->file('arquivo');
+        $path = $file->store(\App\Tenant\TenantStorage::pasta('documentos'), 'documentos');
+        $ocrTexto = $file->getMimeType() === 'application/pdf'
+            ? (new \App\Services\PdfTextExtractor())->extrair($file->getRealPath())
+            : null;
+
+        $this->gravarVersao($documento, $path, $file->getSize(), $file->getMimeType(),
+            hash_file('sha256', $file->getRealPath()), $request->input('comentario') ?: 'Nova versão', $ocrTexto, $request);
+
+        return back()->with('success', 'Nova versão registrada.');
+    }
+
+    /** Restaura uma versão antiga criando uma versão nova com o mesmo arquivo — o histórico não muda. */
+    public function restaurarVersao(Request $request, $id, $versao)
+    {
+        $documento = Documento::findOrFail($id);
+        if ($documento->status === 'cancelado' || $this->assinaturaEmCurso($documento)) {
+            return back()->with('error', 'Não é possível restaurar versão com assinatura em andamento ou em documento cancelado.');
+        }
+
+        $antiga = Versao::where('documento_id', $documento->id)->where('versao', (int) $versao)->firstOrFail();
+        $disk = Storage::disk('documentos');
+        if (! $disk->exists($antiga->arquivo_path)) {
+            return back()->with('error', 'Arquivo da versão não encontrado.');
+        }
+
+        $ocrTexto = $documento->mime_type === 'application/pdf'
+            ? (new \App\Services\PdfTextExtractor())->extrair($disk->path($antiga->arquivo_path))
+            : null;
+
+        $this->gravarVersao($documento, $antiga->arquivo_path, $antiga->tamanho, $documento->mime_type,
+            $antiga->hash_sha256, "Restauração da versão {$antiga->versao}", $ocrTexto, $request);
+
+        return back()->with('success', "Versão {$antiga->versao} restaurada como versão atual.");
+    }
+
+    /** Download de uma versão específica (o download comum entrega só a vigente). */
+    public function downloadVersao(Request $request, $id, $versao)
+    {
+        $documento = Documento::findOrFail($id);
+        if ($documento->status === 'cancelado') {
+            return back()->with('error', 'Documento cancelado pela origem. Download não disponível.');
+        }
+
+        $v = Versao::where('documento_id', $documento->id)->where('versao', (int) $versao)->firstOrFail();
+        if (! Storage::disk('documentos')->exists($v->arquivo_path)) {
+            return back()->with('error', 'Arquivo da versão não encontrado.');
+        }
+
+        AuditLog::create([
+            'documento_id' => $documento->id,
+            'usuario_id'   => Auth::id(),
+            'acao'         => 'download',
+            'detalhes'     => ['versao' => $v->versao],
+            'ip'           => $request->ip(),
+            'user_agent'   => $request->userAgent(),
+        ]);
+
+        $ext = pathinfo($v->arquivo_path, PATHINFO_EXTENSION);
+        $nome = preg_replace('/[^\w\-. ]/u', '-', $documento->nome) . "-v{$v->versao}" . ($ext ? ".{$ext}" : '');
+
+        return Storage::disk('documentos')->download($v->arquivo_path, $nome);
+    }
+
+    private function gravarVersao(Documento $documento, string $path, int $tamanho, ?string $mime, string $hash, string $comentario, ?string $ocrTexto, Request $request): void
+    {
+        DB::transaction(function () use ($documento, $path, $tamanho, $mime, $hash, $comentario, $ocrTexto, $request) {
+            $numero = (int) Versao::where('documento_id', $documento->id)->max('versao') + 1;
+
+            Versao::create([
+                'documento_id' => $documento->id,
+                'versao'       => $numero,
+                'arquivo_path' => $path,
+                'tamanho'      => $tamanho,
+                'hash_sha256'  => $hash,
+                'autor_id'     => Auth::id(),
+                'comentario'   => $comentario,
+            ]);
+
+            $documento->update([
+                'versao_atual' => $numero,
+                'tamanho'      => $tamanho,
+                'mime_type'    => $mime ?? $documento->mime_type,
+                'ocr_texto'    => $ocrTexto,
+            ]);
+
+            AuditLog::create([
+                'documento_id' => $documento->id,
+                'usuario_id'   => Auth::id(),
+                'acao'         => 'nova_versao',
+                'detalhes'     => ['versao' => $numero, 'comentario' => $comentario, 'hash' => $hash],
+                'ip'           => $request->ip(),
+                'user_agent'   => $request->userAgent(),
+            ]);
+        });
     }
 
     public function store(Request $request)
@@ -125,7 +300,7 @@ class DocumentoController extends Controller
             DB::beginTransaction();
 
             $file = $request->file('arquivo');
-            $path = $file->store('documentos', 'documentos');
+            $path = $file->store(\App\Tenant\TenantStorage::pasta('documentos'), 'documentos');
 
             // Extrai texto se for PDF — para busca full-text no repositorio
             $ocrTexto = null;
@@ -187,16 +362,24 @@ class DocumentoController extends Controller
 
         try {
             $documento = Documento::findOrFail($id);
+            $campos = ['nome', 'descricao', 'tipo_documental_id', 'pasta_id', 'status'];
+            $antes = $documento->only($campos);
 
-            $documento->update($request->only([
-                'nome', 'descricao', 'tipo_documental_id', 'pasta_id', 'status',
-            ]));
+            $documento->update($request->only($campos));
+
+            // Valor anterior e novo de cada campo alterado (antes só o novo, de 3 campos).
+            $alterados = [];
+            foreach ($campos as $c) {
+                if ($antes[$c] != $documento->{$c}) {
+                    $alterados[$c] = ['de' => $antes[$c], 'para' => $documento->{$c}];
+                }
+            }
 
             AuditLog::create([
                 'documento_id' => $documento->id,
                 'usuario_id'   => Auth::id(),
                 'acao'         => 'edicao',
-                'detalhes'     => $request->only(['nome', 'descricao', 'status']),
+                'detalhes'     => $alterados,
                 'ip'           => $request->ip(),
                 'user_agent'   => $request->userAgent(),
             ]);
@@ -222,7 +405,7 @@ class DocumentoController extends Controller
                 'user_agent'   => request()->userAgent(),
             ]);
 
-            return redirect('/documentos')->with('success', 'Documento excluido com sucesso.');
+            return redirect('/documentos')->with('success', 'Documento excluído com sucesso.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Erro ao excluir documento: ' . $e->getMessage());
         }
@@ -258,7 +441,16 @@ class DocumentoController extends Controller
                 $erros[] = "Documento {$doc->nome}: pasta nao pertence a UG.";
                 continue;
             }
+            $pastaAnterior = $doc->pasta_id;
             $doc->update(['pasta_id' => $validated['pasta_id'] ?? null]);
+            AuditLog::create([
+                'documento_id' => $doc->id,
+                'usuario_id'   => Auth::id(),
+                'acao'         => 'movimentacao',
+                'detalhes'     => ['pasta_id' => ['de' => $pastaAnterior, 'para' => $doc->pasta_id]],
+                'ip'           => request()->ip(),
+                'user_agent'   => request()->userAgent(),
+            ]);
             $atualizados++;
         }
 
@@ -279,12 +471,12 @@ class DocumentoController extends Controller
         $versao = $documento->versaoAtual;
 
         if (!$versao) {
-            return redirect()->back()->with('error', 'Arquivo nao encontrado.');
+            return redirect()->back()->with('error', 'Arquivo não encontrado.');
         }
 
         if ($documento->status === 'cancelado') {
             return redirect()->back()->with('error',
-                'Documento cancelado pela origem (sistema externo). Download nao disponivel.'
+                'Documento cancelado pela origem (sistema externo). Download não disponível.'
             );
         }
 
@@ -294,7 +486,7 @@ class DocumentoController extends Controller
             : $this->caminhoVersaoOficial($documento, $versao);
 
         if (! Storage::disk('documentos')->exists($caminho)) {
-            return redirect()->back()->with('error', 'Arquivo nao encontrado.');
+            return redirect()->back()->with('error', 'Arquivo não encontrado.');
         }
 
         AuditLog::create([
@@ -315,7 +507,7 @@ class DocumentoController extends Controller
         $versao = $documento->versaoAtual;
 
         if (!$versao) {
-            return redirect()->back()->with('error', 'Arquivo nao encontrado.');
+            return redirect()->back()->with('error', 'Arquivo não encontrado.');
         }
 
         // Quando ?original=1, ignora assinatura e retorna o PDF pre-assinatura
@@ -324,7 +516,7 @@ class DocumentoController extends Controller
             : $this->caminhoVersaoOficial($documento, $versao);
 
         if (! Storage::disk('documentos')->exists($caminho)) {
-            return redirect()->back()->with('error', 'Arquivo nao encontrado.');
+            return redirect()->back()->with('error', 'Arquivo não encontrado.');
         }
 
         return Storage::disk('documentos')->response($caminho, $this->sanitizarNomeArquivo($documento), [

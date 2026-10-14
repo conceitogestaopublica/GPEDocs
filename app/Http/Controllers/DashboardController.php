@@ -15,23 +15,34 @@ class DashboardController extends Controller
     public function __invoke(Request $request): Response
     {
         $userId = Auth::id();
+        // DB::table não passa pelo escopo BelongsToUg: tudo aqui filtra pela UG da sessão
+        // via ged_documentos.ug_id (instâncias de fluxo e auditoria não têm ug_id próprio).
+        // Sigilo também: a atividade recente traz nomes de documentos nos detalhes.
+        $daUg = fn ($q) => $q->when(session('ug_id'), fn ($q, $ugId) => $q->where('ged_documentos.ug_id', $ugId))
+            ->tap(fn ($q) => \App\Models\Documento::restringirPorSigilo($q, $request->user()));
 
         $totalDocumentos = DB::table('ged_documentos')
             ->whereNull('deleted_at')
             ->where('status', '!=', 'excluido')
+            ->tap($daUg)
             ->count();
 
         $pendentesRevisao = DB::table('ged_documentos')
             ->whereNull('deleted_at')
             ->where('status', 'rascunho')
+            ->tap($daUg)
             ->count();
 
         $fluxosAtivos = DB::table('ged_fluxo_instancias')
-            ->whereIn('status', ['pendente', 'em_andamento'])
+            ->join('ged_documentos', 'ged_documentos.id', '=', 'ged_fluxo_instancias.documento_id')
+            ->whereIn('ged_fluxo_instancias.status', ['pendente', 'em_andamento'])
+            ->tap($daUg)
             ->count();
 
         $atividadeRecente = DB::table('ged_audit_logs')
             ->join('users', 'users.id', '=', 'ged_audit_logs.usuario_id')
+            ->join('ged_documentos', 'ged_documentos.id', '=', 'ged_audit_logs.documento_id')
+            ->tap($daUg)
             ->select(
                 'ged_audit_logs.id',
                 'ged_audit_logs.documento_id',
@@ -49,6 +60,7 @@ class DashboardController extends Controller
             ->join('ged_documentos', 'ged_documentos.id', '=', 'ged_fluxo_instancias.documento_id')
             ->where('ged_fluxo_etapas.responsavel_id', $userId)
             ->where('ged_fluxo_etapas.status', 'pendente')
+            ->tap($daUg)
             ->select(
                 'ged_fluxo_etapas.id',
                 'ged_fluxo_etapas.nome as etapa_nome',

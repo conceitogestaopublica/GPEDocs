@@ -40,7 +40,7 @@ export default function SelecionarUg({ ugs, ug_atual }) {
                         </div>
                         <div>
                             <p className="text-sm font-bold text-gray-800 leading-tight">Selecione a Unidade Gestora</p>
-                            <p className="text-[11px] text-gray-400">Voce tem acesso a {ugs.length} UG(s)</p>
+                            <p className="text-[11px] text-gray-400">Você tem acesso a {ugs.length} UG(s)</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -61,9 +61,9 @@ export default function SelecionarUg({ ugs, ug_atual }) {
 
             <main className="max-w-5xl mx-auto px-6 py-10">
                 <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold text-gray-800">Em qual UG voce quer trabalhar agora?</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">Em qual UG você quer trabalhar agora?</h1>
                     <p className="text-sm text-gray-500 mt-1">
-                        Cada UG tem seus proprios documentos e processos. Voce pode trocar a qualquer momento.
+                        Cada UG tem seus próprios documentos e processos. Você pode trocar a qualquer momento.
                     </p>
                 </div>
 
@@ -130,7 +130,7 @@ export default function SelecionarUg({ ugs, ug_atual }) {
             </main>
 
             <footer className="text-center py-6 text-xs text-gray-400">
-                <span className="font-medium text-gray-500">Conceito Gestao Publica</span> — Plataforma Digital Integrada &copy; {new Date().getFullYear()}
+                <span className="font-medium text-gray-500">Conceito Gestão Pública</span> — Plataforma Digital Integrada &copy; {new Date().getFullYear()}
             </footer>
         </div>
     );

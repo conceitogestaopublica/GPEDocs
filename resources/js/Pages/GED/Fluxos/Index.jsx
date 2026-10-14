@@ -16,7 +16,7 @@ export default function FluxosIndex({ fluxos }) {
         { key: 'nome', label: 'Nome', render: (row) => (
             <Link href={`/fluxos/${row.id}/edit`} className="text-blue-600 hover:underline font-medium">{row.nome}</Link>
         )},
-        { key: 'descricao', label: 'Descricao', render: (row) => (
+        { key: 'descricao', label: 'Descrição', render: (row) => (
             <span className="text-gray-500 truncate max-w-xs block">{row.descricao || '-'}</span>
         )},
         { key: 'ativo', label: 'Status', render: (row) => (
@@ -24,7 +24,7 @@ export default function FluxosIndex({ fluxos }) {
                 {row.ativo ? 'Ativo' : 'Inativo'}
             </span>
         )},
-        { key: 'instancias_count', label: 'Instancias', render: (row) => (
+        { key: 'instancias_count', label: 'Instâncias', render: (row) => (
             <span className="text-gray-500">{row.instancias_count || 0}</span>
         )},
         { key: 'created_at', label: 'Criado em', render: (row) => (
@@ -35,7 +35,7 @@ export default function FluxosIndex({ fluxos }) {
     return (
         <AdminLayout>
             <Head title="Fluxos de Trabalho" />
-            <PageHeader title="Fluxos de Trabalho" subtitle="Criar e gerenciar fluxos de aprovacao automatizados">
+            <PageHeader title="Fluxos de Trabalho" subtitle="Criar e gerenciar fluxos de aprovação automatizados">
                 <Button icon="fas fa-plus" href="/fluxos/create">Novo Fluxo</Button>
             </PageHeader>
 
@@ -46,12 +46,12 @@ export default function FluxosIndex({ fluxos }) {
                     pagination={fluxos?.links ? fluxos : null}
                     actions={(row) => (
                         <>
-                            <Link href={`/fluxos/${row.id}/edit`} className="text-blue-500 hover:text-blue-700 px-1">
-                                <i className="fas fa-edit text-xs" />
-                            </Link>
+                            <Button variant="secondary" size="sm" icon="fas fa-pen text-xs" href={`/fluxos/${row.id}/edit`}>
+                                Editar
+                            </Button>
                             <button onClick={async () => {
                                 if (await confirmar({ titulo: 'Excluir este fluxo?', tom: 'perigo', rotuloConfirmar: 'Excluir' })) router.delete(`/fluxos/${row.id}`);
-                            }} className="text-red-400 hover:text-red-600 px-1">
+                            }} className="ds-btn ds-btn-sm ds-btn-danger" title="Excluir">
                                 <i className="fas fa-trash text-xs" />
                             </button>
                         </>

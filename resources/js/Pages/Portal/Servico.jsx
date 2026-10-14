@@ -13,7 +13,7 @@ const COR_BG = {
 
 function CanaisLista({ canais }) {
     if (!canais || Object.keys(canais).length === 0) {
-        return <p className="text-sm text-gray-500">Nao informado.</p>;
+        return <p className="text-sm text-gray-500">Não informado.</p>;
     }
     const items = [];
     if (canais.online) items.push({ icon: 'fas fa-globe', label: 'Online' });
@@ -47,7 +47,7 @@ export default function PortalServico({ ug, servico, relacionados, publicos }) {
 
             {/* Breadcrumb */}
             <nav className="text-xs text-gray-500 mb-4">
-                <Link href="/" className="hover:text-blue-600">Inicio</Link>
+                <Link href="/" className="hover:text-blue-600">Início</Link>
                 <i className="fas fa-chevron-right mx-2 text-[10px]" />
                 {cat && (
                     <>
@@ -85,7 +85,7 @@ export default function PortalServico({ ug, servico, relacionados, publicos }) {
                     </div>
 
                     {servico.descricao_completa && (
-                        <Section titulo="Sobre o servico" icon="fas fa-info-circle">
+                        <Section titulo="Sobre o serviço" icon="fas fa-info-circle">
                             <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{servico.descricao_completa}</p>
                         </Section>
                     )}
@@ -97,7 +97,7 @@ export default function PortalServico({ ug, servico, relacionados, publicos }) {
                     )}
 
                     {Array.isArray(servico.documentos_necessarios) && servico.documentos_necessarios.length > 0 && (
-                        <Section titulo="Documentos necessarios" icon="fas fa-folder">
+                        <Section titulo="Documentos necessários" icon="fas fa-folder">
                             <ul className="space-y-2">
                                 {servico.documentos_necessarios.map((doc, i) => (
                                     <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
@@ -110,7 +110,7 @@ export default function PortalServico({ ug, servico, relacionados, publicos }) {
                     )}
 
                     {servico.legislacao && (
-                        <Section titulo="Legislacao de referencia" icon="fas fa-balance-scale">
+                        <Section titulo="Legislação de referência" icon="fas fa-balance-scale">
                             <p className="text-sm text-gray-700 whitespace-pre-line italic">{servico.legislacao}</p>
                         </Section>
                     )}
@@ -123,14 +123,14 @@ export default function PortalServico({ ug, servico, relacionados, publicos }) {
                         {servico.permite_anonimo && (
                             <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white/20 rounded-full text-[10px] font-bold uppercase tracking-wider mb-2">
                                 <i className="fas fa-user-secret" />
-                                Aceita anonimo
+                                Aceita anônimo
                             </div>
                         )}
-                        <h3 className="text-sm font-bold mb-1">Solicite este servico online</h3>
+                        <h3 className="text-sm font-bold mb-1">Solicite este serviço online</h3>
                         <p className="text-xs text-blue-100 mb-3">
                             {servico.permite_anonimo
-                                ? 'Voce pode se identificar para receber atualizacoes ou solicitar anonimamente.'
-                                : 'Acompanhe o andamento e receba atualizacoes por email.'}
+                                ? 'Você pode se identificar para receber atualizações ou solicitar anonimamente.'
+                                : 'Acompanhe o andamento e receba atualizações por email.'}
                         </p>
                         {cidadao ? (
                             <Link href={`/servico/${servico.slug}/solicitar`}
@@ -158,7 +158,7 @@ export default function PortalServico({ ug, servico, relacionados, publicos }) {
                                 </Link>
                                 <Link href="/cadastrar"
                                     className="block text-center px-4 py-2 rounded-xl border-2 border-white/40 text-white text-xs font-semibold hover:bg-white/10">
-                                    Nao tenho cadastro
+                                    Não tenho cadastro
                                 </Link>
                             </div>
                         )}
@@ -167,10 +167,10 @@ export default function PortalServico({ ug, servico, relacionados, publicos }) {
                     <div className="bg-white rounded-2xl border border-gray-200 p-5">
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Resumo</h3>
                         <div className="space-y-3">
-                            <Resumo icon="fas fa-clock" titulo="Prazo" valor={servico.prazo_entrega || 'Nao informado'} />
+                            <Resumo icon="fas fa-clock" titulo="Prazo" valor={servico.prazo_entrega || 'Não informado'} />
                             <Resumo icon="fas fa-dollar-sign" titulo="Custo" valor={servico.custo || 'Gratuito'} highlight={!servico.custo || /gratuito|sem custo/i.test(servico.custo)} />
                             {servico.orgao_responsavel && (
-                                <Resumo icon="fas fa-building" titulo="Orgao responsavel" valor={servico.orgao_responsavel} />
+                                <Resumo icon="fas fa-building" titulo="Órgão responsável" valor={servico.orgao_responsavel} />
                             )}
                         </div>
                     </div>
@@ -197,7 +197,7 @@ export default function PortalServico({ ug, servico, relacionados, publicos }) {
 
             {(relacionados || []).length > 0 && (
                 <div className="mt-10">
-                    <h2 className="text-lg font-bold text-gray-800 mb-3">Servicos relacionados</h2>
+                    <h2 className="text-lg font-bold text-gray-800 mb-3">Serviços relacionados</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {relacionados.map(rel => (
                             <Link

@@ -39,7 +39,7 @@ export default function MemorandosIndex({ memorandos, filters, usuarios }) {
             <Head title="Memorandos" />
             <PageHeader
                 title="Memorandos Internos"
-                subtitle="Comunicacao interna via memorandos"
+                subtitle="Comunicação interna via memorandos"
             >
                 <Button icon="fas fa-plus" href="/memorandos/create">Novo Memorando</Button>
             </PageHeader>
@@ -82,7 +82,7 @@ export default function MemorandosIndex({ memorandos, filters, usuarios }) {
                         <span className="text-sm text-gray-500 font-medium shrink-0">Filtrar Resultados:</span>
                         <div className="relative flex-1 max-w-sm">
                             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Buscar por assunto, numero..."
+                                placeholder="Buscar por assunto, número..."
                                 className="w-full pl-3 pr-8 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
                             <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600">
                                 <i className="fas fa-search text-xs" />
@@ -96,14 +96,14 @@ export default function MemorandosIndex({ memorandos, filters, usuarios }) {
                     <table className="w-full text-sm">
                         <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
                             <tr>
-                                <th className="px-4 py-3 text-left font-semibold">Numero</th>
+                                <th className="px-4 py-3 text-left font-semibold">Número</th>
                                 <th className="px-4 py-3 text-left font-semibold">Assunto</th>
                                 <th className="px-4 py-3 text-left font-semibold">
-                                    {tipo === 'recebidos' ? 'Remetente' : 'Destinatarios'}
+                                    {tipo === 'recebidos' ? 'Remetente' : 'Destinatários'}
                                 </th>
                                 <th className="px-4 py-3 text-left font-semibold">Data</th>
                                 <th className="px-4 py-3 text-left font-semibold">Status</th>
-                                <th className="px-4 py-3 text-center font-semibold w-32">Acoes</th>
+                                <th className="px-4 py-3 text-center font-semibold w-32">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -163,7 +163,7 @@ export default function MemorandosIndex({ memorandos, filters, usuarios }) {
                                                 </span>
                                             ) : (
                                                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
-                                                    <i className="fas fa-envelope mr-0.5" />Nao lido
+                                                    <i className="fas fa-envelope mr-0.5" />Não lido
                                                 </span>
                                             )
                                         ) : (

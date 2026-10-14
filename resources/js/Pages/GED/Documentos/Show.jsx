@@ -16,11 +16,11 @@ const TABS = [
     { key: 'visualizar', label: 'Visualizar', icon: 'fas fa-eye' },
     { key: 'metadados', label: 'Metadados', icon: 'fas fa-tags' },
     { key: 'assinaturas', label: 'Assinaturas', icon: 'fas fa-file-signature' },
-    { key: 'versoes', label: 'Versoes', icon: 'fas fa-history' },
+    { key: 'versoes', label: 'Versões', icon: 'fas fa-history' },
     { key: 'auditoria', label: 'Auditoria', icon: 'fas fa-shield-alt' },
 ];
 
-export default function Show({ documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito, usuarios, versao_assinada }) {
+export default function Show({ documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito, usuarios, versao_assinada, pode_nova_versao }) {
     const confirmar = useConfirm();
     const [activeTab, setActiveTab] = useState('visualizar');
     const [statusOpen, setStatusOpen] = useState(false);
@@ -34,7 +34,7 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
     };
 
     const clasMap = {
-        publico: { bg: 'bg-green-100 text-green-700', label: 'Publico' },
+        publico: { bg: 'bg-green-100 text-green-700', label: 'Público' },
         interno: { bg: 'bg-blue-100 text-blue-700', label: 'Interno' },
         confidencial: { bg: 'bg-orange-100 text-orange-700', label: 'Confidencial' },
         restrito: { bg: 'bg-red-100 text-red-700', label: 'Restrito' },
@@ -49,7 +49,7 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
                 <Link href={doc.pasta_id ? `/repositorio?pasta_id=${doc.pasta_id}` : '/repositorio'}
                     className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors">
                     <i className="fas fa-arrow-left text-xs" />
-                    Voltar para {doc.pasta_id ? 'a pasta' : 'o repositorio'}
+                    Voltar para {doc.pasta_id ? 'a pasta' : 'o repositório'}
                 </Link>
             </div>
 
@@ -88,7 +88,7 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
                         {doc.qr_code_token && (
                             <div className="relative group">
                                 <button className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
-                                    title="QR Code de verificacao">
+                                    title="QR Code de verificação">
                                     <i className="fas fa-qrcode" />
                                 </button>
                                 <div className="absolute right-0 top-12 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-50 hidden group-hover:block animate-fadeIn">
@@ -124,7 +124,7 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
                                 <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 animate-fadeIn">
                                     {[
                                         { value: 'rascunho', label: 'Rascunho', icon: 'fas fa-pen', color: 'text-yellow-600' },
-                                        { value: 'revisao', label: 'Em Revisao', icon: 'fas fa-search', color: 'text-blue-600' },
+                                        { value: 'revisao', label: 'Em Revisão', icon: 'fas fa-search', color: 'text-blue-600' },
                                         { value: 'publicado', label: 'Publicado', icon: 'fas fa-check-circle', color: 'text-green-600' },
                                         { value: 'arquivado', label: 'Arquivado', icon: 'fas fa-archive', color: 'text-gray-600' },
                                     ].map(s => (
@@ -182,7 +182,7 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
                     {activeTab === 'visualizar' && <TabVisualizar documento={doc} versaoAssinada={versao_assinada} />}
                     {activeTab === 'metadados' && <TabMetadados metadados={metadados} documento={doc} />}
                     {activeTab === 'assinaturas' && <TabAssinaturas documento={doc} usuarios={usuarios || []} />}
-                    {activeTab === 'versoes' && <TabVersoes versoes={versoes} documentoId={doc.id} />}
+                    {activeTab === 'versoes' && <TabVersoes versoes={versoes} documentoId={doc.id} podeNovaVersao={pode_nova_versao} />}
                     {activeTab === 'auditoria' && <TabAuditoria logs={audit_logs} />}
                 </div>
             </div>
@@ -203,7 +203,7 @@ function TabVisualizar({ documento, versaoAssinada }) {
                         <i className="fas fa-shield-alt text-emerald-600 mt-0.5" />
                         <div>
                             <p className="font-semibold">
-                                {verOriginal ? 'Visualizando versao ORIGINAL (sem assinatura)' : 'Visualizando versao ASSINADA digitalmente (ICP-Brasil PAdES-BES)'}
+                                {verOriginal ? 'Visualizando versão ORIGINAL (sem assinatura)' : 'Visualizando versão ASSINADA digitalmente (ICP-Brasil PAdES-BES)'}
                             </p>
                             <p className="text-emerald-700">
                                 Assinada em {versaoAssinada.assinado_em}
@@ -214,7 +214,7 @@ function TabVisualizar({ documento, versaoAssinada }) {
                     <button onClick={() => setVerOriginal(! verOriginal)}
                         className="text-[11px] px-3 py-1.5 rounded-lg bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 whitespace-nowrap">
                         <i className={`fas fa-${verOriginal ? 'shield-alt' : 'history'} mr-1`} />
-                        {verOriginal ? 'Ver versao assinada' : 'Ver versao original'}
+                        {verOriginal ? 'Ver versão assinada' : 'Ver versão original'}
                     </button>
                 </div>
             )}
@@ -234,8 +234,8 @@ function TabVisualizar({ documento, versaoAssinada }) {
             ) : (
                 <div className="text-center text-gray-400">
                     <i className="fas fa-file text-5xl mb-4 block" />
-                    <p className="text-lg font-medium">Pre-visualizacao nao disponivel</p>
-                    <p className="text-sm mt-1">Faca o download para visualizar este arquivo</p>
+                    <p className="text-lg font-medium">Pre-visualizacao não disponível</p>
+                    <p className="text-sm mt-1">Faça o download para visualizar este arquivo</p>
                     <a href={`/documentos/${documento.id}/download`} className="ds-btn ds-btn-primary mt-4">
                         <i className="fas fa-download mr-2" />Download
                     </a>
@@ -252,7 +252,7 @@ function TabMetadados({ metadados, documento }) {
         <div className="space-y-6">
             {/* Metadados do sistema */}
             <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Informacoes do Documento</h3>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Informações do Documento</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <InfoRow label="Tipo Documental" value={documento.tipo_nome || '-'} />
                     <InfoRow label="Autor" value={documento.autor_nome || '-'} />
@@ -278,31 +278,78 @@ function TabMetadados({ metadados, documento }) {
     );
 }
 
-function TabVersoes({ versoes, documentoId }) {
+function TabVersoes({ versoes, documentoId, podeNovaVersao }) {
     const vers = versoes || [];
+    const confirmar = useConfirm();
+    const { data, setData, post, processing, reset, errors } = useForm({ arquivo: null, comentario: '' });
+
+    const enviar = (e) => {
+        e.preventDefault();
+        post(`/documentos/${documentoId}/versoes`, { forceFormData: true, onSuccess: () => reset() });
+    };
+
+    const restaurar = async (v) => {
+        if (await confirmar({
+            titulo: `Restaurar a versão ${v.versao}?`,
+            descricao: 'Ela vira a versão atual como uma nova versão. As versões existentes não são alteradas.',
+            rotuloConfirmar: 'Restaurar',
+        })) {
+            router.post(`/documentos/${documentoId}/versoes/${v.versao}/restaurar`);
+        }
+    };
+
     return (
-        <div>
+        <div className="space-y-4">
+            {podeNovaVersao ? (
+                <form onSubmit={enviar} className="bg-blue-50 rounded-xl p-4 flex flex-wrap items-end gap-3">
+                    <div className="flex-1 min-w-[220px]">
+                        <label className="text-xs font-medium text-blue-800 block mb-1">Nova versão</label>
+                        <input type="file" onChange={(e) => setData('arquivo', e.target.files[0])} className="ds-input !h-auto py-1.5" />
+                        {errors.arquivo && <p className="text-xs text-red-600 mt-1">{errors.arquivo}</p>}
+                    </div>
+                    <div className="flex-1 min-w-[220px]">
+                        <label className="text-xs font-medium text-blue-800 block mb-1">Comentário</label>
+                        <input type="text" value={data.comentario} onChange={(e) => setData('comentario', e.target.value)}
+                            className="ds-input" placeholder="O que mudou nesta versão" maxLength={500} />
+                    </div>
+                    <Button type="submit" size="sm" icon="fas fa-upload" loading={processing} disabled={!data.arquivo}>Enviar versão</Button>
+                </form>
+            ) : (
+                <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+                    <i className="fas fa-lock mr-1" />Novas versões ficam bloqueadas enquanto houver assinatura em andamento ou se o documento foi cancelado.
+                </p>
+            )}
             <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
                     <tr>
-                        <th className="px-4 py-3 text-left font-semibold">Versao</th>
+                        <th className="px-4 py-3 text-left font-semibold">Versão</th>
                         <th className="px-4 py-3 text-left font-semibold">Autor</th>
                         <th className="px-4 py-3 text-left font-semibold">Tamanho</th>
                         <th className="px-4 py-3 text-left font-semibold">Data</th>
-                        <th className="px-4 py-3 text-left font-semibold">Comentario</th>
-                        <th className="px-4 py-3 text-center font-semibold w-24">Acao</th>
+                        <th className="px-4 py-3 text-left font-semibold">Comentário</th>
+                        <th className="px-4 py-3 text-center font-semibold w-40">Ação</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                     {vers.map(v => (
                         <tr key={v.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium">v{v.versao}</td>
+                            <td className="px-4 py-3 font-medium">
+                                v{v.versao}
+                                {v.atual && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-semibold">atual</span>}
+                            </td>
                             <td className="px-4 py-3 text-gray-500">{v.autor_nome || '-'}</td>
                             <td className="px-4 py-3 text-gray-500">{formatBytes(v.tamanho)}</td>
                             <td className="px-4 py-3 text-gray-400 text-xs">{formatDate(v.created_at)}</td>
-                            <td className="px-4 py-3 text-gray-500 truncate max-w-xs">{v.comentario || '-'}</td>
-                            <td className="px-4 py-3 text-center">
-                                <button className="text-blue-600 hover:text-blue-800 text-xs font-medium">Restaurar</button>
+                            <td className="px-4 py-3 text-gray-500 truncate max-w-xs" title={v.hash ? `SHA-256 ${v.hash}` : ''}>{v.comentario || '-'}</td>
+                            <td className="px-4 py-3 text-center whitespace-nowrap">
+                                <a href={`/documentos/${documentoId}/versoes/${v.versao}/download`} className="text-blue-600 hover:text-blue-800 text-xs font-medium mr-3">
+                                    <i className="fas fa-download mr-1" />Baixar
+                                </a>
+                                {!v.atual && podeNovaVersao && (
+                                    <button onClick={() => restaurar(v)} className="text-blue-600 hover:text-blue-800 text-xs font-medium">
+                                        <i className="fas fa-undo mr-1" />Restaurar
+                                    </button>
+                                )}
                             </td>
                         </tr>
                     ))}
@@ -310,7 +357,7 @@ function TabVersoes({ versoes, documentoId }) {
             </table>
             {vers.length === 0 && (
                 <div className="py-8 text-center text-gray-400">
-                    <p className="text-sm">Nenhuma versao anterior</p>
+                    <p className="text-sm">Nenhuma versão registrada</p>
                 </div>
             )}
         </div>
@@ -325,8 +372,8 @@ function TabAuditoria({ logs }) {
                 <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
                     <tr>
                         <th className="px-4 py-3 text-left font-semibold">Data/Hora</th>
-                        <th className="px-4 py-3 text-left font-semibold">Usuario</th>
-                        <th className="px-4 py-3 text-left font-semibold">Acao</th>
+                        <th className="px-4 py-3 text-left font-semibold">Usuário</th>
+                        <th className="px-4 py-3 text-left font-semibold">Ação</th>
                         <th className="px-4 py-3 text-left font-semibold">Detalhes</th>
                         <th className="px-4 py-3 text-left font-semibold">IP</th>
                     </tr>
@@ -337,9 +384,9 @@ function TabAuditoria({ logs }) {
                             <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(log.created_at)}</td>
                             <td className="px-4 py-3 text-gray-700 font-medium">{log.usuario_nome || '-'}</td>
                             <td className="px-4 py-3">
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{log.acao}</span>
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{ACOES_AUDITORIA[log.acao] || log.acao}</span>
                             </td>
-                            <td className="px-4 py-3 text-gray-500 text-xs truncate max-w-xs">{JSON.stringify(log.detalhes)}</td>
+                            <td className="px-4 py-3 text-gray-500 text-xs max-w-md">{descreverDetalhes(log.detalhes)}</td>
                             <td className="px-4 py-3 text-gray-400 text-xs">{log.ip || '-'}</td>
                         </tr>
                     ))}
@@ -396,6 +443,7 @@ function TabAssinaturas({ documento, usuarios }) {
         signatarios: [],
         mensagem: '',
         prazo: '',
+        sequencial: false,
     });
 
     const toggleUser = (id) => {
@@ -419,7 +467,7 @@ function TabAssinaturas({ documento, usuarios }) {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700">Solicitacoes de Assinatura</h3>
+                <h3 className="text-sm font-semibold text-gray-700">Solicitações de Assinatura</h3>
                 <Button size="sm" icon="fas fa-plus" onClick={() => setShowSolicitar(!showSolicitar)}>
                     Solicitar Assinatura
                 </Button>
@@ -428,7 +476,7 @@ function TabAssinaturas({ documento, usuarios }) {
             {/* Form solicitar */}
             {showSolicitar && (
                 <form onSubmit={submitSolicitar} className="bg-blue-50 rounded-xl p-4 space-y-3">
-                    <p className="text-sm font-medium text-blue-800">Selecione os signatarios</p>
+                    <p className="text-sm font-medium text-blue-800">Selecione os signatários</p>
                     <div className="max-h-40 overflow-y-auto space-y-1">
                         {usuarios.map(u => (
                             <label key={u.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-blue-100 rounded px-2 py-1">
@@ -437,9 +485,19 @@ function TabAssinaturas({ documento, usuarios }) {
                                     className="rounded border-gray-300 text-blue-600 w-3.5 h-3.5" />
                                 <span className="text-gray-700">{u.name}</span>
                                 <span className="text-xs text-gray-400">{u.email}</span>
+                                {data.sequencial && data.signatarios.includes(u.id) && (
+                                    <span className="ml-auto text-[10px] font-bold text-blue-700 bg-blue-100 rounded px-1.5">
+                                        {data.signatarios.indexOf(u.id) + 1}º
+                                    </span>
+                                )}
                             </label>
                         ))}
                     </div>
+                    <label className="flex items-center gap-2 text-sm text-blue-800 cursor-pointer">
+                        <input type="checkbox" checked={data.sequencial} onChange={(e) => setData('sequencial', e.target.checked)}
+                            className="rounded border-gray-300 text-blue-600 w-3.5 h-3.5" />
+                        Assinar na ordem de seleção (cada um só assina depois do anterior)
+                    </label>
                     <textarea value={data.mensagem} onChange={(e) => setData('mensagem', e.target.value)}
                         className="ds-input !h-auto" rows={2} placeholder="Mensagem opcional..." />
                     <div className="flex items-center gap-3">
@@ -463,7 +521,7 @@ function TabAssinaturas({ documento, usuarios }) {
             {solicitacoes.length === 0 ? (
                 <div className="py-8 text-center text-gray-400">
                     <i className="fas fa-file-signature text-2xl mb-2 block" />
-                    <p className="text-sm">Nenhuma solicitacao de assinatura</p>
+                    <p className="text-sm">Nenhuma solicitação de assinatura</p>
                 </div>
             ) : (
                 <div className="space-y-4">
@@ -480,6 +538,7 @@ function TabAssinaturas({ documento, usuarios }) {
                                         </span>
                                     </div>
                                     {sol.mensagem && <p className="text-xs text-gray-600 mt-0.5">{sol.mensagem}</p>}
+                                    {sol.sequencial && <p className="text-[10px] text-blue-700 mt-0.5"><i className="fas fa-sort-numeric-down mr-1" />Assinatura em ordem</p>}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {sol.status === 'concluida' && (
@@ -563,13 +622,13 @@ function AssinaturaItem({ a, statusColors }) {
                         <DetalheCert label="Serial" valor={a.certificado.serial_number?.slice(0, 24) + '...'} mono />
                     )}
                     {a.certificado?.valido_ate && (
-                        <DetalheCert label="Cert valido ate" valor={new Date(a.certificado.valido_ate).toLocaleDateString('pt-BR')} />
+                        <DetalheCert label="Cert válido até" valor={new Date(a.certificado.valido_ate).toLocaleDateString('pt-BR')} />
                     )}
                     {a.algoritmo_hash && (
                         <DetalheCert label="Algoritmo" valor={a.algoritmo_hash + ' com RSA'} />
                     )}
                     {a.politica_assinatura && (
-                        <DetalheCert label="Politica" valor={a.politica_assinatura} />
+                        <DetalheCert label="Política" valor={a.politica_assinatura} />
                     )}
                     {a.arquivo_assinado_path && (
                         <div className="md:col-span-2 mt-1 flex items-center flex-wrap gap-2">
@@ -618,6 +677,25 @@ function InfoRow({ label, value }) {
             <p className="text-sm text-gray-700 mt-0.5">{value || '-'}</p>
         </div>
     );
+}
+
+const ACOES_AUDITORIA = {
+    criacao: 'Criação', captura: 'Captura', visualizacao: 'Visualização', download: 'Download',
+    edicao: 'Edição', alteracao_status: 'Situação alterada', movimentacao: 'Mudança de pasta',
+    exclusao: 'Exclusão', nova_versao: 'Nova versão', solicitacao_assinatura: 'Assinatura solicitada',
+    assinatura: 'Assinatura', assinatura_qualificada_icp: 'Assinatura ICP-Brasil', recusa_assinatura: 'Assinatura recusada',
+    cancelado_via_integracao: 'Cancelado pela origem', restauracao: 'Restaurado da lixeira',
+};
+
+/** Detalhes do log em texto legível: "campo: antes → depois" ou "chave: valor". */
+function descreverDetalhes(detalhes) {
+    if (!detalhes || typeof detalhes !== 'object') return detalhes || '-';
+    const partes = Object.entries(detalhes).map(([k, v]) => {
+        if (v && typeof v === 'object' && 'de' in v) return `${k}: ${v.de ?? '—'} → ${v.para ?? '—'}`;
+        if (v && typeof v === 'object') return `${k}: ${JSON.stringify(v)}`;
+        return `${k}: ${v}`;
+    });
+    return partes.length ? partes.join(' · ') : '-';
 }
 
 function getFileIcon(mime) {

@@ -17,7 +17,7 @@ export default function PortalLogin({ ug }) {
 
     return (
         <PortalLayout ug={ug} hideSearchBar>
-            <Head title="Entrar — Portal do Cidadao" />
+            <Head title="Entrar — Portal do Cidadão" />
 
             <div className="max-w-md mx-auto bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
                 <div className="text-center mb-6">
@@ -25,7 +25,7 @@ export default function PortalLogin({ ug }) {
                         <i className="fas fa-user text-white text-2xl" />
                     </div>
                     <h1 className="text-xl font-bold text-gray-800">Entrar</h1>
-                    <p className="text-sm text-gray-500">Acesse sua conta para solicitar servicos</p>
+                    <p className="text-sm text-gray-500">Acesse sua conta para solicitar serviços</p>
                 </div>
 
                 <form onSubmit={submit} className="space-y-4">
@@ -51,7 +51,7 @@ export default function PortalLogin({ ug }) {
 
                 <div className="text-center mt-6 pt-6 border-t border-gray-100">
                     <p className="text-sm text-gray-500">
-                        Ainda nao tem conta?{' '}
+                        Ainda não tem conta?{' '}
                         <Link href="/cadastrar" className="text-blue-600 font-semibold hover:underline">
                             Cadastre-se
                         </Link>

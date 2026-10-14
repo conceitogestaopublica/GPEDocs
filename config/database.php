@@ -64,13 +64,17 @@ return [
             ]) : [],
         ],
 
+        // Origem dos cadastros (gestoras, organograma, usuários). Mesmo modelo de tabelas no
+        // GPD legado (MariaDB) e no gpe2 (PostgreSQL, que converteu o legado):
+        // GPE_LEGADO_DRIVER=pgsql + GPE_LEGADO_PORT=5433 lê direto do banco do gpe2.
         'gpe_legado' => [
-            'driver'    => 'mariadb',
+            'driver'    => env('GPE_LEGADO_DRIVER', 'mariadb'),
             'host'      => env('GPE_LEGADO_HOST', '127.0.0.1'),
             'database'  => env('GPE_LEGADO_DATABASE', 'gpdparaguacu'),
             'username'  => env('GPE_LEGADO_USERNAME', 'root'),
             'password'  => env('GPE_LEGADO_PASSWORD', ''),
             'port'      => env('GPE_LEGADO_PORT', '3306'),
+            'search_path' => 'public',
             'charset'   => 'utf8',
             'collation' => 'utf8_unicode_ci',
             'prefix'    => '',

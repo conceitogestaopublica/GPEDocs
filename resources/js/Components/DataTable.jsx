@@ -43,39 +43,39 @@ export default function DataTable({
             {searchable && (
                 <form onSubmit={handleSearch} className="mb-4 flex flex-col sm:flex-row gap-3">
                     <div className="relative w-full sm:w-80">
-                        <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+                        <i className="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--ds-text-muted)] text-sm" />
                         <input
                             type="text"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder="Buscar..."
-                            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                            className="ds-input pl-8"
                         />
                     </div>
                     <button
                         type="submit"
-                        className="px-4 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                        className="ds-btn ds-btn-outline"
                     >
-                        Filtrar
+                        <i className="fas fa-filter text-xs" /> Filtrar
                     </button>
                 </form>
             )}
 
             {/* Tabela */}
             <div ref={fillHeight ? scrollRef : undefined}
-                className={`${fillHeight ? 'overflow-auto' : 'overflow-x-auto'} rounded-lg border border-gray-200`}>
+                className={`${fillHeight ? 'overflow-auto' : 'overflow-x-auto'} rounded-lg border border-[var(--ds-border)]`}>
                 <table className="w-full text-sm text-left">
-                    <thead className={`bg-gray-50 text-gray-600 uppercase text-xs tracking-wider${fillHeight ? ' sticky top-0 z-20' : ''}`}>
+                    <thead className={`bg-[var(--ds-surface-muted)]${fillHeight ? ' sticky top-0 z-20' : ''}`}>
                         <tr>
                             {columns.map((col) => (
                                 <th key={col.key} className={`px-4 py-3 font-semibold ${col.className || ''}`}>
                                     {col.label}
                                 </th>
                             ))}
-                            {actions && <th className="px-4 py-3 font-semibold text-center w-32">Ações</th>}
+                            {actions && <th className="px-3 py-2.5 text-right">Ações</th>}
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-[var(--ds-border)]">
                         {data.length === 0 ? (
                             <tr>
                                 <td colSpan={columns.length + (actions ? 1 : 0)} className="px-4 py-8 text-center text-gray-400">
@@ -92,8 +92,8 @@ export default function DataTable({
                                         </td>
                                     ))}
                                     {actions && (
-                                        <td className="px-4 py-3 text-center">
-                                            <div className="flex items-center justify-center gap-1">
+                                        <td className="px-3 py-2.5 text-right">
+                                            <div className="inline-flex items-center justify-end gap-2">
                                                 {actions(row)}
                                             </div>
                                         </td>

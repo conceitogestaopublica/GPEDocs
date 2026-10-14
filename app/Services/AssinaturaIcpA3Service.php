@@ -120,6 +120,17 @@ class AssinaturaIcpA3Service
      * @param  array   $cadeiaCertsPem  certificados intermediarios opcionais (PEM)
      * @return array{ caminho: string, pkcs7: string, pdf_sha256: string, meta: array }
      */
+    /** RSA PKCS#1 v1.5 com SHA-256 sobre o DER dos SignedAttributes (o que o token assinou). */
+    public static function assinaturaConfere(string $signedAttrsDer, string $assinatura, string $certPem): bool
+    {
+        $chavePublica = openssl_pkey_get_public($certPem);
+        if ($chavePublica === false) {
+            return false;
+        }
+
+        return openssl_verify($signedAttrsDer, $assinatura, $chavePublica, OPENSSL_ALGO_SHA256) === 1;
+    }
+
     public function finalizar(
         string $sessaoId,
         string $assinaturaB64,
@@ -141,6 +152,13 @@ class AssinaturaIcpA3Service
             throw new RuntimeException('Bytes de assinatura inválidos.');
         }
 
+        // Antes os bytes devolvidos pelo navegador eram embutidos sem conferência: qualquer
+        // valor virava "assinado". Confere que é a assinatura RSA/SHA-256 dos atributos
+        // assinados, feita com a chave do certificado apresentado no preparo.
+        if (! self::assinaturaConfere($signedAttrsDer, $assinaturaBin, $certPem)) {
+            throw new RuntimeException('A assinatura devolvida pelo token não corresponde ao certificado apresentado.');
+        }
+
         // Monta SignerInfo + SignedData + ContentInfo
         $pkcs7 = $this->montarPkcs7(
             certPem: $certPem,
@@ -156,7 +174,7 @@ class AssinaturaIcpA3Service
         $disk = Storage::disk('documentos');
         $thumbprint = openssl_x509_fingerprint($certPem, 'sha256');
         $caminho = sprintf(
-            'assinaturas/icp/%s_a3_%s.pdf',
+            \App\Tenant\TenantStorage::pasta('assinaturas/icp') . '/%s_a3_%s.pdf',
             date('Ymd_His'),
             substr((string) $thumbprint, 0, 12),
         );

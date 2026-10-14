@@ -28,7 +28,7 @@ export default function ControleOficios({ oficios, anos = [], filtros = {} }) {
     };
 
     const exportarCsv = () => {
-        const header = 'Numero;Ano;Assunto;Destinatario;Orgao;Data Envio;Lido em;Status';
+        const header = 'Número;Ano;Assunto;Destinatário;Órgão;Data Envio;Lido em;Status';
         const linhas = (oficios?.data || []).map(o => {
             const dataEnvio = o.enviado_em ? new Date(o.enviado_em).toLocaleString('pt-BR') : '';
             const lidoEm    = o.lido_em ? new Date(o.lido_em).toLocaleString('pt-BR') : '';
@@ -57,22 +57,22 @@ export default function ControleOficios({ oficios, anos = [], filtros = {} }) {
 
     return (
         <AdminLayout>
-            <Head title="Livro de Controle - Oficios" />
-            <PageHeader title="Livro de Controle - Oficios" subtitle="Registro de oficios emitidos">
+            <Head title="Livro de Controle - Ofícios" />
+            <PageHeader title="Livro de Controle - Ofícios" subtitle="Registro de ofícios emitidos">
                 <Button variant="secondary" icon="fas fa-file-csv" onClick={exportarCsv}>Exportar CSV</Button>
                 <Button variant="secondary" icon="fas fa-plus" onClick={() => setShowRegistrar(true)}>Registrar Manual</Button>
-                <Button icon="fas fa-paper-plane" href="/oficios/create">Novo Oficio Eletronico</Button>
+                <Button icon="fas fa-paper-plane" href="/oficios/create">Novo Ofício Eletrônico</Button>
             </PageHeader>
 
             <Card className="mb-3">
                 <form onSubmit={aplicar} className="flex flex-wrap items-end gap-2">
                     <div className="flex-1 min-w-[260px]">
-                        <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">Buscar</label>
+                        <label className="block text-sm font-medium text-navy-900 mb-1">Buscar</label>
                         <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
-                            placeholder="Numero, assunto, destinatario ou orgao" className="ds-input" />
+                            placeholder="Número, assunto, destinatário ou órgão" className="ds-input" />
                     </div>
                     <div>
-                        <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-1">Ano</label>
+                        <label className="block text-sm font-medium text-navy-900 mb-1">Ano</label>
                         <select value={ano} onChange={e => setAno(e.target.value)} className="ds-input w-32">
                             <option value="">Todos</option>
                             {anos.map(a => <option key={a} value={a}>{a}</option>)}
@@ -92,11 +92,11 @@ export default function ControleOficios({ oficios, anos = [], filtros = {} }) {
                     <table className="w-full text-sm">
                         <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
                             <tr>
-                                <th className="px-4 py-3 text-left w-32">Numero</th>
+                                <th className="px-4 py-3 text-left w-32">Número</th>
                                 <th className="px-4 py-3 text-left w-20">Ano</th>
                                 <th className="px-4 py-3 text-left">Assunto</th>
-                                <th className="px-4 py-3 text-left">Destinatario</th>
-                                <th className="px-4 py-3 text-left">Orgao</th>
+                                <th className="px-4 py-3 text-left">Destinatário</th>
+                                <th className="px-4 py-3 text-left">Órgão</th>
                                 <th className="px-4 py-3 text-left w-36">Data Envio</th>
                                 <th className="px-4 py-3 text-left w-28">Status</th>
                                 <th className="px-4 py-3 text-center w-16">Ver</th>
@@ -105,7 +105,7 @@ export default function ControleOficios({ oficios, anos = [], filtros = {} }) {
                         <tbody className="divide-y divide-gray-100">
                             {(oficios?.data || []).length === 0 && (
                                 <tr><td colSpan={8} className="px-4 py-10 text-center text-gray-400">
-                                    Nenhum oficio encontrado.
+                                    Nenhum ofício encontrado.
                                 </td></tr>
                             )}
                             {(oficios?.data || []).map(o => (

@@ -177,7 +177,7 @@ class OficioController extends Controller
 
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('oficios', 'documentos');
+                    $path = $file->store(\App\Tenant\TenantStorage::pasta('oficios'), 'documentos');
 
                     OficioAnexo::create([
                         'oficio_id'           => $oficio->id,
@@ -195,7 +195,7 @@ class OficioController extends Controller
                 'usuario_id'      => Auth::id(),
                 'tipo'            => 'oficio_enviado',
                 'titulo'          => 'Oficio enviado',
-                'mensagem'        => "Oficio {$numero} - {$oficio->assunto} enviado para {$oficio->destinatario_nome}.",
+                'mensagem'        => "Ofício {$numero} - {$oficio->assunto} enviado para {$oficio->destinatario_nome}.",
                 'referencia_tipo' => 'oficio',
                 'referencia_id'   => $oficio->id,
                 'lida'            => false,
@@ -211,8 +211,20 @@ class OficioController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return redirect()->back()->with('error', 'Erro ao enviar oficio: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Erro ao enviar ofício: ' . $e->getMessage());
         }
+    }
+
+    /** Download de anexo (a rota que a tela usava não existia). Mesma regra de ver o ofício. */
+    public function downloadAnexo($id, $anexoId)
+    {
+        $oficio = Oficio::findOrFail($id);
+        if ($oficio->remetente_id !== Auth::id()) {
+            abort(403);
+        }
+        $anexo = \App\Models\Processo\OficioAnexo::where('oficio_id', $oficio->id)->findOrFail($anexoId);
+
+        return \App\Support\Anexos::baixar($anexo->arquivo_path, $anexo->nome);
     }
 
     public function show($id): Response
@@ -224,7 +236,7 @@ class OficioController extends Controller
         ])->findOrFail($id);
 
         if ($oficio->remetente_id !== Auth::id()) {
-            abort(403, 'Voce nao tem permissao para visualizar este oficio.');
+            abort(403, 'Você não tem permissão para visualizar este ofício.');
         }
 
         return Inertia::render('GED/Oficios/Show', [
@@ -241,7 +253,7 @@ class OficioController extends Controller
         $oficio = Oficio::findOrFail($id);
 
         if ($oficio->remetente_id !== Auth::id()) {
-            abort(403, 'Voce nao tem permissao para responder a este oficio.');
+            abort(403, 'Você não tem permissão para responder a este ofício.');
         }
 
         OficioResposta::create([
@@ -265,7 +277,7 @@ class OficioController extends Controller
         $oficio = Oficio::findOrFail($id);
 
         if ($oficio->remetente_id !== Auth::id()) {
-            abort(403, 'Voce nao tem permissao para arquivar este oficio.');
+            abort(403, 'Você não tem permissão para arquivar este ofício.');
         }
 
         $oficio->update([
@@ -273,7 +285,7 @@ class OficioController extends Controller
             'arquivado_em' => now(),
         ]);
 
-        return redirect()->back()->with('success', 'Oficio arquivado com sucesso.');
+        return redirect()->back()->with('success', 'Ofício arquivado com sucesso.');
     }
 
     public function arquivarNoGed(Request $request, $id)
@@ -284,7 +296,7 @@ class OficioController extends Controller
 
         $pasta = DB::table('ged_pastas')->where('id', $request->input('pasta_id'))->first();
         if (! $pasta || $pasta->ug_id !== $oficio->ug_id) {
-            return redirect()->back()->with('error', 'A pasta selecionada nao pertence a UG deste oficio.');
+            return redirect()->back()->with('error', 'A pasta selecionada não pertence a UG deste ofício.');
         }
 
         try {
@@ -295,7 +307,7 @@ class OficioController extends Controller
                 if ($documento) {
                     $documento->update(['pasta_id' => (int) $request->input('pasta_id'), 'status' => 'arquivado']);
                     DB::commit();
-                    return redirect()->back()->with('success', "Oficio arquivado na pasta \"{$pasta->nome}\".");
+                    return redirect()->back()->with('success', "Ofício arquivado na pasta \"{$pasta->nome}\".");
                 }
             }
 
@@ -308,7 +320,7 @@ class OficioController extends Controller
             $pdfBytes = $pdf->output();
 
             $filename = 'oficio-' . str_replace(['/', '\\'], '-', $oficio->numero) . '.pdf';
-            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             \Illuminate\Support\Facades\Storage::disk('documentos')->put($path, $pdfBytes);
 
             $textoPesquisavel = collect([
@@ -320,7 +332,7 @@ class OficioController extends Controller
             $documento = \App\Models\Documento::create([
                 'nome'              => 'Oficio ' . $oficio->numero,
                 'descricao'         => $oficio->assunto,
-                'tipo_documental_id'=> 1, // Oficio
+                'tipo_documental_id'=> \App\Support\TiposDocumentais::id('Oficio'),
                 'pasta_id'          => (int) $request->input('pasta_id'),
                 'versao_atual'      => 1,
                 'tamanho'           => strlen($pdfBytes),
@@ -343,7 +355,7 @@ class OficioController extends Controller
             $oficio->update(['documento_id' => $documento->id]);
 
             DB::commit();
-            return redirect()->back()->with('success', "Oficio arquivado na pasta \"{$pasta->nome}\".");
+            return redirect()->back()->with('success', "Ofício arquivado na pasta \"{$pasta->nome}\".");
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Erro ao arquivar: ' . $e->getMessage());
@@ -358,7 +370,7 @@ class OficioController extends Controller
         ])->findOrFail($id);
 
         if ($oficio->remetente_id !== Auth::id()) {
-            abort(403, 'Voce nao tem permissao para baixar este oficio.');
+            abort(403, 'Você não tem permissão para baixar este ofício.');
         }
 
         $qrCodeUrl = url("/oficios/verificar/{$oficio->qr_code_token}");

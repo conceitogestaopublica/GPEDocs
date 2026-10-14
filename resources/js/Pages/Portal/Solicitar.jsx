@@ -24,7 +24,7 @@ export default function PortalSolicitar({ ug, servico, cidadao }) {
             <Head title={`Solicitar ${servico.titulo}`} />
 
             <nav className="text-xs text-gray-500 mb-4">
-                <Link href="/" className="hover:text-blue-600">Inicio</Link>
+                <Link href="/" className="hover:text-blue-600">Início</Link>
                 <i className="fas fa-chevron-right mx-2 text-[10px]" />
                 <Link href={`/servico/${servico.slug}`} className="hover:text-blue-600">{servico.titulo}</Link>
                 <i className="fas fa-chevron-right mx-2 text-[10px]" />
@@ -53,8 +53,8 @@ export default function PortalSolicitar({ ug, servico, cidadao }) {
                                 <div>
                                     <p className="text-sm font-bold text-amber-900">Solicitar anonimamente</p>
                                     <p className="text-[11px] text-amber-800">
-                                        Sua identidade nao sera registrada. Voce nao recebera atualizacoes por email,
-                                        mas anote o codigo da solicitacao para acompanhamento futuro.
+                                        Sua identidade não será registrada. Você não receberá atualizações por email,
+                                        mas anote o código da solicitação para acompanhamento futuro.
                                     </p>
                                 </div>
                             </label>
@@ -62,10 +62,10 @@ export default function PortalSolicitar({ ug, servico, cidadao }) {
                     )}
 
                     <div>
-                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Descreva sua solicitacao *</label>
+                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Descreva sua solicitação *</label>
                         <textarea value={data.descricao} onChange={(e) => setData('descricao', e.target.value)}
                             rows={6} required maxLength={5000}
-                            placeholder="Detalhe o que voce precisa, dados relevantes (numero de inscricao, endereco, etc) e qualquer observacao..."
+                            placeholder="Detalhe o que você precisa, dados relevantes (número de inscrição, endereço, etc) e qualquer observação..."
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
                         {errors.descricao && <p className="text-xs text-red-500 mt-1">{errors.descricao}</p>}
                         <p className="text-[10px] text-gray-400 mt-1">{data.descricao.length} / 5000</p>
@@ -96,7 +96,7 @@ export default function PortalSolicitar({ ug, servico, cidadao }) {
                         <button type="submit" disabled={processing}
                             className="flex-1 px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors">
                             <i className="fas fa-paper-plane mr-2" />
-                            {processing ? 'Enviando...' : 'Enviar solicitacao'}
+                            {processing ? 'Enviando...' : 'Enviar solicitação'}
                         </button>
                     </div>
                 </form>
@@ -108,10 +108,10 @@ export default function PortalSolicitar({ ug, servico, cidadao }) {
                             Como funciona
                         </h3>
                         <ol className="text-xs text-blue-800 space-y-2 list-decimal list-inside">
-                            <li>Voce envia a solicitacao com a descricao</li>
-                            <li>Sua solicitacao recebe um codigo de acompanhamento</li>
-                            <li>O setor responsavel recebe e analisa</li>
-                            <li>Voce recebe notificacao por e-mail a cada atualizacao</li>
+                            <li>Você envia a solicitação com a descrição</li>
+                            <li>Sua solicitação recebe um código de acompanhamento</li>
+                            <li>O setor responsável recebe e analisa</li>
+                            <li>Você recebe notificação por e-mail a cada atualização</li>
                         </ol>
                     </div>
 
@@ -119,7 +119,7 @@ export default function PortalSolicitar({ ug, servico, cidadao }) {
                         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
                             <h3 className="text-sm font-bold text-amber-900 mb-2 flex items-center gap-2">
                                 <i className="fas fa-folder" />
-                                Tenha em maos
+                                Tenha em mãos
                             </h3>
                             <ul className="text-xs text-amber-800 space-y-1.5">
                                 {servico.documentos_necessarios.map((d, i) => (

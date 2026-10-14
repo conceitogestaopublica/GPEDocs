@@ -24,6 +24,23 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Limites contra força bruta, separados por rota (o throttle sem nome soma tudo do IP).
+        \Illuminate\Support\Facades\RateLimiter::for('login', fn ($request) =>
+            \Illuminate\Cache\RateLimiting\Limit::perMinute(10)->by($request->ip() . '|' . mb_strtolower((string) $request->input('login'))));
+        \Illuminate\Support\Facades\RateLimiter::for('senha', fn ($request) =>
+            \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by($request->ip()));
+
+        // RBAC: super admin passa em tudo; as habilidades do catálogo (módulo.ação) vêm
+        // dos perfis do usuário. Habilidade fora do catálogo segue o fluxo normal do Gate.
+        \Illuminate\Support\Facades\Gate::before(function ($user, string $ability) {
+            if ($user->super_admin) {
+                return true;
+            }
+            if (array_key_exists($ability, \App\Support\Permissoes::CATALOGO)) {
+                return $user->temPermissao($ability);
+            }
+            return null;
+        });
 
         Queue::addConnector('database', fn() => new class(app('db')) extends DatabaseConnector {
             public function connect(array $config)

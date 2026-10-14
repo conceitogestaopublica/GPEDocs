@@ -4,22 +4,42 @@
 @source '../**/*.blade.php';
 
 /* ============================================================
-   DESIGN SYSTEM — GED Premium (baseado no GPE2)
+   DESIGN SYSTEM — paleta GestãoPub (a mesma do gpe2 e do Tributário)
    ============================================================ */
 
 @theme {
     --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 
-    --color-primary-50: #eff6ff;
-    --color-primary-100: #dbeafe;
-    --color-primary-200: #bfdbfe;
-    --color-primary-300: #93c5fd;
-    --color-primary-400: #60a5fa;
-    --color-primary-500: #3b82f6;
-    --color-primary-600: #2563eb;
-    --color-primary-700: #1d4ed8;
-    --color-primary-800: #1e40af;
-    --color-primary-900: #1e3a8a;
+    /* Primária — Cyan GestãoPub (mesma paleta do gpe2 e do Tributário) */
+    --color-primary-50: #ecfeff;
+    --color-primary-100: #cffafe;
+    --color-primary-200: #a5f3fc;
+    --color-primary-300: #67e8f9;
+    --color-primary-400: #22d3ee;
+    --color-primary-500: #0891b2;
+    --color-primary-600: #0e7490;
+    --color-primary-700: #155e75;
+    --color-primary-800: #164e63;
+    --color-primary-900: #083344;
+
+    /* As telas do GED usam `blue-*` direto (~700 usos em 77 arquivos). A escala blue
+       passa a ser a mesma ciano da marca, para ficarem na cor do gpe2 sem editar cada tela. */
+    --color-blue-50: #ecfeff;
+    --color-blue-100: #cffafe;
+    --color-blue-200: #a5f3fc;
+    --color-blue-300: #67e8f9;
+    --color-blue-400: #22d3ee;
+    --color-blue-500: #0891b2;
+    --color-blue-600: #0891b2;
+    --color-blue-700: #0e7490;
+    --color-blue-800: #155e75;
+    --color-blue-900: #164e63;
+
+    /* navy (texto) / mist (superfícies) */
+    --color-navy-900: #0b1f3b;
+    --color-navy-700: #123a63;
+    --color-mist-200: #c9d6e5;
+    --color-mist-50: #f2f5f8;
 }
 
 /* Cabeçalho fixo das listagens SEMPRE na frente das linhas que rolam por baixo (padrão
@@ -61,12 +81,12 @@
 }
 
 :root {
-    --ds-primary: #2563EB;
-    --ds-primary-hover: #1D4ED8;
-    --ds-primary-active: #1E40AF;
-    --ds-secondary: #3B82F6;
-    --ds-accent: #10B981;
-    --ds-accent-hover: #059669;
+    --ds-primary: #0891B2;
+    --ds-primary-hover: #0E7490;
+    --ds-primary-active: #155E75;
+    --ds-secondary: #22D3EE;
+    --ds-accent: #2E9E6B;
+    --ds-accent-hover: #248055;
 
     --ds-success: #22C55E;
     --ds-success-bg: #F0FDF4;
@@ -81,34 +101,34 @@
     --ds-danger-border: #FECACA;
     --ds-danger-text: #B91C1C;
 
-    --ds-bg: #F8FAFC;
+    --ds-bg: #F2F5F8;
     --ds-surface: #FFFFFF;
-    --ds-surface-hover: #F8FAFC;
-    --ds-surface-muted: #F1F5F9;
-    --ds-border: #E2E8F0;
-    --ds-border-strong: #CBD5E1;
+    --ds-surface-hover: #F2F5F8;
+    --ds-surface-muted: #EEF2F7;
+    --ds-border: #C9D6E5;
+    --ds-border-strong: #AFC0D4;
 
-    --ds-text: #0F172A;
-    --ds-text-secondary: #334155;
-    --ds-text-muted: #64748B;
+    --ds-text: #0B1F3B;
+    --ds-text-secondary: #123A63;
+    --ds-text-muted: #5B6B82;
     --ds-text-disabled: #94A3B8;
     --ds-text-inverse: #FFFFFF;
 
     --ds-radius-card: 16px;
-    --ds-radius-button: 12px;
+    --ds-radius-button: 10px;
     --ds-radius-input: 10px;
     --ds-radius-chip: 999px;
     --ds-radius-dropdown: 12px;
 
-    --ds-h-input: 44px;
-    --ds-h-button: 44px;
-    --ds-h-button-sm: 36px;
+    --ds-h-input: 36px;
+    --ds-h-button: 36px;
+    --ds-h-button-sm: 30px;
     --ds-h-tab: 48px;
     --ds-h-toolbar: 56px;
     --ds-h-header: 64px;
     --ds-h-row: 56px;
     --ds-h-row-header: 44px;
-    --ds-h-chip: 24px;
+    --ds-h-chip: 22px;
     --ds-h-chip-filter: 32px;
 
     --ds-sp-1: 8px;
@@ -161,133 +181,169 @@ html {
 aside::-webkit-scrollbar { width: 4px; }
 aside::-webkit-scrollbar-thumb { background: var(--ds-border); border-radius: 4px; }
 
-/* Inputs */
-.ds-input {
-    height: var(--ds-h-input);
-    padding: 0 var(--ds-sp-2);
-    border-radius: var(--ds-radius-input);
-    border: 1px solid var(--ds-border);
-    background-color: var(--ds-surface);
-    font-size: var(--ds-text-base);
-    color: var(--ds-text);
-    transition: border-color var(--ds-transition-fast), box-shadow var(--ds-transition-fast);
-    width: 100%;
-}
-.ds-input::placeholder { color: var(--ds-text-muted); }
-.ds-input:focus {
-    outline: none;
-    border-color: var(--ds-primary);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-}
-.ds-input:disabled {
-    background-color: var(--ds-surface-muted);
-    color: var(--ds-text-disabled);
-    cursor: not-allowed;
+/* ── Design system no padrão do Tributário (shadcn + paleta GestãoPub) ─────
+   Botão e campo de 32px, canto de 10px, texto 14px; card branco de canto 14px
+   com contorno suave; grade com cabeçalho mist e sem caixa alta.
+   Em @layer components: as classes utilitárias da tela (pl-9, h-10, w-40...)
+   continuam vencendo. Fora da camada, o .ds-input atropelava o pl-9 e a lupa
+   ficava por cima do texto digitado. */
+@layer components {
+    /* Inputs (input, select e textarea) */
+    .ds-input {
+        height: var(--ds-h-input);
+        padding: 0 10px;
+        border-radius: var(--ds-radius-input);
+        border: 1px solid var(--ds-border);
+        background-color: var(--ds-surface);
+        font-size: var(--ds-text-base);
+        color: var(--ds-text);
+        transition: border-color var(--ds-transition-fast), box-shadow var(--ds-transition-fast);
+        width: 100%;
+    }
+    textarea.ds-input { height: auto; padding: 6px 10px; }
+    .ds-input::placeholder { color: var(--ds-text-muted); }
+    .ds-input:focus {
+        outline: none;
+        border-color: var(--ds-primary);
+        box-shadow: 0 0 0 3px rgb(8 145 178 / 0.25);
+    }
+    .ds-input:disabled {
+        background-color: var(--ds-surface-muted);
+        color: var(--ds-text-disabled);
+        cursor: not-allowed;
+    }
+
+    /* Buttons */
+    .ds-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: var(--ds-h-button);
+        padding: 0 12px;
+        border-radius: var(--ds-radius-button);
+        font-size: var(--ds-text-base);
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: background-color var(--ds-transition-fast), border-color var(--ds-transition-fast), color var(--ds-transition-fast);
+        white-space: nowrap;
+    }
+    .ds-btn:active:not(:disabled) { transform: translateY(1px); }
+    .ds-btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+    .ds-btn-sm { height: var(--ds-h-button-sm); font-size: var(--ds-text-sm); padding: 0 10px; gap: 4px; }
+    .ds-btn-primary { background-color: var(--ds-primary); color: var(--ds-text-inverse); }
+    .ds-btn-primary:hover { background-color: var(--ds-primary-hover); }
+    .ds-btn-accent { background-color: var(--ds-accent); color: var(--ds-text-inverse); }
+    .ds-btn-accent:hover { background-color: var(--ds-accent-hover); }
+    .ds-btn-outline { background-color: var(--ds-surface); border-color: var(--ds-border); color: var(--ds-text); }
+    .ds-btn-outline:hover { background-color: var(--ds-surface-hover); }
+    .ds-btn-ghost { background-color: transparent; color: var(--ds-text-secondary); }
+    .ds-btn-ghost:hover { background-color: var(--ds-surface-hover); color: var(--ds-text); }
+    .ds-btn-danger { background-color: var(--ds-danger-bg); color: var(--ds-danger-text); }
+    .ds-btn-danger:hover { background-color: var(--ds-danger-border); }
+
+    /* Cards */
+    .ds-card {
+        background-color: var(--ds-surface);
+        border-radius: var(--ds-radius-card);
+        border: 1px solid rgb(11 31 59 / 0.06);
+        box-shadow: 0 1px 3px rgb(11 31 59 / 0.06), 0 1px 2px rgb(11 31 59 / 0.04);
+        padding: 20px 24px;
+    }
+    .ds-card-title {
+        font-size: var(--ds-text-md);
+        font-weight: 600;
+        color: var(--ds-text);
+        padding-bottom: 12px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid var(--ds-border);
+    }
+
+    /* Status Pills */
+    .ds-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: var(--ds-h-chip);
+        padding: 0 8px;
+        border-radius: var(--ds-radius-chip);
+        border: 1px solid transparent;
+        font-size: var(--ds-text-xs);
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    .ds-pill-success { background-color: var(--ds-success-bg); color: var(--ds-success-text); }
+    .ds-pill-warning { background-color: var(--ds-warning-bg); color: var(--ds-warning-text); }
+    .ds-pill-danger { background-color: var(--ds-danger-bg); color: var(--ds-danger-text); }
+    .ds-pill-info { background-color: #ECFEFF; color: #0E7490; }
+
+    /* Data Table */
+    .ds-table { width: 100%; border-collapse: collapse; }
+    .ds-table th {
+        padding: 10px 12px;
+        background-color: var(--ds-surface-muted);
+        font-size: var(--ds-text-base);
+        font-weight: 500;
+        color: var(--ds-text);
+        text-align: left;
+        border-bottom: 1px solid var(--ds-border);
+    }
+    .ds-table td {
+        padding: 10px 12px;
+        font-size: var(--ds-text-base);
+        color: var(--ds-text);
+        border-bottom: 1px solid var(--ds-border);
+        vertical-align: middle;
+    }
+    .ds-table tr:last-child td { border-bottom: none; }
+    .ds-table tbody tr { transition: background-color var(--ds-transition-fast); }
+    .ds-table tbody tr:hover { background-color: var(--ds-surface-hover); }
+
+    /* Page Header */
+    /* Cabeçalho da tela num card branco, como no gpe2 e no Tributário. */
+    .ds-page-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px 16px;
+        background-color: var(--ds-surface);
+        border-radius: var(--ds-radius-card);
+        border: 1px solid rgb(11 31 59 / 0.06);
+        box-shadow: 0 1px 3px rgb(11 31 59 / 0.06), 0 1px 2px rgb(11 31 59 / 0.04);
+        padding: 20px 24px;
+    }
+    .ds-page-header h1 { font-size: var(--ds-text-lg); font-weight: 600; color: var(--ds-text); line-height: 1.3; }
+    .ds-page-header p { font-size: var(--ds-text-base); color: var(--ds-text-secondary); margin-top: 2px; }
+
+    /* Search */
+    .ds-search { position: relative; display: flex; align-items: center; flex: 1; max-width: 480px; }
+    .ds-search .ds-search-icon { position: absolute; left: 10px; width: 16px; height: 16px; color: var(--ds-text-muted); pointer-events: none; }
+    .ds-search input { padding-left: 32px; padding-right: 32px; }
 }
 
-/* Buttons */
-.ds-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--ds-sp-1);
-    height: var(--ds-h-button);
-    padding: 0 var(--ds-sp-2);
-    border-radius: var(--ds-radius-button);
+/* ── Tabelas montadas à mão nas telas ────────────────────────────────────
+   Muitas telas escrevem <thead> com uppercase, text-[10px] e cinza próprios.
+   Fora de camada, de propósito, para vencer essas utilidades e deixar todas as
+   grades iguais às do Tributário: cabeçalho mist, texto navy, sem caixa alta. */
+main table thead {
+    background-color: var(--ds-surface-muted);
+}
+main table thead th {
+    text-transform: none;
+    letter-spacing: normal;
     font-size: var(--ds-text-base);
     font-weight: 500;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: background-color var(--ds-transition-fast), border-color var(--ds-transition-fast), color var(--ds-transition-fast);
-    white-space: nowrap;
-}
-.ds-btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
-.ds-btn-sm { height: var(--ds-h-button-sm); font-size: var(--ds-text-sm); padding: 0 12px; }
-.ds-btn-primary { background-color: var(--ds-primary); color: var(--ds-text-inverse); }
-.ds-btn-primary:hover { background-color: var(--ds-primary-hover); }
-.ds-btn-accent { background-color: var(--ds-accent); color: var(--ds-text-inverse); }
-.ds-btn-accent:hover { background-color: var(--ds-accent-hover); }
-.ds-btn-outline { background-color: transparent; border-color: var(--ds-border); color: var(--ds-text); }
-.ds-btn-outline:hover { background-color: var(--ds-surface-muted); }
-.ds-btn-ghost { background-color: transparent; color: var(--ds-text-muted); }
-.ds-btn-ghost:hover { background-color: var(--ds-surface-muted); color: var(--ds-text); }
-.ds-btn-danger { background-color: var(--ds-danger); color: var(--ds-text-inverse); }
-.ds-btn-danger:hover { background-color: #DC2626; }
-
-/* Cards */
-.ds-card {
-    background-color: var(--ds-surface);
-    border-radius: var(--ds-radius-card);
-    border: 1px solid var(--ds-border);
-    padding: var(--ds-sp-3);
-}
-.ds-card-title {
-    font-size: var(--ds-text-md);
-    font-weight: 600;
     color: var(--ds-text);
-    padding-bottom: var(--ds-sp-2);
-    margin-bottom: var(--ds-sp-2);
-    border-bottom: 1px solid var(--ds-border);
-}
-
-/* Status Pills */
-.ds-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    height: var(--ds-h-chip);
-    padding: 0 10px;
-    border-radius: var(--ds-radius-chip);
-    border: 1px solid;
-    font-size: var(--ds-text-xs);
-    font-weight: 500;
-    white-space: nowrap;
-}
-.ds-pill-success { background-color: var(--ds-success-bg); border-color: var(--ds-success-border); color: var(--ds-success-text); }
-.ds-pill-warning { background-color: var(--ds-warning-bg); border-color: var(--ds-warning-border); color: var(--ds-warning-text); }
-.ds-pill-danger { background-color: var(--ds-danger-bg); border-color: var(--ds-danger-border); color: var(--ds-danger-text); }
-.ds-pill-info { background-color: #EFF6FF; border-color: #BFDBFE; color: #1D4ED8; }
-
-/* Data Table */
-.ds-table { width: 100%; border-collapse: collapse; }
-.ds-table th {
-    height: var(--ds-h-row-header);
-    padding: 0 var(--ds-sp-2);
     background-color: var(--ds-surface-muted);
-    font-size: var(--ds-text-xs);
-    font-weight: 600;
-    color: var(--ds-text-muted);
-    text-align: left;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     border-bottom: 1px solid var(--ds-border);
 }
-.ds-table td {
-    height: var(--ds-h-row);
-    padding: 0 var(--ds-sp-2);
-    font-size: var(--ds-text-base);
-    color: var(--ds-text);
-    border-bottom: 1px solid var(--ds-border);
-    vertical-align: middle;
-}
-.ds-table tr:last-child td { border-bottom: none; }
-.ds-table tbody tr { transition: background-color var(--ds-transition-fast); }
-.ds-table tbody tr:hover { background-color: rgba(248, 250, 252, 0.8); }
+main table tbody td { color: var(--ds-text); }
+main table tbody tr + tr td,
+main table tbody tr + tr { border-color: var(--ds-border); }
+main table tbody tr:hover { background-color: var(--ds-surface-hover); }
 
-/* Page Header */
-.ds-page-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--ds-sp-3);
-}
-.ds-page-header h1 { font-size: var(--ds-text-xl); font-weight: 600; color: var(--ds-text); }
-.ds-page-header p { font-size: var(--ds-text-sm); color: var(--ds-text-muted); margin-top: 4px; }
-
-/* Search */
-.ds-search { position: relative; display: flex; align-items: center; flex: 1; max-width: 480px; }
-.ds-search .ds-search-icon { position: absolute; left: 12px; width: 16px; height: 16px; color: var(--ds-text-muted); pointer-events: none; }
-.ds-search input { padding-left: 36px; padding-right: 36px; }
 
 /* Animations */
 @keyframes fadeIn {

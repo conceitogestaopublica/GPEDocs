@@ -20,12 +20,12 @@ export default function CircularesShow({ circular }) {
     const totalLidos = destinatarios.filter(d => d.lido).length;
 
     const destinoDescription = () => {
-        if (circ.destino_tipo === 'todos') return 'Toda a Organizacao';
+        if (circ.destino_tipo === 'todos') return 'Toda a Organização';
         if (circ.destino_tipo === 'setores') {
             const setores = circ.destino_setores || [];
-            return setores.length > 0 ? `Setores: ${setores.join(', ')}` : 'Setores especificos';
+            return setores.length > 0 ? `Setores: ${setores.join(', ')}` : 'Setores específicos';
         }
-        return `${destinatarios.length} usuario(s) especifico(s)`;
+        return `${destinatarios.length} usuário(s) específico(s)`;
     };
 
     return (
@@ -40,7 +40,7 @@ export default function CircularesShow({ circular }) {
                             <h1 className="text-2xl font-bold text-gray-800">{circ.numero}</h1>
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-600 font-medium">
                                 <i className="fas fa-bullhorn mr-0.5" />
-                                {circ.destino_tipo === 'todos' ? 'Toda Organizacao' : circ.destino_tipo === 'setores' ? 'Setores' : 'Usuarios'}
+                                {circ.destino_tipo === 'todos' ? 'Toda Organização' : circ.destino_tipo === 'setores' ? 'Setores' : 'Usuários'}
                             </span>
                             {circ.status === 'arquivado' && (
                                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
@@ -56,7 +56,7 @@ export default function CircularesShow({ circular }) {
                         {circ.qr_code_token && (
                             <div className="relative group">
                                 <button className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
-                                    title="QR Code de verificacao">
+                                    title="QR Code de verificação">
                                     <i className="fas fa-qrcode" />
                                 </button>
                                 <div className="absolute right-0 top-12 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-50 hidden group-hover:block animate-fadeIn">
@@ -88,7 +88,7 @@ export default function CircularesShow({ circular }) {
                 {/* Coluna principal */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Conteudo */}
-                    <Card title="Conteudo">
+                    <Card title="Conteúdo">
                         <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
                             {circ.conteudo}
                         </div>
@@ -119,7 +119,7 @@ export default function CircularesShow({ circular }) {
                     {/* Rastreio de Leitura */}
                     <Card title={`Rastreio de Leitura (${totalLidos} de ${destinatarios.length} lido(s))`}>
                         {destinatarios.length === 0 ? (
-                            <p className="text-xs text-gray-400 text-center py-3">Nenhum destinatario</p>
+                            <p className="text-xs text-gray-400 text-center py-3">Nenhum destinatário</p>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
@@ -145,7 +145,7 @@ export default function CircularesShow({ circular }) {
                                                             </span>
                                                         ) : (
                                                             <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">
-                                                                <i className="fas fa-clock" /> Nao lido
+                                                                <i className="fas fa-clock" /> Não lido
                                                             </span>
                                                         )}
                                                     </td>
@@ -169,7 +169,7 @@ export default function CircularesShow({ circular }) {
                 {/* Coluna lateral */}
                 <div className="space-y-6">
                     {/* Informacoes */}
-                    <Card title="Informacoes">
+                    <Card title="Informações">
                         <div className="space-y-4">
                             <InfoRow label="Remetente" value={circ.remetente?.name || '-'} />
                             {circ.setor_origem && <InfoRow label="Setor de Origem" value={circ.setor_origem} />}
@@ -180,7 +180,7 @@ export default function CircularesShow({ circular }) {
                                 }) : '-'
                             } />
                             {circ.data_arquivamento_auto && (
-                                <InfoRow label="Arquivamento Automatico" value={
+                                <InfoRow label="Arquivamento Automático" value={
                                     new Date(circ.data_arquivamento_auto).toLocaleDateString('pt-BR')
                                 } />
                             )}
@@ -193,7 +193,7 @@ export default function CircularesShow({ circular }) {
                             <div className="text-3xl font-bold text-gray-800">
                                 {totalLidos}<span className="text-gray-400 text-lg font-normal">/{destinatarios.length}</span>
                             </div>
-                            <p className="text-xs text-gray-500 mt-1">destinatario(s) leu(leram)</p>
+                            <p className="text-xs text-gray-500 mt-1">destinatário(s) leu(leram)</p>
                             <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
                                 <div
                                     className="bg-green-500 h-2 rounded-full transition-all"
