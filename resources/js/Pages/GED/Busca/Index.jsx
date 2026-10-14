@@ -9,8 +9,11 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
 
 export default function Busca({ resultados, filtros_aplicados, tipos_documentais, pastas, buscas_salvas }) {
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const docs = resultados?.data || resultados || [];
     const tipos = tipos_documentais || [];
     const pastaList = pastas || [];
@@ -53,8 +56,8 @@ export default function Busca({ resultados, filtros_aplicados, tipos_documentais
 
     return (
         <AdminLayout>
-            <Head title="Busca Avancada" />
-            <PageHeader title="Busca Avancada" subtitle="Encontrar documentos por criterios complexos" />
+            <Head title="Busca Avançada" />
+            <PageHeader title="Busca Avançada" subtitle="Encontrar documentos por critérios complexos" />
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* Filtros */}
@@ -67,9 +70,9 @@ export default function Busca({ resultados, filtros_aplicados, tipos_documentais
                                 <div className="relative">
                                     <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                                     <input type="text" value={data.q} onChange={(e) => setData('q', e.target.value)}
-                                        className="ds-input !pl-9" placeholder="Nome, descricao, metadados..." />
+                                        className="ds-input !pl-9" placeholder="Nome, descrição, metadados..." />
                                 </div>
-                                <p className="text-[10px] text-gray-400 mt-1">Busca no conteudo e metadados</p>
+                                <p className="text-[10px] text-gray-400 mt-1">Busca no conteúdo e metadados</p>
                             </div>
 
                             <FilterAccordion title="Tipo Documental" expanded={expandedFilters.tipo} onToggle={() => toggleFilter('tipo')}>
@@ -90,30 +93,30 @@ export default function Busca({ resultados, filtros_aplicados, tipos_documentais
                                 <select value={data.status} onChange={(e) => setData('status', e.target.value)} className="ds-input">
                                     <option value="">Todos</option>
                                     <option value="rascunho">Rascunho</option>
-                                    <option value="revisao">Em Revisao</option>
+                                    <option value="revisao">Em Revisão</option>
                                     <option value="publicado">Publicado</option>
                                     <option value="arquivado">Arquivado</option>
                                 </select>
                             </FilterAccordion>
 
-                            <FilterAccordion title="Classificacao" expanded={expandedFilters.classificacao} onToggle={() => toggleFilter('classificacao')}>
+                            <FilterAccordion title="Classificação" expanded={expandedFilters.classificacao} onToggle={() => toggleFilter('classificacao')}>
                                 <select value={data.classificacao} onChange={(e) => setData('classificacao', e.target.value)} className="ds-input">
                                     <option value="">Todas</option>
-                                    <option value="publico">Publico</option>
+                                    <option value="publico">Público</option>
                                     <option value="interno">Interno</option>
                                     <option value="confidencial">Confidencial</option>
                                     <option value="restrito">Restrito</option>
                                 </select>
                             </FilterAccordion>
 
-                            <FilterAccordion title="Periodo" expanded={expandedFilters.data} onToggle={() => toggleFilter('data')}>
+                            <FilterAccordion title="Período" expanded={expandedFilters.data} onToggle={() => toggleFilter('data')}>
                                 <div className="space-y-2">
                                     <div>
                                         <label className="text-[10px] text-gray-500">De</label>
                                         <input type="date" value={data.data_inicio} onChange={(e) => setData('data_inicio', e.target.value)} className="ds-input" />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] text-gray-500">Ate</label>
+                                        <label className="text-[10px] text-gray-500">Até</label>
                                         <input type="date" value={data.data_fim} onChange={(e) => setData('data_fim', e.target.value)} className="ds-input" />
                                     </div>
                                 </div>
@@ -170,9 +173,9 @@ export default function Busca({ resultados, filtros_aplicados, tipos_documentais
                     )}
 
                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                        <div className="overflow-x-auto">
+                        <div ref={scrollRef} className="overflow-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
+                                <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
                                     <tr>
                                         <th className="px-4 py-3 text-left font-semibold">Documento</th>
                                         <th className="px-4 py-3 text-left font-semibold">Tipo</th>
@@ -181,7 +184,7 @@ export default function Busca({ resultados, filtros_aplicados, tipos_documentais
                                         <th className="px-4 py-3 text-left font-semibold">Tamanho</th>
                                         <th className="px-4 py-3 text-left font-semibold">Autor</th>
                                         <th className="px-4 py-3 text-left font-semibold">Data</th>
-                                        <th className="px-4 py-3 text-center font-semibold w-24">Acoes</th>
+                                        <th className="px-4 py-3 text-center font-semibold w-24">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -234,7 +237,7 @@ export default function Busca({ resultados, filtros_aplicados, tipos_documentais
                                     {resultados ? 'Nenhum documento encontrado' : 'Use os filtros para buscar'}
                                 </p>
                                 <p className="text-sm mt-1">
-                                    {resultados ? 'Tente ajustar os filtros' : 'Preencha os criterios e clique em Buscar'}
+                                    {resultados ? 'Tente ajustar os filtros' : 'Preencha os critérios e clique em Buscar'}
                                 </p>
                             </div>
                         )}

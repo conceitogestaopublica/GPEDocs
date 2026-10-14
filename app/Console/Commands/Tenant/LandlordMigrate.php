@@ -7,47 +7,36 @@ namespace App\Console\Commands\Tenant;
 use Illuminate\Console\Command;
 
 /**
- * Roda migrations do banco landlord (catálogo de tenants).
+ * Cria no landlord as tabelas de fila do GPEDocs (gpedocs_jobs, gpedocs_job_batches,
+ * gpedocs_failed_jobs).
  *
  *   php artisan landlord:migrate
- *   php artisan landlord:migrate --fresh           # apaga tudo e recria
- *   php artisan landlord:migrate --rollback        # desfaz o último batch
- *   php artisan landlord:migrate --rollback --step=N
+ *
+ * O landlord é do gpe2 (compartilhado): o schema dele é migrado lá. Por isso aqui NÃO
+ * se usa o migrator — ele gravaria na tabela `migrations` do gpe2, e fresh/rollback
+ * apagariam o catálogo de tenants de todos os sistemas. As migrations de
+ * database/migrations/landlord/ são executadas direto (up()), e são idempotentes
+ * (checam hasTable antes de criar).
  */
 class LandlordMigrate extends Command
 {
-    protected $signature = 'landlord:migrate
-                            {--fresh    : Apaga o catálogo e recria do zero}
-                            {--rollback : Desfaz o último batch de migrations}
-                            {--step=    : Quantos batches reverter (usado com --rollback)}';
+    protected $signature = 'landlord:migrate';
 
-    protected $description = 'Roda migrations do banco landlord (database/migrations/landlord/)';
+    protected $description = 'Cria as tabelas de fila do GPEDocs no landlord compartilhado (idempotente)';
 
     public function handle(): int
     {
-        $opts = [
-            '--database' => 'landlord',
-            '--path'     => 'database/migrations/landlord',
-            '--force'    => true,
-        ];
+        $arquivos = glob(database_path('migrations/landlord/*.php')) ?: [];
+        sort($arquivos);
 
-        if ($this->option('fresh')) {
-            if (! $this->confirm('Isso vai apagar o catálogo de tenants. Tem certeza?', false)) {
-                return self::SUCCESS;
-            }
-            return $this->call('migrate:fresh', $opts);
+        foreach ($arquivos as $arquivo) {
+            $this->components->task(basename($arquivo), function () use ($arquivo) {
+                (require $arquivo)->up();
+
+                return true;
+            });
         }
 
-        if ($this->option('rollback')) {
-            if (! $this->confirm('Reverter migrations do landlord pode apagar dados. Continuar?', false)) {
-                return self::SUCCESS;
-            }
-            if ($step = $this->option('step')) {
-                $opts['--step'] = (int) $step;
-            }
-            return $this->call('migrate:rollback', $opts);
-        }
-
-        return $this->call('migrate', $opts);
+        return self::SUCCESS;
     }
 }

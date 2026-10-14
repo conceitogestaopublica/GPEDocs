@@ -6,27 +6,29 @@ namespace App\Console\Commands\Tenant;
 
 use App\Console\Commands\Concerns\TenantAware;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
 
 /**
- * Roda migrations em todos os tenants (ou um específico).
+ * Roda migrations em todos os tenants do GPEDocs (ou um específico).
  *
  *   php artisan tenant:migrate                          # interativo: pergunta o tenant
- *   php artisan tenant:migrate --tenant=santoantoniodoamparo
+ *   php artisan tenant:migrate --tenant=paraguacu       # subdomínio, sub.domínio ou ID
  *   php artisan tenant:migrate --tenant=ALL             # todos os tenants ativos
  *   php artisan tenant:migrate --tenant=ALL --fresh     # cuidado!
- *   php artisan tenant:migrate --tenant=ALL --seed
  *   php artisan tenant:migrate --tenant=ALL --pretend   # dry-run
- *   php artisan tenant:migrate --tenant=santoantoniodoamparo --rollback
- *   php artisan tenant:migrate --tenant=santoantoniodoamparo --rollback --step=2
- *   php artisan tenant:migrate --tenant=santoantoniodoamparo --status   # aplicadas/pendentes (1 banco)
+ *   php artisan tenant:migrate --tenant=paraguacu --rollback
+ *   php artisan tenant:migrate --tenant=paraguacu --rollback --step=2
+ *   php artisan tenant:migrate --tenant=paraguacu --status   # aplicadas/pendentes (1 banco)
+ *
+ * Só enxerga tenants do domínio do GPEDocs (TENANT_DOMINIO_BASE) — os bancos do gpe2,
+ * cadastrados no mesmo landlord, nunca entram. Diferente do gpe2, aqui as migrations
+ * CRIAM o schema (não há template SQL), então banco vazio é ponto de partida válido.
  */
 class TenantMigrate extends Command
 {
     use TenantAware;
 
     protected $signature = 'tenant:migrate
-        {--tenant= : Domínio do tenant (ALL para todos)}
+        {--tenant= : Tenant: subdomínio, sub.domínio ou ID (ALL para todos)}
         {--fresh : Recria o banco do tenant (cuidado!)}
         {--rollback : Reverte a última leva de migrations}
         {--step= : Nº de levas a reverter (com --rollback)}
@@ -48,7 +50,7 @@ class TenantMigrate extends Command
             return self::FAILURE;
         }
 
-        $this->info('Identificando tenants somente do GPECLOUD... ');
+        $this->info("Identificando tenants somente do GPEDOCS (domínio '".config('multitenancy.dominio_base')."')... ");
 
         return $this->runForTenant(function () {
             // migrate:status é read-only e não aceita --force/--pretend.
@@ -59,19 +61,6 @@ class TenantMigrate extends Command
                 }
 
                 return $this->call('migrate:status', $opts);
-            }
-
-            // O schema LEGADO não está em migrations (ver CLAUDE.md): o banco do tenant nasce
-            // de `database/template/modelo.sql` e as migrations só ALTERAM o que já existe.
-            // Num banco vazio elas falham uma a uma com "relation X does not exist" (42P01),
-            // o que parece bug de migration e é, na verdade, banco sem schema. Avisa antes.
-            if (! $this->option('fresh') && ! $this->schemaBase()) {
-                $this->error('O banco deste tenant não tem o schema base (tabela `ct_empenho` ausente).');
-                $this->line('  As migrations só alteram o schema — elas NÃO o criam. Restaure o modelo primeiro:');
-                $this->line('    php artisan gpe:template-restore        # aplica database/template/modelo.sql');
-                $this->line('  Em banco já criado e com lixo do Laravel (cache/migrations), recrie-o vazio antes.');
-
-                return self::FAILURE;
             }
 
             $opts = [
@@ -98,19 +87,6 @@ class TenantMigrate extends Command
 
             return $code;
         });
-    }
-
-    /**
-     * O banco do tenant tem o schema base? `ct_empenho` é a tabela mais central do legado
-     * (empenho existe em todo ente) — sem ela, o banco não veio do template nem da conversão.
-     */
-    private function schemaBase(): bool
-    {
-        try {
-            return Schema::connection('tenant')->hasTable('ct_empenho');
-        } catch (\Throwable) {
-            return true;   // problema de conexão: deixa o migrate reportar o erro real
-        }
     }
 
     /**

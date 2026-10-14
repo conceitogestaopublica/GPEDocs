@@ -8,6 +8,7 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Card from '../../../Components/Card';
 import Button from '../../../Components/Button';
+import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
 
 function getSlaInfo(prazo) {
     if (!prazo) return { label: 'Sem prazo', color: 'bg-gray-100 text-gray-500', rowTint: '' };
@@ -27,6 +28,8 @@ function getSlaInfo(prazo) {
 }
 
 export default function Inbox({ tramitacoes }) {
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const lista = tramitacoes?.data || tramitacoes || [];
 
     const handleReceber = (id) => {
@@ -39,7 +42,7 @@ export default function Inbox({ tramitacoes }) {
         <AdminLayout>
             <Head title="Caixa de Entrada" />
 
-            <PageHeader title="Caixa de Entrada" subtitle="Processos aguardando sua acao">
+            <PageHeader title="Caixa de Entrada" subtitle="Processos aguardando sua ação">
                 <Button variant="secondary" href="/processos" icon="fas fa-arrow-left">
                     Voltar
                 </Button>
@@ -50,12 +53,12 @@ export default function Inbox({ tramitacoes }) {
                     <div className="py-12 text-center text-gray-400">
                         <i className="fas fa-inbox text-4xl mb-3 block" />
                         <p className="text-sm font-medium">Caixa de entrada vazia</p>
-                        <p className="text-xs mt-1">Nenhum processo aguardando sua acao</p>
+                        <p className="text-xs mt-1">Nenhum processo aguardando sua ação</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div ref={scrollRef} className="overflow-auto">
                         <table className="w-full text-sm">
-                            <thead>
+                            <thead className="sticky top-0 z-20 bg-gray-50">
                                 <tr className="border-b border-gray-200 bg-gray-50">
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Protocolo</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Assunto</th>
@@ -64,7 +67,7 @@ export default function Inbox({ tramitacoes }) {
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Recebido em</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Prazo</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">SLA</th>
-                                    <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Acoes</th>
+                                    <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Ações</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">

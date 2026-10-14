@@ -6,6 +6,7 @@ import { useState } from 'react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import PageHeader from '../../../../Components/PageHeader';
 import Card from '../../../../Components/Card';
+import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
 
 const STATUS_CORES = {
     aberta:         'bg-blue-100 text-blue-700',
@@ -16,6 +17,8 @@ const STATUS_CORES = {
 };
 
 export default function SolicitacoesIndex({ solicitacoes, servicos, statusList, contagens, filtros }) {
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const [busca, setBusca] = useState(filtros?.q || '');
     const [filtroStatus, setFiltroStatus] = useState(filtros?.status || '');
     const [filtroServico, setFiltroServico] = useState(filtros?.servico_id || '');
@@ -41,11 +44,11 @@ export default function SolicitacoesIndex({ solicitacoes, servicos, statusList, 
 
     return (
         <AdminLayout>
-            <Head title="Solicitacoes do Portal" />
+            <Head title="Solicitações do Portal" />
 
             <PageHeader
-                title="Solicitacoes do Portal Cidadao"
-                subtitle="Atendimento das solicitacoes feitas pelos cidadaos via Carta de Servicos"
+                title="Solicitações do Portal Cidadão"
+                subtitle="Atendimento das solicitações feitas pelos cidadãos via Carta de Serviços"
             />
 
             {/* Stats por status */}
@@ -69,7 +72,7 @@ export default function SolicitacoesIndex({ solicitacoes, servicos, statusList, 
                     <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                     <input
                         type="text" value={busca} onChange={(e) => setBusca(e.target.value)}
-                        placeholder="Buscar por codigo ou descricao..."
+                        placeholder="Buscar por código ou descrição..."
                         className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
                     />
                 </div>
@@ -80,7 +83,7 @@ export default function SolicitacoesIndex({ solicitacoes, servicos, statusList, 
                 </select>
                 <select value={filtroServico} onChange={(e) => setFiltroServico(e.target.value)}
                     className="md:col-span-3 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
-                    <option value="">Todos servicos</option>
+                    <option value="">Todos serviços</option>
                     {servicos.map(s => <option key={s.id} value={s.id}>{s.titulo}</option>)}
                 </select>
                 <div className="md:col-span-2 flex gap-2">
@@ -92,58 +95,60 @@ export default function SolicitacoesIndex({ solicitacoes, servicos, statusList, 
             </form>
 
             <Card padding={false}>
-                <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-                        <tr>
-                            <th className="px-4 py-3 text-left font-semibold">Codigo / Servico</th>
-                            <th className="px-4 py-3 text-left font-semibold">Cidadao</th>
-                            <th className="px-4 py-3 text-center font-semibold">Status</th>
-                            <th className="px-4 py-3 text-center font-semibold">Aberta em</th>
-                            <th className="px-4 py-3 text-center font-semibold w-24">Acao</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {(solicitacoes.data || []).map(sol => (
-                            <tr key={sol.id} className="hover:bg-gray-50">
-                                <td className="px-4 py-3">
-                                    <p className="text-[10px] font-mono text-gray-400 uppercase tracking-wider">{sol.codigo}</p>
-                                    <p className="font-semibold text-gray-800">{sol.servico?.titulo}</p>
-                                    <p className="text-xs text-gray-500 line-clamp-1 max-w-md">{sol.descricao}</p>
-                                </td>
-                                <td className="px-4 py-3">
-                                    <p className="text-sm font-medium text-gray-700">{sol.cidadao?.nome}</p>
-                                    <p className="text-xs text-gray-500">{sol.cidadao?.email}</p>
-                                    {sol.cidadao?.telefone && (
-                                        <p className="text-xs text-gray-500"><i className="fas fa-phone text-[9px] mr-1" />{sol.cidadao.telefone}</p>
-                                    )}
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-semibold ${STATUS_CORES[sol.status]}`}>
-                                        {statusList[sol.status]}
-                                    </span>
-                                    {sol.atendente && (
-                                        <p className="text-[10px] text-gray-400 mt-1">por {sol.atendente.name}</p>
-                                    )}
-                                </td>
-                                <td className="px-4 py-3 text-center text-xs text-gray-500">
-                                    {new Date(sol.created_at).toLocaleDateString('pt-BR')}
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                    <Link href={`/configuracoes/solicitacoes-portal/${sol.id}`}
-                                        className="inline-block px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100">
-                                        Atender
-                                    </Link>
-                                </td>
+                <div ref={scrollRef} className="overflow-auto">
+                    <table className="w-full text-sm">
+                        <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-xs">
+                            <tr>
+                                <th className="px-4 py-3 text-left font-semibold">Código / Serviço</th>
+                                <th className="px-4 py-3 text-left font-semibold">Cidadão</th>
+                                <th className="px-4 py-3 text-center font-semibold">Status</th>
+                                <th className="px-4 py-3 text-center font-semibold">Aberta em</th>
+                                <th className="px-4 py-3 text-center font-semibold w-24">Ação</th>
                             </tr>
-                        ))}
-                        {(solicitacoes.data || []).length === 0 && (
-                            <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400">
-                                <i className="fas fa-inbox text-3xl mb-2 block" />
-                                Nenhuma solicitacao com os filtros aplicados.
-                            </td></tr>
-                        )}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {(solicitacoes.data || []).map(sol => (
+                                <tr key={sol.id} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3">
+                                        <p className="text-[10px] font-mono text-gray-400 uppercase tracking-wider">{sol.codigo}</p>
+                                        <p className="font-semibold text-gray-800">{sol.servico?.titulo}</p>
+                                        <p className="text-xs text-gray-500 line-clamp-1 max-w-md">{sol.descricao}</p>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <p className="text-sm font-medium text-gray-700">{sol.cidadao?.nome}</p>
+                                        <p className="text-xs text-gray-500">{sol.cidadao?.email}</p>
+                                        {sol.cidadao?.telefone && (
+                                            <p className="text-xs text-gray-500"><i className="fas fa-phone text-[9px] mr-1" />{sol.cidadao.telefone}</p>
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                        <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-semibold ${STATUS_CORES[sol.status]}`}>
+                                            {statusList[sol.status]}
+                                        </span>
+                                        {sol.atendente && (
+                                            <p className="text-[10px] text-gray-400 mt-1">por {sol.atendente.name}</p>
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-3 text-center text-xs text-gray-500">
+                                        {new Date(sol.created_at).toLocaleDateString('pt-BR')}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                        <Link href={`/configuracoes/solicitacoes-portal/${sol.id}`}
+                                            className="inline-block px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100">
+                                            Atender
+                                        </Link>
+                                    </td>
+                                </tr>
+                            ))}
+                            {(solicitacoes.data || []).length === 0 && (
+                                <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                                    <i className="fas fa-inbox text-3xl mb-2 block" />
+                                    Nenhuma solicitação com os filtros aplicados.
+                                </td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </Card>
 
             {solicitacoes.last_page > 1 && (

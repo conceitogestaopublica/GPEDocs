@@ -8,8 +8,13 @@ import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
+import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
+import { useConfirm } from '../../../Components/ConfirmProvider';
 
 export default function CircularesIndex({ circulares, filters }) {
+    const confirmar = useConfirm();
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const data = circulares?.data || circulares || [];
     const tipo = filters?.tipo || 'recebidas';
     const [search, setSearch] = useState(filters?.search || '');
@@ -30,7 +35,7 @@ export default function CircularesIndex({ circulares, filters }) {
     };
 
     const destinoLabel = (circular) => {
-        if (circular.destino_tipo === 'todos') return 'Toda Organizacao';
+        if (circular.destino_tipo === 'todos') return 'Toda Organização';
         if (circular.destino_tipo === 'setores') {
             const setores = circular.destino_setores || [];
             return setores.length > 0 ? setores.join(', ') : 'Setores';
@@ -44,7 +49,7 @@ export default function CircularesIndex({ circulares, filters }) {
             <Head title="Circulares" />
             <PageHeader
                 title="Circulares Internas"
-                subtitle="Comunicacao interna via circulares"
+                subtitle="Comunicação interna via circulares"
             >
                 <Button icon="fas fa-plus" href="/circulares/create">Nova Circular</Button>
             </PageHeader>
@@ -87,7 +92,7 @@ export default function CircularesIndex({ circulares, filters }) {
                         <span className="text-sm text-gray-500 font-medium shrink-0">Filtrar Resultados:</span>
                         <div className="relative flex-1 max-w-sm">
                             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Buscar por assunto, numero..."
+                                placeholder="Buscar por assunto, número..."
                                 className="w-full pl-3 pr-8 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
                             <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600">
                                 <i className="fas fa-search text-xs" />
@@ -97,18 +102,18 @@ export default function CircularesIndex({ circulares, filters }) {
                 </div>
 
                 {/* Tabela */}
-                <div className="overflow-x-auto">
+                <div ref={scrollRef} className="overflow-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
+                        <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
                             <tr>
-                                <th className="px-4 py-3 text-left font-semibold">Numero</th>
+                                <th className="px-4 py-3 text-left font-semibold">Número</th>
                                 <th className="px-4 py-3 text-left font-semibold">Assunto</th>
                                 <th className="px-4 py-3 text-left font-semibold">
                                     {tipo === 'recebidas' ? 'Remetente' : 'Destino'}
                                 </th>
                                 <th className="px-4 py-3 text-left font-semibold">Data</th>
                                 <th className="px-4 py-3 text-left font-semibold">Leitura</th>
-                                <th className="px-4 py-3 text-center font-semibold w-32">Acoes</th>
+                                <th className="px-4 py-3 text-center font-semibold w-32">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -161,7 +166,7 @@ export default function CircularesIndex({ circulares, filters }) {
                                                 </span>
                                             ) : (
                                                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
-                                                    <i className="fas fa-envelope mr-0.5" />Nao lido
+                                                    <i className="fas fa-envelope mr-0.5" />Não lido
                                                 </span>
                                             )
                                         ) : (
@@ -174,8 +179,8 @@ export default function CircularesIndex({ circulares, filters }) {
                                             <ActionBtn icon="fas fa-eye" title="Ver"
                                                 onClick={() => router.visit(`/circulares/${circular.id}`)} />
                                             <ActionBtn icon="fas fa-archive" title="Arquivar"
-                                                onClick={() => {
-                                                    if (confirm('Arquivar esta circular?'))
+                                                onClick={async () => {
+                                                    if (await confirmar({ titulo: 'Arquivar esta circular?', rotuloConfirmar: 'Arquivar' }))
                                                         router.post(`/circulares/${circular.id}/arquivar`, {}, { preserveState: true, preserveScroll: true });
                                                 }} />
                                             <ActionBtn icon="fas fa-file-pdf" title="PDF"

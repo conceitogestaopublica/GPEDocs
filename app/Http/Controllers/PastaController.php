@@ -229,12 +229,12 @@ class PastaController extends Controller
             $hasDocumentos = Documento::where('pasta_id', $id)->whereNull('deleted_at')->exists();
 
             if ($hasChildren || $hasDocumentos) {
-                return redirect()->back()->with('error', 'Nao e possivel excluir pasta com subpastas ou documentos. Use a opcao Inativar.');
+                return redirect()->back()->with('error', 'Não é possível excluir pasta com subpastas ou documentos. Use a opção Inativar.');
             }
 
             $pasta->delete();
 
-            return redirect()->back()->with('success', 'Pasta excluida com sucesso.');
+            return redirect()->back()->with('success', 'Pasta excluída com sucesso.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Erro ao excluir pasta: ' . $e->getMessage());
         }
@@ -259,7 +259,15 @@ class PastaController extends Controller
     {
         try {
             $pasta = Pasta::findOrFail($id);
+
+            if ($pasta->parent_id && ! Pasta::whereKey($pasta->parent_id)->where('ativo', true)->exists()) {
+                return redirect()->back()->with('error', 'A pasta superior está inativa: reative-a primeiro.');
+            }
+
             $pasta->update(['ativo' => true]);
+
+            // Mesmo alcance da inativação: as subpastas inativadas junto voltam também.
+            Pasta::where('path', 'like', $pasta->path . '/%')->update(['ativo' => true]);
 
             return redirect()->back()->with('success', 'Pasta reativada com sucesso.');
         } catch (\Exception $e) {

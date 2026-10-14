@@ -20,7 +20,7 @@ export default function PortalCategoria({ ug, categoria, servicos, publicos }) {
 
             {/* Breadcrumb */}
             <nav className="text-xs text-gray-500 mb-4">
-                <Link href="/" className="hover:text-blue-600">Inicio</Link>
+                <Link href="/" className="hover:text-blue-600">Início</Link>
                 <i className="fas fa-chevron-right mx-2 text-[10px]" />
                 <span className="text-gray-700 font-medium">{categoria.nome}</span>
             </nav>
@@ -34,7 +34,7 @@ export default function PortalCategoria({ ug, categoria, servicos, publicos }) {
                     <div>
                         <h1 className="text-2xl font-bold text-gray-800 mb-1">{categoria.nome}</h1>
                         <p className="text-sm text-gray-600">{categoria.descricao}</p>
-                        <p className="text-xs text-gray-400 mt-2">{servicos.length} servico(s) disponivel(eis)</p>
+                        <p className="text-xs text-gray-400 mt-2">{servicos.length} serviço(s) disponível(eis)</p>
                     </div>
                 </div>
             </div>
@@ -65,7 +65,7 @@ export default function PortalCategoria({ ug, categoria, servicos, publicos }) {
                 {servicos.length === 0 && (
                     <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
                         <i className="fas fa-folder-open text-4xl text-gray-300 mb-3" />
-                        <p className="text-gray-500">Nenhum servico publicado nesta categoria.</p>
+                        <p className="text-gray-500">Nenhum serviço publicado nesta categoria.</p>
                     </div>
                 )}
             </div>

@@ -4,15 +4,24 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Crypt;
 
 /**
  * Tenant — registro de um município/entidade no banco landlord.
- * Cada tenant aponta para um banco MariaDB próprio.
+ *
+ * O landlord (tabela `tenants`) é do gpe2 e é compartilhado: o cadastro é feito
+ * no painel do gpe2 e este projeto só LÊ. O que separa os tenants do GPEDocs dos
+ * do gpe2 é a coluna `domain`:
+ *   prod: domain = domínio base do GPEDocs (ex: gpedocs.com.br)
+ *   dev:  domain = ':<porta>' em que o GPEDocs é servido (ex: ':8090')
+ *
+ * Por isso o model tem o escopo global `gpedocs`: TODA consulta deste projeto (comandos,
+ * jobs, SSO, ResolveTenant) só enxerga tenants com domain = TENANT_DOMINIO_BASE. Igualdade
+ * exata, não LIKE — ':8090' casaria com ':80901'.
  */
 class Tenant extends Model
 {
@@ -24,21 +33,12 @@ class Tenant extends Model
 
     protected $guarded = ['id'];
 
-    /**
-     * A MATRIZ das tabelas universais — o banco modelo de onde as universais são
-     * publicadas para os municípios.
-     *
-     * É dado, não convenção: quem publica pergunta ao landlord em vez de receber o nome
-     * do banco por parâmetro. Um `--source` digitado à mão publicaria o cadastro de um
-     * município como se fosse norma, e o erro só apareceria semanas depois como "o plano
-     * de contas mudou sozinho".
-     *
-     * SÓ UMA pode existir — garantido por índice único parcial no banco
-     * (`uq_tenants_uma_matriz`), não por validação de aplicação.
-     */
-    public static function matriz(): ?self
+    /** Só tenants do GPEDocs — o landlord é compartilhado com o gpe2. */
+    protected static function booted(): void
     {
-        return static::where('is_matriz', true)->first();
+        static::addGlobalScope('gpedocs', function (Builder $q) {
+            $q->where($q->qualifyColumn('domain'), (string) config('multitenancy.dominio_base'));
+        });
     }
 
     protected $casts = [
@@ -47,14 +47,6 @@ class Tenant extends Model
         'contratado_em' => 'date',
         'encerrado_em' => 'date',
     ];
-
-    //    protected static function boot()
-    //    {
-    //        parent::boot();
-    //        static::addGlobalScope('maat_gpecloud', function ($builder) {
-    //            $builder->whereRaw("domain = '". Config::get('multitenancy.tenant_default_domain') ."'");
-    //        });
-    //    }
 
     /**
      * Senha do banco do tenant — guardada em texto plano (decisão do operador).
@@ -97,7 +89,7 @@ class Tenant extends Model
      *   $tenant->url()                → https://paraguacu.gpedocs.com.br
      *   $tenant->url('/sso/landlord') → https://paraguacu.gpedocs.com.br/sso/landlord
      *
-     * Em dev a coluna `domain` guarda só a porta (':8080') e o tenant é servido
+     * Em dev a coluna `domain` guarda só a porta (':8090') e o tenant é servido
      * em localhost — o ResolveTenant casa por subdomain='localhost', não existe
      * host `paraguacu`. Daí o ramo separado.
      */
@@ -113,16 +105,5 @@ class Tenant extends Model
         }
 
         return $path === '' ? $url : rtrim($url, '/').'/'.ltrim($path, '/');
-    }
-
-    /**
-     * O landlord é compartilhado com o GPE2: o GPEDocs só enxerga tenants PostgreSQL.
-     */
-    protected static function boot()
-    {
-        parent::boot();
-        static::addGlobalScope('only_pgsql', function ($builder) {
-            $builder->whereRaw("driver = 'pgsql'");
-        });
     }
 }

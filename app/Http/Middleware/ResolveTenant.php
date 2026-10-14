@@ -7,25 +7,29 @@ namespace App\Http\Middleware;
 use App\Models\Tenant;
 use App\Tenant\TenantContext;
 use Closure;
-use Illuminate\Auth\SessionGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Extrai o subdomain da requisição e ativa o tenant correspondente.
+ * Extrai o subdomain da requisição e ativa o tenant correspondente — mesmo
+ * método do gpe2: o tenant é a linha de `tenants` (landlord) que casa com
+ * (domain, subdomain) do host.
  *
- *   taquaracu.gpe.com.br  →  procura tenant onde subdomain='taquaracu'
- *   www.gpe.com.br        →  rota landlord (super-admin) — não seta tenant
- *   gpe.com.br            →  idem (apex; exige TENANT_DOMINIO_BASE configurado,
- *                            senão 'gpe' é lido como subdomain de tenant)
- *   localhost / 127.0.0.1 →  host do painel landlord em dev
+ *   paraguacu.gpedocs.com.br  →  domain='gpedocs.com.br', subdomain='paraguacu'
+ *   www / api / apex          →  não seta tenant
+ *   localhost:8090 / IP       →  dev: domain=':8090', subdomain='localhost'
+ *
+ * O painel landlord (login de super-admin, CRUD de tenants) NÃO existe neste
+ * projeto — vive só no gpe2. Tudo que cair em /landlord/* (ou tenant não
+ * encontrado) é mandado para lá via LANDLORD_URL.
  */
 class ResolveTenant
 {
     /** Subdomains "reservados" que não correspondem a tenants. */
-    private const SUBDOMAINS_LANDLORD = ['www', 'admin', 'api'];
+    private const SUBDOMAINS_RESERVADOS = ['www', 'admin', 'api'];
 
+    /** URL absoluta do painel landlord (gpe2) — usada fora daqui para links "voltar ao painel". */
     public static $LANDLORD_URL = '';
 
     public static $LANDLORD_PORT = '';
@@ -35,116 +39,56 @@ class ResolveTenant
         $host = $request->getHost();
 
         self::$LANDLORD_PORT = $request->getPort();
+        self::$LANDLORD_URL = $this->landlordUrl($request);
 
         // Única definição de "é ambiente local" — cobre localhost e IP cru.
         $isLocal = $host === 'localhost' || filter_var($host, FILTER_VALIDATE_IP);
 
-        // URL ABSOLUTA do painel landlord — é lida fora daqui para montar o link
-        // "voltar ao painel" na UI do tenant, então precisa de esquema e apontar
-        // para o painel canônico, não para o host corrente.
-        self::$LANDLORD_URL = $isLocal
-            ? $request->getSchemeAndHttpHost()   // dev: painel no mesmo host (http://localhost:8080)
-            : $this->landlordUrl($request);
-
         $subdomain = $isLocal ? 'localhost' : $this->extractSubdomain($host);
 
-        // Coluna `domain` do tenant: em dev guarda a porta (':8080'); em produção,
+        // Coluna `domain` do tenant: em dev guarda a porta (':8090'); em produção,
         // o host sem o subdomain (paraguacu.gpedocs.com.br → gpedocs.com.br).
         $dominio = $isLocal
             ? ':'.self::$LANDLORD_PORT
             : ($subdomain === null ? '' : substr($host, strlen($subdomain) + 1));
 
-        // Host que serve o painel landlord: localhost/IP (dev) ou subdomínio 'admin'.
-        $isAdminHost = $isLocal || $subdomain === 'admin';
-
-        // ── Rotas do painel landlord (prefixo /landlord) ──────────────────────
-        // Só são servidas no host admin. Sob host de tenant (ou www/api) o painel
-        // NÃO existe — senão o login/CRUD do super-admin ficaria acessível pelo
-        // subdomínio de QUALQUER município. Redireciona para o host admin canônico,
-        // preservando path+query. (NÃO casa 'sso/landlord' — consumo SSO do lado
-        // tenant, que precisa do tenant.)
-        if ($request->is('landlord', 'landlord/*')) {
-            if ($isAdminHost) {
-                // Cookie de sessão próprio do painel. Em produção landlord e tenant
-                // vivem em hosts distintos, e o cookie host-only já os separa; em dev
-                // dividem localhost:8080. Sem separar, o `login_web_*` do tenant fica
-                // visível aqui e o handler de sessão do banco — que grava
-                // sessions.user_id — tenta materializar `usuario` na conexão landlord.
-                // Este middleware roda antes do StartSession (prepend no grupo web),
-                // então trocar a config aqui ainda tem efeito.
-                config(['session.cookie' => config('session.cookie').'_landlord']);
-
-                // E a sessão do painel vai SEMPRE para o banco do landlord. Sem isto ela
-                // segue a conexão default do processo, que aqui ninguém troca (o painel não
-                // ativa tenant, de propósito) — então ela herda o que estiver no
-                // `DB_CONNECTION`. Em produção isso ainda era o MariaDB do legado, e o painel
-                // morria com "getaddrinfo for mariadb10 failed ... select * from sessions",
-                // enquanto os municípios funcionavam: neles o TenantContext troca a default
-                // antes do StartSession. O painel é do landlord; a sessão dele também.
-                config(['session.connection' => 'landlord']);
-
-                // O cookie "lembrar-me" do tenant também chega aqui e o SessionGuard
-                // cai nele quando a sessão não tem usuário — consultando `usuario` na
-                // conexão landlord, onde a tabela não existe. Some com ele SÓ nesta
-                // request (o cookie do browser fica intacto, o tenant segue logado).
-                $request->cookies->remove(
-                    'remember_'.config('auth.defaults.guard').'_'.sha1(SessionGuard::class)
-                );
-
-                return $next($request);
-            }
-
-            $landlordUrl = $this->landlordUrl($request);
-
-            // Sem URL canônica não há destino seguro: mandar para o próprio host
-            // cairia neste mesmo branch de novo, em loop.
-            if ($landlordUrl === '') {
-                abort(404);
-            }
-
-            return redirect()->away($landlordUrl.$request->getRequestUri());
+        // ── Painel landlord: só existe no gpe2 ────────────────────────────────
+        // (NÃO casa 'sso/landlord' — consumo SSO do lado tenant, que precisa do tenant.)
+        if ($request->is('landlord', 'landlord/*') || (! $isLocal && $subdomain === 'admin')) {
+            return $this->paraLandlord('/landlord/tenants');
         }
 
-        // ── Demais paths (área de tenant) ─────────────────────────────────────
-        if (! $isLocal) {
-            // Host do painel admin fora de /landlord/* → manda para o CRUD de tenants.
-            if ($subdomain === 'admin') {
-                return redirect('/landlord/tenants');
-            }
-            // www / api / apex → não ativa tenant (landing/API). 'admin' já saiu acima.
-            if (! $subdomain || in_array($subdomain, self::SUBDOMAINS_LANDLORD, true)) {
-                return $next($request);
-            }
+        // www / api / apex → não ativa tenant (landing/API).
+        if (! $isLocal && (! $subdomain || in_array($subdomain, self::SUBDOMAINS_RESERVADOS, true))) {
+            return $next($request);
         }
 
         $tenant = $this->resolveTenant($dominio, $subdomain);
 
         if (! $tenant) {
-            // Tenant não existe ou está inativo → login do painel landlord.
-            $msg = "Nenhum tenant encontrado para o endereço '{$subdomain}'.";
-
-            // Já estamos no host do painel (dev): relativo basta e preserva a sessão,
-            // então a mensagem de erro sobrevive ao redirect.
-            if ($isAdminHost) {
-                return redirect()->route('landlord.login')->withErrors([$msg]);
-            }
-
-            $landlordUrl = $this->landlordUrl($request);
-
-            // Sem URL de landlord configurada não há para onde redirecionar com
-            // segurança: relativo voltaria para este subdomínio inválido e o branch
-            // de /landlord/* acima devolveria para cá → loop. Melhor 404 explícito.
-            if ($landlordUrl === '') {
-                abort(404, $msg);
-            }
-
-            // Cross-domain: a sessão é host-only, withErrors não atravessa.
-            return redirect()->away($landlordUrl.'/landlord/login');
+            // Tenant não existe ou está inativo → login do painel landlord (gpe2).
+            return $this->paraLandlord(
+                '/landlord/login',
+                "Nenhum tenant encontrado para o endereço '{$subdomain}{$dominio}'."
+            );
         }
 
         app(TenantContext::class)->set($tenant);
 
         return $next($request);
+    }
+
+    /**
+     * Redireciona para o painel do gpe2. Sem LANDLORD_URL não há destino seguro
+     * (relativo cairia neste mesmo host, em loop) → 404 explícito.
+     */
+    private function paraLandlord(string $path, ?string $msg = null): Response
+    {
+        if (self::$LANDLORD_URL === '') {
+            abort(404, $msg ?? '');
+        }
+
+        return redirect()->away(self::$LANDLORD_URL.$path);
     }
 
     /**
@@ -172,14 +116,14 @@ class ResolveTenant
     /**
      * Primeiro rótulo do host, ou null quando não há subdomain.
      *
-     * O apex de TLD composto (gpe.com.br) tem 3 rótulos e é indistinguível de
+     * O apex de TLD composto (gpedocs.com.br) tem 3 rótulos e é indistinguível de
      * sub.dominio.tld pela contagem — só TENANT_DOMINIO_BASE resolve.
      */
     private function extractSubdomain(string $host): ?string
     {
         $base = (string) config('multitenancy.dominio_base');
 
-        // O default de dev é ':8080' (marcador de porta), não um domínio.
+        // O default de dev é ':8090' (marcador de porta), não um domínio.
         if (str_contains($base, '.') && $host === $base) {
             return null;
         }

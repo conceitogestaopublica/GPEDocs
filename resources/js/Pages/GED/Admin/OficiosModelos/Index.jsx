@@ -10,15 +10,18 @@ import Button from '../../../../Components/Button';
 import Card from '../../../../Components/Card';
 import Modal from '../../../../Components/Modal';
 import RichEditor from '../../../../Components/RichEditor';
+import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
 
 export default function ModelosOficio({ modelos = [] }) {
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const [editando, setEditando] = useState(null); // null | 'novo' | objeto modelo
     const [confirmExcluir, setConfirmExcluir] = useState(null);
 
     return (
         <AdminLayout>
-            <Head title="Modelos de Oficio" />
-            <PageHeader title="Modelos de Oficio" subtitle="Templates reutilizaveis ao criar novos oficios">
+            <Head title="Modelos de Ofício" />
+            <PageHeader title="Modelos de Ofício" subtitle="Templates reutilizáveis ao criar novos ofícios">
                 <Button icon="fas fa-plus" onClick={() => setEditando('novo')}>Novo Modelo</Button>
             </PageHeader>
 
@@ -27,47 +30,49 @@ export default function ModelosOficio({ modelos = [] }) {
                     <div className="py-12 text-center text-gray-400">
                         <i className="fas fa-file-alt text-3xl mb-2 block" />
                         <p>Nenhum modelo cadastrado</p>
-                        <p className="text-xs mt-1">Crie modelos para agilizar a redacao de oficios recorrentes</p>
+                        <p className="text-xs mt-1">Crie modelos para agilizar a redação de ofícios recorrentes</p>
                     </div>
                 ) : (
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
-                            <tr>
-                                <th className="px-4 py-3 text-left">Nome</th>
-                                <th className="px-4 py-3 text-left">Categoria</th>
-                                <th className="px-4 py-3 text-left">Descricao</th>
-                                <th className="px-4 py-3 text-left">Status</th>
-                                <th className="px-4 py-3 text-center w-32">Acoes</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {modelos.map(m => (
-                                <tr key={m.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3 font-medium text-gray-800">{m.nome}</td>
-                                    <td className="px-4 py-3 text-xs text-gray-600">{m.categoria || '-'}</td>
-                                    <td className="px-4 py-3 text-xs text-gray-500 max-w-md truncate">{m.descricao || '-'}</td>
-                                    <td className="px-4 py-3">
-                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium
-                                            ${m.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                            {m.ativo ? 'Ativo' : 'Inativo'}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                        <div className="flex justify-center gap-2">
-                                            <button onClick={() => setEditando(m)}
-                                                className="text-blue-600 hover:text-blue-800 text-xs">
-                                                <i className="fas fa-edit" /> Editar
-                                            </button>
-                                            <button onClick={() => setConfirmExcluir(m)}
-                                                className="text-red-500 hover:text-red-700 text-xs">
-                                                <i className="fas fa-trash" />
-                                            </button>
-                                        </div>
-                                    </td>
+                    <div ref={scrollRef} className="overflow-auto">
+                        <table className="w-full text-sm">
+                            <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
+                                <tr>
+                                    <th className="px-4 py-3 text-left">Nome</th>
+                                    <th className="px-4 py-3 text-left">Categoria</th>
+                                    <th className="px-4 py-3 text-left">Descrição</th>
+                                    <th className="px-4 py-3 text-left">Status</th>
+                                    <th className="px-4 py-3 text-center w-32">Ações</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {modelos.map(m => (
+                                    <tr key={m.id} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 font-medium text-gray-800">{m.nome}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{m.categoria || '-'}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-500 max-w-md truncate">{m.descricao || '-'}</td>
+                                        <td className="px-4 py-3">
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium
+                                                ${m.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                {m.ativo ? 'Ativo' : 'Inativo'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <div className="flex justify-center gap-2">
+                                                <button onClick={() => setEditando(m)}
+                                                    className="text-blue-600 hover:text-blue-800 text-xs">
+                                                    <i className="fas fa-edit" /> Editar
+                                                </button>
+                                                <button onClick={() => setConfirmExcluir(m)}
+                                                    className="text-red-500 hover:text-red-700 text-xs">
+                                                    <i className="fas fa-trash" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </Card>
 
@@ -136,31 +141,31 @@ function ModeloModal({ modelo, onClose }) {
     };
 
     return (
-        <Modal show onClose={onClose} title={isEdit ? `Editar: ${modelo.nome}` : 'Novo Modelo de Oficio'} maxWidth="4xl">
+        <Modal show onClose={onClose} title={isEdit ? `Editar: ${modelo.nome}` : 'Novo Modelo de Ofício'} maxWidth="4xl">
             <form onSubmit={submit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Nome *</label>
                         <input type="text" value={data.nome} onChange={e => setData('nome', e.target.value)}
-                            className="ds-input" placeholder="Ex: Encaminhamento Padrao" />
+                            className="ds-input" placeholder="Ex: Encaminhamento Padrão" />
                         {errors.nome && <p className="text-xs text-red-600 mt-1">{errors.nome}</p>}
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Categoria</label>
                         <input type="text" value={data.categoria} onChange={e => setData('categoria', e.target.value)}
-                            className="ds-input" placeholder="Ex: Comunicacao, Solicitacao" />
+                            className="ds-input" placeholder="Ex: Comunicação, Solicitação" />
                     </div>
                 </div>
 
                 <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Descricao (uso interno)</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Descrição (uso interno)</label>
                     <input type="text" value={data.descricao} onChange={e => setData('descricao', e.target.value)}
                         className="ds-input" placeholder="Para que serve esse modelo?" />
                 </div>
 
                 <div>
                     <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
-                        <label className="text-xs font-medium text-gray-700">Conteudo *</label>
+                        <label className="text-xs font-medium text-gray-700">Conteúdo *</label>
                         <div className="flex items-center gap-2">
                             <div className="flex rounded-md border border-gray-200 overflow-hidden text-[10px]">
                                 <button type="button" onClick={() => setModoEdicao('visual')}
@@ -196,20 +201,20 @@ function ModeloModal({ modelo, onClose }) {
                     ) : (
                         <textarea value={data.conteudo} onChange={e => setData('conteudo', e.target.value)}
                             rows={18} className="ds-input font-mono text-xs"
-                            placeholder="HTML do modelo. Use {{destinatario}}, {{cargo}}, {{orgao}}, {{assunto}} para campos dinamicos." />
+                            placeholder="HTML do modelo. Use {{destinatário}}, {{cargo}}, {{órgão}}, {{assunto}} para campos dinâmicos." />
                     )}
 
                     {errors.conteudo && <p className="text-xs text-red-600 mt-1">{errors.conteudo}</p>}
                     <p className="text-[10px] text-gray-500 mt-1">
-                        Variaveis disponiveis: <code>{'{{destinatario}}'}</code> <code>{'{{cargo}}'}</code>{' '}
-                        <code>{'{{orgao}}'}</code> <code>{'{{assunto}}'}</code> <code>{'{{data}}'}</code>
+                        Variáveis disponíveis: <code>{'{{destinatário}}'}</code> <code>{'{{cargo}}'}</code>{' '}
+                        <code>{'{{órgão}}'}</code> <code>{'{{assunto}}'}</code> <code>{'{{data}}'}</code>
                     </p>
                 </div>
 
                 <label className="flex items-center gap-2 text-sm text-gray-700">
                     <input type="checkbox" checked={data.ativo} onChange={e => setData('ativo', e.target.checked)}
                         className="rounded border-gray-300 text-blue-600" />
-                    Ativo (disponivel para uso na criacao de oficios)
+                    Ativo (disponível para uso na criação de ofícios)
                 </label>
 
                 <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">

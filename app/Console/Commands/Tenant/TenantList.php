@@ -10,7 +10,7 @@ use Illuminate\Console\Command;
 class TenantList extends Command
 {
     protected $signature = 'tenant:list {--all : Inclui inativos}';
-    protected $description = 'Lista tenants cadastrados no landlord';
+    protected $description = 'Lista os tenants do GPEDocs cadastrados no landlord';
 
     public function handle(): int
     {
@@ -20,7 +20,7 @@ class TenantList extends Command
         $tenants = $q->orderBy('domain')->orderBy('subdomain')->get();
 
         if ($tenants->isEmpty()) {
-            $this->warn('Nenhum tenant cadastrado.');
+            $this->warn("Nenhum tenant do GPEDocs (domínio '".config('multitenancy.dominio_base')."') cadastrado.");
             return self::SUCCESS;
         }
 

@@ -64,6 +64,7 @@ class AssinaturaIcpService
         $cadeia   = $material['extracerts'];
 
         $meta = $this->certificadoService->lerMetadados($certPem);
+        $meta['url_verificacao'] = $razao['url_verificacao'] ?? null;
 
         if (! $this->certificadoService->ehIcpBrasil($certPem)) {
             throw new RuntimeException(
@@ -88,7 +89,7 @@ class AssinaturaIcpService
         // Persiste o resultado
         $disk = Storage::disk('documentos');
         $nomeArquivo = sprintf(
-            'assinaturas/icp/%s_%s.pdf',
+            \App\Tenant\TenantStorage::pasta('assinaturas/icp') . '/%s_%s.pdf',
             date('Ymd_His'),
             substr($meta['thumbprint_sha256'], 0, 12),
         );
@@ -382,7 +383,7 @@ class AssinaturaIcpService
         $pdf->SetFont('helvetica', 'I', 5.5);
         $pdf->SetTextColor(140, 140, 140);
         $pdf->SetXY($x, $y + 10.5);
-        $pdf->Cell($largura, 2.5, 'Validar em ' . rtrim((string) config('app.url'), '/') . '/validar-assinatura', 0, 1, 'L');
+        $pdf->Cell($largura, 2.5, 'Validar em ' . url('/validar-assinatura'), 0, 1, 'L');
     }
 
     /**
@@ -395,7 +396,7 @@ class AssinaturaIcpService
         $pageWidth  = $pdf->getPageWidth();
         $pageHeight = $pdf->getPageHeight();
 
-        $appUrl = rtrim((string) config('app.url'), '/');
+        $appUrl = rtrim(url('/'), '/');
         $hostShort = preg_replace('#^https?://#', '', $appUrl);
         $plural = $totalSignatarios === 1 ? 'pessoa' : 'pessoas';
         $texto  = sprintf(
@@ -592,9 +593,9 @@ class AssinaturaIcpService
         $pdf->Ln(3);
 
         // QR Code para validacao online (canto inferior direito)
-        $appUrl   = rtrim((string) config('app.url'), '/');
-        $hashDoc  = $meta['hash_documento'] ?? null;
-        $urlValid = $appUrl . '/validar-assinatura' . ($hashDoc ? '?hash=' . substr($hashDoc, 0, 16) : '');
+        // Antes apontava para /validar-assinatura?hash=..., que ignora o parâmetro e cai
+        // na tela genérica de envio de arquivo. Agora: verificação do próprio documento.
+        $urlValid = $meta['url_verificacao'] ?? url('/validar-assinatura');
 
         $qrY = 220;
         $pdf->write2DBarcode($urlValid, 'QRCODE,M', 150, $qrY, 45, 45, [
@@ -614,11 +615,11 @@ class AssinaturaIcpService
         $pdf->SetFont('helvetica', '', 8);
         $pdf->SetTextColor(...$cinzaEsc);
         $pdf->MultiCell(130, 4.2,
-            "Aponte a camera do celular para o QR Code ao lado para acessar:\n" .
-            "- Detalhamento completo de cada certificado\n" .
-            "- Verificacao em tempo real da integridade\n" .
-            "- Cadeia de certificacao ICP-Brasil\n" .
-            "- Status de revogacao\n\n" .
+            "Aponte a camera do celular para o QR Code ao lado para conferir, na pagina publica\n" .
+            "do documento, a autenticidade, a versao vigente, o resumo criptografico (hash)\n" .
+            "e as assinaturas registradas.\n\n" .
+            "Para verificar a integridade criptografica deste arquivo, envie-o em:\n" .
+            url('/validar-assinatura') . "\n\n" .
             "Ou acesse: " . $urlValid,
             0, 'L');
 

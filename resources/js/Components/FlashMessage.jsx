@@ -28,11 +28,12 @@ export default function FlashMessage({ type = 'info', message }) {
     if (!visible) return null;
 
     return (
-        <div className={`flex items-start gap-3 p-4 rounded-lg border ${style.bg} mb-4 animate-fade-in`}>
+        <div role="status" className={`flex items-start gap-3 p-4 rounded-xl border ${style.bg} mb-4 animate-fadeIn`}>
             <i className={`${style.icon} mt-0.5`} />
             <span className="flex-1 text-sm">{message}</span>
-            <button onClick={() => setVisible(false)} className="opacity-50 hover:opacity-100">
-                <i className="fas fa-times text-xs" />
+            <button type="button" onClick={() => setVisible(false)} title="Fechar" aria-label="Fechar"
+                className="w-7 h-7 -mt-1 -mr-1 rounded-md flex items-center justify-center opacity-70 hover:opacity-100 hover:bg-black/5">
+                <i className="fas fa-times text-sm" />
             </button>
         </div>
     );

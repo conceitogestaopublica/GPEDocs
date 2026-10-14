@@ -27,7 +27,7 @@ export default function UgsIndex({ ugs }) {
     return (
         <AdminLayout>
             <Head title="Unidades Gestoras" />
-            <PageHeader title="Unidades Gestoras" subtitle="Cadastro de UGs com configuracao de organograma proprio">
+            <PageHeader title="Unidades Gestoras" subtitle="Cadastro de UGs com configuração de organograma próprio">
                 <Link href="/configuracoes/ugs/create"
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors">
                     <i className="fas fa-plus" />
@@ -39,7 +39,7 @@ export default function UgsIndex({ ugs }) {
                 <div className="relative flex-1">
                     <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                     <input type="text" value={busca} onChange={(e) => setBusca(e.target.value)}
-                        placeholder="Filtrar por codigo, nome ou CNPJ..."
+                        placeholder="Filtrar por código, nome ou CNPJ..."
                         className="ds-input pl-9" />
                 </div>
                 <span className="text-xs text-gray-400">{ugs.length} UG(s) cadastrada(s)</span>
@@ -50,7 +50,7 @@ export default function UgsIndex({ ugs }) {
                     <div className="py-12 text-center text-gray-400">
                         <i className="fas fa-building text-4xl mb-3 block" />
                         <p className="text-sm">Nenhuma UG cadastrada</p>
-                        <p className="text-xs mt-1">Clique em "Nova UG" para comecar.</p>
+                        <p className="text-xs mt-1">Clique em "Nova UG" para começar.</p>
                     </div>
                 </Card>
             ) : (
@@ -101,9 +101,9 @@ function UgCard({ ug }) {
             <div className="space-y-1 text-[11px] text-gray-600 mb-3">
                 {ug.cnpj && <Linha label="CNPJ" valor={ug.cnpj} />}
                 {ug.cidade && <Linha label="Cidade" valor={`${ug.cidade}${ug.uf ? '/' + ug.uf : ''}`} />}
-                <Linha label="Niveis" valor={`${ug.nivel_1_label} > ${ug.nivel_2_label} > ${ug.nivel_3_label}`} />
+                <Linha label="Níveis" valor={`${ug.nivel_1_label} > ${ug.nivel_2_label} > ${ug.nivel_3_label}`} />
                 <Linha label="Organograma" valor={`${ug.organograma_count} unidade(s)`} />
-                <Linha label="Usuarios" valor={`${ug.usuarios_count} vinculado(s)`} />
+                <Linha label="Usuários" valor={`${ug.usuarios_count} vinculado(s)`} />
             </div>
 
             <div className="flex justify-end gap-1 pt-2 border-t border-gray-100">

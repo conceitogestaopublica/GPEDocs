@@ -64,13 +64,17 @@ return [
             ]) : [],
         ],
 
+        // Origem dos cadastros (gestoras, organograma, usuários). Mesmo modelo de tabelas no
+        // GPD legado (MariaDB) e no gpe2 (PostgreSQL, que converteu o legado):
+        // GPE_LEGADO_DRIVER=pgsql + GPE_LEGADO_PORT=5433 lê direto do banco do gpe2.
         'gpe_legado' => [
-            'driver'    => 'mariadb',
+            'driver'    => env('GPE_LEGADO_DRIVER', 'mariadb'),
             'host'      => env('GPE_LEGADO_HOST', '127.0.0.1'),
             'database'  => env('GPE_LEGADO_DATABASE', 'gpdparaguacu'),
             'username'  => env('GPE_LEGADO_USERNAME', 'root'),
             'password'  => env('GPE_LEGADO_PASSWORD', ''),
-            'port'      => '3306',
+            'port'      => env('GPE_LEGADO_PORT', '3306'),
+            'search_path' => 'public',
             'charset'   => 'utf8',
             'collation' => 'utf8_unicode_ci',
             'prefix'    => '',
@@ -112,7 +116,6 @@ return [
             'prefix' => '',
 //            'prefix_indexes' => true,
             'search_path' => 'public',
-//            'scheme' => env('DB_SCHEMA_PGSQL', 'public'),
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
@@ -152,26 +155,25 @@ return [
         |----------------------------------------------------------------------
         | Multi-tenant: Landlord
         |----------------------------------------------------------------------
-        | Banco central que catalogá os tenants (municípios). Não armazena
-        | nenhum dado operacional, apenas o registro de cada banco do tenant
-        | (domain, credenciais, status) e sessões compartilhadas se necessário.
+        | Banco central que cataloga os tenants (municípios). É o landlord do
+        | gpe2 (PostgreSQL, container postgres-gpe), compartilhado: o schema e o
+        | cadastro são do gpe2 — aqui só se lê `tenants`/SSO e se usam as
+        | tabelas de fila gpedocs_* (ver landlord:migrate).
         */
 
         'landlord' => [
-            'driver'    => 'mariadb',
+            'driver'    => 'pgsql',
             'host'      => env('LANDLORD_DB_HOST', env('DB_HOST', '127.0.0.1')),
-            'port'      => env('LANDLORD_DB_PORT', env('DB_PORT', '3306')),
-            'database'  => env('LANDLORD_DB_DATABASE', 'gpe2landlord'),
+            'port'      => env('LANDLORD_DB_PORT', env('DB_PORT', '5432')),
+            'database'  => env('LANDLORD_DB_DATABASE', 'landlord'),
             'username'  => env('LANDLORD_DB_USERNAME', env('DB_USERNAME', 'root')),
             'password'  => env('LANDLORD_DB_PASSWORD', env('DB_PASSWORD', '')),
-            'charset'   => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
+            'charset'   => 'utf8',
             'prefix'    => '',
-            'strict'    => false,
-            'engine'    => null,
+            'prefix_indexes' => true,
+            'search_path' => 'public',
         ],
 
-    ],
         /*
         |----------------------------------------------------------------------
         | Multi-tenant: Tenant (placeholder)
@@ -197,6 +199,8 @@ return [
                 'strict'    => false,
                 'engine'    => null,
             ],
+
+    ],
 
     /*
     |--------------------------------------------------------------------------

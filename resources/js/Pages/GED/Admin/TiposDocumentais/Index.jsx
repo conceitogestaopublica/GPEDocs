@@ -8,15 +8,18 @@ import PageHeader from '../../../../Components/PageHeader';
 import Button from '../../../../Components/Button';
 import Modal from '../../../../Components/Modal';
 import Card from '../../../../Components/Card';
+import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
 
 const TIPOS_CAMPO = [
     { value: 'text', label: 'Texto' },
-    { value: 'number', label: 'Numero' },
+    { value: 'number', label: 'Número' },
     { value: 'date', label: 'Data' },
-    { value: 'select', label: 'Lista de opcoes' },
+    { value: 'select', label: 'Lista de opções' },
 ];
 
 export default function TiposDocumentais({ tipos }) {
+    // Listagem rola só por dentro — a página nunca (padrão gpe2).
+    const scrollRef = useFillViewportHeight();
     const [showForm, setShowForm] = useState(false);
     const [editTipo, setEditTipo] = useState(null);
     const [deleteTipo, setDeleteTipo] = useState(null);
@@ -35,66 +38,68 @@ export default function TiposDocumentais({ tipos }) {
             </PageHeader>
 
             <Card padding={false}>
-                <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-                        <tr>
-                            <th className="px-4 py-3 text-left font-semibold">Nome</th>
-                            <th className="px-4 py-3 text-left font-semibold">Descricao</th>
-                            <th className="px-4 py-3 text-center font-semibold">Campos</th>
-                            <th className="px-4 py-3 text-center font-semibold">Documentos</th>
-                            <th className="px-4 py-3 text-center font-semibold">Status</th>
-                            <th className="px-4 py-3 text-center font-semibold w-32">Acoes</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {(tipos || []).map(tipo => (
-                            <tr key={tipo.id} className={`hover:bg-gray-50 ${!tipo.ativo ? 'opacity-50' : ''}`}>
-                                <td className="px-4 py-3">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center shrink-0">
-                                            <i className="fas fa-file-signature text-xs text-violet-600" />
-                                        </div>
-                                        <span className="font-medium text-gray-800">{tipo.nome}</span>
-                                    </div>
-                                </td>
-                                <td className="px-4 py-3 text-gray-500 max-w-xs truncate">{tipo.descricao || '-'}</td>
-                                <td className="px-4 py-3 text-center">
-                                    <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">
-                                        {(tipo.schema_metadados || []).length}
-                                    </span>
-                                </td>
-                                <td className="px-4 py-3 text-center text-gray-500">{tipo.documentos_count || 0}</td>
-                                <td className="px-4 py-3 text-center">
-                                    <button
-                                        onClick={() => router.post(`/admin/tipos-documentais/${tipo.id}/toggle-ativo`)}
-                                        className={`text-[10px] px-2.5 py-1 rounded-full font-medium cursor-pointer transition-colors
-                                            ${tipo.ativo
-                                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                                    >
-                                        {tipo.ativo ? 'Ativo' : 'Inativo'}
-                                    </button>
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                        <button onClick={() => openEdit(tipo)}
-                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                                            title="Editar">
-                                            <i className="fas fa-pen text-xs" />
-                                        </button>
-                                        {(tipo.documentos_count || 0) === 0 && (
-                                            <button onClick={() => setDeleteTipo(tipo)}
-                                                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                                                title="Excluir">
-                                                <i className="fas fa-trash text-xs" />
-                                            </button>
-                                        )}
-                                    </div>
-                                </td>
+                <div ref={scrollRef} className="overflow-auto">
+                    <table className="w-full text-sm">
+                        <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-xs">
+                            <tr>
+                                <th className="px-4 py-3 text-left font-semibold">Nome</th>
+                                <th className="px-4 py-3 text-left font-semibold">Descrição</th>
+                                <th className="px-4 py-3 text-center font-semibold">Campos</th>
+                                <th className="px-4 py-3 text-center font-semibold">Documentos</th>
+                                <th className="px-4 py-3 text-center font-semibold">Status</th>
+                                <th className="px-4 py-3 text-center font-semibold w-32">Ações</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {(tipos || []).map(tipo => (
+                                <tr key={tipo.id} className={`hover:bg-gray-50 ${!tipo.ativo ? 'opacity-50' : ''}`}>
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center shrink-0">
+                                                <i className="fas fa-file-signature text-xs text-violet-600" />
+                                            </div>
+                                            <span className="font-medium text-gray-800">{tipo.nome}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-gray-500 max-w-xs truncate">{tipo.descricao || '-'}</td>
+                                    <td className="px-4 py-3 text-center">
+                                        <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">
+                                            {(tipo.schema_metadados || []).length}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-center text-gray-500">{tipo.documentos_count || 0}</td>
+                                    <td className="px-4 py-3 text-center">
+                                        <button
+                                            onClick={() => router.post(`/admin/tipos-documentais/${tipo.id}/toggle-ativo`)}
+                                            className={`text-[10px] px-2.5 py-1 rounded-full font-medium cursor-pointer transition-colors
+                                                ${tipo.ativo
+                                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                                        >
+                                            {tipo.ativo ? 'Ativo' : 'Inativo'}
+                                        </button>
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                        <div className="flex items-center justify-center gap-1">
+                                            <button onClick={() => openEdit(tipo)}
+                                                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                                title="Editar">
+                                                <i className="fas fa-pen text-xs" />
+                                            </button>
+                                            {(tipo.documentos_count || 0) === 0 && (
+                                                <button onClick={() => setDeleteTipo(tipo)}
+                                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                                    title="Excluir">
+                                                    <i className="fas fa-trash text-xs" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
                 {(!tipos || tipos.length === 0) && (
                     <div className="py-12 text-center text-gray-400">
                         <i className="fas fa-file-signature text-3xl mb-2 block" />
@@ -202,13 +207,13 @@ function TipoFormModal({ show, onClose, tipo }) {
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
                         <input type="text" value={data.nome} onChange={(e) => setData('nome', e.target.value)}
-                            className="ds-input" placeholder="Ex: Oficio, Contrato..." autoFocus />
+                            className="ds-input" placeholder="Ex: Ofício, Contrato..." autoFocus />
                         {errors.nome && <p className="mt-1 text-xs text-red-600">{errors.nome}</p>}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                         <input type="text" value={data.descricao} onChange={(e) => setData('descricao', e.target.value)}
-                            className="ds-input" placeholder="Descricao breve" />
+                            className="ds-input" placeholder="Descrição breve" />
                     </div>
                 </div>
 
@@ -251,7 +256,7 @@ function TipoFormModal({ show, onClose, tipo }) {
                                         <div className="sm:col-span-2">
                                             <input type="text" value={campo.label}
                                                 onChange={(e) => updateCampo(idx, 'label', e.target.value)}
-                                                className="ds-input !text-xs" placeholder="Label (ex: Numero do Oficio)" />
+                                                className="ds-input !text-xs" placeholder="Label (ex: Número do Ofício)" />
                                         </div>
                                         <div>
                                             <select value={campo.tipo}
@@ -274,7 +279,7 @@ function TipoFormModal({ show, onClose, tipo }) {
                                             <div className="sm:col-span-4">
                                                 <input type="text" value={campo.opcoes || ''}
                                                     onChange={(e) => updateCampo(idx, 'opcoes', e.target.value)}
-                                                    className="ds-input !text-xs" placeholder="Opcoes separadas por virgula (ex: Sim,Nao,Talvez)" />
+                                                    className="ds-input !text-xs" placeholder="Opções separadas por vírgula (ex: Sim,Não,Talvez)" />
                                             </div>
                                         )}
                                     </div>
@@ -323,7 +328,7 @@ function DeleteTipoModal({ tipo, onClose }) {
                     <div>
                         <p className="text-sm font-medium text-red-800">Tem certeza?</p>
                         <p className="text-sm text-red-600 mt-1">
-                            O tipo <strong>"{tipo.nome}"</strong> sera excluido permanentemente.
+                            O tipo <strong>"{tipo.nome}"</strong> será excluído permanentemente.
                         </p>
                     </div>
                 </div>

@@ -86,6 +86,7 @@ class TenantContext
         if ($driver === 'pgsql') {
             return $base + [
                 'charset' => 'utf8',
+                // Um BANCO por tenant (não um schema): tudo vive no public do banco dele.
                 'search_path' => 'public',
                 'sslmode' => 'prefer',
                 'prefix_indexes' => true,

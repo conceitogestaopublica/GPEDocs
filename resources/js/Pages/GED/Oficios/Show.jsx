@@ -10,6 +10,7 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import { useConfirm } from '../../../Components/ConfirmProvider';
 
 const STATUS_MAP = {
     rascunho:   { label: 'Rascunho',   color: 'bg-gray-100 text-gray-600',   icon: 'fas fa-edit' },
@@ -23,6 +24,7 @@ const STATUS_MAP = {
 const TIMELINE_STEPS = ['enviado', 'entregue', 'lido', 'respondido'];
 
 export default function OficiosShow({ oficio }) {
+    const confirmar = useConfirm();
     const of = oficio || {};
     const respostas = of.respostas || [];
     const anexos = of.anexos || [];
@@ -77,7 +79,7 @@ export default function OficiosShow({ oficio }) {
 
     return (
         <AdminLayout>
-            <Head title={`Oficio ${of.numero || ''}`} />
+            <Head title={`Ofício ${of.numero || ''}`} />
 
             {/* Cabecalho */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
@@ -97,7 +99,7 @@ export default function OficiosShow({ oficio }) {
                         {of.qr_code_token && (
                             <div className="relative group">
                                 <button className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
-                                    title="QR Code de verificacao">
+                                    title="QR Code de verificação">
                                     <i className="fas fa-qrcode" />
                                 </button>
                                 <div className="absolute right-0 top-12 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-50 hidden group-hover:block animate-fadeIn">
@@ -109,8 +111,8 @@ export default function OficiosShow({ oficio }) {
 
                         {of.status !== 'arquivado' && (
                             <Button variant="secondary" icon="fas fa-archive"
-                                onClick={() => {
-                                    if (confirm('Arquivar este oficio?'))
+                                onClick={async () => {
+                                    if (await confirmar({ titulo: 'Arquivar este ofício?', rotuloConfirmar: 'Arquivar' }))
                                         router.post(`/oficios/${of.id}/arquivar`);
                                 }}>
                                 Arquivar
@@ -164,7 +166,7 @@ export default function OficiosShow({ oficio }) {
                 {/* Coluna principal */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Conteudo */}
-                    <Card title="Conteudo">
+                    <Card title="Conteúdo">
                         <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
                             {of.conteudo}
                         </div>
@@ -211,8 +213,8 @@ export default function OficiosShow({ oficio }) {
                                 {respostas.map(resp => {
                                     const isExterno = resp.externo;
                                     const nome = isExterno
-                                        ? (resp.respondente_nome || 'Destinatario Externo')
-                                        : (resp.usuario?.name || resp.respondente_nome || 'Usuario');
+                                        ? (resp.respondente_nome || 'Destinatário Externo')
+                                        : (resp.usuario?.name || resp.respondente_nome || 'Usuário');
 
                                     return (
                                         <div key={resp.id} className="flex gap-3">
@@ -271,7 +273,7 @@ export default function OficiosShow({ oficio }) {
                 {/* Coluna lateral */}
                 <div className="space-y-6">
                     {/* Destinatario */}
-                    <Card title="Destinatario">
+                    <Card title="Destinatário">
                         <div className="space-y-4">
                             <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
                                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
@@ -292,7 +294,7 @@ export default function OficiosShow({ oficio }) {
                     </Card>
 
                     {/* Informacoes */}
-                    <Card title="Informacoes">
+                    <Card title="Informações">
                         <div className="space-y-4">
                             <InfoRow label="Remetente" value={of.remetente?.name || '-'} />
                             {of.setor_origem && <InfoRow label="Setor de Origem" value={of.setor_origem} />}
@@ -330,8 +332,8 @@ export default function OficiosShow({ oficio }) {
                         <div className="text-xs text-gray-500 space-y-2">
                             <p>
                                 <i className="fas fa-link text-gray-400 mr-1" />
-                                O link de rastreio foi enviado junto ao oficio. Quando o destinatario abrir,
-                                a data/hora sera registrada automaticamente.
+                                O link de rastreio foi enviado junto ao ofício. Quando o destinatário abrir,
+                                a data/hora será registrada automaticamente.
                             </p>
                             {of.rastreio_token && (
                                 <div className="bg-gray-50 rounded-lg p-3 mt-2">

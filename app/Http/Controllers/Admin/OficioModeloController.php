@@ -121,7 +121,7 @@ class OficioModeloController extends Controller
             ]);
         } catch (\Throwable $e) {
             return response()->json([
-                'erro' => 'Nao foi possivel ler o arquivo: ' . $e->getMessage(),
+                'erro' => 'Não foi possível ler o arquivo: ' . $e->getMessage(),
             ], 422);
         }
     }

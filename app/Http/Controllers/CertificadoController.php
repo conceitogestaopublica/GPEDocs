@@ -81,7 +81,7 @@ class CertificadoController extends Controller
                 ->first();
 
             if ($jaExiste && ! $jaExiste->revogado) {
-                return back()->with('info', 'Este certificado ja estava cadastrado (thumbprint identico).');
+                return back()->with('info', 'Este certificado já estava cadastrado (thumbprint idêntico).');
             }
 
             $svc->registrarParaUsuario(Auth::user(), $material['cert'], $material['extracerts']);
@@ -116,7 +116,7 @@ class CertificadoController extends Controller
         $cert = Certificado::where('user_id', Auth::id())->findOrFail($id);
         $cert->update(['revogado' => true]);
 
-        return back()->with('success', 'Certificado marcado como inativo. Assinaturas anteriores nao sao afetadas.');
+        return back()->with('success', 'Certificado marcado como inativo. Assinaturas anteriores não são afetadas.');
     }
 
     /**

@@ -25,7 +25,9 @@ use Illuminate\Database\Eloquent\Builder;
  *       private function doWork(): int { ... }
  *   }
  *
- * Resolve a flag --tenant=<domain> (ou pergunta interativamente se ausente).
+ * Resolve a flag --tenant=<id|subdomínio|sub.domínio> (ou pergunta interativamente se ausente).
+ * Só enxerga tenants do domínio do GPEDocs (TENANT_DOMINIO_BASE) — o landlord é
+ * compartilhado com o gpe2 e os bancos de lá nunca entram nas rodadas daqui.
  * Use --tenant=ALL para iterar todos os tenants ativos.
  */
 trait TenantAware
@@ -68,16 +70,15 @@ trait TenantAware
 
     /**
      * Base de tenants elegíveis: ativos E do domínio base configurado
-     * (`multitenancy.dominio_base` ← env TENANT_DOMINIO_BASE, default ':8080'),
+     * (`multitenancy.dominio_base` ← env TENANT_DOMINIO_BASE, default ':8090'),
      * conforme salvo na coluna `domain`. Os comandos deste namespace operam só nesses.
      *
      * @return Builder<Tenant>
      */
     private function tenantsAtivos()
     {
-        $base = config('multitenancy.dominio_base', ':8080');
-
-        return Tenant::active()->where('domain', 'like', '%'.$base.'%');
+        // O domínio já vem do escopo global `gpedocs` do model Tenant.
+        return Tenant::active();
     }
 
     /** Rótulo legível de um tenant: `subdomínio.domínio — Nome (driver)`. */
@@ -86,7 +87,10 @@ trait TenantAware
         return sprintf('%s.%s — %s (%s)', $t->subdomain, $t->domain, $t->nome, $t->driver);
     }
 
-    /** Menu interativo. Retorna 'ALL', o subdomínio do tenant escolhido, ou null se não há tenants. */
+    /**
+     * Menu interativo. Retorna 'ALL', o ID do tenant escolhido, ou null se não há tenants.
+     * ID e não subdomínio: em dev os tenants compartilham subdomain='localhost'.
+     */
     private function escolherTenantInterativo(): ?string
     {
         $tenants = $this->tenantsAtivos()->orderBy('domain')->get();
@@ -99,7 +103,7 @@ trait TenantAware
         $TODOS = 'TODOS os tenants';
         $mapa = [];
         foreach ($tenants as $t) {
-            $mapa[$this->rotuloTenant($t)] = $t->subdomain;
+            $mapa[$this->rotuloTenant($t)] = (string) $t->id;
         }
 
         $escolha = $this->choice('Selecione o tenant', array_merge(array_keys($mapa), [$TODOS]));
@@ -165,11 +169,26 @@ trait TenantAware
         }
     }
 
-    /** Resolve por subdomínio, domínio, FQDN (`sub.domínio`) ou o rótulo do menu. */
-    private function resolveTenant(string $valor): ?Tenant
+    /**
+     * Resolve por ID, subdomínio, domínio ou FQDN (`sub.domínio`).
+     *
+     * Sem valor, abre o menu interativo. Retorna null tanto para "TODOS" quanto para
+     * não encontrado — os comandos que chamam direto (db:mass-insert-users) tratam null como "rodar em todos".
+     */
+    private function resolveTenant(?string $valor = null): ?Tenant
     {
+        if ($valor === null || $valor === '') {
+            $valor = $this->escolherTenantInterativo();
+            if ($valor === null || $valor === 'ALL') {
+                return null;
+            }
+        }
+
         $tenant = $this->tenantsAtivos()->where(function ($q) use ($valor) {
-            $q->where('subdomain', $valor)
+            if (ctype_digit($valor)) {
+                $q->where('id', (int) $valor);
+            }
+            $q->orWhere('subdomain', $valor)
                 ->orWhere('domain', $valor)
                 ->orWhereRaw("CONCAT(subdomain, '.', domain) = ?", [$valor]);
         })->first();

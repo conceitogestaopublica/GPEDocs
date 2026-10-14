@@ -23,8 +23,10 @@ class ProcessoDashboardController extends Controller
             ->whereYear('concluido_em', now()->year)
             ->count();
 
+        // Tramitação não tem ug_id: o whereHas leva o escopo BelongsToUg do processo.
         $atrasados = Tramitacao::whereIn('status', ['pendente', 'recebido', 'em_analise'])
             ->where('prazo', '<', now())
+            ->whereHas('processo')
             ->count();
 
         $inboxCount = Tramitacao::where('destinatario_id', Auth::id())

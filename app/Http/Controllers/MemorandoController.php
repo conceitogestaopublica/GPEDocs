@@ -146,7 +146,7 @@ class MemorandoController extends Controller
 
             if ($request->hasFile('files')) {
                 foreach ($request->file('files') as $file) {
-                    $path = $file->store('memorandos', 'documentos');
+                    $path = $file->store(\App\Tenant\TenantStorage::pasta('memorandos'), 'documentos');
 
                     MemorandoAnexo::create([
                         'memorando_id' => $memorando->id,
@@ -173,12 +173,46 @@ class MemorandoController extends Controller
 
             DB::commit();
 
-            return redirect("/memorandos/{$memorando->id}")->with('success', 'Memorando enviado com sucesso. Numero: ' . $numero);
+            return redirect("/memorandos/{$memorando->id}")->with('success', 'Memorando enviado com sucesso. Número: ' . $numero);
         } catch (\Exception $e) {
             DB::rollBack();
 
             return redirect()->back()->with('error', 'Erro ao enviar memorando: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Remetente, destinatário direto ou pela unidade, ou participante da tramitação.
+     * Vale para ver o memorando e para baixar os anexos dele.
+     */
+    private function podeVer(Memorando $memorando, \App\Models\User $user): bool
+    {
+        $memorando->loadMissing(['destinatarios', 'tramitacoes']);
+        $unidadeId = $user->unidade_id;
+        $acessoGeral = (bool) $user->acesso_geral_ug;
+
+        return $memorando->remetente_id === $user->id
+            || $memorando->destinatarios->contains(fn ($d) =>
+                $d->usuario_id === $user->id
+                || ($unidadeId && $d->unidade_id === $unidadeId)
+                || ($acessoGeral && $d->unidade_id !== null))
+            || $memorando->tramitacoes->contains(fn ($t) =>
+                $t->destino_usuario_id === $user->id
+                || ($unidadeId && $t->destino_unidade_id === $unidadeId)
+                || ($acessoGeral && $t->destino_unidade_id !== null))
+            || $memorando->tramitacoes->contains('origem_usuario_id', $user->id);
+    }
+
+    /** Download de anexo — a rota que a tela usava não existia (404). */
+    public function downloadAnexo($id, $anexoId)
+    {
+        $memorando = Memorando::findOrFail($id);
+        if (! $this->podeVer($memorando, Auth::user())) {
+            abort(403);
+        }
+        $anexo = \App\Models\Processo\MemorandoAnexo::where('memorando_id', $memorando->id)->findOrFail($anexoId);
+
+        return \App\Support\Anexos::baixar($anexo->arquivo_path, $anexo->nome);
     }
 
     public function show($id): Response
@@ -200,22 +234,8 @@ class MemorandoController extends Controller
         $unidadeId = $user->unidade_id;
         $acessoGeral = (bool) $user->acesso_geral_ug;
 
-        // Tem acesso? Remetente, destinatario direto, destinatario via unidade, ou tramitacao p/ ele
-        $isRemetente    = $memorando->remetente_id === $userId;
-        $isDestinatario = $memorando->destinatarios->contains(fn ($d) =>
-            $d->usuario_id === $userId
-            || ($unidadeId && $d->unidade_id === $unidadeId)
-            || ($acessoGeral && $d->unidade_id !== null)
-        );
-        $isTramiteDestino = $memorando->tramitacoes->contains(fn ($t) =>
-            $t->destino_usuario_id === $userId
-            || ($unidadeId && $t->destino_unidade_id === $unidadeId)
-            || ($acessoGeral && $t->destino_unidade_id !== null)
-        );
-        $isTramiteOrigem = $memorando->tramitacoes->contains('origem_usuario_id', $userId);
-
-        if (! $isRemetente && ! $isDestinatario && ! $isTramiteDestino && ! $isTramiteOrigem) {
-            abort(403, 'Voce nao tem permissao para visualizar este memorando.');
+        if (! $this->podeVer($memorando, $user)) {
+            abort(403, 'Você não tem permissão para visualizar este memorando.');
         }
 
         // Tramitacao ativa enderecada a esse user/setor (ordenada por id desc para pegar a mais recente)
@@ -250,7 +270,7 @@ class MemorandoController extends Controller
         // Status do usuario logado em relacao ao documento (pra banner)
         $meuStatus = null;
         if ($isRemetente && ! $tramiteAtivo && ! $destinatarioAtivo) {
-            $meuStatus = ['estado' => 'remetente', 'mensagem' => 'Voce e o remetente. Aguardando recebimento do destino.'];
+            $meuStatus = ['estado' => 'remetente', 'mensagem' => 'Você e o remetente. Aguardando recebimento do destino.'];
         } elseif ($tramiteAtivo && ! $tramiteAtivo->finalizado) {
             $meuStatus = ['estado' => 'pendente', 'mensagem' => 'Aguardando seu recebimento. Clique em "Receber" para acusar.'];
         } elseif ($tramiteAtivo && $tramiteAtivo->finalizado) {
@@ -260,7 +280,7 @@ class MemorandoController extends Controller
         } elseif ($destinatarioAtivo) {
             $meuStatus = ['estado' => 'recebido', 'mensagem' => 'Recebido em ' . ($destinatarioAtivo->lido_em?->format('d/m/Y H:i') ?? '-') . '. Voce pode tramitar, responder ou arquivar.'];
         } elseif ($isTramiteOrigem) {
-            $meuStatus = ['estado' => 'tramitou', 'mensagem' => 'Voce ja tramitou este memorando para frente. Acompanhando.'];
+            $meuStatus = ['estado' => 'tramitou', 'mensagem' => 'Você já tramitou este memorando para frente. Acompanhando.'];
         }
 
         // Lista de unidades + usuarios pra modal de tramitar
@@ -362,7 +382,7 @@ class MemorandoController extends Controller
         }
 
         $quando = now()->format('d/m/Y H:i');
-        return redirect()->back()->with('success', "Recebimento confirmado em {$quando}. Agora voce pode encaminhar, responder ou arquivar.");
+        return redirect()->back()->with('success', "Recebimento confirmado em {$quando}. Agora você pode encaminhar, responder ou arquivar.");
     }
 
     /**
@@ -440,7 +460,7 @@ class MemorandoController extends Controller
                         'usuario_id'      => $memorando->remetente_id,
                         'tipo'            => 'memorando_resposta',
                         'titulo'          => 'Resposta no memorando',
-                        'mensagem'        => "O memorando {$memorando->numero} recebeu uma resposta junto com a tramitacao.",
+                        'mensagem'        => "O memorando {$memorando->numero} recebeu uma resposta junto com a tramitação.",
                         'referencia_tipo' => 'memorando',
                         'referencia_id'   => $memorando->id,
                         'lida'            => false,
@@ -460,7 +480,7 @@ class MemorandoController extends Controller
                     'usuario_id'      => (int) $uid,
                     'tipo'            => 'memorando_tramitado',
                     'titulo'          => 'Memorando tramitado para voce',
-                    'mensagem'        => "Memorando {$memorando->numero} - {$memorando->assunto} chegou via tramitacao.",
+                    'mensagem'        => "Memorando {$memorando->numero} - {$memorando->assunto} chegou via tramitação.",
                     'referencia_tipo' => 'memorando',
                     'referencia_id'   => $memorando->id,
                     'lida'            => false,
@@ -500,7 +520,7 @@ class MemorandoController extends Controller
         // Valida pasta na mesma UG
         $pasta = DB::table('ged_pastas')->where('id', $request->input('pasta_id'))->first();
         if (! $pasta || $pasta->ug_id !== $memorando->ug_id) {
-            return redirect()->back()->with('error', 'A pasta selecionada nao pertence a UG deste memorando.');
+            return redirect()->back()->with('error', 'A pasta selecionada não pertence a UG deste memorando.');
         }
 
         try {
@@ -526,7 +546,7 @@ class MemorandoController extends Controller
             $pdfBytes = $pdf->output();
 
             $filename = 'memorando-' . str_replace(['/', '\\'], '-', $memorando->numero) . '.pdf';
-            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             Storage::disk('documentos')->put($path, $pdfBytes);
 
             $textoPesquisavel = collect([
@@ -538,7 +558,7 @@ class MemorandoController extends Controller
             $documento = \App\Models\Documento::create([
                 'nome'              => 'Memorando ' . $memorando->numero,
                 'descricao'         => $memorando->assunto,
-                'tipo_documental_id'=> 2, // Memorando
+                'tipo_documental_id'=> \App\Support\TiposDocumentais::id('Memorando'),
                 'pasta_id'          => (int) $request->input('pasta_id'),
                 'versao_atual'      => 1,
                 'tamanho'           => strlen($pdfBytes),

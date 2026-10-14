@@ -4,8 +4,8 @@
  *   DIREITA:  card branco com o formulário de acesso.
  *
  * Marca GPE Docs (azul/ciano + laranja). Mantém o contrato do form:
- * campos email/password/remember, POST /login, e "lembrar" guarda o e-mail
- * no localStorage para auto-preencher no próximo acesso.
+ * campos login (e-mail OU CPF)/password/remember, POST /login, e "lembrar" guarda
+ * o login no localStorage para auto-preencher no próximo acesso.
  */
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
@@ -14,7 +14,7 @@ const STORAGE_KEY = 'gpe_remember_email';
 
 export default function Login({ flash = {} }) {
     const { data, setData, post, processing, errors } = useForm({
-        email: '',
+        login: '',
         password: '',
         remember: false,
     });
@@ -23,7 +23,7 @@ export default function Login({ flash = {} }) {
     useEffect(() => {
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) setData({ email: saved, password: '', remember: true });
+            if (saved) setData({ login: saved, password: '', remember: true });
         } catch (_) { /* localStorage indisponível */ }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -31,7 +31,7 @@ export default function Login({ flash = {} }) {
     const handleSubmit = (e) => {
         e.preventDefault();
         try {
-            if (data.remember && data.email) localStorage.setItem(STORAGE_KEY, data.email);
+            if (data.remember && data.login) localStorage.setItem(STORAGE_KEY, data.login);
             else localStorage.removeItem(STORAGE_KEY);
         } catch (_) { /* sem localStorage */ }
         post('/login');
@@ -50,30 +50,14 @@ export default function Login({ flash = {} }) {
                     <div className="absolute -bottom-32 -right-10 w-96 h-96 rounded-full bg-blue-200/30 blur-3xl" />
 
                     <div className="relative">
-                        {/* Logo GPE Docs — wordmark + caixa DENTRO da nuvem (destaque) */}
-                        <div className="relative mb-10 select-none w-fit">
-                            {/* halo de brilho (dá fundo p/ a nuvem branca aparecer) */}
-                            <div className="absolute left-6 top-4 w-60 h-40 bg-cyan-300/60 blur-3xl rounded-full" />
-                            <div className="relative inline-block">
-                                <i className="fas fa-cloud text-[10rem] leading-none text-white
-                                    drop-shadow-[0_14px_30px_rgba(6,132,206,0.45)]" />
-                                {/* conteúdo dentro da nuvem: caixa + wordmark */}
-                                <div className="absolute inset-0 flex flex-col items-center justify-center translate-y-[14%]">
-                                    <i className="fas fa-box-archive text-blue-600 text-[2rem] drop-shadow-sm" />
-                                    <div className="mt-0.5 text-2xl font-extrabold tracking-tight leading-none whitespace-nowrap">
-                                        <span className="text-blue-700">GPE</span> <span className="text-orange-500">Docs</span>
-                                    </div>
-                                </div>
-                                {/* fluxo de dados saindo da nuvem */}
-                                <span className="absolute -bottom-1 left-[30%] w-1.5 h-1.5 rounded-full bg-cyan-400/70" />
-                                <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-cyan-400/50" />
-                                <span className="absolute -bottom-1 left-[68%] w-1.5 h-1.5 rounded-full bg-cyan-400/70" />
-                            </div>
-                        </div>
+                        {/* Mesmo arquivo de logo do GPE Cloud usado no gpe2 e no tributário — a
+                            nuvem desenhada à mão divergia da marca no primeiro retoque. */}
+                        <img src="/images/logo-gpe-cloud-full.png" alt="GPE Cloud — Gestão Pública Eficiente"
+                            className="h-24 xl:h-28 w-auto mb-10 select-none" />
 
                         <h1 className="text-4xl font-extrabold leading-tight text-slate-800">Bem-vindo de volta!</h1>
                         <p className="mt-3 text-lg text-slate-500 max-w-md">
-                            Sua porta de entrada para a <strong className="text-slate-700">gestão documental municipal</strong>.
+                            <strong className="text-slate-700">GPE Docs</strong> - Gestão Eletrônica de Documentos e Processos.
                         </p>
 
                         <div className="flex flex-wrap gap-3 mt-8">
@@ -94,13 +78,8 @@ export default function Login({ flash = {} }) {
                 <div className="w-full lg:w-1/2 flex items-center justify-center px-6 sm:px-10 py-12">
                     <div className="w-full max-w-md">
                         {/* Logo + marca */}
-                        <div className="flex items-center gap-3 mb-8">
-                            <div className="w-12 h-12 rounded-xl shadow-md bg-gradient-to-br from-cyan-600 to-blue-700 text-white flex items-center justify-center">
-                                <i className="fas fa-box-archive text-lg" />
-                            </div>
-                            <div className="text-xl font-bold text-slate-800">
-                                GPE <span className="text-orange-500">Docs</span>
-                            </div>
+                        <div className="mb-8 lg:hidden">
+                            <img src="/images/logo-gpe-cloud-full.png" alt="GPE Cloud" className="h-11 w-auto" />
                         </div>
 
                         <h2 className="text-2xl font-bold text-slate-800">Entrar</h2>
@@ -113,23 +92,23 @@ export default function Login({ flash = {} }) {
                         )}
 
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            {/* E-mail */}
+                            {/* E-mail ou CPF */}
                             <div>
-                                <label className="block text-sm font-medium text-slate-600 mb-1.5">E-mail</label>
+                                <label className="block text-sm font-medium text-slate-600 mb-1.5">CPF ou E-mail</label>
                                 <div className="relative">
                                     <input
-                                        type="email"
-                                        value={data.email}
-                                        onChange={(e) => setData('email', e.target.value)}
-                                        placeholder="Digite seu e-mail"
+                                        type="text"
+                                        value={data.login}
+                                        onChange={(e) => setData('login', e.target.value)}
+                                        placeholder="Digite seu CPF ou e-mail"
                                         autoFocus
                                         autoComplete="username"
                                         className={`w-full pl-4 pr-11 py-3 rounded-xl text-sm text-slate-800 placeholder-slate-400 border bg-slate-50/60 outline-none transition-all
-                                            ${errors.email ? 'border-red-400 focus:ring-2 focus:ring-red-200' : 'border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'}`}
+                                            ${errors.login ? 'border-red-400 focus:ring-2 focus:ring-red-200' : 'border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'}`}
                                     />
                                     <i className="fas fa-user absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
                                 </div>
-                                {errors.email && <p className="mt-1.5 text-sm text-red-600 flex items-center gap-1.5"><i className="fas fa-exclamation-circle text-xs" /> {errors.email}</p>}
+                                {errors.login && <p className="mt-1.5 text-sm text-red-600 flex items-center gap-1.5"><i className="fas fa-exclamation-circle text-xs" /> {errors.login}</p>}
                             </div>
 
                             {/* Senha */}

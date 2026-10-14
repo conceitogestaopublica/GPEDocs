@@ -8,39 +8,39 @@ import PageHeader from '../../Components/PageHeader';
 const ATALHOS = [
     {
         titulo: 'Unidades Gestoras',
-        desc: 'Cadastro de UGs e gestao do organograma com 3 niveis nomeaveis',
+        desc: 'Cadastro de UGs e gestão do organograma com 3 níveis nomeaveis',
         icon: 'fas fa-building',
         href: '/configuracoes/ugs',
         cor: 'from-indigo-500 to-blue-600',
         corLight: 'bg-indigo-50 text-indigo-600',
     },
     {
-        titulo: 'Usuarios',
-        desc: 'Cadastro de usuarios internos e externos, vinculo com unidade',
+        titulo: 'Usuários',
+        desc: 'Cadastro de usuários internos e externos, vínculo com unidade',
         icon: 'fas fa-users',
         href: '/configuracoes/usuarios',
         cor: 'from-red-500 to-pink-600',
         corLight: 'bg-red-50 text-red-600',
     },
     {
-        titulo: 'Perfis e Permissoes',
-        desc: 'Roles e permissoes de acesso aos modulos do sistema',
+        titulo: 'Perfis e Permissões',
+        desc: 'Roles e permissões de acesso aos módulos do sistema',
         icon: 'fas fa-shield-alt',
         href: '/configuracoes/perfis',
         cor: 'from-slate-500 to-gray-700',
         corLight: 'bg-slate-50 text-slate-600',
     },
     {
-        titulo: 'Carta de Servicos',
-        desc: 'Catalogo de servicos publicado no Portal do Cidadao',
+        titulo: 'Carta de Serviços',
+        desc: 'Catálogo de serviços publicado no Portal do Cidadão',
         icon: 'fas fa-clipboard-list',
         href: '/configuracoes/carta-servicos',
         cor: 'from-blue-500 to-indigo-600',
         corLight: 'bg-blue-50 text-blue-600',
     },
     {
-        titulo: 'Solicitacoes do Portal',
-        desc: 'Atender pedidos feitos pelos cidadaos via Portal',
+        titulo: 'Solicitações do Portal',
+        desc: 'Atender pedidos feitos pelos cidadãos via Portal',
         icon: 'fas fa-inbox',
         href: '/configuracoes/solicitacoes-portal',
         cor: 'from-indigo-500 to-purple-600',
@@ -51,8 +51,8 @@ const ATALHOS = [
 export default function Configuracoes() {
     return (
         <AdminLayout>
-            <Head title="Configuracoes" />
-            <PageHeader title="Configuracoes" subtitle="Estrutura organizacional, usuarios e permissoes" />
+            <Head title="Configurações" />
+            <PageHeader title="Configurações" subtitle="Estrutura organizacional, usuários e permissões" />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {ATALHOS.map(a => (

@@ -72,39 +72,69 @@ class IntegracaoDocumentoController extends Controller
             'signatarios.*.signature_position.h'      => ['nullable', 'numeric'],
             'callback_url'   => ['nullable', 'url', 'max:500'],
             'pasta_codigo'   => ['nullable', 'string', 'max:100'],
+            'sequencial'     => ['nullable', 'boolean'], // true: cada signatario so assina apos os de ordem menor
         ]);
+
+        // 1. Resolve UG por codigo — consultas antes da transação: os 422 abaixo saíam
+        //    com a transação aberta.
+        $ug = \App\Models\Ug::where('codigo', $validated['ug_codigo'])->first();
+        if (! $ug) {
+            return response()->json(['erro' => "UG não encontrada: {$validated['ug_codigo']}"], 422);
+        }
+
+        // 2. Resolve tipo documental — busca por nome (case-insensitive) ou por sistema_origem
+        $tipoDoc = TipoDocumental::where('ativo', true)
+            ->where(function ($q) use ($validated, $sistema) {
+                $q->whereRaw('LOWER(nome) = ?', [strtolower($validated['tipo'])])
+                  ->orWhere(function ($q2) use ($validated, $sistema) {
+                      $q2->where('sistema_origem', $sistema->codigo)
+                         ->whereRaw('LOWER(nome) = ?', [strtolower($validated['tipo'])]);
+                  });
+            })
+            ->first();
+        if (! $tipoDoc) {
+            return response()->json(['erro' => "Tipo documental não cadastrado: {$validated['tipo']}"], 422);
+        }
+
+        // 3. Resolve pasta (opcional)
+        $pastaId = null;
+        $pasta = null;
+        if (! empty($validated['pasta_codigo'])) {
+            $pasta = DB::table('ged_pastas')
+                ->where('ug_id', $ug->id)
+                ->whereRaw('LOWER(nome) = ?', [strtolower($validated['pasta_codigo'])])
+                ->first();
+            $pastaId = $pasta?->id;
+        }
 
         try {
             DB::beginTransaction();
 
-            // 1. Resolve UG por codigo
-            $ug = \App\Models\Ug::where('codigo', $validated['ug_codigo'])->first();
-            if (! $ug) {
-                return response()->json(['erro' => "UG nao encontrada: {$validated['ug_codigo']}"], 422);
-            }
+            // Idempotência: o reenvio do mesmo número (rede caiu, retry do sistema de origem)
+            // devolve o documento já recebido em vez de criar outro. Só um documento
+            // CANCELADO libera o número para um envio novo. O lock serializa dois envios
+            // simultâneos do mesmo número (não há índice único: bases antigas já podem ter
+            // duplicados criados antes desta regra).
+            DB::select('select pg_advisory_xact_lock(?)', [crc32("integracao:{$sistema->codigo}:{$validated['numero']}")]);
+            $existente = $this->documentoDoSistema($sistema, $validated['numero'], ['solicitacoesAssinatura.assinaturas.signatario']);
+            if ($existente && $existente->status !== 'cancelado') {
+                DB::commit();
+                $solicitacaoExistente = $existente->solicitacoesAssinatura->sortByDesc('id')->first();
 
-            // 2. Resolve tipo documental — busca por nome (case-insensitive) ou por sistema_origem
-            $tipoDoc = TipoDocumental::where('ativo', true)
-                ->where(function ($q) use ($validated, $sistema) {
-                    $q->whereRaw('LOWER(nome) = ?', [strtolower($validated['tipo'])])
-                      ->orWhere(function ($q2) use ($validated, $sistema) {
-                          $q2->where('sistema_origem', $sistema->codigo)
-                             ->whereRaw('LOWER(nome) = ?', [strtolower($validated['tipo'])]);
-                      });
-                })
-                ->first();
-            if (! $tipoDoc) {
-                return response()->json(['erro' => "Tipo documental nao cadastrado: {$validated['tipo']}"], 422);
-            }
-
-            // 3. Resolve pasta (opcional)
-            $pastaId = null;
-            if (! empty($validated['pasta_codigo'])) {
-                $pasta = DB::table('ged_pastas')
-                    ->where('ug_id', $ug->id)
-                    ->whereRaw('LOWER(nome) = ?', [strtolower($validated['pasta_codigo'])])
-                    ->first();
-                $pastaId = $pasta?->id;
+                return response()->json([
+                    'id'              => $existente->id,
+                    'numero_externo'  => $existente->numero_externo,
+                    'sistema_origem'  => $existente->sistema_origem,
+                    'tipo'            => $tipoDoc->nome,
+                    'ug'              => $ug->codigo,
+                    'url_visualizacao'=> url("/documentos/{$existente->id}"),
+                    'solicitacao_id'  => $solicitacaoExistente?->id,
+                    'signatarios'     => $solicitacaoExistente?->assinaturas->map(fn ($a) => [
+                        'id' => $a->id, 'cpf' => $a->signatario?->cpf, 'ordem' => $a->ordem,
+                    ])->values()->all() ?? [],
+                    'criado_em'       => $existente->created_at->toIso8601String(),
+                    'reenvio'         => true,
+                ], 200);
             }
 
             // 4. Resolve signatarios (cria User externo se CPF nao existe)
@@ -135,11 +165,12 @@ class IntegracaoDocumentoController extends Controller
             // 5. Decode + persiste PDF
             $pdfBytes = base64_decode($validated['pdf_base64'], true);
             if ($pdfBytes === false || strlen($pdfBytes) < 100) {
-                return response()->json(['erro' => 'pdf_base64 invalido ou vazio.'], 422);
+                DB::rollBack();
+                return response()->json(['erro' => 'pdf_base64 inválido ou vazio.'], 422);
             }
 
             $filename = 'integracao-' . $sistema->codigo . '-' . str_replace(['/','\\'], '-', $validated['numero']) . '.pdf';
-            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             Storage::disk('documentos')->put($path, $pdfBytes);
 
             // 6. Cria Documento
@@ -179,6 +210,7 @@ class IntegracaoDocumentoController extends Controller
                 'solicitante_id' => $solicitante->id,
                 'status'         => 'pendente',
                 'mensagem'       => "Documento {$validated['numero']} enviado por {$sistema->nome} para assinatura.",
+                'sequencial'     => (bool) ($validated['sequencial'] ?? false),
             ]);
 
             $assinaturasResp = [];
@@ -247,13 +279,10 @@ class IntegracaoDocumentoController extends Controller
             'signatarios.*.signature_position' => ['nullable', 'array'],
         ]);
 
-        $documento = Documento::with('versoes')
-            ->where('sistema_origem', $sistema->codigo)
-            ->where('numero_externo', $numeroExterno)
-            ->first();
+        $documento = $this->documentoDoSistema($sistema, $numeroExterno, ['versoes']);
 
         if (! $documento) {
-            return response()->json(['erro' => 'Documento nao encontrado para este sistema.'], 404);
+            return response()->json(['erro' => 'Documento não encontrado para este sistema.'], 404);
         }
 
         // Bloqueia se ja tem assinatura
@@ -262,13 +291,13 @@ class IntegracaoDocumentoController extends Controller
             ->exists();
         if ($jaAssinou) {
             return response()->json([
-                'erro' => 'Nao e possivel substituir: ja existe assinatura ou recusa registrada. Cancele e crie um novo documento.',
+                'erro' => 'Não é possível substituir: já existe assinatura ou recusa registrada. Cancele e crie um novo documento.',
             ], 409);
         }
 
         $pdfBytes = base64_decode($request->input('pdf_base64'), true);
         if ($pdfBytes === false || strlen($pdfBytes) < 100) {
-            return response()->json(['erro' => 'pdf_base64 invalido.'], 422);
+            return response()->json(['erro' => 'pdf_base64 inválido.'], 422);
         }
 
         $novosSigs = $request->input('signatarios', []);
@@ -278,7 +307,7 @@ class IntegracaoDocumentoController extends Controller
 
             $proximaVersao = ($documento->versao_atual ?? 1) + 1;
             $filename = 'integracao-' . $sistema->codigo . '-' . str_replace(['/','\\'], '-', $documento->numero_externo) . '-v' . $proximaVersao . '.pdf';
-            $path = 'documentos/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
             Storage::disk('documentos')->put($path, $pdfBytes);
 
             Versao::create([
@@ -364,7 +393,7 @@ class IntegracaoDocumentoController extends Controller
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
-            return response()->json(['erro' => 'Falha ao salvar versao.', 'detalhe' => $e->getMessage()], 500);
+            return response()->json(['erro' => 'Falha ao salvar versão.', 'detalhe' => $e->getMessage()], 500);
         }
     }
 
@@ -378,12 +407,10 @@ class IntegracaoDocumentoController extends Controller
     {
         $sistema = $request->attributes->get('sistema_integrado');
 
-        $documento = Documento::where('sistema_origem', $sistema->codigo)
-            ->where('numero_externo', $numeroExterno)
-            ->first();
+        $documento = $this->documentoDoSistema($sistema, $numeroExterno);
 
         if (! $documento) {
-            return response()->json(['erro' => 'Documento nao encontrado.'], 404);
+            return response()->json(['erro' => 'Documento não encontrado.'], 404);
         }
 
         if (! $documento->callback_url) {
@@ -396,7 +423,7 @@ class IntegracaoDocumentoController extends Controller
 
         if (! $todasAssinadas) {
             return response()->json([
-                'erro' => 'Documento ainda tem assinaturas pendentes — webhook .todas_concluidas so e enviado depois de todas concluirem.',
+                'erro' => 'Documento ainda tem assinaturas pendentes — webhook .todas_concluidas só é enviado depois de todas concluirem.',
             ], 422);
         }
 
@@ -423,13 +450,10 @@ class IntegracaoDocumentoController extends Controller
     {
         $sistema = $request->attributes->get('sistema_integrado');
 
-        $documento = Documento::with(['solicitacoesAssinatura.assinaturas'])
-            ->where('sistema_origem', $sistema->codigo)
-            ->where('numero_externo', $numeroExterno)
-            ->first();
+        $documento = $this->documentoDoSistema($sistema, $numeroExterno, ['solicitacoesAssinatura.assinaturas']);
 
         if (! $documento) {
-            return response()->json(['erro' => 'Documento nao encontrado para este sistema.'], 404);
+            return response()->json(['erro' => 'Documento não encontrado para este sistema.'], 404);
         }
 
         $solicitacao = $documento->solicitacoesAssinatura->first();
@@ -464,17 +488,15 @@ class IntegracaoDocumentoController extends Controller
     {
         $sistema = $request->attributes->get('sistema_integrado');
 
-        $documento = Documento::where('sistema_origem', $sistema->codigo)
-            ->where('numero_externo', $numeroExterno)
-            ->first();
+        $documento = $this->documentoDoSistema($sistema, $numeroExterno);
 
         if (! $documento) {
-            return response()->json(['erro' => 'Documento nao encontrado.'], 404);
+            return response()->json(['erro' => 'Documento não encontrado.'], 404);
         }
 
         if ($documento->status === 'cancelado') {
             return response()->json([
-                'erro' => 'Documento cancelado. PDF assinado nao disponivel para download.',
+                'erro' => 'Documento cancelado. PDF assinado não disponível para download.',
             ], 410); // 410 Gone — recurso intencionalmente removido
         }
 
@@ -497,14 +519,14 @@ class IntegracaoDocumentoController extends Controller
 
         if (! $ultimaAssinatura) {
             return response()->json([
-                'erro' => 'PDF assinado nao encontrado (assinaturas sem arquivo).',
+                'erro' => 'PDF assinado não encontrado (assinaturas sem arquivo).',
             ], 404);
         }
 
         $path = Storage::disk('documentos')->path($ultimaAssinatura->arquivo_assinado_path);
         if (! is_file($path)) {
             return response()->json([
-                'erro' => 'Arquivo assinado nao encontrado no storage: ' . $ultimaAssinatura->arquivo_assinado_path,
+                'erro' => 'Arquivo assinado não encontrado no storage: ' . $ultimaAssinatura->arquivo_assinado_path,
             ], 404);
         }
 
@@ -528,16 +550,14 @@ class IntegracaoDocumentoController extends Controller
         $sistema = $request->attributes->get('sistema_integrado');
         $request->validate(['motivo' => ['required', 'string', 'max:1000']]);
 
-        $documento = Documento::where('sistema_origem', $sistema->codigo)
-            ->where('numero_externo', $numeroExterno)
-            ->first();
+        $documento = $this->documentoDoSistema($sistema, $numeroExterno);
 
         if (! $documento) {
-            return response()->json(['erro' => 'Documento nao encontrado.'], 404);
+            return response()->json(['erro' => 'Documento não encontrado.'], 404);
         }
 
         if ($documento->status === 'cancelado') {
-            return response()->json(['erro' => 'Documento ja esta cancelado.'], 409);
+            return response()->json(['erro' => 'Documento já está cancelado.'], 409);
         }
 
         try {
@@ -588,7 +608,7 @@ class IntegracaoDocumentoController extends Controller
                 'numero_externo' => $documento->numero_externo,
                 'status'         => 'cancelado',
                 'cancelado_em'   => now()->toIso8601String(),
-                'mensagem'       => 'Documento cancelado, retirado da pasta de arquivamento e auditado. Assinaturas e historico preservados.',
+                'mensagem'       => 'Documento cancelado, retirado da pasta de arquivamento e auditado. Assinaturas e histórico preservados.',
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -597,5 +617,202 @@ class IntegracaoDocumentoController extends Controller
                 'detalhe' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Arquiva um arquivo (imagem, PDF, anexo) SEM fluxo de assinatura.
+     * Usado por sistemas externos (ex.: foto do servidor no RH) que só precisam
+     * guardar o binário no GPE Docs como Documento oficial.
+     *
+     * Idempotente por (sistema_origem, ug, numero): reenviar o mesmo `numero`
+     * cria uma nova Versao no documento existente (não duplica).
+     *
+     * POST /api/integracoes/arquivos
+     *   { "tipo", "ug_codigo", "numero", "nome", "arquivo_base64", "mime_type",
+     *     "extensao"?, "pasta_codigo"?, "descricao"?, "classificacao"?, "metadados"? }
+     */
+    public function arquivar(Request $request): JsonResponse
+    {
+        /** @var SistemaIntegrado $sistema */
+        $sistema = $request->attributes->get('sistema_integrado');
+
+        $validated = $request->validate([
+            'tipo'           => ['required', 'string', 'max:100'],
+            'ug_codigo'      => ['required', 'string', 'max:20'],
+            'numero'         => ['required', 'string', 'max:100'],
+            'nome'           => ['required', 'string', 'max:255'],
+            'arquivo_base64' => ['required', 'string'],
+            'mime_type'      => ['required', 'string', 'max:100'],
+            'extensao'       => ['nullable', 'string', 'max:10'],
+            'pasta_codigo'   => ['nullable', 'string', 'max:100'],
+            'descricao'      => ['nullable', 'string'],
+            'classificacao'  => ['nullable', 'string', 'max:30'],
+            'metadados'      => ['nullable', 'array'],
+        ]);
+
+        $ug = \App\Models\Ug::where('codigo', $validated['ug_codigo'])->first();
+        if (! $ug) {
+            return response()->json(['erro' => "UG não encontrada: {$validated['ug_codigo']}"], 422);
+        }
+
+        $tipoDoc = TipoDocumental::where('ativo', true)
+            ->whereRaw('LOWER(nome) = ?', [strtolower($validated['tipo'])])
+            ->first();
+        if (! $tipoDoc) {
+            return response()->json(['erro' => "Tipo documental não cadastrado: {$validated['tipo']}"], 422);
+        }
+
+        $pastaId = null;
+        if (! empty($validated['pasta_codigo'])) {
+            $pasta = DB::table('ged_pastas')
+                ->where('ug_id', $ug->id)
+                ->whereRaw('LOWER(nome) = ?', [strtolower($validated['pasta_codigo'])])
+                ->first();
+            $pastaId = $pasta?->id;
+        }
+
+        $bytes = base64_decode($validated['arquivo_base64'], true);
+        if ($bytes === false || strlen($bytes) < 1) {
+            return response()->json(['erro' => 'arquivo_base64 inválido ou vazio.'], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $autor = $this->usuarioDoSistema($sistema, $ug->id);
+
+            // Idempotência: mesmo (sistema, numero) → nova versão no documento existente
+            $documento = Documento::where('sistema_origem', $sistema->codigo)
+                ->where('numero_externo', $validated['numero'])
+                ->where('ug_id', $ug->id)
+                ->first();
+
+            $ext  = strtolower($validated['extensao'] ?? pathinfo($validated['nome'], PATHINFO_EXTENSION) ?: 'bin');
+            $novo = ! $documento;
+
+            if ($novo) {
+                $documento = Documento::create([
+                    'ug_id'              => $ug->id,
+                    'nome'               => $validated['nome'],
+                    'descricao'          => $validated['descricao'] ?? null,
+                    'tipo_documental_id' => $tipoDoc->id,
+                    'pasta_id'           => $pastaId,
+                    'versao_atual'       => 1,
+                    'tamanho'            => strlen($bytes),
+                    'mime_type'          => $validated['mime_type'],
+                    'autor_id'           => $autor->id,
+                    'status'             => 'arquivado',
+                    'classificacao'      => $validated['classificacao'] ?? 'restrito',
+                    'sistema_origem'     => $sistema->codigo,
+                    'numero_externo'     => $validated['numero'],
+                    'metadados_externos' => $validated['metadados'] ?? null,
+                ]);
+                $versaoNum = 1;
+            } else {
+                $versaoNum = ((int) $documento->versao_atual) + 1;
+            }
+
+            $filename = 'arquivo-' . $sistema->codigo . '-' . str_replace(['/', '\\'], '-', $validated['numero']) . '-v' . $versaoNum . '.' . $ext;
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . $filename;
+            Storage::disk('documentos')->put($path, $bytes);
+
+            Versao::create([
+                'documento_id' => $documento->id,
+                'versao'       => $versaoNum,
+                'arquivo_path' => $path,
+                'tamanho'      => strlen($bytes),
+                'hash_sha256'  => hash('sha256', $bytes),
+                'autor_id'     => $autor->id,
+                'comentario'   => $novo ? "Arquivado via API ({$sistema->nome})" : "Nova versao via API ({$sistema->nome})",
+            ]);
+
+            if (! $novo) {
+                $documento->update([
+                    'versao_atual'       => $versaoNum,
+                    'tamanho'            => strlen($bytes),
+                    'mime_type'          => $validated['mime_type'],
+                    'nome'               => $validated['nome'],
+                    'metadados_externos' => $validated['metadados'] ?? $documento->metadados_externos,
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'id'             => $documento->id,
+                'numero_externo' => $documento->numero_externo,
+                'sistema_origem' => $documento->sistema_origem,
+                'versao_atual'   => $versaoNum,
+                'mime_type'      => $documento->mime_type,
+                'url_visualizacao' => url("/documentos/{$documento->id}"),
+                'criado_em'      => $documento->created_at->toIso8601String(),
+            ], $novo ? 201 : 200);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json(['erro' => 'Falha ao arquivar arquivo.', 'detalhe' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Devolve os bytes da versão atual de um arquivo arquivado — para o sistema
+     * externo exibir a imagem via proxy (sem sessão no GPE Docs). Escopado ao
+     * próprio sistema chamador (não lê documento de outro sistema).
+     *
+     * GET /api/integracoes/arquivos/{id}/conteudo
+     */
+    public function conteudo(Request $request, int $id)
+    {
+        /** @var SistemaIntegrado $sistema */
+        $sistema = $request->attributes->get('sistema_integrado');
+
+        $documento = Documento::where('id', $id)
+            ->where('sistema_origem', $sistema->codigo)
+            ->first();
+        if (! $documento) {
+            return response()->json(['erro' => 'Arquivo não encontrado para este sistema.'], 404);
+        }
+
+        $versao = Versao::where('documento_id', $documento->id)
+            ->orderByDesc('versao')->first();
+        if (! $versao || ! Storage::disk('documentos')->exists($versao->arquivo_path)) {
+            return response()->json(['erro' => 'Conteúdo indisponível.'], 404);
+        }
+
+        return Storage::disk('documentos')->response($versao->arquivo_path, null, [
+            'Content-Type'  => $documento->mime_type ?: 'application/octet-stream',
+            'Cache-Control' => 'private, max-age=60',
+        ]);
+    }
+
+    /** Usuário-sistema (tipo externo) que consta como autor dos arquivos de uma integração. */
+    /**
+     * Documento do sistema de origem pelo número externo. O número volta a ser usado
+     * depois de um cancelamento, então pode haver mais de um: vale o não cancelado
+     * mais recente (antes o first() pegava o primeiro, quase sempre o cancelado).
+     */
+    private function documentoDoSistema(SistemaIntegrado $sistema, string $numeroExterno, array $with = []): ?Documento
+    {
+        return Documento::with($with)
+            ->where('sistema_origem', $sistema->codigo)
+            ->where('numero_externo', $numeroExterno)
+            ->orderByRaw("case when status = 'cancelado' then 1 else 0 end")
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    private function usuarioDoSistema(SistemaIntegrado $sistema, int $ugId): User
+    {
+        $email = 'sistema-' . strtolower($sistema->codigo) . '@externo.local';
+
+        return User::firstOrCreate(
+            ['email' => $email],
+            [
+                'name'     => 'Sistema ' . $sistema->nome,
+                'cpf'      => null,
+                'password' => bcrypt(Str::random(32)),
+                'tipo'     => 'externo',
+                'ug_id'    => $ugId,
+            ],
+        );
     }
 }

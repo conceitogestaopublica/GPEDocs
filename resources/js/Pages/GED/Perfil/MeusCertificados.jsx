@@ -30,10 +30,10 @@ export default function MeusCertificados({ certificados, usuario_cpf }) {
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-start gap-2">
                     <i className="fas fa-exclamation-triangle text-amber-600 mt-0.5" />
                     <div>
-                        <p className="text-xs font-semibold text-amber-800">CPF nao cadastrado no seu perfil</p>
+                        <p className="text-xs font-semibold text-amber-800">CPF não cadastrado no seu perfil</p>
                         <p className="text-[11px] text-amber-700">
-                            Sem o CPF cadastrado, nao podemos verificar se o certificado pertence a voce.
-                            Peca ao admin para cadastrar seu CPF no usuario.
+                            Sem o CPF cadastrado, não podemos verificar se o certificado pertence a você.
+                            Peça ao admin para cadastrar seu CPF no usuário.
                         </p>
                     </div>
                 </div>
@@ -45,10 +45,10 @@ export default function MeusCertificados({ certificados, usuario_cpf }) {
                 <div className="flex-1">
                     <p className="text-xs font-semibold text-blue-800">A chave privada nunca e armazenada</p>
                     <p className="text-[11px] text-blue-700 leading-relaxed">
-                        Ao cadastrar um certificado A1, voce envia o .pfx com a senha.
-                        O servidor abre o arquivo em memoria, valida a cadeia ICP-Brasil e o CPF,
-                        salva apenas o certificado publico, e descarta imediatamente o material privado.
-                        No momento de cada assinatura voce ainda precisara fornecer o .pfx + senha.
+                        Ao cadastrar um certificado A1, você envia o .pfx com a senha.
+                        O servidor abre o arquivo em memória, valida a cadeia ICP-Brasil e o CPF,
+                        salva apenas o certificado público, e descarta imediatamente o material privado.
+                        No momento de cada assinatura você ainda precisará fornecer o .pfx + senha.
                     </p>
                 </div>
             </div>
@@ -126,7 +126,7 @@ function CertCard({ cert, onInativar, onReativar }) {
                 )}
                 <Linha label="AC emissora" valor={cert.issuer_cn} />
                 <Linha label="Validade" valor={`${formatarData(cert.valido_de)} ate ${formatarData(cert.valido_ate)}`} />
-                <Linha label="Numero serie" valor={cert.serial_number?.slice(0, 24) + (cert.serial_number?.length > 24 ? '...' : '')} mono />
+                <Linha label="Número série" valor={cert.serial_number?.slice(0, 24) + (cert.serial_number?.length > 24 ? '...' : '')} mono />
                 <Linha label="Thumbprint" valor={cert.thumbprint_sha256?.slice(0, 16) + '...'} mono />
                 {cert.assinaturas_count > 0 && (
                     <Linha label="Usado em" valor={`${cert.assinaturas_count} assinatura(s)`} />
@@ -183,8 +183,8 @@ function NovoCertificadoModal({ show, onClose }) {
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
                     <p className="text-[11px] text-blue-800 leading-tight">
                         <i className="fas fa-info-circle mr-1" />
-                        O servidor vai abrir seu .pfx em memoria, validar a cadeia ICP-Brasil e o CPF,
-                        salvar apenas o certificado publico, e descartar imediatamente a senha e a chave privada.
+                        O servidor vai abrir seu .pfx em memória, validar a cadeia ICP-Brasil e o CPF,
+                        salvar apenas o certificado público, e descartar imediatamente a senha e a chave privada.
                     </p>
                 </div>
 
@@ -236,8 +236,8 @@ function ConfirmaModal({ confirma, onClose }) {
             <div className="space-y-4">
                 <p className="text-sm text-gray-700">
                     {isInativar
-                        ? 'Voce esta marcando este certificado como inativo. Ele nao aparecera mais nas listagens, mas as assinaturas que voce ja fez com ele continuam validas.'
-                        : 'Reativar este certificado. Ele voltara a aparecer nas listagens normalmente.'}
+                        ? 'Você esta marcando este certificado como inativo. Ele não aparecerá mais nas listagens, mas as assinaturas que você já fez com ele continuam válidas.'
+                        : 'Reativar este certificado. Ele voltará a aparecer nas listagens normalmente.'}
                 </p>
                 <div className="bg-gray-50 rounded-lg p-3">
                     <p className="text-xs font-semibold text-gray-700">{confirma.cert.subject_cn}</p>

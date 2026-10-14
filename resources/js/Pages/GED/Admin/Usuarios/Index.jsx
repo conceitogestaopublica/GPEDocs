@@ -10,8 +10,10 @@ import AdminLayout from '../../../../Layouts/AdminLayout';
 import PageHeader from '../../../../Components/PageHeader';
 import Button from '../../../../Components/Button';
 import DataTable from '../../../../Components/DataTable';
+import { useConfirm } from '../../../../Components/ConfirmProvider';
 
 export default function Usuarios({ usuarios, filtros = {} }) {
+    const confirmar = useConfirm();
     const data = usuarios?.data || usuarios || [];
     const [busca, setBusca] = useState(filtros.busca || '');
     const [tipo, setTipo]   = useState(filtros.tipo || '');
@@ -34,7 +36,7 @@ export default function Usuarios({ usuarios, filtros = {} }) {
     };
 
     const columns = [
-        { key: 'name', label: 'Usuario', render: (row) => (
+        { key: 'name', label: 'Usuário', render: (row) => (
             <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                     row.tipo === 'externo'
@@ -58,7 +60,7 @@ export default function Usuarios({ usuarios, filtros = {} }) {
                 {row.tipo === 'externo' ? 'Externo' : 'Interno'}
             </span>
         )},
-        { key: 'unidade', label: 'Vinculo', render: (row) => (
+        { key: 'unidade', label: 'Vínculo', render: (row) => (
             <div className="text-xs text-gray-600">
                 {row.ug ? (
                     <>
@@ -82,12 +84,12 @@ export default function Usuarios({ usuarios, filtros = {} }) {
 
     return (
         <AdminLayout>
-            <Head title="Usuarios" />
-            <PageHeader title="Usuarios" subtitle="Cadastro de usuarios e vinculo com organograma">
+            <Head title="Usuários" />
+            <PageHeader title="Usuários" subtitle="Cadastro de usuários e vínculo com organograma">
                 <Link href="/configuracoes/usuarios/create"
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors">
                     <i className="fas fa-user-plus" />
-                    Novo Usuario
+                    Novo Usuário
                 </Link>
             </PageHeader>
 
@@ -113,26 +115,26 @@ export default function Usuarios({ usuarios, filtros = {} }) {
                         </button>
                     )}
                     <span className="text-xs text-gray-400 ml-auto">
-                        {usuarios?.total ?? data.length} usuario(s)
+                        {usuarios?.total ?? data.length} usuário(s)
                     </span>
                 </form>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="ds-card">
                 <DataTable
+                    searchable={false}
                     columns={columns}
                     data={data}
                     pagination={usuarios?.links ? usuarios : null}
                     actions={(row) => (
                         <>
-                            <Link href={`/configuracoes/usuarios/${row.id}/edit`}
-                                className="text-blue-500 hover:text-blue-700 px-1 text-xs">
-                                <i className="fas fa-edit" /> Editar
-                            </Link>
-                            <button onClick={() => {
-                                if (confirm(`Excluir usuario "${row.name}"?`)) router.delete(`/configuracoes/usuarios/${row.id}`);
-                            }} className="text-red-400 hover:text-red-600 px-1 text-xs ml-2">
-                                <i className="fas fa-trash" /> Excluir
+                            <Button variant="secondary" size="sm" icon="fas fa-pen text-xs" href={`/configuracoes/usuarios/${row.id}/edit`}>
+                                Editar
+                            </Button>
+                            <button onClick={async () => {
+                                if (await confirmar({ titulo: `Excluir o usuário "${row.name}"?`, tom: 'perigo', rotuloConfirmar: 'Excluir' })) router.delete(`/configuracoes/usuarios/${row.id}`);
+                            }} className="ds-btn ds-btn-sm ds-btn-danger" title="Excluir">
+                                <i className="fas fa-trash text-xs" />
                             </button>
                         </>
                     )}
