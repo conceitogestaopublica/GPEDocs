@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
-use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveTenant;
 use App\Models\Landlord\SuperAdmin;
 use App\Models\Landlord\SuperAdminTenantLink;
@@ -42,7 +41,7 @@ class SSOConsumeController extends Controller
 {
     public function consume(Request $request, TenantContext $ctx): Response|RedirectResponse
     {
-        if (!$ctx->isSet()) {
+        if (! $ctx->isSet()) {
             // SSO não faz sentido fora do contexto de tenant.
             return $this->errorView('E_SSO_TOKEN_INVALID');
         }
@@ -53,7 +52,7 @@ class SSOConsumeController extends Controller
         }
 
         $token = TenantSSOToken::findByRaw($tokenCru);
-        if (!$token) {
+        if (! $token) {
             return $this->errorView('E_SSO_TOKEN_INVALID');
         }
 

@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Http\Middleware\HandleInertiaRequests;
-use App\Http\Middleware\ResolveTenant;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Crypt;
 
 /**
  * Tenant — registro de um município/entidade no banco landlord.
@@ -18,16 +16,45 @@ use Illuminate\Support\Facades\Config;
  */
 class Tenant extends Model
 {
-    use hasFactory;
+    use HasFactory;
 
     protected $connection = 'landlord';
+
     protected $table = 'tenants';
+
     protected $guarded = ['id'];
+
+    /**
+     * A MATRIZ das tabelas universais — o banco modelo de onde as universais são
+     * publicadas para os municípios.
+     *
+     * É dado, não convenção: quem publica pergunta ao landlord em vez de receber o nome
+     * do banco por parâmetro. Um `--source` digitado à mão publicaria o cadastro de um
+     * município como se fosse norma, e o erro só apareceria semanas depois como "o plano
+     * de contas mudou sozinho".
+     *
+     * SÓ UMA pode existir — garantido por índice único parcial no banco
+     * (`uq_tenants_uma_matriz`), não por validação de aplicação.
+     */
+    public static function matriz(): ?self
+    {
+        return static::where('is_matriz', true)->first();
+    }
+
     protected $casts = [
         'active' => 'boolean',
+        'is_matriz' => 'boolean',
         'contratado_em' => 'date',
         'encerrado_em' => 'date',
     ];
+
+    //    protected static function boot()
+    //    {
+    //        parent::boot();
+    //        static::addGlobalScope('maat_gpecloud', function ($builder) {
+    //            $builder->whereRaw("domain = '". Config::get('multitenancy.tenant_default_domain') ."'");
+    //        });
+    //    }
 
     /**
      * Senha do banco do tenant — guardada em texto plano (decisão do operador).
@@ -39,15 +66,17 @@ class Tenant extends Model
     protected function dbPassword(): Attribute
     {
         return Attribute::make(
-            get: fn($value) => $value ? $this->decryptSafe($value) : null,
-            set: fn($value) => $value ?: null,
+            get: fn ($value) => $value ? $this->decryptSafe($value) : null,
+            set: fn ($value) => $value ?: null,
         );
     }
 
     /** Lê valores legados criptografados; se já for texto plano, retorna como está. */
     private function decryptSafe(?string $value): ?string
     {
-        if (!$value) return null;
+        if (! $value) {
+            return null;
+        }
         try {
             return Crypt::decryptString($value);
         } catch (\Throwable) {
@@ -62,26 +91,33 @@ class Tenant extends Model
     }
 
     /**
-     * URL pública do tenant — substitui {domain} no template configurado.
+     * URL pública do tenant — monta o host a partir de {subdomain}.{domain}.
      *
-     *   $tenant->url()              → https://paraguacu.maatgpecloud.com.br
-     *   $tenant->url('/sso/landlord') → https://paraguacu.maatgpecloud.com.br/sso/landlord
+     *   subdomain = paraguacu · domain = gpedocs.com.br
+     *   $tenant->url()                → https://paraguacu.gpedocs.com.br
+     *   $tenant->url('/sso/landlord') → https://paraguacu.gpedocs.com.br/sso/landlord
+     *
+     * Em dev a coluna `domain` guarda só a porta (':8080') e o tenant é servido
+     * em localhost — o ResolveTenant casa por subdomain='localhost', não existe
+     * host `paraguacu`. Daí o ramo separado.
      */
     public function url(string $path = ''): string
     {
-        if (ResolveTenant::$LANDLORD_URL == config('multitenancy.dev_landlord_url')) {
-            $url = "http://" . config('multitenancy.dev_landlord_url') . ":" . ResolveTenant::$LANDLORD_PORT;
+        if (str_starts_with($this->domain, ':')) {
+            $url = 'http://localhost'.$this->domain;
         } else {
-            $url = config('multitenancy.url_template');
-            $url = str_replace('{domain}', $this->domain, $url);
+            // O template pode trazer esquema (TENANT_URL_TEMPLATE=https://{subdomain}.{domain});
+            // quem define o esquema aqui é o ambiente, então remove antes de montar.
+            $host = preg_replace('#^[a-z][a-z0-9+.-]*://#i', '', (string) config('multitenancy.url_template'));
+            $url = 'https://'.str_replace(['{subdomain}', '{domain}'], [$this->subdomain, $this->domain], $host);
         }
-        return $path === '' ? $url : rtrim($url, '/') . '/' . ltrim($path, '/');
+
+        return $path === '' ? $url : rtrim($url, '/').'/'.ltrim($path, '/');
     }
 
-    public static function getTenanttDomain() {
-        return Config::get('multitenancy.tenant_default_domain');
-    }
-
+    /**
+     * O landlord é compartilhado com o GPE2: o GPEDocs só enxerga tenants PostgreSQL.
+     */
     protected static function boot()
     {
         parent::boot();

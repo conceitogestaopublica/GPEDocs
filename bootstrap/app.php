@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\VerifyTenant::class,
         ]);
         $middleware->web(append: [
+            \App\Http\Middleware\VerifyActiveSuperAdminSSO::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\EnsureUgSelected::class,
             ]);

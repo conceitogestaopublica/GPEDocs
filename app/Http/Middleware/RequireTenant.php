@@ -20,7 +20,7 @@ class RequireTenant
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! app(TenantContext::class)->isSet()) {
+        if (!app(TenantContext::class)->isSet()) {
             abort(503, 'Tenant não configurado — acesso negado por segurança.');
         }
         return $next($request);

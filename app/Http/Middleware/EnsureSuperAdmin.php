@@ -44,7 +44,6 @@ class EnsureSuperAdmin
             return redirect()->route('landlord.login')
                 ->withErrors(['email' => 'Sua conta foi desativada.']);
         }
-
         return $next($request);
     }
 }

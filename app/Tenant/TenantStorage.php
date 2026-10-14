@@ -51,7 +51,7 @@ class TenantStorage
     public static function prefix(): string
     {
         $ctx = app(TenantContext::class);
-        return 'tenants/' . ($ctx->domain() ?? 'shared');
+        return 'tenants/' . ($ctx->subdomain() ?? 'shared');
     }
 
     private static function resolveRoot(string $base): string

@@ -6,6 +6,7 @@ namespace App\Console\Commands\Concerns;
 
 use App\Models\Tenant;
 use App\Tenant\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Trait para comandos que precisam rodar em contexto de tenant.
@@ -24,7 +25,7 @@ use App\Tenant\TenantContext;
  *       private function doWork(): int { ... }
  *   }
  *
- * Resolve a flag --tenant=<subdomain> (ou pergunta interativamente se ausente).
+ * Resolve a flag --tenant=<domain> (ou pergunta interativamente se ausente).
  * Use --tenant=ALL para iterar todos os tenants ativos.
  */
 trait TenantAware
@@ -37,21 +38,97 @@ trait TenantAware
     {
         $opt = $this->option('tenant');
 
-        if ($opt === 'ALL' || $opt === 'all' || $opt === '*') {
+        // Sem --tenant mas com tenant JÁ ATIVO (chamado por `Artisan::call` de dentro de um job —
+        // a finalização da conversão roda assim): executa nele, sem trocar nem limpar o contexto
+        // (é do chamador). Antes caía no menu interativo, que sem terminal devolve nulo e o
+        // comando saía com FAILURE em silêncio — `Artisan::call` não propaga o código.
+        if (($opt === null || $opt === '') && app(TenantContext::class)->isSet()) {
+            return (int) ($callback() ?? self::SUCCESS);
+        }
+
+        // Sem --tenant: menu interativo (inclui a opção "TODOS").
+        if ($opt === null || $opt === '') {
+            $opt = $this->escolherTenantInterativo();
+            if ($opt === null) {
+                return self::FAILURE;
+            }
+        }
+
+        if (in_array(strtolower((string) $opt), ['all', 'todos', '*'], true)) {
             return $this->runForAllTenants($callback);
         }
 
         $tenant = $this->resolveTenant($opt);
-        if (! $tenant) return self::FAILURE;
+        if (! $tenant) {
+            return self::FAILURE;
+        }
 
         return $this->runForOne($tenant, $callback);
     }
 
+    /**
+     * Base de tenants elegíveis: ativos E do domínio base configurado
+     * (`multitenancy.dominio_base` ← env TENANT_DOMINIO_BASE, default ':8080'),
+     * conforme salvo na coluna `domain`. Os comandos deste namespace operam só nesses.
+     *
+     * @return Builder<Tenant>
+     */
+    private function tenantsAtivos()
+    {
+        $base = config('multitenancy.dominio_base', ':8080');
+
+        return Tenant::active()->where('domain', 'like', '%'.$base.'%');
+    }
+
+    /** Rótulo legível de um tenant: `subdomínio.domínio — Nome (driver)`. */
+    private function rotuloTenant(Tenant $t): string
+    {
+        return sprintf('%s.%s — %s (%s)', $t->subdomain, $t->domain, $t->nome, $t->driver);
+    }
+
+    /** Menu interativo. Retorna 'ALL', o subdomínio do tenant escolhido, ou null se não há tenants. */
+    private function escolherTenantInterativo(): ?string
+    {
+        $tenants = $this->tenantsAtivos()->orderBy('domain')->get();
+        if ($tenants->isEmpty()) {
+            $this->error("Nenhum tenant ativo do domínio '".config('multitenancy.dominio_base')."' cadastrado.");
+
+            return null;
+        }
+
+        $TODOS = 'TODOS os tenants';
+        $mapa = [];
+        foreach ($tenants as $t) {
+            $mapa[$this->rotuloTenant($t)] = $t->subdomain;
+        }
+
+        $escolha = $this->choice('Selecione o tenant', array_merge(array_keys($mapa), [$TODOS]));
+
+        return $escolha === $TODOS ? 'ALL' : $mapa[$escolha];
+    }
+
+    /**
+     * Hook de confirmação antes de rodar em TODOS os tenants (via --tenant=ALL OU
+     * escolha "TODOS" no menu). Retorne false para cancelar. Padrão: sem confirmação.
+     * Comandos com operação destrutiva (ex.: --fresh/--rollback) devem sobrescrever.
+     */
+    protected function confirmarExecucaoAll(int $qtd): bool
+    {
+        return true;
+    }
+
     private function runForAllTenants(callable $callback): int
     {
-        $tenants = Tenant::active()->orderBy('subdomain')->get();
+        $tenants = $this->tenantsAtivos()->orderBy('domain')->get();
         if ($tenants->isEmpty()) {
-            $this->warn('Nenhum tenant ativo cadastrado no landlord.');
+            $this->warn("Nenhum tenant ativo do domínio '".config('multitenancy.dominio_base')."' cadastrado no landlord.");
+
+            return self::SUCCESS;
+        }
+
+        if (! $this->confirmarExecucaoAll($tenants->count())) {
+            $this->info('Cancelado.');
+
             return self::SUCCESS;
         }
 
@@ -60,13 +137,16 @@ trait TenantAware
 
         foreach ($tenants as $t) {
             $this->newLine();
-            $this->line("<bg=blue;fg=white> {$t->subdomain} </> — {$t->nome}");
+            $this->line("<bg=blue;fg=white> {$t->subdomain}.{$t->domain} </> — {$t->nome} ({$t->driver})");
             $exit = $this->runForOne($t, $callback);
-            if ($exit !== self::SUCCESS) $worst = $exit;
+            if ($exit !== self::SUCCESS) {
+                $worst = $exit;
+            }
         }
 
         $this->newLine();
         $this->info('Concluído.');
+
         return $worst;
     }
 
@@ -74,31 +154,32 @@ trait TenantAware
     {
         try {
             app(TenantContext::class)->set($tenant);
+
             return (int) ($callback() ?? self::SUCCESS);
         } catch (\Throwable $e) {
-            $this->error("[{$tenant->subdomain}] erro: " . $e->getMessage());
+            $this->error("[{$tenant->domain}] erro: ".$e->getMessage());
+
             return self::FAILURE;
         } finally {
             app(TenantContext::class)->clear();
         }
     }
 
-    private function resolveTenant(?string $subdomain = ''): ?Tenant
+    /** Resolve por subdomínio, domínio, FQDN (`sub.domínio`) ou o rótulo do menu. */
+    private function resolveTenant(string $valor): ?Tenant
     {
-        if (!$subdomain) {
-            $disponiveis = Tenant::active()->orderBy('subdomain')->pluck('subdomain')->all();
-            if (empty($disponiveis)) {
-                $this->error('Nenhum tenant ativo cadastrado.');
-                return null;
-            }
-            $subdomain = $this->choice('Selecione o tenant', $disponiveis);
-        }
+        $tenant = $this->tenantsAtivos()->where(function ($q) use ($valor) {
+            $q->where('subdomain', $valor)
+                ->orWhere('domain', $valor)
+                ->orWhereRaw("CONCAT(subdomain, '.', domain) = ?", [$valor]);
+        })->first();
 
-        $tenant = Tenant::active()->where('subdomain', $subdomain)->first();
         if (! $tenant) {
-            $this->error("Tenant '{$subdomain}' não encontrado ou inativo.");
+            $this->error("Tenant '{$valor}' não encontrado, inativo ou fora do domínio '".config('multitenancy.dominio_base')."'.");
+
             return null;
         }
+
         return $tenant;
     }
 }
