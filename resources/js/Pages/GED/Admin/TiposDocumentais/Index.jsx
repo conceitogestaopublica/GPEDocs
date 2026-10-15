@@ -115,47 +115,24 @@ export default function TiposDocumentais({ tipos }) {
 }
 
 /* ── Modal: Criar/Editar Tipo Documental ── */
+// O formulário é montado só enquanto o modal está aberto (o Modal desmonta os filhos ao
+// fechar), então cada abertura começa com o estado inicial do tipo editado — ou vazio.
 function TipoFormModal({ show, onClose, tipo }) {
     const isEdit = !!tipo;
-    const { data, setData, post, put, processing, errors, reset } = useForm({
-        nome: '',
-        descricao: '',
-        schema_metadados: [],
+    return (
+        <Modal show={show} onClose={onClose} title={isEdit ? 'Editar Tipo Documental' : 'Novo Tipo Documental'} maxWidth="2xl">
+            <TipoForm key={tipo?.id ?? 'novo'} tipo={tipo} onClose={onClose} />
+        </Modal>
+    );
+}
+
+function TipoForm({ tipo, onClose }) {
+    const isEdit = !!tipo;
+    const { data, setData, post, put, processing, errors } = useForm({
+        nome: tipo?.nome ?? '',
+        descricao: tipo?.descricao ?? '',
+        schema_metadados: (tipo?.schema_metadados ?? []).map(c => ({ ...c })),
     });
-
-    // Sync form when opening
-    useState(() => {
-        if (tipo) {
-            setData({
-                nome: tipo.nome,
-                descricao: tipo.descricao || '',
-                schema_metadados: tipo.schema_metadados || [],
-            });
-        } else {
-            reset();
-        }
-    }, [tipo, show]);
-
-    // Reset on open
-    const handleOpen = () => {
-        if (tipo) {
-            setData({
-                nome: tipo.nome,
-                descricao: tipo.descricao || '',
-                schema_metadados: tipo.schema_metadados || [],
-            });
-        } else {
-            setData({ nome: '', descricao: '', schema_metadados: [] });
-        }
-    };
-
-    // Sync when tipo changes
-    if (show && tipo && data.nome !== tipo.nome && data.nome === '') {
-        handleOpen();
-    }
-    if (show && !tipo && data.nome !== '') {
-        // reset for create
-    }
 
     const addCampo = () => {
         setData('schema_metadados', [
@@ -195,12 +172,12 @@ function TipoFormModal({ show, onClose, tipo }) {
         if (isEdit) {
             put(`/admin/tipos-documentais/${tipo.id}`, { onSuccess: onClose });
         } else {
-            post('/admin/tipos-documentais', { onSuccess: () => { reset(); onClose(); } });
+            post('/admin/tipos-documentais', { onSuccess: onClose });
         }
     };
 
     return (
-        <Modal show={show} onClose={onClose} title={isEdit ? 'Editar Tipo Documental' : 'Novo Tipo Documental'} maxWidth="2xl">
+        <>
             <form onSubmit={submit} className="space-y-5">
                 {/* Info basica */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -302,7 +279,7 @@ function TipoFormModal({ show, onClose, tipo }) {
                     </Button>
                 </div>
             </form>
-        </Modal>
+        </>
     );
 }
 
