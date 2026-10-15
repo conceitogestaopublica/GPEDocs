@@ -365,6 +365,78 @@ main table tbody tr:hover { background-color: var(--ds-surface-hover); }
 }
 .animate-flyoutIn { animation: flyoutIn 0.18s cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: left center; }
 
+/* Modais — regra GLOBAL, discreta, sem tocar em cada tela.
+   Todo overlay de tela inteira (`fixed inset-0`, ~90 no sistema: confirmação, formulários
+   em modal, paleta, relatórios gerados, backdrop da sidebar no celular) entra com fundo em
+   fade e o painel (primeiro filho) com um leve zoom + subida. Saída fica a cargo de quem
+   desmonta o componente — não há transição de saída sem manter o elemento montado, e isso
+   exigiria mudar todos os modais. Quem tiver `.animate-fadeIn` próprio continua com ele. */
+@keyframes gpe-modal-backdrop {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes gpe-modal-panel {
+    from { opacity: 0; transform: translateY(6px) scale(0.985); }
+    to { opacity: 1; transform: none; }
+}
+.fixed.inset-0 {
+    animation: gpe-modal-backdrop 150ms ease-out both;
+}
+.fixed.inset-0 > :not(.animate-fadeIn) {
+    animation: gpe-modal-panel 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce), print {
+    .fixed.inset-0, .fixed.inset-0 > * { animation: none; }
+}
+
+/* Listagens — mesma ideia, global: cada linha de tabela entra com um fade curto e as dez
+   primeiras em cascata de 35 ms (o resto entra junto — cascata longa vira lentidão). Só
+   anima ao MONTAR a linha: React mantém as linhas com `key`, então rolar, ordenar in-place
+   ou editar um campo não reanima; trocar de página/filtro (linhas novas) sim. */
+@keyframes gpe-row {
+    from { opacity: 0; transform: translateY(2px); }
+    to { opacity: 1; transform: none; }
+}
+tbody > tr {
+    animation: gpe-row 260ms ease-out both;
+    transition: background-color var(--ds-transition-fast);
+}
+/* Cabeçalho fixo SEMPRE na frente das linhas. A animação acima dá `transform` à linha
+   enquanto ela entra, e elemento com transform cria contexto de empilhamento: cabeçalho
+   `sticky` sem z-index (havia dezenas) ficava ATRÁS do texto que rolava por baixo dele.
+   `:where()` mantém especificidade zero — qualquer `z-*` explícito da tela continua valendo. */
+:where(table thead.sticky, table th.sticky, table tfoot.sticky) {
+    z-index: 10;
+}
+tbody > tr:nth-child(2) { animation-delay: 35ms; }
+tbody > tr:nth-child(3) { animation-delay: 70ms; }
+tbody > tr:nth-child(4) { animation-delay: 105ms; }
+tbody > tr:nth-child(5) { animation-delay: 140ms; }
+tbody > tr:nth-child(6) { animation-delay: 175ms; }
+tbody > tr:nth-child(7) { animation-delay: 210ms; }
+tbody > tr:nth-child(8) { animation-delay: 245ms; }
+tbody > tr:nth-child(9) { animation-delay: 280ms; }
+tbody > tr:nth-child(10) { animation-delay: 315ms; }
+/* Listas que não são tabela (cards de relatório, cards do painel, listas de itens) entram
+   com o mesmo efeito, mas por OPT-IN: `.lista-animada` no container anima os filhos diretos.
+   Não é global de propósito — os dropdowns de autocomplete remontam a lista a cada tecla e
+   piscariam. */
+.lista-animada > * {
+    animation: gpe-row 260ms ease-out both;
+}
+.lista-animada > :nth-child(2) { animation-delay: 35ms; }
+.lista-animada > :nth-child(3) { animation-delay: 70ms; }
+.lista-animada > :nth-child(4) { animation-delay: 105ms; }
+.lista-animada > :nth-child(5) { animation-delay: 140ms; }
+.lista-animada > :nth-child(6) { animation-delay: 175ms; }
+.lista-animada > :nth-child(7) { animation-delay: 210ms; }
+.lista-animada > :nth-child(8) { animation-delay: 245ms; }
+.lista-animada > :nth-child(9) { animation-delay: 280ms; }
+.lista-animada > :nth-child(10) { animation-delay: 315ms; }
+@media (prefers-reduced-motion: reduce), print {
+    tbody > tr, .lista-animada > * { animation: none; }
+}
+
 @media print {
     .no-print { display: none !important; }
 }
