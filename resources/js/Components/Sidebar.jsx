@@ -104,7 +104,7 @@ export default function Sidebar({ modulo, collapsed, isMobile, sidebarOpen, onCl
                         {grupos.map((g, i) => (
                             <button key={g.section} type="button" onClick={() => setSecaoSel(i)} title={g.section}
                                 aria-current={i === secaoSel ? 'page' : undefined}
-                                className={`w-full flex flex-col items-center gap-1 py-2.5 px-1 rounded-lg text-[10px] leading-tight text-center transition-colors
+                                className={`w-full flex flex-col items-center gap-1 py-2.5 px-1 rounded-lg text-[10px] leading-tight text-center transition-colors cursor-pointer
                                     ${i === secaoSel ? 'bg-primary-500 text-mist-50 shadow-sm' : 'text-mist-50/60 hover:bg-primary-700 hover:text-mist-50'}`}>
                                 <i className={`${g.icon} text-lg`} />
                                 <span className="break-words hyphens-auto">{ROTULO_ABA[g.section] || g.section}</span>
@@ -115,11 +115,11 @@ export default function Sidebar({ modulo, collapsed, isMobile, sidebarOpen, onCl
 
                 {/* ═══ PAINEL — módulo, seção e itens ═══ */}
                 {mostrarPainel && (
-                    <div className="flex-1 flex flex-col overflow-hidden">
+                    <div className="flex-1 flex flex-col overflow-hidden animate-fadeIn">
                         <div className="relative min-h-[70px] flex flex-col justify-center px-5 py-2.5 shrink-0 border-b border-primary-800">
                             <ModuloSwitcher modulo={modulo} permissoes={permissoes} />
                             {isMobile && (
-                                <button type="button" onClick={onClose} className="absolute top-6 right-4 text-mist-50/60 hover:text-mist-50">
+                                <button type="button" onClick={onClose} className="absolute top-6 right-4 text-mist-50/60 hover:text-mist-50 transition-colors">
                                     <i className="fas fa-times text-lg" />
                                 </button>
                             )}
@@ -141,7 +141,7 @@ export default function Sidebar({ modulo, collapsed, isMobile, sidebarOpen, onCl
                                     <Link key={item.href} href={item.href}
                                         className={`group flex items-center gap-2 px-2 py-2 rounded-md mb-1 text-sm transition-colors
                                             ${on ? 'bg-primary-500 text-mist-50 shadow-sm' : 'text-mist-50 hover:bg-primary-700'}`}>
-                                        <span className={`flex h-7 w-7 items-center justify-center rounded-lg shrink-0 ${on ? 'bg-mist-50/15' : 'bg-primary-700'}`}>
+                                        <span className={`flex h-7 w-7 items-center justify-center rounded-lg shrink-0 transition-colors ${on ? 'bg-mist-50/15' : 'bg-primary-700'}`}>
                                             <i className={`${item.icon} text-sm`} />
                                         </span>
                                         <span className="flex-1 text-sm leading-tight">{item.title}</span>
@@ -180,22 +180,22 @@ function ModuloSwitcher({ modulo, permissoes }) {
     return (
         <div ref={ref}>
             <button type="button" onClick={() => setOpen((o) => !o)} title="Trocar módulo" className="w-full text-left group">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-mist-50/55 group-hover:text-mist-50 flex items-center gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-mist-50/55 group-hover:text-mist-50 transition-colors flex items-center gap-1">
                     Módulo <i className={`fas fa-chevron-down text-[8px] transition-transform ${open ? 'rotate-180' : ''}`} />
                 </span>
                 <span className="mt-0.5 flex items-start gap-2 min-w-0">
                     <i className={`${atual.icon} text-mist-50 text-sm shrink-0 mt-0.5`} />
-                    <span className="text-[15px] font-semibold text-mist-50 leading-tight">{atual.nome}</span>
+                    <span className="text-[15px] font-semibold text-mist-50 leading-tight group-hover:text-white transition-colors">{atual.nome}</span>
                 </span>
                 <span className="block text-[11px] text-mist-50/55 mt-0.5 ml-6">{atual.subtitulo}</span>
             </button>
 
             {open && (
-                <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-white rounded-xl shadow-2xl border border-gray-100 py-2">
+                <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 animate-fadeIn">
                     <p className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Trocar módulo</p>
                     {outros.map(({ chave, cfg, href }) => (
                         <Link key={chave} href={href} onClick={() => setOpen(false)}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm ${chave === modulo ? 'bg-cyan-50 text-cyan-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}>
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${chave === modulo ? 'bg-cyan-50 text-cyan-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}>
                             <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${chave === modulo ? 'bg-cyan-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
                                 <i className={`${cfg.icon} text-xs`} />
                             </span>
@@ -207,7 +207,7 @@ function ModuloSwitcher({ modulo, permissoes }) {
                         </Link>
                     ))}
                     <div className="border-t border-gray-100 mt-1 pt-1">
-                        <Link href="/modulos" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50">
+                        <Link href="/modulos" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50 transition-colors">
                             <i className="fas fa-th-large text-xs" /> Ver todos os módulos
                         </Link>
                     </div>
