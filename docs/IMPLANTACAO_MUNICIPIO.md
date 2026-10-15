@@ -21,8 +21,8 @@ banco é o mesmo nos dois ambientes, então banco e arquivos viajam juntos.
 
 ## Montar do zero (local, em Docker)
 
-O GPEDocs roda no mesmo Docker do gpe2: o stack do GED (`app-docs`, `nginx-docs`,
-`queue-docs`) entra na rede `gpe_gpe` e usa o banco do container `db-gpe`.
+O GPEDocs roda no mesmo Docker do gpe2: o stack do GED (`docs-app`, `docs-nginx`,
+`docs-queue`) entra na rede `gpe_gpe` e usa o banco do container `db-gpe`.
 O stack do gpe2 precisa estar no ar.
 
 `.env` do GPEDocs (as versões anteriores ficaram em `.env.bak-antes-docs-santoantonio`
@@ -52,19 +52,19 @@ reconstruir a imagem.
 
 1. Subir: `docker compose up -d --build app nginx queue` → http://localhost:8090
 2. Tabelas de fila do GPEDocs no catálogo (uma vez):
-   `docker exec app-docs php artisan migrate --database=landlord --path=database/migrations/landlord --force`
+   `docker exec docs-app php artisan migrate --database=landlord --path=database/migrations/landlord --force`
 3. Linha do tenant no `gpe_registry.tenants` (subdomain/domain/db_host da tabela acima,
    `driver=pgsql`, `db_name=docs_santoantoniodoamparo`, `cnpj` só dígitos).
 4. Banco, schema, estrutura base e super admins do gpe2:
-   `docker exec app-docs php artisan docs:template-restore --tenant=<id> --legado=gpesantoantoniodoamparo --force`
+   `docker exec docs-app php artisan docs:template-restore --tenant=<id> --legado=gpesantoantoniodoamparo --force`
 5. Estrutura real (UGs, organograma, usuários ativos com a mesma senha do gpe2):
-   `docker exec app-docs php artisan docs:importar-estrutura --tenant=<id> --legado=gpesantoantoniodoamparo`
+   `docker exec docs-app php artisan docs:importar-estrutura --tenant=<id> --legado=gpesantoantoniodoamparo`
 6. Conteúdo de demonstração (opcional — só em banco recém-criado):
-   `docker exec app-docs php artisan docs:demonstracao --tenant=<id> --ug=UG-002`
+   `docker exec docs-app php artisan docs:demonstracao --tenant=<id> --ug=UG-002`
 
 Os arquivos ficam no volume Docker `gpedocs_storage`, em
 `/var/www/html/storage/app/private/tenants/<db_name>` dentro do container.
-Refazer tudo: `docker exec app-docs rm -rf storage/app/private/tenants/docs_santoantoniodoamparo`
+Refazer tudo: `docker exec docs-app rm -rf storage/app/private/tenants/docs_santoantoniodoamparo`
 (o template-restore recria o banco, mas não limpa os arquivos) e repetir 4 a 6.
 
 ## O que entra
@@ -92,7 +92,7 @@ No servidor:
 1. `createdb docs_santoantoniodoamparo` no postgres-gpe e
    `pg_restore --no-owner --no-privileges -d docs_santoantoniodoamparo <dump>`.
 2. Extrair o `.tar.gz` dentro da raiz do disco `documentos` (`DOCUMENTOS_ROOT`,
-   padrão `storage/app/private`). Em Docker: `docker cp` para dentro do container `app-docs`
+   padrão `storage/app/private`). Em Docker: `docker cp` para dentro do container `docs-app`
    e `chown -R www-data:www-data` na pasta.
 3. Linha no `gpe_registry.tenants` de produção: `subdomain=santoantoniodoamparo`,
    `domain=gpedocs.com.br`, `db_host=postgres-gpe`, `db_port=5432`, credenciais

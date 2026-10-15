@@ -40,7 +40,7 @@ return [
     | banner SSO. Sem valor, esses casos viram 404.
     |
     | Produção:  https://admin.maatgpecloud.com.br
-    | Dev local: http://localhost:8080   (web-gpe do stack gpe2)
+    | Dev local: http://localhost:8080   (gpe-web do stack gpe2)
     |
     */
     'landlord_url' => env('LANDLORD_URL', ''),
@@ -56,7 +56,7 @@ return [
     | assim nunca tocam bancos do gpe2. Também identifica o apex no ResolveTenant.
     |
     | Produção: TENANT_DOMINIO_BASE=gpedocs.com.br
-    | Dev local: ':<APP_PORT>' (default ':8090') — a porta em que o nginx-docs escuta
+    | Dev local: ':<APP_PORT>' (default ':8090') — a porta em que o docs-nginx escuta
     |
     */
     'dominio_base' => env('TENANT_DOMINIO_BASE', ':8090'),

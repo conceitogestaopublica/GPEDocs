@@ -36,8 +36,8 @@ use Illuminate\Support\Facades\DB;
  * dropa banco. O alvo é escolhido entre os tenants PG do GPEDocs no landlord
  * (domain = TENANT_DOMINIO_BASE, driver='pgsql').
  *
- *   docker exec -it app-docs php artisan docs:template-restore
- *   docker exec -it app-docs php artisan docs:template-restore --tenant=paraguacu --force
+ *   docker exec -it docs-app php artisan docs:template-restore
+ *   docker exec -it docs-app php artisan docs:template-restore --tenant=paraguacu --force
  *
  * Segurança: se o banco alvo já tiver objetos/dados, mostra o que será destruído e exige
  * confirmação (ou --force). Em produção exige --force sempre. A limpeza é feita tabela a

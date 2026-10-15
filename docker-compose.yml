@@ -16,8 +16,8 @@ services:
     build:
       context: .
       target: app
-    image: app-docs:latest
-    container_name: app-docs
+    image: docs-app:latest
+    container_name: docs-app
     restart: unless-stopped
     # IMPORTANTE (dev): NÃO usar env_file aqui. O .env é bind-montado abaixo e
     # Laravel/phpdotenv lê dele a cada bootstrap. Se usássemos env_file, as vars
@@ -51,7 +51,7 @@ services:
   # Quando este service NÃO está up, o Laravel cai no fallback (public/build).
   vite:
     image: node:22-alpine
-    container_name: vite-docs
+    container_name: docs-vite
     restart: unless-stopped
     working_dir: /var/www/html
     # npm install na 1ª subida (deps caem no volume nomeado e persistem).
@@ -75,8 +75,8 @@ services:
     build:
       context: .
       target: nginx
-    image: nginx-docs:latest
-    container_name: nginx-docs
+    image: docs-nginx:latest
+    container_name: docs-nginx
     restart: unless-stopped
     ports:
       - "${APP_PORT:-80}:80"
@@ -96,13 +96,13 @@ services:
     build:
       context: .
       target: app
-    image: app-docs:latest                # mesma imagem do app, sem rebuild duplo
-    container_name: queue-docs
+    image: docs-app:latest                # mesma imagem do app, sem rebuild duplo
+    container_name: docs-queue
     restart: unless-stopped
     command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600 --max-jobs=1000 --queue=high,default
     # Sem env_file: o queue:work relê o .env a cada job — mas o processo em si
     # carrega só uma vez. Pra mudanças de .env afetarem jobs em andamento,
-    # ainda precisa de "docker compose restart queue-docs".
+    # ainda precisa de "docker compose restart docs-queue".
     volumes:
       - storage:/var/www/html/storage
       - ./storage/logs:/var/www/html/storage/logs
