@@ -22,6 +22,7 @@ export const MENU_CONFIGURACOES = [
     { title: 'Visão Geral', icon: 'fas fa-cog', href: '/configuracoes', color: 'text-slate-600 bg-slate-100', permissao: 'admin.configuracoes' },
     { section: 'label', label: 'Estrutura' },
     { title: 'Unidades Gestoras', icon: 'fas fa-building', href: '/configuracoes/ugs', color: 'text-indigo-600 bg-indigo-100', permissao: 'admin.ugs' },
+    { title: 'Certificado da Prefeitura', icon: 'fas fa-shield-alt', href: '/configuracoes/certificado-prefeitura', color: 'text-emerald-600 bg-emerald-100', permissao: 'admin.ugs' },
     { section: 'label', label: 'Acessos' },
     { title: 'Usuários', icon: 'fas fa-users', href: '/configuracoes/usuarios', color: 'text-red-600 bg-red-100', permissao: 'admin.usuarios' },
     { title: 'Perfis e Permissões', icon: 'fas fa-shield-alt', href: '/configuracoes/perfis', color: 'text-slate-600 bg-slate-100', permissao: 'admin.roles' },

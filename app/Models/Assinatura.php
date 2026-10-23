@@ -46,6 +46,7 @@ class Assinatura extends Model
         'convite_enviado_em',
         'convite_acessado_em',
         'codigo_verificacao',
+        'pacote_convite_id',
     ];
 
     protected function casts(): array
@@ -89,6 +90,11 @@ class Assinatura extends Model
         }
 
         return url('/assinar/' . $this->convite_token);
+    }
+
+    public function pacoteConvite(): BelongsTo
+    {
+        return $this->belongsTo(PacoteConvite::class, 'pacote_convite_id');
     }
 
     public function cidadao(): BelongsTo
