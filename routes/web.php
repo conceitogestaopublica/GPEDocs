@@ -88,6 +88,9 @@ Route::prefix('api/integracoes')
         Route::post('documentos/{numero}/cancelar', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'cancelar'])
             ->where('numero', '[^/]+')
             ->name('api.integracoes.documentos.cancelar');
+        Route::post('pacotes/{codigo}/notificar', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'notificarPacote'])
+            ->where('codigo', '[^/]+')
+            ->name('api.integracoes.pacotes.notificar');
         Route::get('documentos/{numero}', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'show'])
             ->where('numero', '[^/]+')
             ->name('api.integracoes.documentos.show');
