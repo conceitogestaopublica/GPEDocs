@@ -28,8 +28,17 @@ class CarimboAssinaturaService
 
     public const ALTURA_PADRAO = 20.0;
 
-    /** Gera o PDF carimbado para a assinatura (já com status assinado e código) e grava no disco. */
-    public function gerar(Assinatura $atual): string
+    public function __construct(private readonly SeloInstitucionalService $selos)
+    {
+    }
+
+    /**
+     * Gera o PDF carimbado para a assinatura (já com status assinado e código), com a página
+     * de termo de evidências no fim e, se a UG tem certificado, o selo digital da prefeitura.
+     *
+     * @return array{caminho:string, selo:?array} selo = {cn, cnpj, icp_brasil, thumbprint}
+     */
+    public function gerar(Assinatura $atual): array
     {
         $documento = $atual->documento;
         $versao = $documento?->versaoAtual;
@@ -57,6 +66,9 @@ class CarimboAssinaturaService
         $pdf->SetMargins(0, 0, 0);
         $pdf->SetAutoPageBreak(false, 0);
 
+        $selo = $this->selos->material($documento->ug_id);
+        $cadeiaArquivo = null;
+
         // A cópia compatível (se houve) só sai depois do Output: o FPDI relê a origem ao gravar.
         $fonte = PdfCompativel::caminho($origem);
         try {
@@ -72,15 +84,118 @@ class CarimboAssinaturaService
                 $this->desenhar($pdf, $a, $total);
             }
 
+            $this->paginaTermo($pdf, $atual, $versao, $total, $selo);
+
+            if ($selo) {
+                // extracerts do TCPDF exige caminho de arquivo (ver AssinaturaIcpService).
+                if ($selo['extracerts']) {
+                    $cadeiaArquivo = tempnam(sys_get_temp_dir(), 'ged_selo_');
+                    file_put_contents($cadeiaArquivo, implode("\n", $selo['extracerts']));
+                }
+                $pdf->setSignature($selo['cert'], $selo['pkey'], '', $cadeiaArquivo ?: '', 2, [
+                    'Name'        => $selo['meta']['subject_cn'] ?? '',
+                    'Location'    => 'Brasil',
+                    'Reason'      => 'Selo da prefeitura sobre assinaturas eletrônicas (Lei 14.063/2020)',
+                    'ContactInfo' => url('/verificar/' . $documento->qr_code_token),
+                ]);
+                // Área do selo no rodapé do termo (última página).
+                $pdf->setSignatureAppearance(15, 262, 120, 18);
+            }
+
             $bytes = $pdf->Output('', 'S');
         } finally {
             PdfCompativel::liberar($fonte, $origem);
+            if ($cadeiaArquivo && is_file($cadeiaArquivo)) {
+                @unlink($cadeiaArquivo);
+            }
         }
         $caminho = sprintf(TenantStorage::pasta('assinaturas/externas') . '/%s_doc%d_ass%d.pdf',
             date('Ymd_His'), $atual->documento_id, $atual->id);
         $disk->put($caminho, $bytes);
 
-        return $caminho;
+        return [
+            'caminho' => $caminho,
+            'selo'    => $selo ? [
+                'cn'         => $selo['meta']['subject_cn'] ?? null,
+                'cnpj'       => $selo['registro']->cnpj,
+                'icp_brasil' => $selo['registro']->icp_brasil,
+                'thumbprint' => $selo['registro']->thumbprint_sha256,
+            ] : null,
+        ];
+    }
+
+    /**
+     * Página final "Termo de assinatura eletrônica": todas as assinaturas do documento com
+     * as evidências de cada uma (como se identificou, quando, de onde, código) e o QR da
+     * verificação pública. Refeita a cada assinatura, então sempre traz a lista completa.
+     */
+    private function paginaTermo(Fpdi $pdf, Assinatura $atual, $versao, int $paginasDocumento, ?array $selo): void
+    {
+        $documento = $atual->documento;
+        $assinaturas = Assinatura::with(['signatario:id,name', 'certificado:id,subject_cn,issuer_cn'])
+            ->where('documento_id', $atual->documento_id)
+            ->where('status', 'assinado')
+            ->orderBy('assinado_em')
+            ->get();
+        $orgao = \App\Models\Ug::withoutGlobalScopes()->find($documento->ug_id)?->nome ?? '';
+        $urlVerificar = url('/verificar/' . $documento->qr_code_token);
+        $e = fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
+
+        $pdf->AddPage('P', 'A4');
+        $pdf->SetMargins(15, 15, 15);
+
+        $pdf->SetFillColor(8, 145, 178);
+        $pdf->Rect(0, 0, 210, 26, 'F');
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 14);
+        $pdf->SetXY(15, 6);
+        $pdf->Cell(150, 7, 'TERMO DE ASSINATURA ELETRÔNICA', 0, 1);
+        $pdf->SetFont('helvetica', '', 8.5);
+        $pdf->SetX(15);
+        $pdf->Cell(150, 5, mb_strimwidth($orgao, 0, 90, '...'), 0, 1);
+        $pdf->write2DBarcode($urlVerificar, 'QRCODE,M', 178, 3, 20, 20, ['fgcolor' => [255, 255, 255], 'bgcolor' => false]);
+
+        $pdf->SetTextColor(40, 40, 40);
+        $pdf->SetXY(15, 32);
+        $html = '<table cellpadding="2" style="font-size:8.5pt">'
+            . '<tr><td width="28%"><b>Documento</b></td><td width="72%">' . $e($documento->nome) . '</td></tr>'
+            . '<tr><td><b>Páginas</b></td><td>' . $paginasDocumento . ' (este termo é a página ' . ($paginasDocumento + 1) . ')</td></tr>'
+            . '<tr><td><b>Hash SHA-256 do original</b></td><td style="font-family:courier;font-size:7.5pt">' . $e($versao->hash_sha256) . '</td></tr>'
+            . '<tr><td><b>Verificação</b></td><td>' . $e($urlVerificar) . '</td></tr>'
+            . '</table>';
+        $pdf->writeHTML($html, true, false, true, false, '');
+        $pdf->Ln(2);
+
+        $linhas = '';
+        foreach ($assinaturas as $a) {
+            $forma = match (true) {
+                $a->externo                          => 'Por link — cadastro com CPF, e-mail confirmado e senha',
+                $a->tipo_assinatura === 'qualificada' => 'Certificado ICP-Brasil' . ($a->certificado?->issuer_cn ? ' (' . $a->certificado->issuer_cn . ')' : ''),
+                default                              => 'Servidor — login no sistema e CPF',
+            };
+            $linhas .= '<tr>'
+                . '<td width="27%"><b>' . $e($a->nome_exibicao) . '</b><br/>CPF ' . $e(ConviteAssinaturaService::mascararCpf($a->cpf_signatario)) . '</td>'
+                . '<td width="29%">' . $e($forma) . ($a->email_signatario ? '<br/>' . $e($a->email_signatario) : '') . '</td>'
+                . '<td width="17%">' . $e(self::horaBrasilia($a->assinado_em)) . '<br/>IP ' . $e($a->ip ?: '—') . '</td>'
+                . '<td width="27%" style="font-family:courier">' . $e($a->codigo_verificacao ?: '—') . '</td>'
+                . '</tr>';
+        }
+        $pdf->writeHTML('<table border="0.3" cellpadding="3" style="font-size:7.5pt;border-color:#cbd5e1">'
+            . '<tr style="background-color:#ecfeff;font-weight:bold"><td width="27%">Signatário</td><td width="29%">Forma de identificação</td>'
+            . '<td width="17%">Data/hora (Brasília)</td><td width="27%">Código de verificação</td></tr>'
+            . $linhas . '</table>', true, false, true, false, '');
+        $pdf->Ln(3);
+
+        $seloTexto = $selo
+            ? 'Este arquivo está <b>selado digitalmente</b> por ' . $e($selo['meta']['subject_cn'] ?? '')
+              . ($selo['registro']->cnpj ? ' (CNPJ ' . $e($selo['registro']->cnpj) . ')' : '')
+              . ', certificado ' . ($selo['registro']->icp_brasil ? 'ICP-Brasil' : '<b>de teste, sem validade ICP-Brasil</b>')
+              . ' emitido por ' . $e($selo['meta']['issuer_cn'] ?? '') . '. Qualquer alteração no arquivo invalida o selo.'
+            : 'Este arquivo não tem selo digital da prefeitura (certificado não configurado). A integridade é conferida pelo hash e pela verificação pública.';
+        $pdf->writeHTML('<p style="font-size:8pt">' . $seloTexto . '</p>'
+            . '<p style="font-size:7.5pt;color:#555">Assinaturas eletrônicas nos termos da Lei nº 14.063/2020 e do art. 10, § 2º, da MP nº 2.200-2/2001. '
+            . 'Para conferir, acesse o endereço de verificação acima ou leia o QR code; cada assinatura também pode ser consultada pelo seu código.</p>',
+            true, false, true, false, '');
     }
 
     /** O app grava em UTC; carimbo e telas do signatário mostram a hora de Brasília. */
