@@ -69,6 +69,9 @@ class IntegracaoDocumentoController extends Controller
             'signatarios.*.nome'     => ['required_if_accepted:signatarios.*.externo', 'nullable', 'string', 'min:3', 'max:200'],
             'signatarios.*.telefone' => ['nullable', 'string', 'max:30'],
             'responsavel_cpf'        => ['nullable', 'string', 'min:11', 'max:14'],
+            // Agrupa os externos de vários documentos num link só (ex.: empenhos do mesmo dia).
+            'pacote'                 => ['nullable', 'string', 'max:100'],
+            'pacote_titulo'          => ['nullable', 'string', 'max:200'],
             'signatarios.*.signature_position'        => ['nullable', 'array'],
             'signatarios.*.signature_position.page'   => ['nullable', 'integer'],
             'signatarios.*.signature_position.x'      => ['nullable', 'numeric'],
@@ -247,18 +250,26 @@ class IntegracaoDocumentoController extends Controller
                 'sequencial'     => (bool) ($validated['sequencial'] ?? false),
             ]);
 
+            $pacote = ! empty($validated['pacote']) && collect($assinaturasParaCriar)->contains(fn ($a) => $a['user'] === null)
+                ? app(\App\Services\PacoteAssinaturaService::class)->obter(
+                    $validated['pacote_titulo'] ?? "Documentos de {$sistema->nome} ({$validated['pacote']})",
+                    $responsavel->id, $sistema->codigo, $validated['pacote'])
+                : null;
+
             $assinaturasResp = [];
             foreach ($assinaturasParaCriar as $a) {
                 if ($a['user'] === null) {
                     $ass = app(\App\Services\ConviteAssinaturaService::class)
                         ->criar($solicitacao, $documento, $a['externo'], (int) $a['ordem'], $a['signature_position']);
-                    $assinaturasResp[] = [
+                    $conviteDoPacote = $pacote ? app(\App\Services\PacoteAssinaturaService::class)->vincular($pacote, $ass) : null;
+                    $assinaturasResp[] = array_filter([
                         'id'              => $ass->id,
                         'cpf'             => $ass->cpf_signatario,
                         'ordem'           => $a['ordem'],
                         'externo'         => true,
                         'link_assinatura' => $ass->linkConvite(),
-                    ];
+                        'link_pacote'     => $conviteDoPacote?->link(),
+                    ], fn ($v) => $v !== null);
                     continue;
                 }
 
@@ -286,7 +297,11 @@ class IntegracaoDocumentoController extends Controller
                 $externosAvisar = $solicitacao->assinaturas()->where('tipo_signatario', 'externo')->get()
                     ->filter(fn ($ass) => app(\App\Services\FluxoAssinaturaService::class)->ehAVez($ass->setRelation('solicitacao', $solicitacao)));
                 foreach ($externosAvisar as $ass) { // enviar() devolve false sem e-mail — each() pararia ali
-                    app(\App\Services\ConviteAssinaturaService::class)->enviar($ass->setRelation('documento', $documento));
+                    // Em pacote: e-mail do link do pacote, no máximo um a cada poucos minutos
+                    // (a API recebe um documento por chamada).
+                    $ass->pacoteConvite
+                        ? app(\App\Services\PacoteAssinaturaService::class)->enviar($ass->pacoteConvite)
+                        : app(\App\Services\ConviteAssinaturaService::class)->enviar($ass->setRelation('documento', $documento));
                 }
             }
 

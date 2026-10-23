@@ -50,12 +50,16 @@ class FluxoAssinaturaService
      * Avisa quem pode assinar ao criar a solicitação: todos, ou só a primeira ordem quando
      * ela é sequencial. Interno recebe notificação no sistema; externo, o convite por e-mail.
      */
-    public function avisarIniciais(SolicitacaoAssinatura $solicitacao): void
+    public function avisarIniciais(SolicitacaoAssinatura $solicitacao, bool $externos = true): void
     {
         $assinaturas = $solicitacao->assinaturas()->where('status', 'pendente')->get();
         if ($solicitacao->sequencial) {
             $primeira = $assinaturas->min('ordem');
             $assinaturas = $assinaturas->where('ordem', $primeira);
+        }
+        // Depois do filtro da ordem: tirar externos antes mudaria quem é o "primeiro".
+        if (! $externos) {
+            $assinaturas = $assinaturas->reject(fn (Assinatura $a) => $a->externo);
         }
 
         $assinaturas->each(fn (Assinatura $a) => $this->avisar($a, 'Assinatura solicitada',
@@ -86,7 +90,10 @@ class FluxoAssinaturaService
     private function avisar(Assinatura $a, string $titulo, string $mensagem): void
     {
         if ($a->externo) {
-            $this->convites->enviar($a);
+            // Em pacote: um e-mail com o link do pacote (com intervalo mínimo), não um por documento.
+            $a->pacoteConvite
+                ? app(PacoteAssinaturaService::class)->enviar($a->pacoteConvite)
+                : $this->convites->enviar($a);
 
             return;
         }

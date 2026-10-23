@@ -133,6 +133,27 @@ chegar a vez dele. O webhook `assinatura.individual` do externo traz `externo: t
 pendente e `codigo_verificacao` depois de assinado; o código é conferido em
 `/verificar/codigo/{codigo}`.
 
+#### Pacote: vários documentos num link só
+
+Para mandar vários documentos ao mesmo externo (ex.: os empenhos do dia de um fornecedor)
+sem gerar um e-mail e um link por documento, envie em cada chamada o mesmo código de pacote:
+
+```json
+"pacote": "EMPENHOS-2026-10-23",
+"pacote_titulo": "Empenhos de 23/10/2026"
+```
+
+Os documentos com o mesmo `pacote` (do mesmo sistema) entram no mesmo link de cada externo
+(`link_pacote` na resposta). O e-mail sai na primeira chamada e no máximo um a cada
+10 minutos depois — a página do link sempre mostra a lista atualizada. Lá o externo abre
+cada documento ou usa **"Assinar todos"** (confirma que conferiu e digita a senha uma vez).
+No "Assinar todos", se o signatário veio com `signature_position`, o carimbo vai nesse
+quadro; senão, na parte de baixo da última página.
+
+Para **servidores** (ordenador, contador…) não é preciso nada na API: os documentos caem nos
+pendentes de cada um no GPE Docs, onde ele marca vários e usa **"Assinar selecionados"**
+(simples com CPF ou ICP A1 com certificado e senha uma vez).
+
 Assinatura por link só vale para PDF. É assinatura eletrônica com identificação por
 cadastro (CPF + e-mail confirmado + senha), IP, data/hora e hash — **não** é ICP-Brasil.
 

@@ -133,6 +133,9 @@ class PastaController extends Controller
             'breadcrumb'       => $breadcrumb,
             'tipos_documentais'=> $tiposDocumentais,
             'favorito_ids'     => $favoritoIds,
+            // Servidores para "Solicitar assinatura" dos selecionados (só carrega ao abrir o modal).
+            'usuarios'         => Inertia::optional(fn () => \App\Models\User::where('id', '!=', $userId)
+                ->where('tipo', 'interno')->orderBy('name')->get(['id', 'name', 'email'])),
             'filtros'          => [
                 'busca'              => $busca,
                 'tipo_documental_id' => $tipoDocId,

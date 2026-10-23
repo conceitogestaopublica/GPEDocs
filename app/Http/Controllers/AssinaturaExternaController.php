@@ -46,6 +46,7 @@ class AssinaturaExternaController extends Controller
         private readonly ConviteAssinaturaService $convites,
         private readonly FluxoAssinaturaService $fluxo,
         private readonly CarimboAssinaturaService $carimbo,
+        private readonly \App\Services\PacoteAssinaturaService $pacotes,
     ) {
     }
 
@@ -60,7 +61,8 @@ class AssinaturaExternaController extends Controller
             $assinatura->forceFill(['convite_acessado_em' => now()])->save();
         }
 
-        $base = ['convite' => $this->dadosConvite($assinatura), 'token' => $token];
+        $base = ['convite' => $this->dadosConvite($assinatura), 'token' => $token,
+            'pacote_link' => $assinatura->pacoteConvite?->link()];
         $cidadao = $this->cidadao();
 
         if ($assinatura->status === 'assinado') {
@@ -134,14 +136,14 @@ class AssinaturaExternaController extends Controller
         Auth::guard('cidadao')->login($cidadao);
         $request->session()->regenerate();
 
-        return redirect("/assinar/{$token}");
+        return redirect($this->base($request, $token));
     }
 
     /** Cadastro rápido — o CPF tem de ser o do convite; depois confirma o e-mail. */
     public function cadastrar(Request $request, string $token): RedirectResponse
     {
-        $assinatura = $this->convites->porToken($token);
-        abort_unless($assinatura, 404);
+        $cpfConvite = $this->cpfDoConvite($request, $token);
+        abort_unless($cpfConvite, 404);
 
         $dados = $request->validate([
             'cpf'      => ['required', 'string', 'max:14'],
@@ -161,7 +163,7 @@ class AssinaturaExternaController extends Controller
         if (! ConviteAssinaturaService::cpfValido($cpf)) {
             return back()->withErrors(['cpf' => 'CPF inválido.'])->withInput($request->except('senha', 'senha_confirmation'));
         }
-        if ($cpf !== ConviteAssinaturaService::soDigitos($assinatura->cpf_signatario)) {
+        if ($cpf !== $cpfConvite) {
             return back()->withErrors(['cpf' => 'Este documento foi enviado para outro CPF. Confira o CPF digitado.'])
                 ->withInput($request->except('senha', 'senha_confirmation'));
         }
@@ -188,7 +190,7 @@ class AssinaturaExternaController extends Controller
         $request->session()->regenerate();
         $this->enviarCodigo($cidadao);
 
-        return redirect("/assinar/{$token}")->with('success', 'Cadastro criado. Enviamos um código para o seu e-mail.');
+        return redirect($this->base($request, $token))->with('success', 'Cadastro criado. Enviamos um código para o seu e-mail.');
     }
 
     public function confirmarEmail(Request $request, string $token): RedirectResponse
@@ -210,7 +212,7 @@ class AssinaturaExternaController extends Controller
             'token_verificacao_expira_em' => null,
         ])->save();
 
-        return redirect("/assinar/{$token}")->with('success', 'E-mail confirmado.');
+        return redirect($this->base($request, $token))->with('success', 'E-mail confirmado.');
     }
 
     public function reenviarCodigo(string $token): RedirectResponse
@@ -227,7 +229,7 @@ class AssinaturaExternaController extends Controller
         Auth::guard('cidadao')->logout();
         $request->session()->regenerateToken();
 
-        return redirect("/assinar/{$token}");
+        return redirect($this->base($request, $token));
     }
 
     /** PDF para a tela de assinatura: a versão oficial atual, já com os carimbos de quem assinou antes. */
@@ -263,15 +265,7 @@ class AssinaturaExternaController extends Controller
         if (! Hash::check((string) $request->input('senha'), $cidadao->senha)) {
             return back()->withErrors(['senha' => 'Senha incorreta.']);
         }
-        if ($assinatura->status !== 'pendente') {
-            return back()->with('error', 'Esta assinatura já foi processada.');
-        }
-        if ($impedimento = $this->fluxo->impedimento($assinatura)) {
-            return back()->with('error', $impedimento);
-        }
-
-        $versao = $assinatura->documento->versaoAtual;
-        $paginas = $this->carimbo->tamanhoPaginas(Storage::disk('documentos')->path($versao->arquivo_path));
+        $paginas = $this->carimbo->tamanhoPaginas(Storage::disk('documentos')->path($assinatura->documento->versaoAtual->arquivo_path));
         $pagina = (int) $request->input('posicao.pagina');
         if ($pagina > count($paginas)) {
             return back()->with('error', 'Página inválida.');
@@ -279,6 +273,31 @@ class AssinaturaExternaController extends Controller
         $posicao = CarimboAssinaturaService::posicaoDaTela(
             $request->input('posicao'), $paginas[$pagina - 1]['w'], $paginas[$pagina - 1]['h']
         );
+
+        if ($erro = $this->executar($assinatura, $cidadao, $posicao, $request)) {
+            return back()->with('error', $erro);
+        }
+
+        return redirect($request->boolean('voltar_pacote') && $assinatura->pacoteConvite
+            ? '/assinar/pacote/' . $assinatura->pacoteConvite->token
+            : "/assinar/{$token}")->with('success', 'Documento assinado com sucesso.');
+    }
+
+    /**
+     * Núcleo da assinatura por link — usado pela tela de um documento e pelo "Assinar todos"
+     * do pacote. $posicao já em mm ({page,x,y,w,h,rotacao}). Devolve a mensagem de erro, ou
+     * null se assinou.
+     */
+    public function executar(Assinatura $assinatura, Cidadao $cidadao, array $posicao, Request $request): ?string
+    {
+        if ($assinatura->status !== 'pendente') {
+            return 'Esta assinatura já foi processada.';
+        }
+        if ($impedimento = $this->fluxo->impedimento($assinatura)) {
+            return $impedimento;
+        }
+
+        $versao = $assinatura->documento->versaoAtual;
 
         try {
             DB::transaction(function () use ($assinatura, $cidadao, $versao, $posicao, $request) {
@@ -315,12 +334,12 @@ class AssinaturaExternaController extends Controller
                 ]);
             });
         } catch (\DomainException $e) {
-            return back()->with('error', $e->getMessage());
+            return $e->getMessage();
         } catch (Throwable $e) {
             Log::error('Falha na assinatura externa', ['assinatura_id' => $assinatura->id, 'erro' => $e->getMessage(),
                 'arquivo' => $e->getFile() . ':' . $e->getLine()]);
 
-            return back()->with('error', 'Não foi possível assinar o documento agora. Tente de novo em instantes.');
+            return 'Não foi possível assinar o documento agora. Tente de novo em instantes.';
         }
 
         $assinatura->solicitacao->setRelation('documento', $assinatura->documento);
@@ -352,7 +371,7 @@ class AssinaturaExternaController extends Controller
             'user_agent'   => $request->userAgent(),
         ]);
 
-        return redirect("/assinar/{$token}")->with('success', 'Documento assinado com sucesso.');
+        return null;
     }
 
     public function recusar(Request $request, string $token): RedirectResponse
@@ -401,7 +420,7 @@ class AssinaturaExternaController extends Controller
             'recusado_em'     => now()->toIso8601String(),
         ]);
 
-        return redirect("/assinar/{$token}");
+        return redirect($this->base($request, $token));
     }
 
     /** Baixa o PDF assinado (a versão oficial mais recente, com todos os carimbos). */
@@ -420,7 +439,201 @@ class AssinaturaExternaController extends Controller
         ]);
     }
 
+    // ── pacote: vários documentos, um link ──────────────────────────────────
+
+    public function showPacote(string $token): Response
+    {
+        $convite = $this->pacotes->porToken($token);
+        if (! $convite) {
+            return $this->tela('invalido', ['pacote' => true]);
+        }
+        if (! $convite->acessado_em) {
+            $convite->forceFill(['acessado_em' => now()])->save();
+        }
+
+        $ugId = Assinatura::where('pacote_convite_id', $convite->id)
+            ->join('ged_documentos as d', 'd.id', '=', 'ged_assinaturas.documento_id')->value('d.ug_id');
+        $base = ['token' => $token, 'pacote' => true, 'convite' => [
+            'nome'        => $convite->nome,
+            'cpf'         => ConviteAssinaturaService::mascararCpf($convite->cpf),
+            'documento'   => $convite->pacote->titulo,
+            'orgao'       => Ug::withoutGlobalScopes()->find($ugId)?->nome,
+            'solicitante' => $convite->pacote->solicitante?->name,
+            'mensagem'    => null,
+            'expira_em'   => $convite->expira_em?->format('d/m/Y'),
+        ]];
+
+        $cidadao = $this->cidadao();
+        if (! $cidadao) {
+            return $this->tela('acesso', $base);
+        }
+        if (ConviteAssinaturaService::soDigitos($cidadao->cpf) !== $convite->cpf) {
+            return $this->tela('outra_conta', $base + ['logado_como' => $cidadao->nome]);
+        }
+        if (! $cidadao->email_verificado_em) {
+            return $this->tela('confirmar_email', $base + ['email' => $this->mascararEmail($cidadao->email)]);
+        }
+
+        $itens = $this->assinaturasDoPacote($convite)->map(function (Assinatura $a) {
+            $situacao = match (true) {
+                $a->status === 'assinado'                                                     => 'assinado',
+                $a->status === 'recusado'                                                     => 'recusado',
+                in_array($a->solicitacao?->status, ['cancelada', 'recusada'], true)
+                    || $a->documento?->status === 'cancelado'                                 => 'encerrado',
+                $this->convites->expirado($a)                                                 => 'expirado',
+                ! $this->fluxo->ehAVez($a)                                                    => 'aguardando_vez',
+                default                                                                       => 'pendente',
+            };
+
+            return [
+                'id'           => $a->id,
+                'documento'    => $a->documento?->nome,
+                'situacao'     => $situacao,
+                'link'         => $situacao === 'pendente' ? $a->linkConvite() . '?pacote=1' : null,
+                'codigo'       => $a->codigo_verificacao,
+                'assinado_em'  => CarimboAssinaturaService::horaBrasilia($a->assinado_em) ?: null,
+                'posicao_sistema' => ! empty($a->signature_position),
+            ];
+        })->values();
+
+        return $this->tela('pacote', $base + ['itens' => $itens]);
+    }
+
+    /**
+     * "Assinar todos": um carimbo por documento no mesmo lugar (canto da última página,
+     * ou o quadro definido pelo sistema de origem), confirmado com UMA senha depois de a
+     * pessoa declarar que conferiu os documentos. Cada um usa o mesmo núcleo (executar).
+     */
+    public function assinarTodos(Request $request, string $token): RedirectResponse
+    {
+        $request->validate([
+            'senha'            => ['required', 'string'],
+            'conferido'        => ['accepted'],
+            'canto'            => ['required', 'in:direita,esquerda,centro'],
+            'assinatura_ids'   => ['required', 'array', 'min:1', 'max:100'],
+            'assinatura_ids.*' => ['integer'],
+            'geolocalizacao'   => ['nullable', 'string', 'max:255'],
+        ], ['conferido.accepted' => 'Confirme que conferiu os documentos.']);
+
+        $convite = $this->pacotes->porToken($token);
+        abort_unless($convite, 404);
+        $cidadao = $this->cidadao();
+        abort_unless($cidadao && $cidadao->email_verificado_em
+            && ConviteAssinaturaService::soDigitos($cidadao->cpf) === $convite->cpf, 403);
+
+        if (! Hash::check((string) $request->input('senha'), $cidadao->senha)) {
+            return back()->withErrors(['senha' => 'Senha incorreta.']);
+        }
+
+        @set_time_limit(600);
+        $assinadas = 0;
+        $falhas = [];
+        foreach ($this->assinaturasDoPacote($convite)->whereIn('id', (array) $request->input('assinatura_ids')) as $a) {
+            if ($a->status !== 'pendente') {
+                continue;
+            }
+            try {
+                $posicao = $this->posicaoAutomatica($a, (string) $request->input('canto'));
+                $erro = $this->executar($a, $cidadao, $posicao, $request);
+            } catch (Throwable $e) {
+                Log::warning('Assinar todos: documento não assinado', ['assinatura_id' => $a->id, 'erro' => $e->getMessage()]);
+                $erro = 'não foi possível ler o PDF';
+            }
+            $erro ? $falhas[] = "{$a->documento?->nome}: {$erro}" : $assinadas++;
+        }
+
+        $resposta = redirect($this->base($request, $token));
+        if ($assinadas) {
+            $resposta = $resposta->with('success', "{$assinadas} documento(s) assinado(s).");
+        }
+        if ($falhas) {
+            $resposta = $resposta->with('error', count($falhas) . ' não assinado(s): ' . implode(' | ', array_slice($falhas, 0, 5)));
+        }
+
+        return $resposta;
+    }
+
+    /** @return \Illuminate\Support\Collection<int, Assinatura> */
+    private function assinaturasDoPacote(\App\Models\PacoteConvite $convite)
+    {
+        // Página pública: os escopos de UG/sigilo do usuário interno logado não se aplicam.
+        return Assinatura::with([
+            'documento' => fn ($q) => $q->withoutGlobalScopes(['ug', 'sigilo']),
+            'documento.versaoAtual',
+            'solicitacao',
+            'pacoteConvite',
+        ])
+            ->where('pacote_convite_id', $convite->id)
+            ->orderBy('id')
+            ->get()
+            ->each(fn (Assinatura $a) => $a->solicitacao?->setRelation('documento', $a->documento));
+    }
+
+    /**
+     * Posição do carimbo no "Assinar todos": o quadro que o sistema de origem definiu (ex.:
+     * campo do contratado no empenho) ou o canto escolhido na última página — subindo
+     * enquanto houver outro carimbo no lugar.
+     */
+    private function posicaoAutomatica(Assinatura $a, string $canto): array
+    {
+        $paginas = $this->carimbo->tamanhoPaginas(Storage::disk('documentos')->path($a->documento->versaoAtual->arquivo_path));
+        $total = count($paginas);
+
+        if (isset($a->signature_position['x'], $a->signature_position['y'])) {
+            $p = $a->signature_position;
+            $pagina = (int) ($p['page'] ?? -1);
+
+            return [
+                'page'    => $pagina < 1 || $pagina > $total ? $total : $pagina,
+                'x'       => (float) $p['x'],
+                'y'       => (float) $p['y'],
+                'w'       => (float) ($p['w'] ?? CarimboAssinaturaService::LARGURA_PADRAO),
+                'h'       => (float) ($p['h'] ?? CarimboAssinaturaService::ALTURA_PADRAO),
+                'rotacao' => 0,
+            ];
+        }
+
+        ['w' => $larguraPagina, 'h' => $alturaPagina] = $paginas[$total - 1];
+        $w = CarimboAssinaturaService::LARGURA_PADRAO;
+        $h = CarimboAssinaturaService::ALTURA_PADRAO;
+        $x = match ($canto) {
+            'esquerda' => 15.0,
+            'centro'   => ($larguraPagina - $w) / 2,
+            default    => $larguraPagina - $w - 15,
+        };
+        $y = $alturaPagina - $h - 18;
+
+        // Carimbos já na última página — sobe até achar espaço livre.
+        $ocupados = Assinatura::where('documento_id', $a->documento_id)->where('status', 'assinado')
+            ->whereNotNull('signature_position')->get()
+            ->map(fn ($o) => $o->signature_position)
+            ->filter(fn ($p) => isset($p['x'], $p['y']) && (((int) ($p['page'] ?? -1)) === $total || (int) ($p['page'] ?? -1) === -1));
+        $colide = fn (float $yy) => $ocupados->contains(fn ($p) => $x < $p['x'] + ($p['w'] ?? $w) && $x + $w > $p['x']
+            && $yy < $p['y'] + ($p['h'] ?? $h) && $yy + $h > $p['y']);
+        while ($colide($y) && $y > 20) {
+            $y -= $h + 3;
+        }
+
+        return ['page' => $total, 'x' => round($x, 2), 'y' => round(max(10, $y), 2), 'w' => $w, 'h' => $h, 'rotacao' => 0];
+    }
+
     // ── apoio ───────────────────────────────────────────────────────────────
+
+    /** Página de volta: a do pacote (rotas assinar/pacote/*) ou a do documento. */
+    private function base(Request $request, string $token): string
+    {
+        return $request->route('pacote') ? "/assinar/pacote/{$token}" : "/assinar/{$token}";
+    }
+
+    /** CPF (só dígitos) do convite do link — do documento ou do pacote. */
+    private function cpfDoConvite(Request $request, string $token): ?string
+    {
+        $cpf = $request->route('pacote')
+            ? $this->pacotes->porToken($token)?->cpf
+            : $this->convites->porToken($token)?->cpf_signatario;
+
+        return $cpf ? ConviteAssinaturaService::soDigitos($cpf) : null;
+    }
 
     private function tela(string $estado, array $props = []): Response
     {

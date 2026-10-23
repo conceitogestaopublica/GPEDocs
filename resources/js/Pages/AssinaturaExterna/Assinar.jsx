@@ -29,6 +29,8 @@ const ORIENTACOES = [
 export default function Assinar(props) {
     const { estado, convite, token } = props;
     const { flash } = usePage().props;
+    // Link de pacote (vários documentos) ou de um documento: muda só o endereço das ações.
+    const base = props.pacote ? `/assinar/pacote/${token}` : `/assinar/${token}`;
 
     return (
         <div className="min-h-screen bg-[#F2F5F8]">
@@ -45,8 +47,8 @@ export default function Assinar(props) {
                             <p className="text-sm font-semibold">Assinatura eletrônica de documento</p>
                         </div>
                     </div>
-                    {['assinar', 'confirmar_email', 'aguardando_vez', 'outra_conta', 'assinado'].includes(estado) && (
-                        <button onClick={() => router.post(`/assinar/${token}/sair`)}
+                    {['assinar', 'confirmar_email', 'aguardando_vez', 'outra_conta', 'assinado', 'pacote'].includes(estado) && (
+                        <button onClick={() => router.post(`${base}/sair`)}
                             className="text-xs px-3 py-1.5 rounded-lg border border-cyan-700 hover:bg-cyan-900 transition-colors">
                             <i className="fas fa-sign-out-alt mr-1" />Sair
                         </button>
@@ -58,7 +60,7 @@ export default function Assinar(props) {
                 {flash?.success && <Aviso tom="sucesso">{flash.success}</Aviso>}
                 {flash?.error && <Aviso tom="erro">{flash.error}</Aviso>}
 
-                {convite && estado !== 'assinar' && <CartaoConvite convite={convite} />}
+                {convite && estado !== 'assinar' && <CartaoConvite convite={convite} pacote={props.pacote} />}
 
                 {estado === 'invalido' && (
                     <Mensagem icone="fa-link-slash" tom="erro" titulo="Link inválido"
@@ -87,14 +89,15 @@ export default function Assinar(props) {
                 {estado === 'outra_conta' && (
                     <Mensagem icone="fa-user-lock" tom="aviso" titulo="Você entrou com outra conta"
                         texto={`Você está conectado como ${props.logado_como}, mas este documento foi enviado para ${convite?.nome} (CPF ${convite?.cpf}). Saia e entre com a conta certa.`}>
-                        <button onClick={() => router.post(`/assinar/${token}/sair`)} className="ds-btn ds-btn-primary mt-3">
+                        <button onClick={() => router.post(`${base}/sair`)} className="ds-btn ds-btn-primary mt-3">
                             <i className="fas fa-sign-out-alt mr-1" />Sair e entrar com outra conta
                         </button>
                     </Mensagem>
                 )}
                 {estado === 'assinado' && <Assinado {...props} />}
-                {estado === 'acesso' && <Acesso convite={convite} token={token} />}
-                {estado === 'confirmar_email' && <ConfirmarEmail token={token} email={props.email} />}
+                {estado === 'acesso' && <Acesso convite={convite} base={base} />}
+                {estado === 'confirmar_email' && <ConfirmarEmail base={base} email={props.email} />}
+                {estado === 'pacote' && <Pacote {...props} base={base} />}
                 {estado === 'assinar' && <TelaAssinatura {...props} />}
             </main>
         </div>
@@ -103,10 +106,10 @@ export default function Assinar(props) {
 
 /* ─── Blocos de estado ─────────────────────────────────────────────────────── */
 
-function CartaoConvite({ convite }) {
+function CartaoConvite({ convite, pacote }) {
     return (
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-xs text-gray-500">Documento para assinatura</p>
+            <p className="text-xs text-gray-500">{pacote ? 'Documentos para assinatura' : 'Documento para assinatura'}</p>
             <h1 className="text-lg font-bold text-[#0B1F3B] mt-0.5">{convite.documento}</h1>
             <div className="mt-2 text-sm text-gray-600 space-y-0.5">
                 <p><span className="text-gray-400">Para:</span> {convite.nome} · CPF {convite.cpf}</p>
@@ -120,7 +123,7 @@ function CartaoConvite({ convite }) {
     );
 }
 
-function Acesso({ convite, token }) {
+function Acesso({ convite, base }) {
     const [aba, setAba] = useState('entrar');
 
     return (
@@ -140,17 +143,17 @@ function Acesso({ convite, token }) {
                 ))}
             </div>
             <div className="p-5">
-                {aba === 'entrar' ? <FormEntrar token={token} /> : <FormCadastro token={token} convite={convite} />}
+                {aba === 'entrar' ? <FormEntrar base={base} /> : <FormCadastro base={base} convite={convite} />}
             </div>
         </div>
     );
 }
 
-function FormEntrar({ token }) {
+function FormEntrar({ base }) {
     const { data, setData, post, processing, errors } = useForm({ login: '', senha: '' });
 
     return (
-        <form onSubmit={(e) => { e.preventDefault(); post(`/assinar/${token}/entrar`); }} className="space-y-3">
+        <form onSubmit={(e) => { e.preventDefault(); post(`${base}/entrar`); }} className="space-y-3">
             <Campo label="CPF ou e-mail" erro={errors.login}>
                 <input value={data.login} onChange={(e) => setData('login', e.target.value)} className="ds-input" autoFocus required autoComplete="username" />
             </Campo>
@@ -164,14 +167,14 @@ function FormEntrar({ token }) {
     );
 }
 
-function FormCadastro({ token, convite }) {
+function FormCadastro({ base, convite }) {
     const { data, setData, post, processing, errors } = useForm({
         cpf: '', nome: convite?.nome || '', email: '', email_confirmation: '',
         telefone: '', senha: '', senha_confirmation: '', aceite: false,
     });
 
     return (
-        <form onSubmit={(e) => { e.preventDefault(); post(`/assinar/${token}/cadastrar`); }} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <form onSubmit={(e) => { e.preventDefault(); post(`${base}/cadastrar`); }} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Campo label="CPF" erro={errors.cpf}>
                 <input value={data.cpf} onChange={(e) => setData('cpf', mascaraCpf(e.target.value))} className="ds-input" placeholder="000.000.000-00" required inputMode="numeric" />
             </Campo>
@@ -214,7 +217,7 @@ function FormCadastro({ token, convite }) {
     );
 }
 
-function ConfirmarEmail({ token, email }) {
+function ConfirmarEmail({ base, email }) {
     const { data, setData, post, processing, errors } = useForm({ codigo: '' });
 
     return (
@@ -222,20 +225,126 @@ function ConfirmarEmail({ token, email }) {
             <i className="fas fa-envelope-open-text text-3xl text-primary-500" />
             <h2 className="text-base font-semibold text-gray-800 mt-2">Confirme o seu e-mail</h2>
             <p className="text-sm text-gray-600 mt-1">Enviamos um código de 6 dígitos para <strong>{email}</strong>.</p>
-            <form onSubmit={(e) => { e.preventDefault(); post(`/assinar/${token}/confirmar-email`); }} className="mt-4 space-y-3">
+            <form onSubmit={(e) => { e.preventDefault(); post(`${base}/confirmar-email`); }} className="mt-4 space-y-3">
                 <input value={data.codigo} onChange={(e) => setData('codigo', e.target.value.replace(/\D/g, '').slice(0, 6))}
                     className="ds-input text-center text-2xl tracking-[0.5em] font-mono !h-12" inputMode="numeric" autoFocus placeholder="000000" />
                 {errors.codigo && <p className="text-xs text-red-600">{errors.codigo}</p>}
                 <button type="submit" disabled={processing || data.codigo.length !== 6} className="ds-btn ds-btn-primary w-full justify-center">Confirmar</button>
             </form>
-            <button onClick={() => router.post(`/assinar/${token}/reenviar-codigo`)} className="text-xs text-primary-600 hover:underline mt-3">
+            <button onClick={() => router.post(`${base}/reenviar-codigo`)} className="text-xs text-primary-600 hover:underline mt-3">
                 Não recebi — enviar outro código
             </button>
         </div>
     );
 }
 
-function Assinado({ token, assinado_em, codigo, pode_baixar }) {
+/* ─── Pacote: vários documentos num link ─────────────────────────────────── */
+
+const SITUACOES = {
+    pendente:       ['bg-amber-100 text-amber-800', 'Pendente'],
+    aguardando_vez: ['bg-gray-100 text-gray-600', 'Aguardando outras assinaturas'],
+    assinado:       ['bg-emerald-100 text-emerald-700', 'Assinado'],
+    recusado:       ['bg-red-100 text-red-700', 'Recusado'],
+    encerrado:      ['bg-gray-100 text-gray-600', 'Encerrado'],
+    expirado:       ['bg-gray-100 text-gray-600', 'Prazo vencido'],
+};
+
+function Pacote({ itens = [], base }) {
+    const pendentes = itens.filter(i => i.situacao === 'pendente');
+    const [todosAberto, setTodosAberto] = useState(false);
+    const assinados = itens.filter(i => i.situacao === 'assinado').length;
+
+    return (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <p className="text-sm font-semibold text-gray-800">{itens.length} documento(s) — {assinados} assinado(s)</p>
+                    <p className="text-xs text-gray-500">Abra cada documento para conferir e assinar, ou assine todos os pendentes de uma vez.</p>
+                </div>
+                {pendentes.length > 1 && (
+                    <button onClick={() => setTodosAberto(true)} className="ds-btn ds-btn-primary">
+                        <i className="fas fa-pen-nib mr-1" />Assinar todos os pendentes ({pendentes.length})
+                    </button>
+                )}
+            </div>
+            <ul className="divide-y divide-gray-100">
+                {itens.map(i => {
+                    const [cor, rotulo] = SITUACOES[i.situacao] || SITUACOES.encerrado;
+                    return (
+                        <li key={i.id} className="px-5 py-3 flex flex-wrap items-center gap-3">
+                            <i className="fas fa-file-pdf text-red-400" />
+                            <span className="text-sm text-gray-800 flex-1 min-w-[200px]">{i.documento}</span>
+                            <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${cor}`}>{rotulo}</span>
+                            {i.situacao === 'assinado' && i.codigo && (
+                                <a href={`/verificar/codigo/${i.codigo}`} target="_blank" rel="noopener" className="text-[11px] font-mono text-primary-600 hover:underline">
+                                    {i.codigo}
+                                </a>
+                            )}
+                            {i.link && (
+                                <a href={i.link} className="ds-btn ds-btn-outline !h-8 text-sm">
+                                    <i className="fas fa-eye mr-1" />Abrir e assinar
+                                </a>
+                            )}
+                        </li>
+                    );
+                })}
+            </ul>
+            {todosAberto && <AssinarTodos base={base} pendentes={pendentes} onFechar={() => setTodosAberto(false)} />}
+        </div>
+    );
+}
+
+function AssinarTodos({ base, pendentes, onFechar }) {
+    const { errors } = usePage().props;
+    const { data, setData, post, processing } = useForm({
+        assinatura_ids: pendentes.map(p => p.id),
+        canto: 'direita',
+        conferido: false,
+        senha: '',
+    });
+    const comQuadro = pendentes.filter(p => p.posicao_sistema).length;
+
+    return (
+        <Modal titulo={`Assinar ${pendentes.length} documentos`} onFechar={onFechar}>
+            <form onSubmit={(e) => { e.preventDefault(); post(`${base}/assinar-todos`, { preserveScroll: true, onSuccess: onFechar }); }} className="space-y-3">
+                <ul className="max-h-40 overflow-y-auto text-sm text-gray-700 bg-gray-50 rounded-lg p-2 space-y-1">
+                    {pendentes.map(p => <li key={p.id}><i className="fas fa-file-pdf text-red-400 mr-1.5" />{p.documento}</li>)}
+                </ul>
+                <div>
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Onde vai a assinatura (última página)</p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                        {[['esquerda', 'Canto esquerdo'], ['centro', 'Centro'], ['direita', 'Canto direito']].map(([k, l]) => (
+                            <button key={k} type="button" onClick={() => setData('canto', k)}
+                                className={`text-xs px-2 py-2 rounded-lg border ${data.canto === k ? 'bg-primary-500 border-primary-500 text-white' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>
+                                {l}
+                            </button>
+                        ))}
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                        Na parte de baixo da última página; se já houver uma assinatura ali, a sua vai logo acima.
+                        {comQuadro > 0 && ` ${comQuadro} documento(s) já têm o lugar da assinatura definido por quem enviou — nesses, ele é usado.`}
+                    </p>
+                </div>
+                <label className="flex items-start gap-2 text-sm text-gray-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5 cursor-pointer">
+                    <input type="checkbox" checked={data.conferido} onChange={(e) => setData('conferido', e.target.checked)} className="mt-0.5" />
+                    <span>Conferi os <strong>{pendentes.length}</strong> documentos e concordo com o conteúdo de cada um.</span>
+                </label>
+                {errors?.conferido && <p className="text-xs text-red-600">{errors.conferido}</p>}
+                <input type="password" value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input"
+                    placeholder="Sua senha" autoComplete="current-password" required />
+                {errors?.senha && <p className="text-xs text-red-600">{errors.senha}</p>}
+                <div className="flex gap-2 justify-end">
+                    <button type="button" onClick={onFechar} className="ds-btn ds-btn-outline">Voltar</button>
+                    <button type="submit" disabled={processing || ! data.conferido || ! data.senha} className="ds-btn ds-btn-primary">
+                        {processing ? <><i className="fas fa-spinner fa-spin mr-1" />Assinando…</> : `Assinar ${pendentes.length} documentos`}
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+}
+
+function Assinado({ token, assinado_em, codigo, pode_baixar, pacote_link }) {
     return (
         <div className="bg-white rounded-xl border border-emerald-200 max-w-xl mx-auto p-6 text-center">
             <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
@@ -256,13 +365,18 @@ function Assinado({ token, assinado_em, codigo, pode_baixar }) {
                     <i className="fas fa-download mr-1" />Baixar o documento assinado
                 </a>
             )}
+            {pacote_link && (
+                <a href={pacote_link} className="ds-btn ds-btn-outline mt-4 ml-2 inline-flex">
+                    <i className="fas fa-list mr-1" />Voltar aos documentos
+                </a>
+            )}
         </div>
     );
 }
 
 /* ─── Tela de assinatura: PDF + carimbo ────────────────────────────────────── */
 
-function TelaAssinatura({ token, convite, paginas, carimbo, posicao_sugerida }) {
+function TelaAssinatura({ token, convite, paginas, carimbo, posicao_sugerida, pacote_link }) {
     const { errors } = usePage().props;
     const totalPaginas = paginas.length;
     const [pdf, setPdf] = useState(null);
@@ -342,6 +456,9 @@ function TelaAssinatura({ token, convite, paginas, carimbo, posicao_sugerida }) 
             </div>
 
             <aside className="bg-white rounded-xl border border-gray-200 p-4 space-y-4 lg:sticky lg:top-4">
+                {pacote_link && (
+                    <a href={pacote_link} className="text-xs text-primary-600 hover:underline"><i className="fas fa-arrow-left mr-1" />Voltar aos documentos</a>
+                )}
                 <div>
                     <p className="text-xs text-gray-500">Documento</p>
                     <p className="text-sm font-semibold text-[#0B1F3B]">{convite.documento}</p>
@@ -393,7 +510,7 @@ function TelaAssinatura({ token, convite, paginas, carimbo, posicao_sugerida }) 
             </aside>
 
             {confirmando && (
-                <ConfirmarAssinatura token={token} caixa={caixa} rotacao={rotacao}
+                <ConfirmarAssinatura token={token} caixa={caixa} rotacao={rotacao} voltarPacote={!! pacote_link}
                     onFechar={() => setConfirmando(false)} erroSenha={errors?.senha} />
             )}
             {recusando && <Recusar token={token} onFechar={() => setRecusando(false)} />}
@@ -501,7 +618,7 @@ function CaixaCarimbo({ caixa, setCaixa, rotacao, carimbo, area }) {
     );
 }
 
-function ConfirmarAssinatura({ token, caixa, rotacao, onFechar, erroSenha }) {
+function ConfirmarAssinatura({ token, caixa, rotacao, onFechar, erroSenha, voltarPacote }) {
     const [senha, setSenha] = useState('');
     const [enviando, setEnviando] = useState(false);
     const [geo, setGeo] = useState(null);
@@ -521,6 +638,7 @@ function ConfirmarAssinatura({ token, caixa, rotacao, onFechar, erroSenha }) {
             senha,
             geolocalizacao: geo,
             posicao: { pagina: caixa.pagina, x: caixa.x, y: caixa.y, w: caixa.w, h: caixa.h, rotacao },
+            voltar_pacote: voltarPacote,
         }, { preserveScroll: true, onFinish: () => setEnviando(false) });
     };
 
