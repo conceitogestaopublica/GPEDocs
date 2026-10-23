@@ -40,7 +40,7 @@ export default function SolicitarAssinaturaLoteModal({ show, onClose, documentoI
     };
 
     return (
-        <Modal show={show} onClose={onClose} title={`Solicitar Assinatura (${documentoIds.length} documento(s))`} maxWidth="lg">
+        <Modal show={show} onClose={onClose} title={`Solicitar Assinatura (${documentoIds.length} documento(s))`} maxWidth="4xl">
             <form onSubmit={submit} className="space-y-4">
                 <div className="bg-blue-50 rounded-xl p-3">
                     <p className="text-xs text-blue-700">
@@ -78,7 +78,7 @@ export default function SolicitarAssinaturaLoteModal({ show, onClose, documentoI
                         </button>
                     </div>
                     {data.externos.map((ext, i) => (
-                        <div key={i} className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1.3fr_auto] gap-2 items-start">
+                        <div key={i} className="grid grid-cols-1 md:grid-cols-[1.35fr_1fr_1.75fr_0.95fr_auto] gap-2 items-start">
                             <div>
                                 <input value={ext.nome} onChange={(e) => mudarExterno(i, 'nome', e.target.value)} className="ds-input" placeholder="Nome completo" required />
                                 {errors[`externos.${i}.nome`] && <p className="text-[11px] text-red-600">{errors[`externos.${i}.nome`]}</p>}
@@ -88,6 +88,7 @@ export default function SolicitarAssinaturaLoteModal({ show, onClose, documentoI
                                 {errors[`externos.${i}.cpf`] && <p className="text-[11px] text-red-600">{errors[`externos.${i}.cpf`]}</p>}
                             </div>
                             <input type="email" value={ext.email} onChange={(e) => mudarExterno(i, 'email', e.target.value)} className="ds-input" placeholder="E-mail (recebe o link)" />
+                            <input value={ext.telefone} onChange={(e) => mudarExterno(i, 'telefone', e.target.value)} className="ds-input" placeholder="Celular" inputMode="tel" />
                             <button type="button" onClick={() => removerExterno(i)} className="ds-btn ds-btn-ghost !px-2 text-red-600" title="Remover">
                                 <i className="fas fa-times" />
                             </button>
