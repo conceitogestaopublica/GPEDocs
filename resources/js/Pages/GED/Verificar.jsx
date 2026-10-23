@@ -4,6 +4,8 @@
 import { Head } from '@inertiajs/react';
 
 export default function Verificar({ documento, valido, assinaturas = [] }) {
+    // /verificar/codigo/{codigo} redireciona para cá com ?codigo= — destaca aquela assinatura.
+    const codigoDestacado = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('codigo') : null;
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
             <Head title={valido ? 'Documento Verificado' : 'Verificação'} />
@@ -67,13 +69,15 @@ export default function Verificar({ documento, valido, assinaturas = [] }) {
                                     ) : (
                                         <ul className="space-y-1.5">
                                             {assinaturas.map((a, i) => (
-                                                <li key={i} className="text-xs bg-gray-50 rounded-lg px-3 py-2 text-gray-700">
+                                                <li key={i} className={`text-xs rounded-lg px-3 py-2 text-gray-700 ${
+                                                    a.codigo && a.codigo === codigoDestacado ? 'bg-emerald-50 ring-1 ring-emerald-300' : 'bg-gray-50'}`}>
                                                     <i className="fas fa-file-signature text-emerald-600 mr-1.5" />
                                                     {a.signatario ? <strong>{a.signatario}</strong> : 'Signatário'}
                                                     {a.cpf && <span className="text-gray-500"> · CPF {a.cpf}</span>}
-                                                    <span className="text-gray-500"> · {a.modalidade}</span>
+                                                    <span className="text-gray-500"> · {a.modalidade}{a.externo && ' (por link)'}</span>
                                                     {a.ac && <span className="text-gray-500"> · {a.ac}</span>}
                                                     <span className="text-gray-400"> · {a.assinado_em}</span>
+                                                    {a.codigo && <span className="block text-[11px] font-mono text-gray-500 mt-0.5">Código {a.codigo}</span>}
                                                 </li>
                                             ))}
                                         </ul>

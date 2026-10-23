@@ -113,7 +113,11 @@
                 @foreach($solicitacao->assinaturas as $i => $assinatura)
                 <tr>
                     <td>{{ $i + 1 }}</td>
-                    <td>{{ $assinatura->signatario?->name ?? '-' }}<br><span style="font-size:8px;color:#666">{{ $assinatura->email_signatario }}</span></td>
+                    <td>{{ $assinatura->nome_exibicao ?? '-' }}<br><span style="font-size:8px;color:#666">{{ $assinatura->email_signatario }}</span>
+                        @if($assinatura->externo)
+                            <br><span style="font-size:8px;color:#666">Externo, por link (cadastro com CPF){{ $assinatura->codigo_verificacao ? ' — código ' . $assinatura->codigo_verificacao : '' }}</span>
+                        @endif
+                    </td>
                     <td>
                         @if($assinatura->tipo_assinatura === 'qualificada')
                             <strong style="color:#16a34a;">Qualificada</strong><br>
@@ -204,7 +208,7 @@
         <div class="section-title">Hashes de Integridade (SHA-256)</div>
         @foreach($solicitacao->assinaturas->where('status', 'assinado') as $assinatura)
         <p style="margin-bottom: 6px;">
-            <strong>{{ $assinatura->signatario?->name }}:</strong><br>
+            <strong>{{ $assinatura->nome_exibicao }}:</strong><br>
             <span class="hash">{{ $assinatura->hash_documento ?? 'N/A' }}</span>
         </p>
         @endforeach

@@ -86,6 +86,16 @@ class DocumentoController extends Controller
             'solicitacoesAssinatura.solicitante',
         ])->findOrFail($id);
 
+        // Signatário externo pendente: o link do convite, para copiar e mandar por WhatsApp.
+        // (each() para quando o callback devolve false — por isso o if, e não um &&.)
+        foreach ($documento->solicitacoesAssinatura as $s) {
+            foreach ($s->assinaturas as $a) {
+                if ($a->externo) {
+                    $a->setAttribute('link_convite', $a->linkConvite());
+                }
+            }
+        }
+
         $isFavorito = Auth::user()->favoritos()->where('documento_id', $id)->exists();
         $usuarios = User::where('id', '!=', Auth::id())->orderBy('name')->get(['id', 'name', 'email']);
 

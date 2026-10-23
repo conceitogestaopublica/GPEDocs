@@ -22,6 +22,7 @@ class Cidadao extends Authenticatable
         'senha',
         'email_verificado_em',
         'token_verificacao',
+        'token_verificacao_expira_em',
         'ativo',
     ];
 
@@ -34,8 +35,9 @@ class Cidadao extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verificado_em' => 'datetime',
-            'ativo'               => 'boolean',
+            'email_verificado_em'         => 'datetime',
+            'token_verificacao_expira_em' => 'datetime',
+            'ativo'                       => 'boolean',
         ];
     }
 

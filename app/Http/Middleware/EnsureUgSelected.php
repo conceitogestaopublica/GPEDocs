@@ -31,6 +31,7 @@ class EnsureUgSelected
         'verificar',
         'validar-assinatura',
         'oficios/rastrear',
+        'assinar',
     ];
 
     public function handle(Request $request, Closure $next): Response

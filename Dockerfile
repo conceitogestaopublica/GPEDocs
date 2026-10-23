@@ -29,6 +29,9 @@ RUN apk add --no-cache \
         libzip-dev \
         oniguruma-dev \
         postgresql-dev \
+        # qpdf: regrava PDFs com object streams (PDF 1.5+, ex.: exportados do Word),
+        # que o parser gratuito do FPDI não lê — ver App\Support\PdfCompativel.
+        qpdf \
         unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \

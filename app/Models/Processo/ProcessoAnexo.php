@@ -21,7 +21,14 @@ class ProcessoAnexo extends Model
         'mime_type',
         'hash_sha256',
         'enviado_por',
+        'documento_id',
     ];
+
+    /** Documento do GED criado quando o anexo foi enviado para assinatura. */
+    public function documento(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Documento::class, 'documento_id');
+    }
 
     public function processo(): BelongsTo
     {
