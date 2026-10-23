@@ -12,6 +12,26 @@ use Throwable;
 
 class VerificacaoController extends Controller
 {
+    /**
+     * Código impresso no carimbo da assinatura por link → página pública do documento,
+     * destacando a assinatura daquele código.
+     */
+    public function porCodigo(string $codigo)
+    {
+        $assinatura = \App\Models\Assinatura::where('codigo_verificacao', strtoupper($codigo))
+            ->where('status', 'assinado')
+            ->first();
+        $token = $assinatura
+            ? Documento::withoutGlobalScopes(['ug', 'sigilo'])->whereKey($assinatura->documento_id)->value('qr_code_token')
+            : null;
+
+        if (! $token) {
+            return Inertia::render('GED/Verificar', ['documento' => null, 'valido' => false]);
+        }
+
+        return redirect('/verificar/' . $token . '?codigo=' . urlencode($assinatura->codigo_verificacao));
+    }
+
     public function verificar(string $token)
     {
         // Página pública: quem abre o QR pode estar logado em outra UG ou sem acesso ao
@@ -37,12 +57,14 @@ class VerificacaoController extends Controller
             ->orderBy('assinado_em')
             ->get()
             ->map(fn ($a) => array_filter([
-                'signatario'  => $sigiloso ? null : $a->signatario?->name,
+                'signatario'  => $sigiloso ? null : $a->nome_exibicao,
+                'externo'     => $a->externo ?: null,
+                'codigo'      => $a->codigo_verificacao,
                 'cpf'         => $sigiloso || ! $a->cpf_signatario ? null
                     : substr(preg_replace('/\D/', '', $a->cpf_signatario), 0, 3) . '.***.***-' . substr(preg_replace('/\D/', '', $a->cpf_signatario), -2),
                 'modalidade'  => $a->tipo_assinatura === 'qualificada' ? 'Qualificada (ICP-Brasil)' : 'Eletrônica simples',
                 'ac'          => $sigiloso ? null : $a->certificado?->issuer_cn,
-                'assinado_em' => $a->assinado_em?->format('d/m/Y H:i'),
+                'assinado_em' => \App\Services\CarimboAssinaturaService::horaBrasilia($a->assinado_em) ?: null,
             ], fn ($v) => $v !== null));
 
         // Confidencial ou restrito: confirma a autenticidade sem expor o conteúdo descritivo.

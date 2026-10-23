@@ -36,6 +36,16 @@ class Assinatura extends Model
         'motivo_recusa',
         'assinado_em',
         'signature_position',
+        'tipo_signatario',
+        'nome_signatario',
+        'telefone_signatario',
+        'cidadao_id',
+        'convite_token_hash',
+        'convite_token',
+        'convite_expira_em',
+        'convite_enviado_em',
+        'convite_acessado_em',
+        'codigo_verificacao',
     ];
 
     protected function casts(): array
@@ -45,12 +55,46 @@ class Assinatura extends Model
             'timestamp_assinatura' => 'datetime',
             'cadeia_certificados'  => 'array',
             'signature_position'   => 'array',
+            'convite_token'        => 'encrypted',
+            'convite_expira_em'    => 'datetime',
+            'convite_enviado_em'   => 'datetime',
+            'convite_acessado_em'  => 'datetime',
         ];
     }
 
     protected $hidden = [
         'assinatura_pkcs7',
+        'convite_token',
+        'convite_token_hash',
     ];
+
+    /** Nome para telas, manifesto e verificação: o usuário interno ou o nome do convite. */
+    protected $appends = ['nome_exibicao', 'externo'];
+
+    public function getNomeExibicaoAttribute(): ?string
+    {
+        return $this->signatario?->name ?? $this->nome_signatario;
+    }
+
+    public function getExternoAttribute(): bool
+    {
+        return $this->tipo_signatario === 'externo';
+    }
+
+    /** Link público de assinatura do convite (só enquanto pendente). */
+    public function linkConvite(): ?string
+    {
+        if (! $this->externo || $this->status !== 'pendente' || ! $this->convite_token) {
+            return null;
+        }
+
+        return url('/assinar/' . $this->convite_token);
+    }
+
+    public function cidadao(): BelongsTo
+    {
+        return $this->belongsTo(Portal\Cidadao::class, 'cidadao_id');
+    }
 
     public function certificado(): BelongsTo
     {

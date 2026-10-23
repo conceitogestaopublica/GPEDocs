@@ -67,7 +67,11 @@ Envia um documento para assinatura.
 | `signatarios` | sim | Array com pelo menos 1 signatário (CPF + ordem opcional) |
 | `signatarios[].cpf` | sim | CPF (com ou sem máscara) |
 | `signatarios[].ordem` | não | Inteiro 1+ — define ordem sequencial de assinatura |
-| `signatarios[].email` | não | E-mail do signatário (opcional) |
+| `signatarios[].email` | não | E-mail do signatário (opcional). No externo, recebe o link de assinatura |
+| `signatarios[].externo` | não | `true` = signatário de fora da prefeitura (cidadão, empresa, fornecedor): assina **por link**, com cadastro (ver abaixo) |
+| `signatarios[].nome` | se `externo` | Nome completo do signatário externo |
+| `signatarios[].telefone` | não | Celular do externo (informativo) |
+| `responsavel_cpf` | se todos forem externos | CPF do servidor que envia — vira autor do documento e solicitante (recebe as notificações). Sem ele, o autor é o 1º signatário interno |
 | `callback_url` | não | URL para webhook após todas as assinaturas concluídas |
 | `pasta_codigo` | não | Nome da pasta de arquivamento no GPE Docs |
 
@@ -90,6 +94,47 @@ Envia um documento para assinatura.
   "criado_em": "2026-05-02T17:30:00-03:00"
 }
 ```
+
+#### Signatário externo (assinatura por link)
+
+Para quem **não é usuário do GPE Docs** (fornecedor, contribuinte, cidadão), envie o
+signatário com `"externo": true`, nome e CPF (o CPF precisa ser válido):
+
+```json
+"responsavel_cpf": "12345678900",
+"signatarios": [
+  { "cpf": "52998224725", "externo": true, "nome": "Maria Fornecedora da Silva",
+    "email": "maria@fornecedor.com.br", "ordem": 1 }
+]
+```
+
+Na resposta, cada externo traz o link de assinatura — o sistema de origem pode
+mandá-lo por WhatsApp/SMS além do e-mail que o GPE Docs já envia:
+
+```json
+"signatarios": [
+  { "id": 4, "cpf": "52998224725", "ordem": 1, "externo": true,
+    "link_assinatura": "https://docs.exemplo.gov.br/assinar/WLODCa1r2VYO..." }
+]
+```
+
+Como o externo assina:
+
+1. abre o link (vale 30 dias, ou até o `prazo` da solicitação);
+2. entra com CPF e senha ou faz um cadastro rápido — **o CPF tem de ser o do convite** —
+   e confirma o e-mail com um código de 6 dígitos;
+3. vê o PDF, posiciona/redimensiona/gira o carimbo e confirma com a senha;
+4. o PDF carimbado ("Assinado digitalmente por… CPF… código de verificação") fica no
+   GPE Docs como versão oficial — o mesmo `pdf-assinado` desta API.
+
+Em solicitação `sequencial`, o externo só recebe o e-mail (e só consegue assinar) quando
+chegar a vez dele. O webhook `assinatura.individual` do externo traz `externo: true` e
+`signatario_nome`. A consulta (`GET .../{numero}`) mostra `link_assinatura` enquanto
+pendente e `codigo_verificacao` depois de assinado; o código é conferido em
+`/verificar/codigo/{codigo}`.
+
+Assinatura por link só vale para PDF. É assinatura eletrônica com identificação por
+cadastro (CPF + e-mail confirmado + senha), IP, data/hora e hash — **não** é ICP-Brasil.
 
 ### `POST /api/integracoes/documentos/{numero_externo}/versao`
 

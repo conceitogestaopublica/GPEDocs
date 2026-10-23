@@ -581,6 +581,70 @@ class ProcessoController extends Controller
         return \App\Support\Anexos::baixar($anexo->arquivo_path, $anexo->nome);
     }
 
+    /**
+     * Envia um anexo PDF do processo para assinatura: ele vira documento do GED (cópia do
+     * arquivo, vinculada ao anexo) e abre a aba Assinaturas, onde se escolhem os signatários
+     * internos e externos (link). Reenviar o mesmo anexo leva ao documento já criado.
+     */
+    public function enviarAnexoParaAssinatura($anexoId)
+    {
+        $anexo = ProcessoAnexo::findOrFail($anexoId);
+        $processo = Processo::findOrFail($anexo->processo_id); // escopo de UG
+
+        if ($anexo->documento_id && Documento::whereKey($anexo->documento_id)->exists()) {
+            return redirect("/documentos/{$anexo->documento_id}?aba=assinaturas");
+        }
+
+        $mime = (string) ($anexo->mime_type ?: Storage::disk('documentos')->mimeType($anexo->arquivo_path));
+        if (! str_contains($mime, 'pdf')) {
+            return redirect()->back()->with('error', 'Só anexos em PDF podem ser enviados para assinatura.');
+        }
+        if (! Storage::disk('documentos')->exists($anexo->arquivo_path)) {
+            return redirect()->back()->with('error', 'Arquivo do anexo não encontrado.');
+        }
+
+        $documento = DB::transaction(function () use ($anexo, $processo) {
+            // Cópia própria: o documento do GED não depende do arquivo do anexo.
+            $bytes = Storage::disk('documentos')->get($anexo->arquivo_path);
+            $path = \App\Tenant\TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . basename((string) $anexo->arquivo_path);
+            Storage::disk('documentos')->put($path, $bytes);
+
+            $documento = Documento::create([
+                'nome'         => $anexo->nome,
+                'descricao'    => "Anexo do processo {$processo->numero_protocolo} enviado para assinatura.",
+                'versao_atual' => 1,
+                'tamanho'      => strlen($bytes),
+                'mime_type'    => 'application/pdf',
+                'autor_id'     => Auth::id(),
+                'status'       => 'rascunho',
+            ]);
+
+            Versao::create([
+                'documento_id' => $documento->id,
+                'versao'       => 1,
+                'arquivo_path' => $path,
+                'tamanho'      => strlen($bytes),
+                'hash_sha256'  => hash('sha256', $bytes),
+                'autor_id'     => Auth::id(),
+                'comentario'   => "Anexo do processo {$processo->numero_protocolo}",
+            ]);
+
+            $anexo->update(['documento_id' => $documento->id]);
+
+            ProcessoHistorico::create([
+                'processo_id' => $processo->id,
+                'usuario_id'  => Auth::id(),
+                'acao'        => 'anexo_para_assinatura',
+                'detalhes'    => ['anexo' => $anexo->nome, 'documento_id' => $documento->id],
+            ]);
+
+            return $documento;
+        });
+
+        return redirect("/documentos/{$documento->id}?aba=assinaturas")
+            ->with('success', 'O anexo agora é um documento do GED. Escolha quem assina — servidores e externos (por link).');
+    }
+
     public function arquivarNoGed(Request $request, $id)
     {
         $request->validate([
