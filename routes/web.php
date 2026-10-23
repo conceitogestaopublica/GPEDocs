@@ -282,6 +282,16 @@ Route::middleware('auth')->group(function () {
         Route::post('ugs/{ug}/organograma/nodes/{node}/toggle-ativo', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'toggleAtivoNode'])->name('ugs.organograma.nodes.toggle-ativo');
         });
 
+        // Certificado da prefeitura (e-CNPJ A1 por UG) — sela os PDFs assinados por link
+        Route::middleware('can:admin.ugs')->group(function () {
+            Route::get('certificado-prefeitura', [\App\Http\Controllers\Configuracao\CertificadoInstitucionalController::class, 'index'])
+                ->name('certificado-prefeitura.index');
+            Route::post('certificado-prefeitura', [\App\Http\Controllers\Configuracao\CertificadoInstitucionalController::class, 'store'])
+                ->name('certificado-prefeitura.store');
+            Route::post('certificado-prefeitura/{ugId}/toggle', [\App\Http\Controllers\Configuracao\CertificadoInstitucionalController::class, 'toggle'])
+                ->whereNumber('ugId')->name('certificado-prefeitura.toggle');
+        });
+
         // Sistemas integrados (API tokens para sistemas externos)
         Route::middleware('can:admin.sistemas_integrados')->group(function () {
         Route::resource('sistemas-integrados', \App\Http\Controllers\Configuracao\SistemaIntegradoController::class)
