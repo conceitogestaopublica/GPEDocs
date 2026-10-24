@@ -83,6 +83,8 @@ class CarimboAssinaturaService
             foreach ($carimbos as $a) {
                 $this->desenhar($pdf, $a, $total);
             }
+            $assinadas = Assinatura::where('documento_id', $atual->documento_id)->where('status', 'assinado')->count();
+            RodapeAssinatura::desenhar($pdf, $total, $assinadas, url('/verificar/' . $documento->qr_code_token));
 
             $this->paginaTermo($pdf, $atual, $versao, $total, $selo);
 
