@@ -197,8 +197,8 @@ class AssinaturaIcpService
                 $pdf->useTemplate($tplId);
             }
 
-            // Rodapé de autenticação em cada página (padrão único dos sistemas): anteriores + atual.
-            RodapeAssinatura::desenhar($pdf, $totalPaginas, count($previousStamps) + 1, rtrim(url('/'), '/') . '/validar-assinatura');
+            // Tarja lateral em cada página (padrão único dos sistemas e TR): anteriores + atual.
+            TarjaAssinatura::desenhar($pdf, $totalPaginas, count($previousStamps) + 1, rtrim(url('/'), '/') . '/validar-assinatura');
 
             // Primeiro, redesenha carimbos das assinaturas ICP anteriores (visualmente
             // — não preserva criptografia, que é trabalho do PAdES Part 2; mantemos
