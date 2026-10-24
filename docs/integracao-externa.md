@@ -229,6 +229,18 @@ Consulta o status de um documento já enviado (útil pra polling antes do webhoo
 }
 ```
 
+### `GET /api/integracoes/documentos/{numero_externo}/pdf-assinado`
+
+Devolve o PDF assinado: o arquivo da assinatura mais recente, que traz os quadros e as assinaturas de todos os anteriores.
+
+| situação | resposta |
+|---|---|
+| todos assinaram | `200`, o PDF |
+| ainda há assinatura pendente | `409` |
+| pendente, com `?parcial=1` | `200`, a **versão atual**, com os quadros de quem já assinou, para o sistema de origem mostrar o andamento |
+| ninguém assinou ainda | `404` |
+| documento cancelado | `410` |
+
 ### Webhook de callback
 
 Se `callback_url` for fornecido no `POST /documentos`, o GPE Docs faz `POST` no callback

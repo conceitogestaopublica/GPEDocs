@@ -591,7 +591,8 @@ class IntegracaoDocumentoController extends Controller
      * Devolve o PDF cumulativamente assinado (com todas as assinaturas ICP
      * embutidas em PAdES-BES). O arquivo fica em Assinatura.arquivo_assinado_path
      * — pega-se da assinatura mais recente, que é a que contém todas anteriores.
-     * Bloqueia se ainda houver assinaturas pendentes.
+     * Bloqueia se ainda houver assinaturas pendentes — a não ser com `?parcial=1`: aí devolve a versão
+     * atual, com os quadros de quem já assinou (o sistema de origem mostra o andamento sem esperar todos).
      */
     public function downloadPdfAssinado(Request $request, string $numeroExterno)
     {
@@ -613,13 +614,13 @@ class IntegracaoDocumentoController extends Controller
         $temPendente = $solicitacao
             ? $solicitacao->assinaturas()->where('status', 'pendente')->exists()
             : true;
-        if ($temPendente) {
+        if ($temPendente && ! $request->boolean('parcial')) {
             return response()->json([
                 'erro' => 'Documento ainda tem assinaturas pendentes.',
             ], 409);
         }
 
-        // Pega o PDF cumulativamente assinado da ULTIMA assinatura
+        // Pega o PDF cumulativamente assinado da ULTIMA assinatura (com ?parcial=1 e ninguém assinou: 404)
         $ultimaAssinatura = \App\Models\Assinatura::where('documento_id', $documento->id)
             ->where('status', 'assinado')
             ->whereNotNull('arquivo_assinado_path')
