@@ -29,10 +29,12 @@ class CidadaoController extends PortalApiController
     {
         $dados = $request->validate(['documento' => ['required', 'string', 'max:18']]);
         $cidadao = $this->cidadaos->porDocumento($dados['documento']);
+        // Usuário do GPE Docs sem cadastro de cidadão também "tem conta": entra com a senha de lá.
+        $existe = $this->cidadaos->temAcesso($dados['documento']);
 
         return response()->json([
-            'existe'           => $cidadao !== null && $cidadao->ativo,
-            'email_confirmado' => $cidadao?->email_verificado_em !== null,
+            'existe'           => $existe,
+            'email_confirmado' => $cidadao ? $cidadao->email_verificado_em !== null : $existe,
         ]);
     }
 

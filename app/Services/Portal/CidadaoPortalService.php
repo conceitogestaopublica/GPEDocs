@@ -6,6 +6,7 @@ namespace App\Services\Portal;
 
 use App\Mail\CodigoConfirmacaoEmail;
 use App\Models\Portal\Cidadao;
+use App\Models\User;
 use App\Services\ConviteAssinaturaService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -19,6 +20,10 @@ use Throwable;
  *
  * O documento (CPF ou CNPJ) é a chave: gravado só com dígitos, conferido com
  * dígito verificador e procurado ignorando máscara (cadastros antigos têm).
+ *
+ * Quem é usuário do GPE Docs (servidor, funcionário) entra no portal com a senha de
+ * usuário: no primeiro acesso nasce o cidadão ligado a ele (user_id), e daí em diante a
+ * senha conferida é sempre a do usuário.
  */
 class CidadaoPortalService
 {
@@ -160,21 +165,78 @@ class CidadaoPortalService
         return true;
     }
 
-    /**
-     * Documento + senha. Null para qualquer falha (documento inexistente,
-     * senha errada, cadastro inativo) — quem chama não deve distinguir.
-     */
-    /** Entra pelo CPF/CNPJ ou pelo e-mail (único no cadastro) — o que tiver "@" é e-mail. */
-    public function autenticar(string $login, string $senha): ?Cidadao
+    /** Cidadão pelo CPF/CNPJ ou pelo e-mail (único no cadastro) — o que tiver "@" é e-mail. */
+    public function porLogin(string $login): ?Cidadao
     {
-        $cidadao = str_contains($login, '@')
+        return str_contains($login, '@')
             ? Cidadao::whereRaw('lower(email) = ?', [mb_strtolower(trim($login))])->first()
             : $this->porDocumento($login);
-        if (! $cidadao || ! $cidadao->ativo || ! $cidadao->senha || ! Hash::check($senha, $cidadao->senha)) {
+    }
+
+    /** Usuário do GPE Docs pelo CPF ou e-mail — só com CPF (é a chave do cidadão). */
+    public function usuarioPorLogin(string $login): ?User
+    {
+        return User::query()
+            ->whereNotNull('cpf')
+            ->when(str_contains($login, '@'),
+                fn ($q) => $q->whereRaw('lower(email) = ?', [mb_strtolower(trim($login))]),
+                fn ($q) => $q->whereRaw("regexp_replace(cpf, '[^0-9]', '', 'g') = ?", [self::digitos($login)]))
+            ->orderByRaw('legado_funcionario_id is null')   // CPF repetido: prefere o do servidor
+            ->orderBy('id')
+            ->first();
+    }
+
+    /** Tem acesso ao portal? Cidadão ativo, ou usuário do GPE Docs (entra com a senha de lá). */
+    public function temAcesso(string $documento): bool
+    {
+        $cidadao = $this->porDocumento($documento);
+
+        return $cidadao ? (bool) $cidadao->ativo : $this->usuarioPorLogin($documento) !== null;
+    }
+
+    /**
+     * CPF/CNPJ ou e-mail + senha. Null para qualquer falha (inexistente, senha errada,
+     * cadastro inativo) — quem chama não deve distinguir.
+     */
+    public function autenticar(string $login, string $senha): ?Cidadao
+    {
+        $cidadao = $this->porLogin($login);
+        if ($cidadao) {
+            $hash = $cidadao->user_id ? $cidadao->usuario?->password : $cidadao->senha;
+
+            return $cidadao->ativo && $hash && Hash::check($senha, (string) $hash) ? $cidadao : null;
+        }
+
+        // Sem cadastro de cidadão: usuário do GPE Docs entra com a senha de usuário.
+        $usuario = $this->usuarioPorLogin($login);
+        if (! $usuario || ! Hash::check($senha, (string) $usuario->password)) {
             return null;
         }
 
-        return $cidadao;
+        return $this->cidadaoDoUsuario($usuario);
+    }
+
+    /**
+     * Cidadão ligado ao usuário. O e-mail vem do usuário (cadastrado pela Prefeitura, por
+     * isso já confirmado); se já for de outro cidadão, fica um provisório.
+     */
+    private function cidadaoDoUsuario(User $usuario): Cidadao
+    {
+        $email = mb_strtolower((string) $usuario->email);
+        if (Cidadao::whereRaw('lower(email) = ?', [$email])->exists()) {
+            $email = 'usr-' . $usuario->id . '@usuario.local';
+        }
+
+        return Cidadao::create([
+            'user_id'             => $usuario->id,
+            'nome'                => $usuario->name,
+            'email'               => $email,
+            'cpf'                 => self::digitos($usuario->cpf),
+            'telefone'            => $usuario->telefone,
+            'senha'               => (string) $usuario->password,   // não é conferida: vale a do usuário
+            'email_verificado_em' => now(),
+            'ativo'               => true,
+        ]);
     }
 
     /** Troca a senha com o código enviado ao e-mail cadastrado; confirma o e-mail de quebra. */
@@ -183,10 +245,13 @@ class CidadaoPortalService
         if (! $this->consumirCodigo($cidadao, $codigo)) {
             return false;
         }
+        $hash = Hash::make($senha);
         $cidadao->forceFill([
-            'senha'               => Hash::make($senha),
+            'senha'               => $hash,
             'email_verificado_em' => $cidadao->email_verificado_em ?? now(),
         ])->save();
+        // Ligado a usuário do GPE Docs: a senha é uma só.
+        $cidadao->usuario?->forceFill(['password' => $hash])->save();
 
         return true;
     }

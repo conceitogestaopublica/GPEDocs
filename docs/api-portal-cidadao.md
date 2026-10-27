@@ -53,6 +53,10 @@ ativo/publicado.
 - Código: 6 dígitos, por e-mail, vale 15 minutos, uso único (guardado como sha256).
 - Um cadastro que nunca confirmou o e-mail é **retomado** por um novo `POST cidadaos` do mesmo
   documento — quem desistiu no meio não fica trancado.
+- **Usuário do GPE Docs** (servidor, funcionário) sem cadastro de cidadão: `identificar` responde
+  `existe: true` e `autenticar` aceita a senha de usuário (CPF ou e-mail). No primeiro acesso nasce
+  o cidadão ligado a ele (`portal_cidadaos.user_id`); daí em diante a senha conferida é a do
+  usuário, e redefinir a senha pelo portal troca as duas. Uma pessoa, uma senha.
 - `cidadao`: `{ id, nome, documento, email, telefone, email_confirmado }` — nunca senha nem token.
 - **Desenvolvimento:** com `APP_ENV=local` e `PORTAL_API_ECO_CODIGO=true`, as respostas que
   enviam código trazem `codigo_dev` (o e-mail local vai só para o log). Nunca em produção.
