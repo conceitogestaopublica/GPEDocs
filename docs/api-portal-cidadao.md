@@ -57,7 +57,7 @@ ativo/publicado.
   `existe: true` e `autenticar` aceita a senha de usuário (CPF ou e-mail). No primeiro acesso nasce
   o cidadão ligado a ele (`portal_cidadaos.user_id`); daí em diante a senha conferida é a do
   usuário, e redefinir a senha pelo portal troca as duas. Uma pessoa, uma senha.
-- `cidadao`: `{ id, nome, documento, email, telefone, email_confirmado }` — nunca senha nem token.
+- `cidadao`: `{ id, nome, documento, email, telefone, email_confirmado, servidor }` — nunca senha nem token. `servidor`: ligado a usuário vindo do RH (só ele abre a Área do Servidor e os serviços da área "servidor").
 - **Desenvolvimento:** com `APP_ENV=local` e `PORTAL_API_ECO_CODIGO=true`, as respostas que
   enviam código trazem `codigo_dev` (o e-mail local vai só para o log). Nunca em produção.
 
@@ -68,7 +68,7 @@ Sempre com `ug` e `cidadao_id` (o portal só informa o id do cidadão autenticad
 | Rota | O que faz |
 |---|---|
 | `GET solicitacoes` | lista do cidadão (até 200, mais recentes primeiro) |
-| `POST solicitacoes` | `servico` (slug), `descricao`, `telefone_contato?`, `email_contato?` → 201; abre o processo se o serviço tiver tipo + setor; avisa por e-mail |
+| `POST solicitacoes` | `servico` (slug), `descricao`, `telefone_contato?`, `email_contato?`, `anexos?` (até 3 `{ nome, conteudo }` em base64; PDF/JPG/PNG, 10 MB) → 201; abre o processo se o serviço tiver tipo + setor (anexos vão junto quando quem pede é usuário); avisa por e-mail; 403 em serviço da área "servidor" para quem não é servidor |
 | `GET solicitacoes/{codigo}` | detalhe: descrição, resposta, processo (`numero_protocolo`, `status`) e eventos |
 | `POST solicitacoes/{codigo}/cancelar` | cancela (422 se já finalizada) |
 
