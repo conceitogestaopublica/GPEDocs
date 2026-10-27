@@ -27,6 +27,14 @@ export default function Assinaturas({ pendentes, aguardando_outros, concluidas, 
     );
     const [assinarModal, setAssinarModal] = useState(null);
     const [recusarModal, setRecusarModal] = useState(null);
+    // Assinatura em lote dos pendentes (ex.: empenhos e relatórios do gpe2).
+    const [selPendentes, setSelPendentes] = useState(new Set());
+    const [loteAberto, setLoteAberto] = useState(false);
+    const alternarPendente = (id) => {
+        const novo = new Set(selPendentes);
+        novo.has(id) ? novo.delete(id) : novo.add(id);
+        setSelPendentes(novo);
+    };
 
     return (
         <AdminLayout>
@@ -83,20 +91,56 @@ export default function Assinaturas({ pendentes, aguardando_outros, concluidas, 
             )}
 
             {activeTab === 'pendentes' && (
-                <Card padding={false}>
-                    {(pendentes || []).length === 0 ? (
-                        <div className="py-12 text-center text-gray-400">
-                            <i className="fas fa-check-circle text-3xl mb-2 block" />
-                            <p>Nenhuma assinatura pendente</p>
-                        </div>
-                    ) : (
-                        <div className="divide-y divide-gray-100">
-                            {(pendentes || []).map(a => <PendenteRow key={a.id} a={a}
-                                onAssinar={() => setAssinarModal(a)}
-                                onRecusar={() => setRecusarModal(a)} />)}
+                <>
+                    {(pendentes || []).length > 1 && (
+                        <div className="bg-white rounded-xl border border-gray-200 px-4 py-2 mb-3 flex items-center justify-between gap-3">
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
+                                <input type="checkbox"
+                                    checked={selPendentes.size === pendentes.length}
+                                    ref={el => { if (el) el.indeterminate = selPendentes.size > 0 && selPendentes.size < pendentes.length; }}
+                                    onChange={() => setSelPendentes(selPendentes.size === pendentes.length ? new Set() : new Set(pendentes.map(p => p.id)))}
+                                    className="rounded border-gray-300 text-blue-600" />
+                                {selPendentes.size > 0
+                                    ? <span><strong>{selPendentes.size}</strong> selecionado(s)</span>
+                                    : <span>Selecionar todos para assinar de uma vez</span>}
+                            </label>
+                            {selPendentes.size > 0 && (
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => setLoteAberto(true)}
+                                        className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                                        <i className="fas fa-pen-nib mr-1" />Assinar selecionados ({selPendentes.size})
+                                    </button>
+                                    <button onClick={() => setSelPendentes(new Set())} className="text-xs text-gray-500 hover:text-gray-800">
+                                        <i className="fas fa-times mr-1" />Limpar seleção
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
-                </Card>
+                    <Card padding={false}>
+                        {(pendentes || []).length === 0 ? (
+                            <div className="py-12 text-center text-gray-400">
+                                <i className="fas fa-check-circle text-3xl mb-2 block" />
+                                <p>Nenhuma assinatura pendente</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-gray-100">
+                                {(pendentes || []).map(a => <PendenteRow key={a.id} a={a}
+                                    selecionado={selPendentes.has(a.id)}
+                                    onToggleSel={pendentes.length > 1 ? () => alternarPendente(a.id) : null}
+                                    onAssinar={() => setAssinarModal(a)}
+                                    onRecusar={() => setRecusarModal(a)} />)}
+                            </div>
+                        )}
+                    </Card>
+                </>
+            )}
+
+            {loteAberto && (
+                <AssinarLoteModal
+                    itens={(pendentes || []).filter(p => selPendentes.has(p.id))}
+                    onClose={() => setLoteAberto(false)}
+                    onConcluido={() => { setLoteAberto(false); setSelPendentes(new Set()); }} />
             )}
 
             {activeTab === 'aguardando' && (
@@ -514,15 +558,111 @@ function ClassificarArquivarModal({ target, tiposDocumentais = [], pastas = [], 
     );
 }
 
-function PendenteRow({ a, onAssinar, onRecusar }) {
+/**
+ * Assinar vários pendentes de uma vez: CPF (simples) ou certificado A1 + senha UMA vez, e
+ * a declaração de que conferiu os documentos. O servidor assina um a um e devolve o resumo.
+ */
+function AssinarLoteModal({ itens, onClose, onConcluido }) {
+    const [modo, setModo] = useState('simples');
+    const { data, setData, post, processing, errors } = useForm({
+        assinatura_ids: itens.map(i => i.id),
+        modo: 'simples',
+        cpf: '',
+        pfx: null,
+        senha: '',
+        conferido: false,
+    });
+
+    const trocarModo = (m) => { setModo(m); setData('modo', m); };
+
+    const enviar = (e) => {
+        e.preventDefault();
+        post('/assinaturas/assinar-lote', { forceFormData: modo === 'icp', preserveScroll: true, onSuccess: onConcluido });
+    };
+
+    return (
+        <Modal show onClose={onClose} title={`Assinar ${itens.length} documento(s)`} maxWidth="2xl">
+            <form onSubmit={enviar} className="space-y-4">
+                <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-100">
+                    {itens.map(i => (
+                        <div key={i.id} className="px-3 py-2 text-sm flex items-center gap-2">
+                            <i className="fas fa-file-pdf text-red-400 text-xs" />
+                            <a href={`/documentos/${i.documento?.id}`} target="_blank" rel="noopener" className="text-gray-800 hover:text-blue-600 truncate">
+                                {i.documento?.nome}
+                            </a>
+                            {i.documento?.numero_externo && <span className="text-[10px] font-mono text-gray-400 ml-auto">{i.documento.numero_externo}</span>}
+                        </div>
+                    ))}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                    {[['simples', 'fa-pen-nib', 'Simples', 'Com o seu CPF'], ['icp', 'fa-shield-alt', 'ICP-Brasil A1', 'Certificado .pfx + senha']].map(([k, ic, t, d]) => (
+                        <button key={k} type="button" onClick={() => trocarModo(k)}
+                            className={`text-left rounded-xl border p-3 ${modo === k ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                            <p className="text-sm font-semibold text-gray-800"><i className={`fas ${ic} mr-1.5 text-blue-600`} />{t}</p>
+                            <p className="text-xs text-gray-500">{d}</p>
+                        </button>
+                    ))}
+                </div>
+
+                {modo === 'simples' ? (
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
+                        <input value={data.cpf} onChange={(e) => setData('cpf', e.target.value)} className="ds-input" placeholder="000.000.000-00" maxLength={14} />
+                        {errors.cpf && <p className="mt-1 text-xs text-red-600">{errors.cpf}</p>}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Certificado (.pfx ou .p12)</label>
+                            <input type="file" accept=".pfx,.p12" onChange={(e) => setData('pfx', e.target.files?.[0] ?? null)} className="ds-input !h-auto py-1.5" />
+                            {errors.pfx && <p className="mt-1 text-xs text-red-600">{errors.pfx}</p>}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Senha do certificado</label>
+                            <input type="password" value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input" autoComplete="off" />
+                            {errors.senha && <p className="mt-1 text-xs text-red-600">{errors.senha}</p>}
+                        </div>
+                        <p className="md:col-span-2 text-[11px] text-gray-500">
+                            A senha só abre o certificado em memória, uma vez para todos os documentos, e não é guardada.
+                            Certificado A3 (token) continua um a um, pela aba A3 de cada documento.
+                        </p>
+                    </div>
+                )}
+
+                <label className="flex items-start gap-2 cursor-pointer bg-amber-50 border border-amber-200 rounded-xl p-3">
+                    <input type="checkbox" checked={data.conferido} onChange={(e) => setData('conferido', e.target.checked)} className="rounded border-gray-300 text-blue-600 mt-0.5" />
+                    <span className="text-sm text-gray-700">
+                        Conferi os <strong>{itens.length}</strong> documentos listados e concordo com o conteúdo de cada um.
+                    </span>
+                </label>
+                {errors.conferido && <p className="text-xs text-red-600">{errors.conferido}</p>}
+
+                <div className="flex justify-end gap-2">
+                    <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>
+                    <Button type="submit" icon="fas fa-pen-nib" loading={processing}
+                        disabled={! data.conferido || (modo === 'simples' ? ! data.cpf : (! data.pfx || ! data.senha))}>
+                        {processing ? 'Assinando…' : `Assinar ${itens.length} documento(s)`}
+                    </Button>
+                </div>
+            </form>
+        </Modal>
+    );
+}
+
+function PendenteRow({ a, onAssinar, onRecusar, selecionado = false, onToggleSel }) {
     const ehExterno = !! a.documento?.sistema_origem;
     const meta = a.documento?.metadados_externos || {};
     const metaEntries = Object.entries(meta).filter(([, v]) => v !== null && v !== '');
 
     return (
-        <div className="px-5 py-4 hover:bg-gray-50">
+        <div className={`px-5 py-4 hover:bg-gray-50 ${selecionado ? 'bg-blue-50/40' : ''}`}>
             <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
+                    {onToggleSel && (
+                        <input type="checkbox" checked={selecionado} onChange={onToggleSel} aria-label="Selecionar para assinar em lote"
+                            className="rounded border-gray-300 text-blue-600 mt-3" />
+                    )}
                     <div className={`w-10 h-10 ${ehExterno ? 'bg-violet-100' : 'bg-amber-100'} rounded-lg flex items-center justify-center shrink-0`}>
                         <i className={`fas fa-${ehExterno ? 'plug' : 'file-signature'} ${ehExterno ? 'text-violet-600' : 'text-amber-600'} text-sm`} />
                     </div>

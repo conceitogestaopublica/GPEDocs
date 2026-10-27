@@ -15,6 +15,7 @@ use App\Services\AssinaturaIcpService;
 use App\Services\CertificadoService;
 use App\Services\ConviteAssinaturaService;
 use App\Services\FluxoAssinaturaService;
+use App\Services\PacoteAssinaturaService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -198,21 +199,56 @@ class AssinaturaController extends Controller
             return redirect()->back()->withErrors($erro);
         }
 
+        $request->validate(['titulo_pacote' => ['nullable', 'string', 'max:200']]);
+
+        // Externos em lote: um pacote = um link e um e-mail por pessoa para todos os documentos.
+        $pacote = $request->filled('externos')
+            ? app(PacoteAssinaturaService::class)->obter(
+                $request->input('titulo_pacote') ?: count($request->input('documento_ids')) . ' documentos enviados em ' . now()->setTimezone('America/Sao_Paulo')->format('d/m/Y'),
+                (int) Auth::id(),
+            )
+            : null;
+
         $count = 0;
+        $ignorados = 0;
 
         foreach ($request->input('documento_ids') as $documentoId) {
             $documento = Documento::with('versaoAtual')->findOrFail($documentoId);
-            if ($request->filled('externos') && ! str_contains((string) $documento->mime_type, 'pdf')) {
+            if ($pacote && ! str_contains((string) $documento->mime_type, 'pdf')) {
+                $ignorados++;
                 continue; // externo assina por link só PDF
             }
 
-            DB::transaction(fn () => $this->criarSolicitacao($documento, $request));
+            DB::transaction(fn () => $this->criarSolicitacao($documento, $request, $pacote));
             $this->registrarSolicitacao($documento, $request, true);
 
             $count++;
         }
 
-        return redirect()->back()->with('success', "Assinatura solicitada para {$count} documento(s).");
+        if ($pacote) {
+            $this->avisarPacote($pacote);
+        }
+
+        $msg = "Assinatura solicitada para {$count} documento(s).";
+        if ($pacote) {
+            $msg .= ' Cada signatário externo recebe um único link com todos os documentos.';
+        }
+        if ($ignorados) {
+            $msg .= " {$ignorados} documento(s) fora do PDF ficaram de fora (assinatura por link só em PDF).";
+        }
+
+        return redirect()->back()->with('success', $msg);
+    }
+
+    /** Um e-mail por externo do pacote — só para quem já tem algum documento na vez. */
+    private function avisarPacote(\App\Models\PacoteAssinatura $pacote): void
+    {
+        $fluxo = app(FluxoAssinaturaService::class);
+        foreach ($pacote->convites()->with('assinaturas.solicitacao')->get() as $convite) {
+            if ($convite->assinaturas->contains(fn ($a) => $a->status === 'pendente' && $fluxo->ehAVez($a))) {
+                app(PacoteAssinaturaService::class)->enviar($convite, true);
+            }
+        }
     }
 
     /**
@@ -252,7 +288,7 @@ class AssinaturaController extends Controller
         return null;
     }
 
-    private function criarSolicitacao(Documento $documento, Request $request): SolicitacaoAssinatura
+    private function criarSolicitacao(Documento $documento, Request $request, ?\App\Models\PacoteAssinatura $pacote = null): SolicitacaoAssinatura
     {
         $solicitacao = SolicitacaoAssinatura::create([
             'documento_id'  => $documento->id,
@@ -275,11 +311,15 @@ class AssinaturaController extends Controller
             ]);
         }
         foreach ((array) $request->input('externos', []) as $externo) {
-            app(ConviteAssinaturaService::class)->criar($solicitacao, $documento, $externo, ++$ordem);
+            $assinatura = app(ConviteAssinaturaService::class)->criar($solicitacao, $documento, $externo, ++$ordem);
+            if ($pacote) {
+                app(PacoteAssinaturaService::class)->vincular($pacote, $assinatura);
+            }
         }
 
         // Interno: notificação no sistema; externo: e-mail com o link (em ordem, só a 1ª vez).
-        app(FluxoAssinaturaService::class)->avisarIniciais($solicitacao->setRelation('documento', $documento));
+        // Em pacote, o e-mail do externo sai uma vez só no fim do lote (avisarPacote).
+        app(FluxoAssinaturaService::class)->avisarIniciais($solicitacao->setRelation('documento', $documento), externos: ! $pacote);
 
         return $solicitacao;
     }
@@ -300,6 +340,82 @@ class AssinaturaController extends Controller
             'ip'           => $request->ip(),
             'user_agent'   => $request->userAgent(),
         ]);
+    }
+
+    /** Máximo de documentos por lote (A1 assina e chama o webhook de cada um em sequência). */
+    private const MAX_LOTE = 50;
+
+    /**
+     * Assinar vários pendentes de uma vez (ex.: empenhos e relatórios do gpe2): o servidor
+     * informa o CPF (simples) ou o certificado A1 + senha UMA vez e confirma que conferiu.
+     * Cada documento passa pela mesma ação da assinatura individual (assinar/assinarIcp) —
+     * vez na ordem, posição do carimbo vinda da integração, webhooks e auditoria iguais.
+     */
+    public function assinarLote(Request $request, CertificadoService $certificadoService, AssinaturaIcpService $assinaturaIcpService)
+    {
+        $request->validate([
+            'assinatura_ids'   => ['required', 'array', 'min:1', 'max:' . self::MAX_LOTE],
+            'assinatura_ids.*' => ['integer'],
+            'modo'             => ['required', 'in:simples,icp'],
+            'conferido'        => ['accepted'],
+            'cpf'              => ['required_if:modo,simples', 'nullable', 'string', 'min:11', 'max:14'],
+            'pfx'              => ['required_if:modo,icp', 'nullable', 'file', 'max:5120', 'extensions:pfx,p12'],
+            'senha'            => ['required_if:modo,icp', 'nullable', 'string'],
+        ], [
+            'conferido.accepted' => 'Confirme que conferiu os documentos.',
+            'assinatura_ids.max' => 'Assine no máximo ' . self::MAX_LOTE . ' documentos por vez.',
+        ]);
+
+        // Em lote o CPF digitado tem de ser o do cadastro (na individual só fica registrado).
+        if ($request->input('modo') === 'simples' && Auth::user()->cpf
+            && ConviteAssinaturaService::soDigitos($request->input('cpf')) !== ConviteAssinaturaService::soDigitos(Auth::user()->cpf)) {
+            return redirect()->back()->with('error', 'O CPF informado não é o do seu cadastro.');
+        }
+
+        @set_time_limit(600);
+        $assinaturas = Assinatura::with('documento:id,nome')
+            ->whereIn('id', (array) $request->input('assinatura_ids'))
+            ->where('signatario_id', Auth::id())
+            ->where('status', 'pendente')
+            ->orderBy('documento_id')
+            ->get();
+
+        $assinadas = 0;
+        $falhas = [];
+        foreach ($assinaturas as $a) {
+            session()->forget(['success', 'error']);
+            $request->modo === 'icp'
+                ? $this->assinarIcp($request, $a->id, $certificadoService, $assinaturaIcpService)
+                : $this->assinar($request, $a->id);
+
+            // As ações individuais respondem com flash; aqui ele vira o resultado da linha.
+            if ($erro = session()->pull('error')) {
+                $falhas[] = ($a->documento?->nome ?? "#{$a->id}") . ': ' . $erro;
+            } else {
+                $assinadas++;
+            }
+            session()->forget('success');
+        }
+
+        AuditLog::create([
+            'usuario_id' => Auth::id(),
+            'acao'       => 'assinatura_lote',
+            'detalhes'   => ['modo' => $request->input('modo'), 'assinadas' => $assinadas, 'falhas' => count($falhas),
+                'assinatura_ids' => $assinaturas->pluck('id')->all()],
+            'ip'         => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        $resposta = redirect()->back();
+        if ($assinadas) {
+            $resposta = $resposta->with('success', "{$assinadas} documento(s) assinado(s).");
+        }
+        if ($falhas) {
+            $resposta = $resposta->with('error', count($falhas) . ' não assinado(s): ' . implode(' | ', array_slice($falhas, 0, 5))
+                . (count($falhas) > 5 ? ' …' : ''));
+        }
+
+        return $resposta;
     }
 
     /** Reenvia o e-mail do convite de um signatário externo pendente. */
