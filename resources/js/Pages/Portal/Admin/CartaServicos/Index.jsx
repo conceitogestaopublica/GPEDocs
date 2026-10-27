@@ -38,21 +38,21 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
         if (busca) params.q = busca;
         if (filtroCat) params.categoria_id = filtroCat;
         if (filtroPub) params.publico_alvo = filtroPub;
-        router.get('/flow/portal/carta-servicos', params, { preserveState: true });
+        router.get('/configuracoes/carta-servicos', params, { preserveState: true });
     };
 
     const togglePublicado = (servico) => {
-        router.post(`/flow/portal/carta-servicos/servicos/${servico.id}/toggle-publicado`, {}, { preserveScroll: true });
+        router.post(`/configuracoes/carta-servicos/servicos/${servico.id}/toggle-publicado`, {}, { preserveScroll: true });
     };
 
     const excluirServico = async (servico) => {
         if (! await confirmar({ titulo: `Excluir o serviço "${servico.titulo}"?`, tom: 'perigo', rotuloConfirmar: 'Excluir' })) return;
-        router.delete(`/flow/portal/carta-servicos/servicos/${servico.id}`, { preserveScroll: true });
+        router.delete(`/configuracoes/carta-servicos/servicos/${servico.id}`, { preserveScroll: true });
     };
 
     const excluirCategoria = async (cat) => {
         if (! await confirmar({ titulo: `Excluir a categoria "${cat.nome}"?`, tom: 'perigo', rotuloConfirmar: 'Excluir' })) return;
-        router.delete(`/flow/portal/carta-servicos/categorias/${cat.id}`, { preserveScroll: true });
+        router.delete(`/configuracoes/carta-servicos/categorias/${cat.id}`, { preserveScroll: true });
     };
 
     return (
@@ -239,8 +239,8 @@ function CategoriaForm({ categoria, areas, onClose }) {
     const submit = (e) => {
         e.preventDefault();
         const opts = { preserveScroll: true, onSuccess: onClose };
-        if (isEdit) put(`/flow/portal/carta-servicos/categorias/${categoria.id}`, opts);
-        else post('/flow/portal/carta-servicos/categorias', opts);
+        if (isEdit) put(`/configuracoes/carta-servicos/categorias/${categoria.id}`, opts);
+        else post('/configuracoes/carta-servicos/categorias', opts);
     };
 
     return (
@@ -368,8 +368,8 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, ac
             acao_fiscal: data.acao_fiscal || null,
         };
         const opts = { preserveScroll: true, onSuccess: onClose };
-        if (isEdit) router.put(`/flow/portal/carta-servicos/servicos/${servico.id}`, payload, opts);
-        else router.post('/flow/portal/carta-servicos/servicos', payload, opts);
+        if (isEdit) router.put(`/configuracoes/carta-servicos/servicos/${servico.id}`, payload, opts);
+        else router.post('/configuracoes/carta-servicos/servicos', payload, opts);
     };
 
     return (

@@ -5,7 +5,7 @@ O **Portal do Cidadão** (Next.js, repositório `novo-portal-cidadao`) usa o GPE
 
 | O quê | Tabela | Quem edita |
 |---|---|---|
-| Carta de Serviços | `portal_categorias_servicos`, `portal_servicos` | a Prefeitura, em GPE Fluxos e Processos › Portal do Cidadão › Carta de Serviços |
+| Carta de Serviços | `portal_categorias_servicos`, `portal_servicos` | a Prefeitura, em Configurações › Portal do Cidadão › Carta de Serviços |
 | Cadastro do cidadão (e a senha dele) | `portal_cidadaos` | o próprio cidadão, pelo portal |
 | Solicitações | `portal_solicitacoes` (+ processo no GPE Flow) | o cidadão abre; a Prefeitura atende em GPE Fluxos e Processos › Portal do Cidadão › Solicitações |
 

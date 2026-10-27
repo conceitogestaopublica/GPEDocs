@@ -357,6 +357,17 @@ Route::middleware('auth')->group(function () {
             ->name('sistemas-integrados.toggle-ativo');
         });
 
+        // Carta de Servicos (admin) — gestor da UG mantem catalogo publicado no /portal
+        Route::prefix('carta-servicos')->name('carta-servicos.')->middleware('can:portal.carta_servicos')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'index'])->name('index');
+            Route::post('categorias',           [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'storeCategoria'])->name('categorias.store');
+            Route::put('categorias/{id}',       [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'updateCategoria'])->name('categorias.update');
+            Route::delete('categorias/{id}',    [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'destroyCategoria'])->name('categorias.destroy');
+            Route::post('servicos',             [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'storeServico'])->name('servicos.store');
+            Route::put('servicos/{id}',         [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'updateServico'])->name('servicos.update');
+            Route::delete('servicos/{id}',      [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'destroyServico'])->name('servicos.destroy');
+            Route::post('servicos/{id}/toggle-publicado', [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'togglePublicado'])->name('servicos.toggle-publicado');
+        });
     });
 
     // Admin (apenas tipos documentais e tipos de processo permanecem aqui)
@@ -375,18 +386,17 @@ Route::middleware('auth')->group(function () {
         // Redirects das URLs antigas para o modulo Configuracoes
         Route::redirect('usuarios', '/configuracoes/usuarios');
         Route::redirect('roles', '/configuracoes/perfis');
+
     });
 
-    // Carta de Serviços e Solicitações do Portal mudaram de GPE Config para o GPE
-    // Fluxos e Processos (/flow/portal/*). Os endereços antigos seguem valendo.
+    // As Solicitações do Portal mudaram de GPE Config para o GPE Fluxos e Processos
+    // (/flow/portal/solicitacoes). O endereço antigo segue valendo.
     // Fora do grupo nomeado: redirecionamento sem nome (nome repetido quebra o route:cache).
     Route::redirect('configuracoes/solicitacoes-portal', '/flow/portal/solicitacoes');
     Route::get('configuracoes/solicitacoes-portal/{id}', fn (string $id) => redirect("/flow/portal/solicitacoes/{$id}"))->whereNumber('id');
-    Route::redirect('configuracoes/carta-servicos', '/flow/portal/carta-servicos');
 
-    // GPE Fluxos e Processos — Portal do Cidadão: a Carta de Serviços (que define
-    // o tipo de processo e o setor de cada serviço) e o atendimento das
-    // solicitações, que viram processos. Mesmos nomes de rota de antes.
+    // GPE Fluxos e Processos — Portal do Cidadão: atendimento das solicitações
+    // (ouvidoria, protocolo...), que viram processos. Mesmos nomes de rota de antes.
     Route::prefix('flow/portal')->name('configuracoes.')->group(function () {
         // Solicitacoes do Portal Cidadao (atendimento pelos servidores)
         Route::prefix('solicitacoes')->name('solicitacoes-portal.')->middleware('can:portal.atendimento')->group(function () {
@@ -394,18 +404,6 @@ Route::middleware('auth')->group(function () {
             Route::get('/{id}',                   [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'show'])->name('show');
             Route::post('/{id}/status',           [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'alterarStatus'])->name('status');
             Route::post('/{id}/comentar',         [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'comentar'])->name('comentar');
-        });
-
-        // Carta de Servicos (admin) — gestor da UG mantem catalogo publicado no /portal
-        Route::prefix('carta-servicos')->name('carta-servicos.')->middleware('can:portal.carta_servicos')->group(function () {
-            Route::get('/', [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'index'])->name('index');
-            Route::post('categorias',           [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'storeCategoria'])->name('categorias.store');
-            Route::put('categorias/{id}',       [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'updateCategoria'])->name('categorias.update');
-            Route::delete('categorias/{id}',    [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'destroyCategoria'])->name('categorias.destroy');
-            Route::post('servicos',             [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'storeServico'])->name('servicos.store');
-            Route::put('servicos/{id}',         [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'updateServico'])->name('servicos.update');
-            Route::delete('servicos/{id}',      [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'destroyServico'])->name('servicos.destroy');
-            Route::post('servicos/{id}/toggle-publicado', [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'togglePublicado'])->name('servicos.toggle-publicado');
         });
     });
 

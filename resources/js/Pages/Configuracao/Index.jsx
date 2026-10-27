@@ -30,7 +30,15 @@ const ATALHOS = [
         cor: 'from-slate-500 to-gray-700',
         corLight: 'bg-slate-50 text-slate-600',
     },
-    // Carta de Serviços e Solicitações do Portal ficam no GPE Fluxos e Processos.
+    {
+        titulo: 'Carta de Serviços',
+        desc: 'Catálogo de serviços publicado no Portal do Cidadão',
+        icon: 'fas fa-clipboard-list',
+        href: '/configuracoes/carta-servicos',
+        cor: 'from-blue-500 to-indigo-600',
+        corLight: 'bg-blue-50 text-blue-600',
+    },
+    // As Solicitações do Portal ficam no GPE Fluxos e Processos.
 ];
 
 export default function Configuracoes() {

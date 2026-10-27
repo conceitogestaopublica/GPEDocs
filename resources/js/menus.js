@@ -26,6 +26,8 @@ export const MENU_CONFIGURACOES = [
     { section: 'label', label: 'Acessos' },
     { title: 'Usuários', icon: 'fas fa-users', href: '/configuracoes/usuarios', color: 'text-red-600 bg-red-100', permissao: 'admin.usuarios' },
     { title: 'Perfis e Permissões', icon: 'fas fa-shield-alt', href: '/configuracoes/perfis', color: 'text-slate-600 bg-slate-100', permissao: 'admin.roles' },
+    { section: 'label', label: 'Portal do Cidadão' },
+    { title: 'Carta de Serviços', icon: 'fas fa-clipboard-list', href: '/configuracoes/carta-servicos', color: 'text-blue-600 bg-blue-100', permissao: 'portal.carta_servicos' },
     { section: 'label', label: 'Integrações' },
     { title: 'Sistemas Integrados', icon: 'fas fa-plug', href: '/configuracoes/sistemas-integrados', color: 'text-violet-600 bg-violet-100', permissao: 'admin.sistemas_integrados' },
 ];
@@ -64,11 +66,10 @@ export const MENU_GEPSP = [
         ],
     },
     {
-        // Atendimento do cidadão: a solicitação vira processo (tipo + setor vêm da Carta).
+        // Atendimento do cidadão (ouvidoria, protocolo...): a solicitação vira processo.
         title: 'Portal do Cidadão', icon: 'fas fa-globe', color: 'text-sky-600 bg-sky-100',
         children: [
             { title: 'Solicitações',      icon: 'fas fa-inbox',          href: '/flow/portal/solicitacoes',   color: 'text-indigo-600 bg-indigo-100', permissao: 'portal.atendimento' },
-            { title: 'Carta de Serviços', icon: 'fas fa-clipboard-list', href: '/flow/portal/carta-servicos', color: 'text-blue-600 bg-blue-100', permissao: 'portal.carta_servicos' },
         ],
     },
     {
