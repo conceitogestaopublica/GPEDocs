@@ -79,3 +79,8 @@ e o andamento do processo volta sozinho para ela (`SincronizarPortalCidadaoServi
    portal (`GED_API_TOKEN`, com `GED_BASE_URL` = endereço do GPE Docs do município).
 4. Na Carta de Serviços, indicar a área de cada categoria e a ação fiscal dos serviços de
    autoatendimento.
+5. Migrando de um portal que já tinha a Carta: exportar no portal
+   (`node prisma/scripts/exportar-catalogo.mjs --municipio=X --saida=carta.json`) e importar aqui
+   (`docker exec -i app-docs php artisan portal:importar-carta --tenant={id} --ug={portal_slug} < carta.json`).
+   Não sobrescreve o que já existe (use `--sobrescrever` conscientemente). Serviço de solicitação
+   só abre processo depois de ganhar tipo de processo e setor na Carta.
