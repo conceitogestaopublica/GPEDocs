@@ -59,7 +59,7 @@ class SincronizarPortalCidadaoService
             'status_novo'     => $statusNovo,
             'mensagem'        => $documentoAssinado
                 ? "Documento de decisao assinado digitalmente (".strtoupper((string) $decisao)."). " . ($observacao ?: '')
-                : "Decisao no GPE Flow (".strtoupper((string) $decisao)."). " . ($observacao ?: ''),
+                : "Decisao no GPE Fluxos e Processos (".strtoupper((string) $decisao)."). " . ($observacao ?: ''),
         ]);
 
         if ($solicitacao->anonima) {

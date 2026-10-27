@@ -163,7 +163,7 @@
     </div>
 
     <div class="footer">
-        Documento gerado automaticamente pelo Sistema GPE Flow / Conceito Gestao Publica<br>
+        Documento gerado automaticamente pelo Sistema GPE Fluxos e Processos / Conceito Gestao Publica<br>
         A validade juridica deste documento esta condicionada a assinatura digital ICP-Brasil
     </div>
 </body>

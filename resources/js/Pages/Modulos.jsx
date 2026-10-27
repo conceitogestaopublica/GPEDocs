@@ -17,9 +17,9 @@ const MODULOS = [
     {
         key: 'gepsp',
         nome: 'Fluxos e Tramitação Eletrônica',
-        sigla: 'GPE Flow',
+        sigla: 'GPE Fluxos e Processos',
         descricao: 'Protocolo eletrônico, processos e fluxos administrativos',
-        iconText: 'Flow',
+        iconText: 'Fluxos',
         href: '/processos/dashboard',
     },
     {

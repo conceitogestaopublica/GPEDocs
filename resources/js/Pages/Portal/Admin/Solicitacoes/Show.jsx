@@ -34,12 +34,12 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
 
     const submitStatus = (e) => {
         e.preventDefault();
-        formStatus.post(`/configuracoes/solicitacoes-portal/${solicitacao.id}/status`, { preserveScroll: true });
+        formStatus.post(`/flow/portal/solicitacoes/${solicitacao.id}/status`, { preserveScroll: true });
     };
 
     const submitComentario = (e) => {
         e.preventDefault();
-        formComentario.post(`/configuracoes/solicitacoes-portal/${solicitacao.id}/comentar`, {
+        formComentario.post(`/flow/portal/solicitacoes/${solicitacao.id}/comentar`, {
             preserveScroll: true,
             onSuccess: () => formComentario.reset('mensagem'),
         });
@@ -53,7 +53,7 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                 title={solicitacao.codigo}
                 subtitle={solicitacao.servico?.titulo}
             >
-                <Link href="/configuracoes/solicitacoes-portal"
+                <Link href="/flow/portal/solicitacoes"
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-semibold">
                     <i className="fas fa-arrow-left text-xs" /> Voltar
                 </Link>
@@ -197,13 +197,13 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                         <Card>
                             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                                 <i className="fas fa-project-diagram text-purple-600" />
-                                Processo no GPE Flow
+                                Processo no GPE Fluxos e Processos
                             </h3>
                             <p className="text-[10px] text-gray-400 uppercase tracking-wider">Protocolo</p>
                             <p className="font-mono text-sm font-bold text-gray-800 mb-3">{processo.numero_protocolo}</p>
                             <Link href={`/processos/${processo.id}`}
                                 className="block w-full text-center px-3 py-2 rounded-lg bg-purple-50 text-purple-700 text-xs font-semibold hover:bg-purple-100">
-                                <i className="fas fa-arrow-right mr-1" /> Abrir no GPE Flow
+                                <i className="fas fa-arrow-right mr-1" /> Abrir no GPE Fluxos e Processos
                             </Link>
                         </Card>
                     )}
