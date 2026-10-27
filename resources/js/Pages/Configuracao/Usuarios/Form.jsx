@@ -15,6 +15,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
         name:            usuario?.name || '',
         email:           usuario?.email || '',
         cpf:             usuario?.cpf || '',
+        telefone:        usuario?.telefone || '',
         password:        '',
         tipo:            usuario?.tipo || 'interno',
         super_admin:     !! usuario?.super_admin,
@@ -116,6 +117,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
         { icone: 'fa-user',         label: 'Nome',     valor: data.name,    vazio: ! data.name },
         { icone: 'fa-id-card',      label: 'CPF',      valor: formatarCpf(data.cpf), vazio: ! data.cpf },
         { icone: 'fa-envelope',     label: 'E-mail',   valor: data.email,   vazio: ! data.email },
+        { icone: 'fa-phone',        label: 'Telefone', valor: data.telefone, vazio: ! data.telefone },
         { icone: 'fa-key',          label: 'Senha',    valor: data.password ? '••••••••' : (isEdit ? 'manter atual' : ''), vazio: ! isEdit && ! data.password },
         { icone: 'fa-building',     label: 'UGs',
           valor: ugsSel.length === 0 ? '' : ugsSel.map(u => u.codigo).join(', ') + (ugsSel.length === 1 ? ` · ${ugsSel[0].nome}` : ''),
@@ -200,6 +202,14 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                                 className="ds-input" placeholder="email@exemplo.com" />
                             {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
                         </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Telefone</label>
+                            <input type="tel" value={data.telefone} onChange={(e) => setData('telefone', e.target.value)}
+                                className="ds-input" maxLength={30} placeholder="(31) 99999-9999" autoComplete="tel" />
+                            {errors.telefone && <p className="mt-1 text-xs text-red-600">{errors.telefone}</p>}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Senha {! isEdit && <span className="text-red-500">*</span>}
