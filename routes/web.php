@@ -446,6 +446,10 @@ Route::middleware('auth')->group(function () {
 
     // GPE Flow — Inbox unificada por ESTADO
     Route::prefix('flow')->name('flow.')->group(function () {
+        // Atendimento › Consultar Protocolo (balcão/telefone): processos e solicitações do portal.
+        Route::get('atendimento/consultar', \App\Http\Controllers\Flow\ConsultaProtocoloController::class)
+            ->middleware('can:processo.visualizar')->name('atendimento.consultar');
+
         // Entrada (preciso agir)
         Route::get('inbox-pessoal',         [\App\Http\Controllers\Flow\InboxController::class, 'pessoal'])->name('inbox-pessoal');
         Route::get('inbox-setor',           [\App\Http\Controllers\Flow\InboxController::class, 'setor'])->name('inbox-setor');

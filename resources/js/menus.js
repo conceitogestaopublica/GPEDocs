@@ -66,10 +66,12 @@ export const MENU_GEPSP = [
         ],
     },
     {
-        // Atendimento do cidadão (ouvidoria, protocolo...): a solicitação vira processo.
-        title: 'Portal do Cidadão', icon: 'fas fa-globe', color: 'text-sky-600 bg-sky-100',
+        // Atendimento ao cidadão: solicitações do portal e protocolo de balcão (abrir e consultar).
+        title: 'Atendimento', icon: 'fas fa-headset', color: 'text-sky-600 bg-sky-100',
         children: [
-            { title: 'Solicitações',      icon: 'fas fa-inbox',          href: '/flow/portal/solicitacoes',   color: 'text-indigo-600 bg-indigo-100', permissao: 'portal.atendimento' },
+            { title: 'Solicitações',        icon: 'fas fa-inbox',          href: '/flow/portal/solicitacoes',   color: 'text-indigo-600 bg-indigo-100', permissao: 'portal.atendimento' },
+            { title: 'Novo Protocolo',      icon: 'fas fa-file-signature', href: '/processos/create?origem=balcao', color: 'text-emerald-600 bg-emerald-100', permissao: 'processo.criar' },
+            { title: 'Consultar Protocolo', icon: 'fas fa-search',         href: '/flow/atendimento/consultar', color: 'text-sky-600 bg-sky-100', permissao: 'processo.visualizar' },
         ],
     },
     {
