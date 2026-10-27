@@ -405,6 +405,8 @@ Route::middleware('auth')->group(function () {
             Route::post('/{id}/status',           [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'alterarStatus'])->name('status');
             Route::post('/{id}/comentar',         [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'comentar'])->name('comentar');
             Route::get('/{id}/anexos/{anexoId}',  [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'anexo'])->whereNumber(['id', 'anexoId'])->name('anexo');
+            Route::post('/{id}/processo',         [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'abrirProcesso'])
+                ->whereNumber('id')->middleware('can:processo.criar')->name('processo');
         });
     });
 

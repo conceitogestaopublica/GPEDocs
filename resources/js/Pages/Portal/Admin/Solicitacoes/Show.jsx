@@ -22,9 +22,24 @@ const TIPO_ICONE = {
     atendida:         'fas fa-check-circle',
     recusada:         'fas fa-times-circle',
     cancelada:        'fas fa-ban',
+    processo_aberto:  'fas fa-folder-open',
 };
 
-export default function SolicitacaoAdminShow({ solicitacao, processo, statusList }) {
+export default function SolicitacaoAdminShow({ solicitacao, processo, statusList, tiposProcesso = [], setores = [], sugestao = {} }) {
+    const formProcesso = useForm({
+        tipo_processo_id: sugestao.tipo_processo_id ?? '',
+        setor_id: sugestao.setor_id ?? '',
+    });
+    const [abrindoProcesso, setAbrindoProcesso] = useState(false);
+    const finalizada = ['atendida', 'recusada', 'cancelada'].includes(solicitacao.status);
+
+    const submitProcesso = (e) => {
+        e.preventDefault();
+        formProcesso.post(`/flow/portal/solicitacoes/${solicitacao.id}/processo`, {
+            preserveScroll: true,
+            onSuccess: () => setAbrindoProcesso(false),
+        });
+    };
     const formStatus = useForm({
         decisao: '',
         status: '',
@@ -140,10 +155,17 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                                     {formStatus.errors.resposta && <p className="text-xs text-red-600 mt-1" role="alert">{formStatus.errors.resposta}</p>}
                                 </div>
                                 <div className="flex flex-wrap justify-end gap-2 pt-2">
-                                    <button type="button" disabled={formStatus.processing} onClick={() => decidir('', 'em_atendimento')}
-                                        className="px-4 py-2.5 rounded-xl border border-amber-300 text-amber-700 font-semibold hover:bg-amber-50 disabled:opacity-50 text-sm">
-                                        <i className="fas fa-hourglass-half mr-1.5" aria-hidden="true" /> Marcar em análise
-                                    </button>
+                                    {processo ? (
+                                        <Link href={`/processos/${processo.id}`}
+                                            className="px-4 py-2.5 rounded-xl border border-indigo-300 text-indigo-700 font-semibold hover:bg-indigo-50 text-sm">
+                                            <i className="fas fa-folder-open mr-1.5" aria-hidden="true" /> Ver processo {processo.numero_protocolo}
+                                        </Link>
+                                    ) : !finalizada && (
+                                        <button type="button" onClick={() => setAbrindoProcesso((v) => !v)} aria-expanded={abrindoProcesso}
+                                            className="px-4 py-2.5 rounded-xl border border-indigo-300 text-indigo-700 font-semibold hover:bg-indigo-50 text-sm">
+                                            <i className="fas fa-folder-plus mr-1.5" aria-hidden="true" /> Abrir processo
+                                        </button>
+                                    )}
                                     <button type="button" disabled={formStatus.processing} onClick={() => decidir('indeferir')}
                                         className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-50 text-sm">
                                         <i className="fas fa-times-circle mr-1.5" aria-hidden="true" /> Indeferir
@@ -153,6 +175,54 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                                         <i className="fas fa-check-circle mr-1.5" aria-hidden="true" /> Deferir
                                     </button>
                                 </div>
+
+                                {abrindoProcesso && !processo && (
+                                    <form onSubmit={submitProcesso} className="mt-2 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 space-y-3">
+                                        <p className="text-sm font-semibold text-indigo-800">
+                                            <i className="fas fa-folder-plus mr-1.5" aria-hidden="true" /> Abrir processo a partir deste pedido
+                                        </p>
+                                        <p className="text-xs text-gray-600">
+                                            O processo recebe um número de protocolo e vai para a caixa do setor escolhido. Os anexos vão junto
+                                            e o requerente acompanha o andamento no portal.
+                                        </p>
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            <div>
+                                                <label htmlFor="proc-tipo" className="text-xs font-semibold text-gray-600 mb-1 block">Tipo de processo</label>
+                                                <select id="proc-tipo" value={formProcesso.data.tipo_processo_id} required
+                                                    onChange={(e) => formProcesso.setData('tipo_processo_id', e.target.value)}
+                                                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm bg-white">
+                                                    <option value="">Selecione…</option>
+                                                    {tiposProcesso.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                                                </select>
+                                                {tiposProcesso.length === 0 && (
+                                                    <p className="text-xs text-amber-700 mt-1">Nenhum tipo de processo ativo. Cadastre em Cadastros › Tipos de Processo.</p>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <label htmlFor="proc-setor" className="text-xs font-semibold text-gray-600 mb-1 block">Setor de destino</label>
+                                                <select id="proc-setor" value={formProcesso.data.setor_id} required
+                                                    onChange={(e) => formProcesso.setData('setor_id', e.target.value)}
+                                                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm bg-white">
+                                                    <option value="">Selecione…</option>
+                                                    {setores.map((s) => <option key={s.id} value={s.id}>{'— '.repeat(Math.max(0, (s.nivel ?? 1) - 1))}{s.nome}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        {(formProcesso.errors.processo || formProcesso.errors.tipo_processo_id || formProcesso.errors.setor_id) && (
+                                            <p className="text-xs text-red-600" role="alert">
+                                                {formProcesso.errors.processo || formProcesso.errors.tipo_processo_id || formProcesso.errors.setor_id}
+                                            </p>
+                                        )}
+                                        <div className="flex justify-end gap-2">
+                                            <button type="button" onClick={() => setAbrindoProcesso(false)}
+                                                className="px-4 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm hover:bg-white">Cancelar</button>
+                                            <button type="submit" disabled={formProcesso.processing}
+                                                className="px-5 py-2 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 disabled:opacity-50">
+                                                {formProcesso.processing ? 'Abrindo…' : 'Abrir processo'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
                             </div>
                         ) : (
                             <form onSubmit={submitComentario} className="space-y-3">

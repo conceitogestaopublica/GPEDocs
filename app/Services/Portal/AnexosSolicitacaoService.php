@@ -93,6 +93,22 @@ class AnexosSolicitacaoService
         }
     }
 
+    /** Processo aberto depois (pelo atendente): leva os anexos que já vieram com o pedido. */
+    public function copiarParaProcesso(Solicitacao $solicitacao, int $enviadoPor): void
+    {
+        foreach ($solicitacao->anexos as $a) {
+            ProcessoAnexo::create([
+                'processo_id'  => $solicitacao->processo_id,
+                'nome'         => $a->nome,
+                'arquivo_path' => $a->arquivo_path,
+                'tamanho'      => $a->tamanho,
+                'mime_type'    => $a->mime_type,
+                'hash_sha256'  => $a->hash_sha256,
+                'enviado_por'  => $enviadoPor,
+            ]);
+        }
+    }
+
     private function nome(string $nome, string $mime): string
     {
         $base = trim(preg_replace('/[^\pL\pN ._()-]/u', '', pathinfo($nome, PATHINFO_FILENAME)) ?? '');

@@ -9,6 +9,10 @@ use App\Mail\NotificacaoSolicitacaoCidadao;
 use App\Models\Portal\Servico;
 use App\Models\Portal\Solicitacao;
 use App\Models\Portal\SolicitacaoEvento;
+use App\Models\Processo\TipoProcesso;
+use App\Models\UgOrganograma;
+use App\Services\AbrirProcessoDoPortalService;
+use App\Services\Portal\AnexosSolicitacaoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -90,7 +94,60 @@ class PortalSolicitacoesController extends Controller
             'solicitacao' => $solicitacao,
             'processo'    => $processo,
             'statusList'  => Solicitacao::STATUS,
+            // Para "Abrir processo": sugere o tipo e o setor configurados no serviço.
+            'tiposProcesso' => $processo ? [] : TipoProcesso::where('ativo', true)->orderBy('nome')->get(['id', 'nome', 'sigla']),
+            'setores'       => $processo ? [] : UgOrganograma::where('ug_id', $solicitacao->ug_id)->where('ativo', true)
+                ->orderBy('nivel')->orderBy('nome')->get(['id', 'nome', 'nivel']),
+            'sugestao'      => [
+                'tipo_processo_id' => $solicitacao->servico?->tipo_processo_id,
+                'setor_id'         => $solicitacao->servico?->setor_responsavel_id,
+            ],
         ]);
+    }
+
+    /** "Abrir processo": a solicitação vira processo no GPE Fluxos e Processos. */
+    public function abrirProcesso(Request $request, int $id, AbrirProcessoDoPortalService $abrir, AnexosSolicitacaoService $anexos)
+    {
+        $solicitacao = Solicitacao::with('servico', 'cidadao', 'anexos')->findOrFail($id);
+        if ($solicitacao->processo_id) {
+            return back()->withErrors(['processo' => 'Esta solicitação já tem processo.']);
+        }
+        if (in_array($solicitacao->status, Solicitacao::STATUS_FINAIS, true)) {
+            return back()->withErrors(['processo' => 'Solicitação já finalizada não vira processo.']);
+        }
+
+        $data = $request->validate([
+            'tipo_processo_id' => ['required', 'integer'],
+            'setor_id'         => ['required', 'integer'],
+        ], [], ['tipo_processo_id' => 'tipo de processo', 'setor_id' => 'setor de destino']);
+        $tipo = TipoProcesso::where('ativo', true)->find($data['tipo_processo_id']);
+        $setor = UgOrganograma::where('ug_id', $solicitacao->ug_id)->where('ativo', true)->find($data['setor_id']);
+        if (! $tipo || ! $setor) {
+            return back()->withErrors(['processo' => 'Escolha um tipo de processo e um setor válidos.']);
+        }
+
+        $atendente = Auth::user();
+        $processo = DB::transaction(function () use ($solicitacao, $tipo, $setor, $atendente, $abrir, $anexos) {
+            $processo = $abrir->abrirPeloAtendente($solicitacao, $tipo, $setor, $atendente->id);
+            $statusAnterior = $solicitacao->status;
+            $solicitacao->update(['processo_id' => $processo->id, 'status' => 'em_atendimento', 'atendente_id' => $atendente->id]);
+            $anexos->copiarParaProcesso($solicitacao, $solicitacao->cidadao?->user_id ?? $atendente->id);
+
+            SolicitacaoEvento::create([
+                'solicitacao_id'  => $solicitacao->id,
+                'tipo'            => 'processo_aberto',
+                'autor_tipo'      => 'atendente',
+                'autor_nome'      => $atendente->name,
+                'autor_user_id'   => $atendente->id,
+                'status_anterior' => $statusAnterior,
+                'status_novo'     => 'em_atendimento',
+                'mensagem'        => "Pedido encaminhado como processo {$processo->numero_protocolo} para {$setor->nome}.",
+            ]);
+
+            return $processo;
+        });
+
+        return back()->with('success', "Processo {$processo->numero_protocolo} aberto e encaminhado para {$setor->nome}.");
     }
 
     /** Baixa um anexo enviado pelo cidadão (a solicitação já é escopada pela UG). */

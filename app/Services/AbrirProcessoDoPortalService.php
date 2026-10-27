@@ -18,6 +18,9 @@ use Illuminate\Support\Facades\DB;
  *
  * O Processo entra na inbox-setor da unidade responsavel (configurada no Servico).
  * Atendentes daquele setor conseguem ver, despachar e concluir pelo GPE Flow normalmente.
+ *
+ * Dois caminhos: automático na chegada (tipo + setor configurados no Serviço) ou
+ * pelo atendente, no botão "Abrir processo" (escolhe tipo e setor na hora).
  */
 class AbrirProcessoDoPortalService
 {
@@ -27,12 +30,24 @@ class AbrirProcessoDoPortalService
             return null;
         }
 
-        return DB::transaction(function () use ($solicitacao, $servico) {
-            $tipo = TipoProcesso::find($servico->tipo_processo_id);
-            $unidadeDestino = UgOrganograma::find($servico->setor_responsavel_id);
-            if (! $tipo || ! $unidadeDestino) {
-                return null;
-            }
+        $tipo = TipoProcesso::find($servico->tipo_processo_id);
+        $unidadeDestino = UgOrganograma::find($servico->setor_responsavel_id);
+        if (! $tipo || ! $unidadeDestino) {
+            return null;
+        }
+
+        return $this->criar($solicitacao, $servico, $tipo, $unidadeDestino, null);
+    }
+
+    /** Aberto pelo atendente na tela da solicitação (tipo e setor escolhidos na hora). */
+    public function abrirPeloAtendente(Solicitacao $solicitacao, TipoProcesso $tipo, UgOrganograma $unidadeDestino, int $atendenteId): Processo
+    {
+        return $this->criar($solicitacao, $solicitacao->servico, $tipo, $unidadeDestino, $atendenteId);
+    }
+
+    private function criar(Solicitacao $solicitacao, Servico $servico, TipoProcesso $tipo, UgOrganograma $unidadeDestino, ?int $abertoPor): Processo
+    {
+        return DB::transaction(function () use ($solicitacao, $servico, $tipo, $unidadeDestino, $abertoPor) {
 
             $protocolo = $this->gerarProtocolo($tipo);
 
@@ -61,7 +76,7 @@ class AbrirProcessoDoPortalService
                 'setor_origem'      => 'Portal do Cidadao',
                 'status'            => 'aberto',
                 'prioridade'        => 'normal',
-                'aberto_por'        => null,
+                'aberto_por'        => $abertoPor,
             ]);
 
             $tramitacao = Tramitacao::create([
@@ -71,7 +86,7 @@ class AbrirProcessoDoPortalService
                 'setor_origem'       => 'Portal do Cidadao',
                 'setor_destino'      => $unidadeDestino->nome,
                 'destino_unidade_id' => $unidadeDestino->id,
-                'remetente_id'       => null,
+                'remetente_id'       => $abertoPor,
                 'destinatario_id'    => $primeiraEtapa?->responsavel_id,
                 'status'             => 'pendente',
                 'despachado_em'      => now(),
