@@ -40,8 +40,15 @@ class SolicitacaoController extends PortalApiController
             ->limit(200)
             ->get();
 
+        // Número do processo de cada uma, numa consulta só (a grade do portal mostra).
+        $numeros = Processo::query()->withoutGlobalScope('ug')
+            ->whereIn('id', $lista->pluck('processo_id')->filter())
+            ->pluck('numero_protocolo', 'id');
+
         return response()->json([
-            'solicitacoes' => $lista->map(fn (Solicitacao $s) => $this->resumo($s))->values(),
+            'solicitacoes' => $lista->map(fn (Solicitacao $s) => $this->resumo($s) + [
+                'processo_numero' => $numeros[$s->processo_id] ?? null,
+            ])->values(),
         ]);
     }
 
