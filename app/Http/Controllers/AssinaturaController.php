@@ -13,9 +13,13 @@ use App\Models\User;
 use App\Services\AssinaturaIcpA3Service;
 use App\Services\AssinaturaIcpService;
 use App\Services\CertificadoService;
+use App\Services\ConviteAssinaturaService;
+use App\Services\FluxoAssinaturaService;
+use App\Services\PacoteAssinaturaService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -157,16 +161,135 @@ class AssinaturaController extends Controller
 
     public function solicitar(Request $request, $documentoId)
     {
-        $request->validate([
-            'signatarios'   => ['required', 'array', 'min:1'],
-            'signatarios.*' => ['required', 'integer', 'exists:users,id'],
+        $request->validate($this->regrasSignatarios() + [
             'mensagem'      => ['nullable', 'string'],
             'prazo'         => ['nullable', 'date'],
             'sequencial'    => ['nullable', 'boolean'],
         ]);
+        if ($erro = $this->erroSignatarios($request)) {
+            return redirect()->back()->withErrors($erro);
+        }
 
         $documento = Documento::with('versaoAtual')->findOrFail($documentoId);
+        if ($request->filled('externos') && ! str_contains((string) $documento->mime_type, 'pdf')) {
+            return redirect()->back()->with('error', 'A assinatura por link (externos) só vale para documentos em PDF.');
+        }
 
+        $solicitacao = DB::transaction(fn () => $this->criarSolicitacao($documento, $request));
+        $this->registrarSolicitacao($documento, $request);
+
+        $msg = 'Solicitação de assinatura enviada com sucesso.';
+        if ($request->filled('externos')) {
+            $msg .= ' Os signatários externos recebem o link por e-mail; o link também pode ser copiado na aba Assinaturas.';
+        }
+
+        return redirect()->back()->with('success', $msg);
+    }
+
+    public function solicitarLote(Request $request)
+    {
+        $request->validate($this->regrasSignatarios() + [
+            'documento_ids'  => ['required', 'array', 'min:1'],
+            'documento_ids.*'=> ['required', 'integer', 'exists:ged_documentos,id'],
+            'mensagem'       => ['nullable', 'string'],
+            'prazo'          => ['nullable', 'date'],
+            'sequencial'     => ['nullable', 'boolean'],
+        ]);
+        if ($erro = $this->erroSignatarios($request)) {
+            return redirect()->back()->withErrors($erro);
+        }
+
+        $request->validate(['titulo_pacote' => ['nullable', 'string', 'max:200']]);
+
+        // Externos em lote: um pacote = um link e um e-mail por pessoa para todos os documentos.
+        $pacote = $request->filled('externos')
+            ? app(PacoteAssinaturaService::class)->obter(
+                $request->input('titulo_pacote') ?: count($request->input('documento_ids')) . ' documentos enviados em ' . now()->setTimezone('America/Sao_Paulo')->format('d/m/Y'),
+                (int) Auth::id(),
+            )
+            : null;
+
+        $count = 0;
+        $ignorados = 0;
+
+        foreach ($request->input('documento_ids') as $documentoId) {
+            $documento = Documento::with('versaoAtual')->findOrFail($documentoId);
+            if ($pacote && ! str_contains((string) $documento->mime_type, 'pdf')) {
+                $ignorados++;
+                continue; // externo assina por link só PDF
+            }
+
+            DB::transaction(fn () => $this->criarSolicitacao($documento, $request, $pacote));
+            $this->registrarSolicitacao($documento, $request, true);
+
+            $count++;
+        }
+
+        if ($pacote) {
+            $this->avisarPacote($pacote);
+        }
+
+        $msg = "Assinatura solicitada para {$count} documento(s).";
+        if ($pacote) {
+            $msg .= ' Cada signatário externo recebe um único link com todos os documentos.';
+        }
+        if ($ignorados) {
+            $msg .= " {$ignorados} documento(s) fora do PDF ficaram de fora (assinatura por link só em PDF).";
+        }
+
+        return redirect()->back()->with('success', $msg);
+    }
+
+    /** Um e-mail por externo do pacote — só para quem já tem algum documento na vez. */
+    private function avisarPacote(\App\Models\PacoteAssinatura $pacote): void
+    {
+        $fluxo = app(FluxoAssinaturaService::class);
+        foreach ($pacote->convites()->with('assinaturas.solicitacao')->get() as $convite) {
+            if ($convite->assinaturas->contains(fn ($a) => $a->status === 'pendente' && $fluxo->ehAVez($a))) {
+                app(PacoteAssinaturaService::class)->enviar($convite, true);
+            }
+        }
+    }
+
+    /**
+     * Signatários internos (`signatarios`: ids de users, na ordem de seleção) e externos
+     * (`externos`: nome/CPF/e-mail, assinam por link depois dos internos).
+     */
+    private function regrasSignatarios(): array
+    {
+        return [
+            'signatarios'         => ['nullable', 'array'],
+            'signatarios.*'       => ['required', 'integer', 'exists:users,id'],
+            'externos'            => ['nullable', 'array', 'max:20'],
+            'externos.*.nome'     => ['required', 'string', 'min:3', 'max:200'],
+            'externos.*.cpf'      => ['required', 'string', 'max:14'],
+            'externos.*.email'    => ['nullable', 'email', 'max:150'],
+            'externos.*.telefone' => ['nullable', 'string', 'max:30'],
+        ];
+    }
+
+    private function erroSignatarios(Request $request): ?array
+    {
+        if (count((array) $request->input('signatarios', [])) + count((array) $request->input('externos', [])) === 0) {
+            return ['signatarios' => 'Escolha ao menos um signatário.'];
+        }
+        $cpfs = [];
+        foreach ((array) $request->input('externos', []) as $i => $e) {
+            $cpf = ConviteAssinaturaService::soDigitos($e['cpf'] ?? '');
+            if (! ConviteAssinaturaService::cpfValido($cpf)) {
+                return ["externos.{$i}.cpf" => "CPF inválido para {$e['nome']}."];
+            }
+            if (in_array($cpf, $cpfs, true)) {
+                return ["externos.{$i}.cpf" => "CPF repetido: {$e['nome']}."];
+            }
+            $cpfs[] = $cpf;
+        }
+
+        return null;
+    }
+
+    private function criarSolicitacao(Documento $documento, Request $request, ?\App\Models\PacoteAssinatura $pacote = null): SolicitacaoAssinatura
+    {
         $solicitacao = SolicitacaoAssinatura::create([
             'documento_id'  => $documento->id,
             'solicitante_id'=> Auth::id(),
@@ -176,109 +299,144 @@ class AssinaturaController extends Controller
             'sequencial'    => $request->boolean('sequencial'),
         ]);
 
-        foreach ($request->input('signatarios') as $idx => $userId) {
-            $user = User::findOrFail($userId);
-
+        $ordem = 0;
+        foreach ((array) $request->input('signatarios', []) as $userId) {
             Assinatura::create([
                 'solicitacao_id'  => $solicitacao->id,
                 'documento_id'    => $documento->id,
                 'signatario_id'   => $userId,
-                'ordem'           => $idx + 1,
+                'ordem'           => ++$ordem,
                 'status'          => 'pendente',
-                'email_signatario'=> $user->email,
-            ]);
-
-            if ($request->boolean('sequencial') && $idx > 0) {
-                continue; // em ordem: avisado quando chegar a vez (avisarProximos)
-            }
-
-            Notificacao::create([
-                'usuario_id'      => $userId,
-                'tipo'            => 'assinatura_pendente',
-                'titulo'          => 'Assinatura solicitada',
-                'mensagem'        => "Você tem uma solicitação de assinatura para o documento \"{$documento->nome}\".",
-                'referencia_tipo' => 'documento',
-                'referencia_id'   => $documento->id,
+                'email_signatario'=> User::findOrFail($userId)->email,
             ]);
         }
+        foreach ((array) $request->input('externos', []) as $externo) {
+            $assinatura = app(ConviteAssinaturaService::class)->criar($solicitacao, $documento, $externo, ++$ordem);
+            if ($pacote) {
+                app(PacoteAssinaturaService::class)->vincular($pacote, $assinatura);
+            }
+        }
 
+        // Interno: notificação no sistema; externo: e-mail com o link (em ordem, só a 1ª vez).
+        // Em pacote, o e-mail do externo sai uma vez só no fim do lote (avisarPacote).
+        app(FluxoAssinaturaService::class)->avisarIniciais($solicitacao->setRelation('documento', $documento), externos: ! $pacote);
+
+        return $solicitacao;
+    }
+
+    private function registrarSolicitacao(Documento $documento, Request $request, bool $lote = false): void
+    {
         AuditLog::create([
             'documento_id' => $documento->id,
             'usuario_id'   => Auth::id(),
             'acao'         => 'solicitacao_assinatura',
-            'detalhes'     => ['signatarios' => $request->input('signatarios')],
+            'detalhes'     => array_filter([
+                'signatarios' => $request->input('signatarios'),
+                'externos'    => collect((array) $request->input('externos', []))
+                    ->map(fn ($e) => $e['nome'] . ' (' . ConviteAssinaturaService::mascararCpf($e['cpf']) . ')')
+                    ->all() ?: null,
+                'lote'        => $lote ?: null,
+            ]),
             'ip'           => $request->ip(),
             'user_agent'   => $request->userAgent(),
         ]);
-
-        return redirect()->back()->with('success', 'Solicitação de assinatura enviada com sucesso.');
     }
 
-    public function solicitarLote(Request $request)
+    /** Máximo de documentos por lote (A1 assina e chama o webhook de cada um em sequência). */
+    private const MAX_LOTE = 50;
+
+    /**
+     * Assinar vários pendentes de uma vez (ex.: empenhos e relatórios do gpe2): o servidor
+     * informa o CPF (simples) ou o certificado A1 + senha UMA vez e confirma que conferiu.
+     * Cada documento passa pela mesma ação da assinatura individual (assinar/assinarIcp) —
+     * vez na ordem, posição do carimbo vinda da integração, webhooks e auditoria iguais.
+     */
+    public function assinarLote(Request $request, CertificadoService $certificadoService, AssinaturaIcpService $assinaturaIcpService)
     {
         $request->validate([
-            'documento_ids'  => ['required', 'array', 'min:1'],
-            'documento_ids.*'=> ['required', 'integer', 'exists:ged_documentos,id'],
-            'signatarios'    => ['required', 'array', 'min:1'],
-            'signatarios.*'  => ['required', 'integer', 'exists:users,id'],
-            'mensagem'       => ['nullable', 'string'],
-            'prazo'          => ['nullable', 'date'],
-            'sequencial'     => ['nullable', 'boolean'],
+            'assinatura_ids'   => ['required', 'array', 'min:1', 'max:' . self::MAX_LOTE],
+            'assinatura_ids.*' => ['integer'],
+            'modo'             => ['required', 'in:simples,icp'],
+            'conferido'        => ['accepted'],
+            'cpf'              => ['required_if:modo,simples', 'nullable', 'string', 'min:11', 'max:14'],
+            'pfx'              => ['required_if:modo,icp', 'nullable', 'file', 'max:5120', 'extensions:pfx,p12'],
+            'senha'            => ['required_if:modo,icp', 'nullable', 'string'],
+        ], [
+            'conferido.accepted' => 'Confirme que conferiu os documentos.',
+            'assinatura_ids.max' => 'Assine no máximo ' . self::MAX_LOTE . ' documentos por vez.',
         ]);
 
-        $count = 0;
-
-        foreach ($request->input('documento_ids') as $documentoId) {
-            $documento = Documento::with('versaoAtual')->findOrFail($documentoId);
-
-            $solicitacao = SolicitacaoAssinatura::create([
-                'documento_id'   => $documento->id,
-                'solicitante_id' => Auth::id(),
-                'status'         => 'pendente',
-                'mensagem'       => $request->input('mensagem'),
-                'prazo'          => $request->input('prazo'),
-                'sequencial'     => $request->boolean('sequencial'),
-            ]);
-
-            foreach ($request->input('signatarios') as $idx => $userId) {
-                $user = User::findOrFail($userId);
-
-                Assinatura::create([
-                    'solicitacao_id'   => $solicitacao->id,
-                    'documento_id'     => $documento->id,
-                    'signatario_id'    => $userId,
-                    'ordem'            => $idx + 1,
-                    'status'           => 'pendente',
-                    'email_signatario' => $user->email,
-                ]);
-
-                if ($request->boolean('sequencial') && $idx > 0) {
-                    continue; // em ordem: avisado quando chegar a vez
-                }
-
-                Notificacao::create([
-                    'usuario_id'      => $userId,
-                    'tipo'            => 'assinatura_pendente',
-                    'titulo'          => 'Assinatura solicitada',
-                    'mensagem'        => "Você tem uma solicitação de assinatura para o documento \"{$documento->nome}\".",
-                    'referencia_tipo' => 'documento',
-                    'referencia_id'   => $documento->id,
-                ]);
-            }
-
-            AuditLog::create([
-                'documento_id' => $documento->id,
-                'usuario_id'   => Auth::id(),
-                'acao'         => 'solicitacao_assinatura',
-                'detalhes'     => ['signatarios' => $request->input('signatarios'), 'lote' => true],
-                'ip'           => $request->ip(),
-                'user_agent'   => $request->userAgent(),
-            ]);
-
-            $count++;
+        // Em lote o CPF digitado tem de ser o do cadastro (na individual só fica registrado).
+        if ($request->input('modo') === 'simples' && Auth::user()->cpf
+            && ConviteAssinaturaService::soDigitos($request->input('cpf')) !== ConviteAssinaturaService::soDigitos(Auth::user()->cpf)) {
+            return redirect()->back()->with('error', 'O CPF informado não é o do seu cadastro.');
         }
 
-        return redirect()->back()->with('success', "Assinatura solicitada para {$count} documento(s).");
+        @set_time_limit(600);
+        $assinaturas = Assinatura::with('documento:id,nome')
+            ->whereIn('id', (array) $request->input('assinatura_ids'))
+            ->where('signatario_id', Auth::id())
+            ->where('status', 'pendente')
+            ->orderBy('documento_id')
+            ->get();
+
+        $assinadas = 0;
+        $falhas = [];
+        foreach ($assinaturas as $a) {
+            session()->forget(['success', 'error']);
+            $request->modo === 'icp'
+                ? $this->assinarIcp($request, $a->id, $certificadoService, $assinaturaIcpService)
+                : $this->assinar($request, $a->id);
+
+            // As ações individuais respondem com flash; aqui ele vira o resultado da linha.
+            if ($erro = session()->pull('error')) {
+                $falhas[] = ($a->documento?->nome ?? "#{$a->id}") . ': ' . $erro;
+            } else {
+                $assinadas++;
+            }
+            session()->forget('success');
+        }
+
+        AuditLog::create([
+            'usuario_id' => Auth::id(),
+            'acao'       => 'assinatura_lote',
+            'detalhes'   => ['modo' => $request->input('modo'), 'assinadas' => $assinadas, 'falhas' => count($falhas),
+                'assinatura_ids' => $assinaturas->pluck('id')->all()],
+            'ip'         => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        $resposta = redirect()->back();
+        if ($assinadas) {
+            $resposta = $resposta->with('success', "{$assinadas} documento(s) assinado(s).");
+        }
+        if ($falhas) {
+            $resposta = $resposta->with('error', count($falhas) . ' não assinado(s): ' . implode(' | ', array_slice($falhas, 0, 5))
+                . (count($falhas) > 5 ? ' …' : ''));
+        }
+
+        return $resposta;
+    }
+
+    /** Reenvia o e-mail do convite de um signatário externo pendente. */
+    public function reenviarConvite($id)
+    {
+        $assinatura = Assinatura::with(['documento', 'solicitacao'])->findOrFail($id);
+        abort_unless($assinatura->externo, 404);
+        if ($assinatura->solicitacao->solicitante_id !== Auth::id() && $assinatura->documento?->autor_id !== Auth::id()
+            && ! Auth::user()->can('documento.visualizar')) {
+            abort(403);
+        }
+        if ($assinatura->status !== 'pendente') {
+            return redirect()->back()->with('error', 'Este signatário já respondeu.');
+        }
+        if (! $assinatura->email_signatario) {
+            return redirect()->back()->with('error', 'Este convite não tem e-mail: copie o link e envie por outro meio.');
+        }
+
+        return app(ConviteAssinaturaService::class)->enviar($assinatura)
+            ? redirect()->back()->with('success', "Convite reenviado para {$assinatura->email_signatario}.")
+            : redirect()->back()->with('error', 'Não foi possível enviar o e-mail agora.');
     }
 
     public function assinar(Request $request, $id)
@@ -364,60 +522,20 @@ class AssinaturaController extends Controller
      * Solicitação recusada por um signatário (ou cancelada pela origem) não aceita mais
      * assinaturas — antes, os demais assinavam e ela virava "concluída".
      */
+    // Regras de andamento: FluxoAssinaturaService (compartilhadas com a assinatura por link).
     private function impedimentoDaSolicitacao(Assinatura $assinatura): ?string
     {
-        return match ($assinatura->solicitacao?->status) {
-            'recusada'  => 'Esta solicitação foi recusada por um signatário e não aceita mais assinaturas.',
-            'cancelada' => 'Esta solicitação foi cancelada.',
-            default     => $this->ehAVez($assinatura) ? null
-                : 'Esta solicitação é em ordem: aguarde a assinatura dos signatários anteriores.',
-        };
+        return app(FluxoAssinaturaService::class)->impedimento($assinatura);
     }
 
-    /** Em solicitação sequencial, só assina quem não tem ninguém de ordem menor por assinar. */
-    private function ehAVez(Assinatura $assinatura): bool
-    {
-        if (! $assinatura->solicitacao?->sequencial) {
-            return true;
-        }
-
-        return ! Assinatura::where('solicitacao_id', $assinatura->solicitacao_id)
-            ->where('ordem', '<', $assinatura->ordem)
-            ->where('status', '!=', 'assinado')
-            ->exists();
-    }
-
-    /**
-     * Depois de uma assinatura em solicitação sequencial: se a ordem avançou, avisa quem
-     * passou a poder assinar (na criação só o primeiro foi avisado).
-     */
     private function avisarProximos(Assinatura $assinada): void
     {
-        $solicitacao = $assinada->solicitacao;
-        if (! $solicitacao?->sequencial) {
-            return;
-        }
-
-        $proximaOrdem = $solicitacao->assinaturas()->where('status', 'pendente')->min('ordem');
-        if ($proximaOrdem === null || $proximaOrdem <= $assinada->ordem) {
-            return; // ainda falta alguém da mesma ordem
-        }
-
-        $solicitacao->assinaturas()->where('status', 'pendente')->where('ordem', $proximaOrdem)->get()
-            ->each(fn (Assinatura $a) => Notificacao::create([
-                'usuario_id'      => $a->signatario_id,
-                'tipo'            => 'assinatura_pendente',
-                'titulo'          => 'Sua vez de assinar',
-                'mensagem'        => "Chegou a sua vez de assinar o documento \"{$solicitacao->documento?->nome}\".",
-                'referencia_tipo' => 'documento',
-                'referencia_id'   => $solicitacao->documento_id,
-            ]));
+        app(FluxoAssinaturaService::class)->avisarProximos($assinada);
     }
 
-    /** Concluída só quando TODAS foram assinadas — recusa não conta como assinatura. */
     private function todasAssinadas(SolicitacaoAssinatura $solicitacao): bool
     {
-        return $solicitacao->assinaturas()->where('status', '!=', 'assinado')->doesntExist();
+        return app(FluxoAssinaturaService::class)->todasAssinadas($solicitacao);
     }
 
     /**
@@ -464,54 +582,12 @@ class AssinaturaController extends Controller
      */
     private function finalizarProcessoSeVinculado(SolicitacaoAssinatura $solicitacao): void
     {
-        $processo = \App\Models\Processo\Processo::where('solicitacao_assinatura_id', $solicitacao->id)
-            ->where('status', 'aguardando_assinatura')
-            ->first();
-
-        if (! $processo) {
-            return;
-        }
-
-        $processo->update([
-            'status'       => 'concluido',
-            'concluido_em' => now(),
-        ]);
-
-        \App\Models\Processo\ProcessoHistorico::create([
-            'processo_id' => $processo->id,
-            'usuario_id'  => Auth::id(),
-            'acao'        => 'assinatura_decisao',
-            'detalhes'    => [
-                'decisao'        => $processo->decisao,
-                'solicitacao_id' => $solicitacao->id,
-            ],
-        ]);
-
-        // Se este processo veio do Portal do Cidadao, agora que o documento foi assinado,
-        // notifica o cidadao com o PDF assinado em anexo (Lei 14.063/2020).
-        app(\App\Services\SincronizarPortalCidadaoService::class)
-            ->sincronizar($processo->fresh(), $processo->decisao, $processo->observacao_conclusao, true);
+        app(FluxoAssinaturaService::class)->finalizarProcessoSeVinculado($solicitacao, Auth::id());
     }
 
-    /**
-     * Centraliza disparo de webhooks via service. Eventos suportados:
-     *   - assinatura.individual       (cada signatario individual)
-     *   - assinatura.recusada
-     *   - assinatura.todas_concluidas (final, marca callback_executado=true)
-     */
     private function dispararWebhook(SolicitacaoAssinatura $solicitacao, string $evento, array $extra = []): void
     {
-        $documento = $solicitacao->documento;
-        if (! $documento) {
-            return;
-        }
-
-        // Para o evento final, evita reenvio se ja foi marcado como executado
-        if ($evento === 'assinatura.todas_concluidas' && $documento->callback_executado) {
-            return;
-        }
-
-        app(\App\Services\WebhookDispatcher::class)->disparar($documento, $evento, $extra);
+        app(FluxoAssinaturaService::class)->dispararWebhook($solicitacao, $evento, $extra);
     }
 
     /**
@@ -754,17 +830,19 @@ class AssinaturaController extends Controller
                 ->where('documento_id', $assinatura->documento_id)
                 ->where('id', '!=', $assinatura->id)
                 ->where('status', 'assinado')
-                ->where('tipo_assinatura', 'qualificada')
+                // Externos (assinatura por link) também: o carimbo deles não pode sumir do PDF oficial.
+                ->where(fn ($q) => $q->where('tipo_assinatura', 'qualificada')->orWhere('tipo_signatario', 'externo'))
                 ->whereNotNull('signature_position')
                 ->orderBy('assinado_em')
                 ->get()
                 ->map(fn ($a) => [
                     'position' => $a->signature_position,
-                    'meta'     => [
-                        'subject_cn'    => $a->certificado?->subject_cn ?? '',
+                    'meta'     => array_filter([
+                        'subject_cn'    => $a->externo ? $a->nome_signatario : ($a->certificado?->subject_cn ?? ''),
                         'subject_cpf'   => $a->cpf_signatario,
                         'serial_number' => $a->certificado?->serial_number ?? '',
-                    ],
+                        'codigo'        => $a->codigo_verificacao,
+                    ], fn ($v) => $v !== null),
                     'assinado_em' => optional($a->assinado_em)->format('d/m/Y H:i:s'),
                 ])->all();
 
@@ -1243,7 +1321,8 @@ class AssinaturaController extends Controller
             'documento'   => $documento,
         ]);
 
-        $filename = "manifesto-assinatura-{$documento->nome}-{$solicitacao->id}.pdf";
+        // Nome do documento costuma ter "/" (ex.: 001/2026) — inválido no Content-Disposition.
+        $filename = 'manifesto-assinatura-' . str_replace(['/', '\\'], '-', (string) $documento->nome) . "-{$solicitacao->id}.pdf";
 
         return $pdf->download($filename);
     }

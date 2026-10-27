@@ -64,6 +64,14 @@ class IntegracaoDocumentoController extends Controller
             'signatarios.*.cpf'   => ['required', 'string', 'min:11', 'max:14'],
             'signatarios.*.ordem' => ['nullable', 'integer', 'min:1'],
             'signatarios.*.email' => ['nullable', 'email', 'max:200'],
+            // Signatário externo (cidadão, empresa): recebe link /assinar/{token}, faz cadastro e assina.
+            'signatarios.*.externo'  => ['nullable', 'boolean'],
+            'signatarios.*.nome'     => ['required_if_accepted:signatarios.*.externo', 'nullable', 'string', 'min:3', 'max:200'],
+            'signatarios.*.telefone' => ['nullable', 'string', 'max:30'],
+            'responsavel_cpf'        => ['nullable', 'string', 'min:11', 'max:14'],
+            // Agrupa os externos de vários documentos num link só (ex.: empenhos do mesmo dia).
+            'pacote'                 => ['nullable', 'string', 'max:100'],
+            'pacote_titulo'          => ['nullable', 'string', 'max:200'],
             'signatarios.*.signature_position'        => ['nullable', 'array'],
             'signatarios.*.signature_position.page'   => ['nullable', 'integer'],
             'signatarios.*.signature_position.x'      => ['nullable', 'numeric'],
@@ -129,18 +137,35 @@ class IntegracaoDocumentoController extends Controller
                     'ug'              => $ug->codigo,
                     'url_visualizacao'=> url("/documentos/{$existente->id}"),
                     'solicitacao_id'  => $solicitacaoExistente?->id,
-                    'signatarios'     => $solicitacaoExistente?->assinaturas->map(fn ($a) => [
-                        'id' => $a->id, 'cpf' => $a->signatario?->cpf, 'ordem' => $a->ordem,
-                    ])->values()->all() ?? [],
+                    'signatarios'     => $solicitacaoExistente?->assinaturas->map(fn ($a) => array_filter([
+                        'id' => $a->id, 'cpf' => $a->signatario?->cpf ?? $a->cpf_signatario, 'ordem' => $a->ordem,
+                        'externo' => $a->externo ?: null, 'link_assinatura' => $a->linkConvite(),
+                    ], fn ($v) => $v !== null))->values()->all() ?? [],
                     'criado_em'       => $existente->created_at->toIso8601String(),
                     'reenvio'         => true,
                 ], 200);
             }
 
-            // 4. Resolve signatarios (cria User externo se CPF nao existe)
+            // 4. Resolve signatarios (cria User externo se CPF nao existe). Com `externo: true`
+            //    não cria User: vira convite de assinatura por link (cadastro no portal).
             $assinaturasParaCriar = [];
             foreach ($validated['signatarios'] as $idx => $sig) {
                 $cpf = preg_replace('/\D/', '', $sig['cpf']);
+
+                if (! empty($sig['externo'])) {
+                    if (! \App\Services\ConviteAssinaturaService::cpfValido($cpf)) {
+                        DB::rollBack();
+                        return response()->json(['erro' => "CPF inválido para o signatário externo {$sig['nome']}."], 422);
+                    }
+                    $assinaturasParaCriar[] = [
+                        'user'    => null,
+                        'externo' => ['nome' => $sig['nome'], 'cpf' => $cpf, 'email' => $sig['email'] ?? null, 'telefone' => $sig['telefone'] ?? null],
+                        'ordem'   => $sig['ordem'] ?? ($idx + 1),
+                        'signature_position' => $sig['signature_position'] ?? null,
+                    ];
+                    continue;
+                }
+
                 $user = User::where('cpf', $cpf)->first();
 
                 if (! $user) {
@@ -160,6 +185,18 @@ class IntegracaoDocumentoController extends Controller
                     'ordem' => $sig['ordem'] ?? ($idx + 1),
                     'signature_position' => $sig['signature_position'] ?? null,
                 ];
+            }
+
+            // Autor/solicitante: tem de ser usuário do GED. Por padrão é o 1º signatário
+            // interno; só com externos, o sistema informa o servidor que envia (responsavel_cpf).
+            $responsavel = ! empty($validated['responsavel_cpf'])
+                ? User::where('cpf', preg_replace('/\D/', '', $validated['responsavel_cpf']))->first()
+                : collect($assinaturasParaCriar)->pluck('user')->filter()->first();
+            if (! $responsavel) {
+                DB::rollBack();
+                return response()->json(['erro' => ! empty($validated['responsavel_cpf'])
+                    ? 'responsavel_cpf não corresponde a um usuário do GPE Docs.'
+                    : 'Todos os signatários são externos: informe responsavel_cpf (servidor que envia o documento).'], 422);
             }
 
             // 5. Decode + persiste PDF
@@ -185,7 +222,7 @@ class IntegracaoDocumentoController extends Controller
                 'versao_atual'       => 1,
                 'tamanho'            => strlen($pdfBytes),
                 'mime_type'          => 'application/pdf',
-                'autor_id'           => $assinaturasParaCriar[0]['user']->id,
+                'autor_id'           => $responsavel->id,
                 'status'             => 'em_assinatura',
                 'sistema_origem'     => $sistema->codigo,
                 'numero_externo'     => $validated['numero'],
@@ -199,12 +236,12 @@ class IntegracaoDocumentoController extends Controller
                 'arquivo_path' => $path,
                 'tamanho'      => strlen($pdfBytes),
                 'hash_sha256'  => hash('sha256', $pdfBytes),
-                'autor_id'     => $assinaturasParaCriar[0]['user']->id,
+                'autor_id'     => $responsavel->id,
                 'comentario'   => "Recebido via API de {$sistema->nome}",
             ]);
 
             // 7. Cria SolicitacaoAssinatura + Assinaturas (uma por signatario, com ordem)
-            $solicitante = $assinaturasParaCriar[0]['user'];
+            $solicitante = $responsavel;
             $solicitacao = SolicitacaoAssinatura::create([
                 'documento_id'   => $documento->id,
                 'solicitante_id' => $solicitante->id,
@@ -213,8 +250,29 @@ class IntegracaoDocumentoController extends Controller
                 'sequencial'     => (bool) ($validated['sequencial'] ?? false),
             ]);
 
+            $pacote = ! empty($validated['pacote']) && collect($assinaturasParaCriar)->contains(fn ($a) => $a['user'] === null)
+                ? app(\App\Services\PacoteAssinaturaService::class)->obter(
+                    $validated['pacote_titulo'] ?? "Documentos de {$sistema->nome} ({$validated['pacote']})",
+                    $responsavel->id, $sistema->codigo, $validated['pacote'])
+                : null;
+
             $assinaturasResp = [];
             foreach ($assinaturasParaCriar as $a) {
+                if ($a['user'] === null) {
+                    $ass = app(\App\Services\ConviteAssinaturaService::class)
+                        ->criar($solicitacao, $documento, $a['externo'], (int) $a['ordem'], $a['signature_position']);
+                    $conviteDoPacote = $pacote ? app(\App\Services\PacoteAssinaturaService::class)->vincular($pacote, $ass) : null;
+                    $assinaturasResp[] = array_filter([
+                        'id'              => $ass->id,
+                        'cpf'             => $ass->cpf_signatario,
+                        'ordem'           => $a['ordem'],
+                        'externo'         => true,
+                        'link_assinatura' => $ass->linkConvite(),
+                        'link_pacote'     => $conviteDoPacote?->link(),
+                    ], fn ($v) => $v !== null);
+                    continue;
+                }
+
                 $ass = Assinatura::create([
                     'solicitacao_id'     => $solicitacao->id,
                     'documento_id'       => $documento->id,
@@ -232,6 +290,20 @@ class IntegracaoDocumentoController extends Controller
             }
 
             DB::commit();
+
+            // Externos recebem o link por e-mail (em ordem, só os da vez); o link também
+            // volta na resposta para o sistema de origem mandar por outro meio.
+            if (collect($assinaturasParaCriar)->contains(fn ($a) => $a['user'] === null)) {
+                $externosAvisar = $solicitacao->assinaturas()->where('tipo_signatario', 'externo')->get()
+                    ->filter(fn ($ass) => app(\App\Services\FluxoAssinaturaService::class)->ehAVez($ass->setRelation('solicitacao', $solicitacao)));
+                foreach ($externosAvisar as $ass) { // enviar() devolve false sem e-mail — each() pararia ali
+                    // Em pacote: e-mail do link do pacote, no máximo um a cada poucos minutos
+                    // (a API recebe um documento por chamada).
+                    $ass->pacoteConvite
+                        ? app(\App\Services\PacoteAssinaturaService::class)->enviar($ass->pacoteConvite)
+                        : app(\App\Services\ConviteAssinaturaService::class)->enviar($ass->setRelation('documento', $documento));
+                }
+            }
 
             return response()->json([
                 'id'              => $documento->id,
@@ -457,12 +529,16 @@ class IntegracaoDocumentoController extends Controller
         }
 
         $solicitacao = $documento->solicitacoesAssinatura->first();
-        $assinaturas = ($solicitacao?->assinaturas ?? collect())->map(fn ($a) => [
-            'cpf'         => $a->signatario?->cpf,
-            'ordem'       => $a->ordem,
-            'status'      => $a->status,
-            'assinado_em' => $a->assinado_em?->toIso8601String(),
-        ]);
+        $assinaturas = ($solicitacao?->assinaturas ?? collect())->map(fn ($a) => array_filter([
+            'cpf'             => $a->signatario?->cpf ?? $a->cpf_signatario,
+            'nome'            => $a->nome_exibicao,
+            'ordem'           => $a->ordem,
+            'status'          => $a->status,
+            'assinado_em'     => $a->assinado_em?->toIso8601String(),
+            'externo'         => $a->externo ?: null,
+            'link_assinatura' => $a->linkConvite(),
+            'codigo_verificacao' => $a->codigo_verificacao,
+        ], fn ($v) => $v !== null));
 
         return response()->json([
             'id'              => $documento->id,

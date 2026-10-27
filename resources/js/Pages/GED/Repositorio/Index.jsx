@@ -1,7 +1,8 @@
 /**
  * Repositorio / Gerenciador de Arquivos — GED
  */
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import SolicitarAssinaturaLoteModal from '../../../Components/SolicitarAssinaturaLoteModal';
 import { useState, useRef, useEffect } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
@@ -52,9 +53,13 @@ const FILTRO_RAPIDO_CONFIG = {
     },
 };
 
-export default function Repositorio({ pastas, documentos, pasta_atual, breadcrumb, tipos_documentais = [], favorito_ids = [], filtros = {} }) {
+export default function Repositorio({ pastas, documentos, pasta_atual, breadcrumb, tipos_documentais = [], favorito_ids = [], filtros = {}, usuarios = [] }) {
     // Listagem rola só por dentro — a página nunca (padrão gpe2).
     const scrollRef = useFillViewportHeight();
+    const { auth } = usePage().props;
+    const permissoes = auth?.user?.permissoes || [];
+    const podeSolicitar = permissoes.includes('*') || permissoes.includes('assinatura.solicitar');
+    const [solicitarAberto, setSolicitarAberto] = useState(false);
     const [viewMode, setViewMode] = useState('list');
     const [selectedDoc, setSelectedDoc] = useState(null);
     const [showNewFolder, setShowNewFolder] = useState(false);
@@ -369,6 +374,13 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                                             <i className="fas fa-folder-tree mr-1" />
                                             Mover para pasta ({selecionados.size})
                                         </button>
+                                        {podeSolicitar && (
+                                            <button onClick={() => router.reload({ only: ['usuarios'], onSuccess: () => setSolicitarAberto(true) })}
+                                                className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
+                                                <i className="fas fa-file-signature mr-1" />
+                                                Solicitar assinatura ({selecionados.size})
+                                            </button>
+                                        )}
                                         <button onClick={() => setSelecionados(new Set())}
                                             className="text-xs text-gray-500 hover:text-gray-800">
                                             <i className="fas fa-times mr-1" />Limpar
@@ -524,6 +536,14 @@ export default function Repositorio({ pastas, documentos, pasta_atual, breadcrum
                 <MoverPastaModal target={moverTarget} pastas={folders}
                     onClose={() => { setMoverTarget(null); setSelecionados(new Set()); }} />
             )}
+
+            {/* Modal: Solicitar assinatura dos selecionados (servidores e externos/pacote) */}
+            <SolicitarAssinaturaLoteModal
+                show={solicitarAberto}
+                onClose={() => setSolicitarAberto(false)}
+                documentoIds={[...selecionados]}
+                usuarios={usuarios || []}
+                onSuccess={() => setSelecionados(new Set())} />
         </AdminLayout>
     );
 }

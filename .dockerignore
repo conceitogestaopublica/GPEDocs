@@ -19,3 +19,6 @@ docs
 # Assets compilados do host (gerados no Docker via multi-stage)
 public/build
 public/hot
+# Link simbólico criado pelo storage:link dentro do container: no host ele aponta para
+# /var/www/html/... e quebra o build ("invalid file request public/storage").
+public/storage

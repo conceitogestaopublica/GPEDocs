@@ -22,7 +22,11 @@ const TABS = [
 
 export default function Show({ documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito, usuarios, versao_assinada, pode_nova_versao }) {
     const confirmar = useConfirm();
-    const [activeTab, setActiveTab] = useState('visualizar');
+    // ?aba=assinaturas abre direto na aba (ex.: anexo de processo enviado para assinatura).
+    const [activeTab, setActiveTab] = useState(() => {
+        const aba = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('aba') : null;
+        return TABS.some(t => t.key === aba) ? aba : 'visualizar';
+    });
     const [statusOpen, setStatusOpen] = useState(false);
     const doc = documento || {};
 
@@ -439,17 +443,24 @@ function TabFluxos({ instancias }) {
 function TabAssinaturas({ documento, usuarios }) {
     const [showSolicitar, setShowSolicitar] = useState(false);
     const solicitacoes = documento.solicitacoes_assinatura || [];
-    const { data, setData, post, processing, reset } = useForm({
+    const { data, setData, post, processing, reset, errors } = useForm({
         signatarios: [],
+        externos: [],
         mensagem: '',
         prazo: '',
         sequencial: false,
     });
+    const ehPdf = (documento.mime_type || '').includes('pdf');
 
     const toggleUser = (id) => {
         const list = data.signatarios.includes(id) ? data.signatarios.filter(x => x !== id) : [...data.signatarios, id];
         setData('signatarios', list);
     };
+
+    const novoExterno = () => setData('externos', [...data.externos, { nome: '', cpf: '', email: '', telefone: '' }]);
+    const mudarExterno = (i, campo, valor) => setData('externos', data.externos.map((e, j) => j === i ? { ...e, [campo]: valor } : e));
+    const removerExterno = (i) => setData('externos', data.externos.filter((_, j) => j !== i));
+    const totalSignatarios = data.signatarios.length + data.externos.length;
 
     const submitSolicitar = (e) => {
         e.preventDefault();
@@ -493,6 +504,49 @@ function TabAssinaturas({ documento, usuarios }) {
                             </label>
                         ))}
                     </div>
+                    {/* Externos: assinam por link, com cadastro (CPF) — só PDF */}
+                    <div className="border-t border-blue-100 pt-3">
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-blue-800">
+                                Signatários externos <span className="text-xs font-normal text-blue-700">(cidadão, empresa — assinam por link)</span>
+                            </p>
+                            {ehPdf && (
+                                <button type="button" onClick={novoExterno} className="text-xs text-blue-700 hover:underline">
+                                    <i className="fas fa-user-plus mr-1" />Adicionar externo
+                                </button>
+                            )}
+                        </div>
+                        {! ehPdf && <p className="text-xs text-gray-500 mt-1">A assinatura por link só vale para documentos em PDF.</p>}
+                        <div className="space-y-2 mt-2">
+                            {data.externos.map((ext, i) => (
+                                <div key={i} className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1.3fr_1fr_auto] gap-2 items-start bg-white rounded-lg p-2 border border-blue-100">
+                                    <div>
+                                        <input value={ext.nome} onChange={(e) => mudarExterno(i, 'nome', e.target.value)} className="ds-input" placeholder="Nome completo" required />
+                                        {errors[`externos.${i}.nome`] && <p className="text-[11px] text-red-600 mt-0.5">{errors[`externos.${i}.nome`]}</p>}
+                                    </div>
+                                    <div>
+                                        <input value={ext.cpf} onChange={(e) => mudarExterno(i, 'cpf', e.target.value)} className="ds-input" placeholder="CPF" required inputMode="numeric" />
+                                        {errors[`externos.${i}.cpf`] && <p className="text-[11px] text-red-600 mt-0.5">{errors[`externos.${i}.cpf`]}</p>}
+                                    </div>
+                                    <div>
+                                        <input type="email" value={ext.email} onChange={(e) => mudarExterno(i, 'email', e.target.value)} className="ds-input" placeholder="E-mail (recebe o link)" />
+                                        {errors[`externos.${i}.email`] && <p className="text-[11px] text-red-600 mt-0.5">{errors[`externos.${i}.email`]}</p>}
+                                    </div>
+                                    <input value={ext.telefone} onChange={(e) => mudarExterno(i, 'telefone', e.target.value)} className="ds-input" placeholder="Celular" inputMode="tel" />
+                                    <button type="button" onClick={() => removerExterno(i)} className="ds-btn ds-btn-ghost !px-2 text-red-600" title="Remover">
+                                        <i className="fas fa-times" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        {data.externos.length > 0 && (
+                            <p className="text-[11px] text-blue-700 mt-1">
+                                Quem tem e-mail recebe o link na hora; o link de cada um também fica na lista abaixo para copiar e mandar por WhatsApp.
+                                Os externos assinam depois dos internos.
+                            </p>
+                        )}
+                    </div>
+                    {errors.signatarios && <p className="text-xs text-red-600">{errors.signatarios}</p>}
                     <label className="flex items-center gap-2 text-sm text-blue-800 cursor-pointer">
                         <input type="checkbox" checked={data.sequencial} onChange={(e) => setData('sequencial', e.target.checked)}
                             className="rounded border-gray-300 text-blue-600 w-3.5 h-3.5" />
@@ -507,7 +561,7 @@ function TabAssinaturas({ documento, usuarios }) {
                     </div>
                     <div className="flex gap-2">
                         <Button type="submit" size="sm" loading={processing} icon="fas fa-paper-plane"
-                            disabled={data.signatarios.length === 0}>
+                            disabled={totalSignatarios === 0}>
                             Enviar
                         </Button>
                         <Button variant="ghost" size="sm" type="button" onClick={() => setShowSolicitar(false)}>
@@ -583,8 +637,11 @@ function AssinaturaItem({ a, statusColors }) {
                     } text-xs`} />
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium text-gray-700">{a.signatario?.name}</span>
+                            <span className="text-sm font-medium text-gray-700">{a.nome_exibicao || a.signatario?.name}</span>
                             <span className="text-xs text-gray-400">{a.email_signatario}</span>
+                            {a.externo && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-800 font-bold">EXTERNO · POR LINK</span>
+                            )}
                             {ehQualificada && (
                                 <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold">
                                     ICP-Brasil
@@ -608,6 +665,20 @@ function AssinaturaItem({ a, statusColors }) {
                     </span>
                 </div>
             </div>
+
+            {/* Externo pendente: link para copiar (WhatsApp) e reenvio do e-mail */}
+            {a.externo && a.status === 'pendente' && a.link_convite && <LinkConvite a={a} />}
+
+            {/* Externo assinado: código do carimbo e PDF */}
+            {a.externo && a.status === 'assinado' && (
+                <div className="ml-6 mt-2 flex items-center flex-wrap gap-2 text-[11px] text-gray-600">
+                    {a.codigo_verificacao && <span>Código <span className="font-mono font-semibold">{a.codigo_verificacao}</span></span>}
+                    {a.arquivo_assinado_path && (
+                        <a href={`/assinaturas/${a.id}/download-assinado?inline=1`} target="_blank" rel="noopener"
+                            className="text-blue-600 hover:underline"><i className="fas fa-eye mr-1" />PDF com o carimbo</a>
+                    )}
+                </div>
+            )}
 
             {/* Detalhes da assinatura qualificada */}
             {ehQualificada && a.status === 'assinado' && (
@@ -655,6 +726,40 @@ function AssinaturaItem({ a, statusColors }) {
     );
 }
 
+function LinkConvite({ a }) {
+    const [copiado, setCopiado] = useState(false);
+
+    const copiar = async () => {
+        try {
+            await navigator.clipboard.writeText(a.link_convite);
+        } catch {
+            window.prompt('Copie o link:', a.link_convite);
+        }
+        setCopiado(true);
+        setTimeout(() => setCopiado(false), 2500);
+    };
+
+    return (
+        <div className="ml-6 mt-2 flex items-center flex-wrap gap-2 bg-cyan-50 border border-cyan-100 rounded-lg px-3 py-2">
+            <i className="fas fa-link text-cyan-700 text-xs" />
+            <span className="text-[11px] text-gray-600 font-mono truncate max-w-[360px]" title={a.link_convite}>{a.link_convite}</span>
+            <button type="button" onClick={copiar} className="text-[11px] px-2.5 py-1 rounded-lg bg-white border border-cyan-300 text-cyan-800 hover:bg-cyan-100">
+                <i className={`fas ${copiado ? 'fa-check' : 'fa-copy'} mr-1`} />{copiado ? 'Copiado' : 'Copiar link'}
+            </button>
+            {a.email_signatario && (
+                <button type="button" onClick={() => router.post(`/assinaturas/${a.id}/reenviar-convite`, {}, { preserveScroll: true })}
+                    className="text-[11px] px-2.5 py-1 rounded-lg bg-white border border-cyan-300 text-cyan-800 hover:bg-cyan-100">
+                    <i className="fas fa-paper-plane mr-1" />Reenviar e-mail
+                </button>
+            )}
+            <span className="text-[10px] text-gray-500 ml-auto">
+                {a.convite_acessado_em ? 'Link já aberto' : 'Link ainda não aberto'}
+                {a.convite_expira_em && ` · vale até ${new Date(a.convite_expira_em).toLocaleDateString('pt-BR')}`}
+            </span>
+        </div>
+    );
+}
+
 function DetalheCert({ label, valor, mono }) {
     return (
         <div>
@@ -684,6 +789,7 @@ const ACOES_AUDITORIA = {
     edicao: 'Edição', alteracao_status: 'Situação alterada', movimentacao: 'Mudança de pasta',
     exclusao: 'Exclusão', nova_versao: 'Nova versão', solicitacao_assinatura: 'Assinatura solicitada',
     assinatura: 'Assinatura', assinatura_qualificada_icp: 'Assinatura ICP-Brasil', recusa_assinatura: 'Assinatura recusada',
+    assinatura_externa: 'Assinatura por link (externo)',
     cancelado_via_integracao: 'Cancelado pela origem', restauracao: 'Restaurado da lixeira',
 };
 

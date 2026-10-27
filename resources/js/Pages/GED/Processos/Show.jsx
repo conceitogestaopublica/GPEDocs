@@ -535,14 +535,29 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                         {anexo.tamanho && <p className="text-xs text-gray-400">{formatBytes(anexo.tamanho)}</p>}
                                                     </div>
                                                 </div>
-                                                <a
-                                                    href={anexo.url || `/processos/anexos/${anexo.id}/download`}
-                                                    className="text-blue-600 hover:text-blue-800 transition-colors"
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                >
-                                                    <i className="fas fa-download" />
-                                                </a>
+                                                <div className="flex items-center gap-3 shrink-0">
+                                                    {anexo.id && anexo.documento_id ? (
+                                                        <Link href={`/documentos/${anexo.documento_id}?aba=assinaturas`}
+                                                            className="text-xs text-emerald-700 hover:underline">
+                                                            <i className="fas fa-file-signature mr-1" />Ver assinaturas
+                                                        </Link>
+                                                    ) : anexo.id && (anexo.mime_type || '').includes('pdf') && (
+                                                        <button type="button"
+                                                            onClick={() => router.post(`/processos/anexos/${anexo.id}/enviar-assinatura`)}
+                                                            className="text-xs text-blue-600 hover:underline"
+                                                            title="Arquiva o anexo no GED e escolhe quem assina (servidores e externos por link)">
+                                                            <i className="fas fa-pen-nib mr-1" />Enviar para assinatura
+                                                        </button>
+                                                    )}
+                                                    <a
+                                                        href={anexo.url || `/processos/anexos/${anexo.id}/download`}
+                                                        className="text-blue-600 hover:text-blue-800 transition-colors"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                    >
+                                                        <i className="fas fa-download" />
+                                                    </a>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>

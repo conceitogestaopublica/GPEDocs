@@ -28,6 +28,14 @@ return Application::configure(basePath: dirname(__DIR__))
                 'verify-sso' => \App\Http\Middleware\VerifyActiveSuperAdminSSO::class,
             ]);
 
+            // Atrás de proxy reverso (balanceador, Traefik): confia no X-Forwarded-For dele para
+            // o IP real do usuário — é evidência no termo da assinatura por link. Desligado por
+            // padrão: sem proxy na frente, confiar no cabeçalho deixaria o IP ser forjado.
+            // TRUSTED_PROXIES=* (todos) ou lista de IPs/CIDRs separados por vírgula.
+            if ($proxies = env('TRUSTED_PROXIES')) {
+                $middleware->trustProxies(at: $proxies === '*' ? '*' : array_map('trim', explode(',', $proxies)));
+            }
+
             // API stateless: ignora CSRF nas rotas /api/integracoes/*
             $middleware->validateCsrfTokens(except: [
                 'api/integracoes/*',

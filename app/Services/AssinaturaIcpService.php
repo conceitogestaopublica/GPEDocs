@@ -186,7 +186,10 @@ class AssinaturaIcpService
             $pdf->SetMargins(0, 0, 0);
             $pdf->SetAutoPageBreak(false, 0);
 
-            $totalPaginas = $pdf->setSourceFile($pdfOrigem);
+            // PDF 1.5+ com object streams (ex.: do Word) → cópia legível pelo FPDI gratuito.
+            // Apagada no finally lá embaixo, depois do Output (o FPDI relê a origem ao gravar).
+            $fonte = \App\Support\PdfCompativel::caminho($pdfOrigem);
+            $totalPaginas = $pdf->setSourceFile($fonte);
             for ($i = 1; $i <= $totalPaginas; $i++) {
                 $tplId = $pdf->importPage($i);
                 $size  = $pdf->getTemplateSize($tplId);
@@ -288,6 +291,9 @@ class AssinaturaIcpService
             if ($extraFile && is_file($extraFile)) {
                 @unlink($extraFile);
             }
+            if (isset($fonte)) {
+                \App\Support\PdfCompativel::liberar($fonte, $pdfOrigem);
+            }
         }
     }
 
@@ -340,7 +346,8 @@ class AssinaturaIcpService
         $cn     = $meta['subject_cn']  ?? '?';
         $cpf    = $meta['subject_cpf'] ?? null;
         $serial = $meta['serial_number'] ?? '';
-        $codigo = $this->gerarCodigoAssinatura($serial);
+        // Assinatura por link traz o próprio código de verificação (único, consultável).
+        $codigo = $meta['codigo'] ?? $this->gerarCodigoAssinatura($serial);
         $timestamp = $meta['_data_override'] ?? date('d/m/Y H:i:s');
 
         if ($rect) {

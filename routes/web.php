@@ -135,7 +135,37 @@ Route::domain(config('portal.domain'))->name('portal.')->group(function () {
     });
 });
 
+// Pacote: vários documentos para o mesmo externo num link só. Login/cadastro reaproveitam os
+// métodos da assinatura individual (o default `pacote` muda o convite e a página de volta).
+Route::prefix('assinar/pacote/{token}')->where(['token' => '[A-Za-z0-9]{20,64}'])->name('assinatura-pacote.')
+    ->controller(\App\Http\Controllers\AssinaturaExternaController::class)->group(function () {
+        Route::get('/', 'showPacote')->name('show');
+        Route::post('assinar-todos', 'assinarTodos')->middleware('throttle:10,1')->defaults('pacote', true)->name('assinar-todos');
+        Route::post('entrar', 'entrar')->middleware('throttle:login')->defaults('pacote', true)->name('entrar');
+        Route::post('cadastrar', 'cadastrar')->middleware('throttle:10,1')->defaults('pacote', true)->name('cadastrar');
+        Route::post('confirmar-email', 'confirmarEmail')->middleware('throttle:10,1')->defaults('pacote', true)->name('confirmar-email');
+        Route::post('reenviar-codigo', 'reenviarCodigo')->middleware('throttle:3,1')->defaults('pacote', true)->name('reenviar-codigo');
+        Route::post('sair', 'sair')->defaults('pacote', true)->name('sair');
+    });
+
+// Assinatura por link de signatário externo (publico: autoriza pelo convite + cadastro com o CPF)
+Route::prefix('assinar/{token}')->where(['token' => '[A-Za-z0-9]{20,64}'])->name('assinatura-externa.')
+    ->controller(\App\Http\Controllers\AssinaturaExternaController::class)->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::get('pdf', 'pdf')->name('pdf');
+        Route::get('baixar', 'baixar')->name('baixar');
+        Route::post('entrar', 'entrar')->middleware('throttle:login')->name('entrar');
+        Route::post('cadastrar', 'cadastrar')->middleware('throttle:10,1')->name('cadastrar');
+        Route::post('confirmar-email', 'confirmarEmail')->middleware('throttle:10,1')->name('confirmar-email');
+        Route::post('reenviar-codigo', 'reenviarCodigo')->middleware('throttle:3,1')->name('reenviar-codigo');
+        Route::post('sair', 'sair')->name('sair');
+        Route::post('assinar', 'assinar')->middleware('throttle:10,1')->name('assinar');
+        Route::post('recusar', 'recusar')->middleware('throttle:10,1')->name('recusar');
+    });
+
 // Verificacao publica de documento (sem auth)
+Route::get('verificar/codigo/{codigo}', [VerificacaoController::class, 'porCodigo'])
+    ->where('codigo', '[A-Za-z0-9-]{6,20}')->name('verificar.codigo');
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
 // QR dos PDFs de memorando, ofício e circular
 Route::get('{tipo}/verificar/{token}', [\App\Http\Controllers\VerificacaoComunicacaoController::class, 'verificar'])
@@ -265,6 +295,16 @@ Route::middleware('auth')->group(function () {
         Route::post('ugs/{ug}/organograma/nodes/{node}/toggle-ativo', [\App\Http\Controllers\Configuracao\UgOrganogramaController::class, 'toggleAtivoNode'])->name('ugs.organograma.nodes.toggle-ativo');
         });
 
+        // Certificado da prefeitura (e-CNPJ A1 por UG) — sela os PDFs assinados por link
+        Route::middleware('can:admin.ugs')->group(function () {
+            Route::get('certificado-prefeitura', [\App\Http\Controllers\Configuracao\CertificadoInstitucionalController::class, 'index'])
+                ->name('certificado-prefeitura.index');
+            Route::post('certificado-prefeitura', [\App\Http\Controllers\Configuracao\CertificadoInstitucionalController::class, 'store'])
+                ->name('certificado-prefeitura.store');
+            Route::post('certificado-prefeitura/{ugId}/toggle', [\App\Http\Controllers\Configuracao\CertificadoInstitucionalController::class, 'toggle'])
+                ->whereNumber('ugId')->name('certificado-prefeitura.toggle');
+        });
+
         // Sistemas integrados (API tokens para sistemas externos)
         Route::middleware('can:admin.sistemas_integrados')->group(function () {
         Route::resource('sistemas-integrados', \App\Http\Controllers\Configuracao\SistemaIntegradoController::class)
@@ -390,6 +430,8 @@ Route::middleware('auth')->group(function () {
         Route::post('processos/{id}/concluir', [ProcessoController::class, 'concluir'])->name('processos.concluir');
         Route::post('processos/{id}/cancelar', [ProcessoController::class, 'cancelar'])->name('processos.cancelar');
         Route::post('processos/{id}/arquivar-no-ged', [ProcessoController::class, 'arquivarNoGed'])->name('processos.arquivar-no-ged');
+        Route::post('processos/anexos/{anexo}/enviar-assinatura', [ProcessoController::class, 'enviarAnexoParaAssinatura'])
+            ->name('processos.anexos.enviar-assinatura');
 
         // Tramitacoes
         Route::post('tramitacoes/{id}/receber', [TramitacaoController::class, 'receber'])->name('tramitacoes.receber');
@@ -410,6 +452,8 @@ Route::middleware('auth')->group(function () {
     Route::post('assinaturas/{id}/finalizar-icp-a3', [AssinaturaController::class, 'finalizarIcpA3'])->name('assinaturas.finalizar-icp-a3');
     Route::get('assinaturas/{id}/download-assinado', [AssinaturaController::class, 'downloadAssinado'])->name('assinaturas.download-assinado');
     Route::post('assinaturas/{id}/recusar', [AssinaturaController::class, 'recusar'])->name('assinaturas.recusar');
+    Route::post('assinaturas/{id}/reenviar-convite', [AssinaturaController::class, 'reenviarConvite'])->name('assinaturas.reenviar-convite');
+    Route::post('assinaturas/assinar-lote', [AssinaturaController::class, 'assinarLote'])->name('assinaturas.assinar-lote');
     Route::post('assinaturas/{id}/simular-restantes', [AssinaturaController::class, 'simularAssinaturasRestantes'])
         ->name('assinaturas.simular-restantes');
     Route::get('assinaturas/{id}/manifesto', [AssinaturaController::class, 'manifesto'])->name('assinaturas.manifesto');
