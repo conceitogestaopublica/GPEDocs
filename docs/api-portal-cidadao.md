@@ -43,7 +43,7 @@ ativo/publicado.
 | `POST cidadaos` | `documento, nome, email, telefone?, senha (mín. 8)` | 201 `{ cidadao, email_mascarado, minutos }` + e-mail com código; 409 se já existe cadastro confirmado |
 | `POST cidadaos/confirmar-email` | `documento, codigo` | `{ cidadao }` ou 422 |
 | `POST cidadaos/reenviar-codigo` | `documento` | `{ email_mascarado, minutos }` |
-| `POST cidadaos/autenticar` | `documento, senha` | `{ cidadao }`; 401 genérico; 403 se o e-mail não foi confirmado |
+| `POST cidadaos/autenticar` | `documento` **ou** `email`, `senha` | `{ cidadao }`; 401 genérico; 403 se o e-mail não foi confirmado |
 | `POST cidadaos/senha/codigo` | `documento` | `{ email_mascarado, minutos }` — **igual** exista ou não o documento |
 | `POST cidadaos/senha/redefinir` | `documento, codigo, senha` | `{ cidadao }` ou 422 |
 | `GET cidadaos/{id}` | — | `{ cidadao }` |

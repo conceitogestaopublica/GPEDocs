@@ -97,13 +97,14 @@ class CidadaoController extends PortalApiController
     public function autenticar(Request $request): JsonResponse
     {
         $dados = $request->validate([
-            'documento' => ['required', 'string', 'max:18'],
+            'documento' => ['required_without:email', 'nullable', 'string', 'max:18'],
+            'email'     => ['required_without:documento', 'nullable', 'string', 'max:150'],
             'senha'     => ['required', 'string', 'max:200'],
         ]);
-        $cidadao = $this->cidadaos->autenticar($dados['documento'], $dados['senha']);
+        $cidadao = $this->cidadaos->autenticar((string) ($dados['documento'] ?? $dados['email']), $dados['senha']);
 
         if (! $cidadao) {
-            return response()->json(['erro' => 'CPF/CNPJ ou senha inválidos.'], 401);
+            return response()->json(['erro' => 'Dados de acesso ou senha inválidos.'], 401);
         }
         if (! $cidadao->email_verificado_em) {
             return response()->json([

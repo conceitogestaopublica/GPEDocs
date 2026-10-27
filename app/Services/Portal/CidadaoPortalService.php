@@ -164,9 +164,12 @@ class CidadaoPortalService
      * Documento + senha. Null para qualquer falha (documento inexistente,
      * senha errada, cadastro inativo) — quem chama não deve distinguir.
      */
-    public function autenticar(string $documento, string $senha): ?Cidadao
+    /** Entra pelo CPF/CNPJ ou pelo e-mail (único no cadastro) — o que tiver "@" é e-mail. */
+    public function autenticar(string $login, string $senha): ?Cidadao
     {
-        $cidadao = $this->porDocumento($documento);
+        $cidadao = str_contains($login, '@')
+            ? Cidadao::whereRaw('lower(email) = ?', [mb_strtolower(trim($login))])->first()
+            : $this->porDocumento($login);
         if (! $cidadao || ! $cidadao->ativo || ! $cidadao->senha || ! Hash::check($senha, $cidadao->senha)) {
             return null;
         }
