@@ -26,14 +26,16 @@ const TIPO_ICONE = {
 
 export default function SolicitacaoAdminShow({ solicitacao, processo, statusList }) {
     const formStatus = useForm({
-        status: solicitacao.status,
+        decisao: '',
+        status: '',
         resposta: solicitacao.resposta || '',
     });
     const formComentario = useForm({ mensagem: '' });
     const [aba, setAba] = useState('atender');
 
-    const submitStatus = (e) => {
-        e.preventDefault();
+    // Deferir / Indeferir / Em análise: um clique grava a decisão com a resposta.
+    const decidir = (decisao, status = '') => {
+        formStatus.transform((d) => ({ ...d, decisao, status }));
         formStatus.post(`/flow/portal/solicitacoes/${solicitacao.id}/status`, { preserveScroll: true });
     };
 
@@ -113,7 +115,7 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                             <button onClick={() => setAba('atender')}
                                 className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors
                                     ${aba === 'atender' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                                <i className="fas fa-check-circle mr-1.5 text-xs" /> Alterar status
+                                <i className="fas fa-gavel mr-1.5 text-xs" /> Decidir pedido
                             </button>
                             <button onClick={() => setAba('comentar')}
                                 className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors
@@ -123,30 +125,35 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                         </div>
 
                         {aba === 'atender' ? (
-                            <form onSubmit={submitStatus} className="space-y-3">
+                            <div className="space-y-3">
+                                <p className="text-xs text-gray-500">
+                                    Situação atual: <strong className="text-gray-700">{statusList[solicitacao.status] ?? solicitacao.status}</strong>
+                                </p>
                                 <div>
-                                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Status</label>
-                                    <select value={formStatus.data.status} onChange={(e) => formStatus.setData('status', e.target.value)}
-                                        className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm">
-                                        {Object.entries(statusList).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                                        Resposta ao cidadão <span className="text-gray-400 font-normal">(opcional, será enviada por email)</span>
+                                    <label htmlFor="resposta-decisao" className="text-xs font-semibold text-gray-600 mb-1 block">
+                                        Resposta ao requerente <span className="text-gray-400 font-normal">(enviada por e-mail e mostrada no portal; obrigatória para indeferir)</span>
                                     </label>
-                                    <textarea value={formStatus.data.resposta} onChange={(e) => formStatus.setData('resposta', e.target.value)}
+                                    <textarea id="resposta-decisao" value={formStatus.data.resposta} onChange={(e) => formStatus.setData('resposta', e.target.value)}
                                         rows={5} maxLength={5000}
-                                        placeholder="Escreva uma resposta ou orientação..."
+                                        placeholder="Ex.: Férias deferidas de 10/01 a 24/01. / Indeferido: período aquisitivo ainda não completo."
                                         className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm" />
+                                    {formStatus.errors.resposta && <p className="text-xs text-red-600 mt-1" role="alert">{formStatus.errors.resposta}</p>}
                                 </div>
-                                <div className="flex justify-end pt-2">
-                                    <button type="submit" disabled={formStatus.processing}
-                                        className="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 text-sm">
-                                        {formStatus.processing ? 'Salvando...' : 'Atualizar e notificar cidadão'}
+                                <div className="flex flex-wrap justify-end gap-2 pt-2">
+                                    <button type="button" disabled={formStatus.processing} onClick={() => decidir('', 'em_atendimento')}
+                                        className="px-4 py-2.5 rounded-xl border border-amber-300 text-amber-700 font-semibold hover:bg-amber-50 disabled:opacity-50 text-sm">
+                                        <i className="fas fa-hourglass-half mr-1.5" aria-hidden="true" /> Marcar em análise
+                                    </button>
+                                    <button type="button" disabled={formStatus.processing} onClick={() => decidir('indeferir')}
+                                        className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-50 text-sm">
+                                        <i className="fas fa-times-circle mr-1.5" aria-hidden="true" /> Indeferir
+                                    </button>
+                                    <button type="button" disabled={formStatus.processing} onClick={() => decidir('deferir')}
+                                        className="px-5 py-2.5 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 disabled:opacity-50 text-sm">
+                                        <i className="fas fa-check-circle mr-1.5" aria-hidden="true" /> Deferir
                                     </button>
                                 </div>
-                            </form>
+                            </div>
                         ) : (
                             <form onSubmit={submitComentario} className="space-y-3">
                                 <div>

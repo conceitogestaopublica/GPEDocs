@@ -106,9 +106,16 @@ class PortalSolicitacoesController extends Controller
     public function alterarStatus(Request $request, int $id)
     {
         $data = $request->validate([
-            'status'   => ['required', 'string', 'in:aberta,em_atendimento,atendida,recusada,cancelada'],
-            'resposta' => ['nullable', 'string', 'max:5000'],
+            // Decisão do atendimento: deferir → atendida, indeferir → recusada (com motivo).
+            'decisao'  => ['nullable', 'string', 'in:deferir,indeferir'],
+            'status'   => ['required_without:decisao', 'nullable', 'string', 'in:aberta,em_atendimento,atendida,recusada,cancelada'],
+            'resposta' => ['required_if:decisao,indeferir', 'nullable', 'string', 'max:5000'],
+        ], [
+            'resposta.required_if' => 'Para indeferir, escreva o motivo na resposta.',
         ]);
+        if (! empty($data['decisao'])) {
+            $data['status'] = $data['decisao'] === 'deferir' ? 'atendida' : 'recusada';
+        }
 
         $solicitacao = Solicitacao::with('servico', 'cidadao', 'ug')->findOrFail($id);
         $atendente = Auth::user();
@@ -133,7 +140,11 @@ class PortalSolicitacoesController extends Controller
                 'autor_user_id'   => $atendente->id,
                 'status_anterior' => $statusAnterior,
                 'status_novo'     => $data['status'],
-                'mensagem'        => $data['resposta'] ?? null,
+                'mensagem'        => match ($data['decisao'] ?? null) {
+                    'deferir'   => trim('Pedido deferido. ' . ($data['resposta'] ?? '')),
+                    'indeferir' => trim('Pedido indeferido. ' . ($data['resposta'] ?? '')),
+                    default     => $data['resposta'] ?? null,
+                },
             ]);
         });
 
@@ -148,7 +159,13 @@ class PortalSolicitacoesController extends Controller
                 ));
         }
 
-        return back()->with('success', "Status atualizado para \"".(Solicitacao::STATUS[$data['status']])."\" e cidadao notificado por email.");
+        $feito = match ($data['decisao'] ?? null) {
+            'deferir'   => 'Pedido deferido',
+            'indeferir' => 'Pedido indeferido',
+            default     => 'Status atualizado para "' . Solicitacao::STATUS[$data['status']] . '"',
+        };
+
+        return back()->with('success', $feito . ($email ? ' e requerente notificado por e-mail.' : '.'));
     }
 
     public function comentar(Request $request, int $id)
