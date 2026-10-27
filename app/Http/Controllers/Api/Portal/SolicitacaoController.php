@@ -9,6 +9,9 @@ use App\Models\Portal\Servico;
 use App\Models\Portal\Solicitacao;
 use App\Models\Portal\SolicitacaoEvento;
 use App\Models\Processo\Processo;
+use App\Services\Portal\AnexosSolicitacaoService;
+use App\Services\Portal\CidadaoPortalException;
+use App\Services\Portal\CidadaoPortalService;
 use App\Services\Portal\RegistrarSolicitacaoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,6 +57,10 @@ class SolicitacaoController extends PortalApiController
             'solicitacao' => $this->resumo($solicitacao) + [
                 'descricao' => $solicitacao->descricao,
                 'resposta'  => $solicitacao->resposta,
+                'anexos'    => $solicitacao->anexos->map(fn ($a) => [
+                    'nome'    => $a->nome,
+                    'tamanho' => $a->tamanho,
+                ])->values(),
                 'processo'  => $processo ? [
                     'numero_protocolo' => $processo->numero_protocolo,
                     'status'           => $processo->status,
@@ -70,7 +77,7 @@ class SolicitacaoController extends PortalApiController
         ]);
     }
 
-    public function store(Request $request, RegistrarSolicitacaoService $registrar): JsonResponse
+    public function store(Request $request, RegistrarSolicitacaoService $registrar, AnexosSolicitacaoService $anexos): JsonResponse
     {
         $ug = $this->ug($request);
         $cidadao = $this->cidadao($request);
@@ -79,9 +86,13 @@ class SolicitacaoController extends PortalApiController
             'descricao'        => ['required', 'string', 'max:5000'],
             'telefone_contato' => ['nullable', 'string', 'max:30'],
             'email_contato'    => ['nullable', 'email', 'max:150'],
+            'anexos'            => ['nullable', 'array', 'max:' . AnexosSolicitacaoService::MAX_ARQUIVOS],
+            'anexos.*.nome'     => ['required', 'string', 'max:200'],
+            'anexos.*.conteudo' => ['required', 'string'],
         ]);
 
         $servico = Servico::query()->withoutGlobalScope('ug')
+            ->with('categoria:id,area')
             ->where('ug_id', $ug->id)
             ->where('slug', $dados['servico'])
             ->where('publicado', true)
@@ -94,7 +105,21 @@ class SolicitacaoController extends PortalApiController
             return response()->json(['erro' => 'Este serviço é feito direto no portal, sem solicitação.'], 422);
         }
 
+        // Área do Servidor: só para servidor provado (entrou pelo usuário vindo do RH).
+        if ($servico->categoria?->area === 'servidor' && ! CidadaoPortalService::paraApi($cidadao)['servidor']) {
+            return response()->json(['erro' => 'Serviço exclusivo para servidores municipais.'], 403);
+        }
+
+        try {
+            $prontos = $anexos->preparar($dados['anexos'] ?? []);
+        } catch (CidadaoPortalException $e) {
+            return response()->json(['erro' => $e->getMessage()], 422);
+        }
+
         $solicitacao = $registrar->registrar($ug, $servico, $cidadao, $dados);
+        if ($prontos) {
+            $anexos->gravar($solicitacao, $cidadao, $prontos);
+        }
 
         return response()->json(['solicitacao' => $this->resumo($solicitacao->load('servico:id,titulo,slug'))], 201);
     }

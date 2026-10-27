@@ -13,8 +13,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PortalSolicitacoesController extends Controller
 {
@@ -71,6 +73,7 @@ class PortalSolicitacoesController extends Controller
                 'cidadao:id,nome,email,cpf,telefone',
                 'atendente:id,name',
                 'eventos',
+                'anexos',
                 'eventos.autorUser:id,name',
                 'eventos.autorCidadao:id,nome',
                 'ug:id,nome,codigo,portal_slug',
@@ -87,6 +90,16 @@ class PortalSolicitacoesController extends Controller
             'solicitacao' => $solicitacao,
             'processo'    => $processo,
             'statusList'  => Solicitacao::STATUS,
+        ]);
+    }
+
+    /** Baixa um anexo enviado pelo cidadão (a solicitação já é escopada pela UG). */
+    public function anexo(int $id, int $anexoId): StreamedResponse
+    {
+        $anexo = Solicitacao::query()->findOrFail($id)->anexos()->findOrFail($anexoId);
+
+        return Storage::disk('documentos')->response($anexo->arquivo_path, $anexo->nome, [
+            'Content-Type' => $anexo->mime_type,
         ]);
     }
 

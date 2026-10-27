@@ -65,6 +65,11 @@ class Solicitacao extends Model
         return $this->belongsTo(User::class, 'atendente_id');
     }
 
+    public function anexos(): HasMany
+    {
+        return $this->hasMany(SolicitacaoAnexo::class, 'solicitacao_id')->orderBy('id');
+    }
+
     public function eventos(): HasMany
     {
         return $this->hasMany(SolicitacaoEvento::class, 'solicitacao_id')->orderBy('id');

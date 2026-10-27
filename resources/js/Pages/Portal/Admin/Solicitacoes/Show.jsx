@@ -87,6 +87,24 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
 
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Descrição do cidadão</h3>
                         <p className="text-sm text-gray-700 whitespace-pre-line bg-gray-50 rounded-lg p-4 leading-relaxed">{solicitacao.descricao}</p>
+
+                        {solicitacao.anexos?.length > 0 && (
+                            <>
+                                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mt-4 mb-2">Anexos do cidadão</h3>
+                                <ul className="space-y-1.5">
+                                    {solicitacao.anexos.map((a) => (
+                                        <li key={a.id}>
+                                            <a href={`/flow/portal/solicitacoes/${solicitacao.id}/anexos/${a.id}`} target="_blank" rel="noreferrer"
+                                                className="inline-flex items-center gap-2 text-sm text-blue-700 hover:underline">
+                                                <i className={a.mime_type === 'application/pdf' ? 'fas fa-file-pdf text-red-500' : 'fas fa-file-image text-indigo-500'} aria-hidden="true" />
+                                                {a.nome}
+                                                <span className="text-xs text-gray-400">({Math.max(1, Math.round(a.tamanho / 1024))} KB)</span>
+                                            </a>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </>
+                        )}
                     </Card>
 
                     {/* Tabs Atender / Comentar */}

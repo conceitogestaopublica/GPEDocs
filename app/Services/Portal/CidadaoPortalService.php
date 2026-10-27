@@ -277,6 +277,9 @@ class CidadaoPortalService
             'email'           => $c->email,
             'telefone'        => $c->telefone,
             'email_confirmado' => $c->email_verificado_em !== null,
+            // Servidor municipal provado: entrou pelo usuário do GPE Docs que veio do RH
+            // (o cadastro aberto do portal não prova CPF — não basta o CPF ser de servidor).
+            'servidor'        => $c->user_id !== null && $c->usuario?->legado_funcionario_id !== null,
         ];
     }
 }
