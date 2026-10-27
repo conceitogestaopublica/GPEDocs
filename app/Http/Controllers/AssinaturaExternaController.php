@@ -303,11 +303,15 @@ class AssinaturaExternaController extends Controller
                     'assinado_em'        => now(),
                 ]);
 
-                $caminho = $this->carimbo->gerar($assinatura);
+                $gerado = $this->carimbo->gerar($assinatura);
+                $selo = $gerado['selo'];
                 $assinatura->update([
-                    'arquivo_assinado_path'  => $caminho,
-                    'hash_assinatura_sha256' => hash('sha256', Storage::disk('documentos')->get($caminho)),
+                    'arquivo_assinado_path'  => $gerado['caminho'],
+                    'hash_assinatura_sha256' => hash('sha256', Storage::disk('documentos')->get($gerado['caminho'])),
                     'timestamp_assinatura'   => now(),
+                    'politica_assinatura'    => $selo
+                        ? 'Eletrônica por link, selada pela prefeitura (' . ($selo['icp_brasil'] ? 'ICP-Brasil' : 'certificado de teste') . ')'
+                        : 'Eletrônica por link (sem selo da prefeitura)',
                 ]);
             });
         } catch (\DomainException $e) {
@@ -342,6 +346,7 @@ class AssinaturaExternaController extends Controller
                 'codigo'     => $assinatura->codigo_verificacao,
                 'hash'       => $versao->hash_sha256,
                 'pagina'     => $posicao['page'],
+                'forma'      => $assinatura->politica_assinatura,
             ],
             'ip'           => $request->ip(),
             'user_agent'   => $request->userAgent(),
