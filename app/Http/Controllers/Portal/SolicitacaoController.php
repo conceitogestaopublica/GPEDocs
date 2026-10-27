@@ -5,17 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
-use App\Mail\NotificacaoSolicitacaoCidadao;
 use App\Models\Portal\Servico;
 use App\Models\Portal\Solicitacao;
 use App\Models\Portal\SolicitacaoEvento;
 use App\Models\Processo\ProcessoAnexo;
 use App\Models\Ug;
-use App\Services\AbrirProcessoDoPortalService;
+use App\Services\Portal\RegistrarSolicitacaoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -45,7 +43,7 @@ class SolicitacaoController extends Controller
         ]);
     }
 
-    public function store(Request $request, string $ug, string $slug, AbrirProcessoDoPortalService $abrirProcesso)
+    public function store(Request $request, string $ug, string $slug, RegistrarSolicitacaoService $registrar)
     {
         $ugModel = $this->resolverUg($ug);
         $servico = $this->resolverServico($ugModel->id, $slug);
@@ -73,48 +71,9 @@ class SolicitacaoController extends Controller
 
         $data = $request->validate($regrasBase);
 
-        $solicitacao = DB::transaction(function () use ($ugModel, $servico, $cidadao, $data, $anonima, $abrirProcesso) {
-            $sol = Solicitacao::query()->withoutGlobalScope('ug')->create([
-                'codigo'           => Solicitacao::gerarCodigo($ugModel->id),
-                'ug_id'            => $ugModel->id,
-                'servico_id'       => $servico->id,
-                'cidadao_id'       => $anonima ? null : $cidadao?->id,
-                'anonima'          => $anonima,
-                'status'           => 'aberta',
-                'descricao'        => $data['descricao'],
-                'telefone_contato' => $anonima ? null : ($data['telefone_contato'] ?? $cidadao?->telefone),
-                'email_contato'    => $anonima ? null : ($data['email_contato'] ?? $cidadao?->email),
-            ]);
-
-            SolicitacaoEvento::create([
-                'solicitacao_id'   => $sol->id,
-                'tipo'             => 'criada',
-                'autor_tipo'       => 'cidadao',
-                'autor_nome'       => $anonima ? 'Anonimo' : ($cidadao?->nome ?? 'Cidadao'),
-                'autor_cidadao_id' => $anonima ? null : $cidadao?->id,
-                'status_novo'      => 'aberta',
-                'mensagem'         => $anonima
-                    ? 'Solicitacao registrada anonimamente.'
-                    : 'Solicitacao registrada pelo cidadao.',
-            ]);
-
-            // Cria Processo no GPE Flow se servico tem setor + tipo configurados
-            $processo = $abrirProcesso->abrir($sol, $servico);
-            if ($processo) {
-                $sol->update(['processo_id' => $processo->id]);
-            }
-
-            return $sol;
-        });
-
-        // Notifica por email apenas quando identificada
-        if (! $anonima) {
-            $email = $solicitacao->email_contato ?? $cidadao?->email;
-            if ($email) {
-                Mail::to($email)
-                    ->send(new NotificacaoSolicitacaoCidadao($solicitacao, $servico, $ugModel, 'criada'));
-            }
-        }
+        // Mesmo registro da API do Portal do Cidadão (solicitação + evento +
+        // processo + aviso por e-mail).
+        $solicitacao = $registrar->registrar($ugModel, $servico, $cidadao, $data, $anonima);
 
         if ($anonima) {
             return Inertia::render('Portal/SolicitacaoConfirmacaoAnonima', [

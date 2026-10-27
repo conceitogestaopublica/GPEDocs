@@ -103,6 +103,41 @@ Route::prefix('api/integracoes')
             ->name('api.integracoes.arquivos.conteudo');
     });
 
+// API do Portal do Cidadao (Next.js): Carta de Servicos, cadastro unico do
+// cidadao (portal_cidadaos) e solicitacoes. Mesmo token de sistema integrado,
+// mas so o sistema do portal entra (SomenteSistemaPortalCidadao). A UG vem
+// do parametro `ug` (= ugs.portal_slug). Ver docs/api-portal-cidadao.md.
+Route::prefix('api/portal')
+    ->withoutMiddleware([
+        \App\Http\Middleware\HandleInertiaRequests::class,
+        \App\Http\Middleware\EnsureUgSelected::class,
+        \Illuminate\Auth\Middleware\Authenticate::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+    ])
+    ->middleware(['sistema.api', \App\Http\Middleware\SomenteSistemaPortalCidadao::class])
+    ->name('api.portal.')
+    ->group(function () {
+        Route::get('catalogo', [\App\Http\Controllers\Api\Portal\CatalogoController::class, 'show'])->name('catalogo');
+
+        Route::post('cidadaos/identificar', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'identificar'])->name('cidadaos.identificar');
+        Route::post('cidadaos', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'cadastrar'])->name('cidadaos.cadastrar');
+        Route::post('cidadaos/confirmar-email', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'confirmarEmail'])->name('cidadaos.confirmar-email');
+        Route::post('cidadaos/reenviar-codigo', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'reenviarCodigo'])->name('cidadaos.reenviar-codigo');
+        Route::post('cidadaos/autenticar', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'autenticar'])->name('cidadaos.autenticar');
+        Route::post('cidadaos/senha/codigo', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'codigoSenha'])->name('cidadaos.senha.codigo');
+        Route::post('cidadaos/senha/redefinir', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'redefinirSenha'])->name('cidadaos.senha.redefinir');
+        Route::get('cidadaos/{id}', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'show'])->whereNumber('id')->name('cidadaos.show');
+
+        Route::get('solicitacoes', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'index'])->name('solicitacoes.index');
+        Route::post('solicitacoes', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'store'])->name('solicitacoes.store');
+        Route::get('solicitacoes/{codigo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'show'])->where('codigo', '[^/]+')->name('solicitacoes.show');
+        Route::post('solicitacoes/{codigo}/cancelar', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'cancelar'])->where('codigo', '[^/]+')->name('solicitacoes.cancelar');
+    });
+
 // Portal Cidadao — Carta de Servicos (publico, sem auth)
 // Roteado por subdominio: ex. pmparaguacu.gpedocs.com.br (prod) ou pmparaguacu.lvh.me:8000 (dev)
 // O parametro {ug} vem do subdominio e bate com `portal_slug` da UG.
