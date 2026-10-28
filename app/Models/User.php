@@ -15,7 +15,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'cpf', 'telefone', 'password', 'tipo', 'ug_id', 'unidade_id', 'legado_usuario_id', 'legado_funcionario_id', 'matricula', 'super_admin', 'acesso_geral_ug'])]
+#[Fillable(['name', 'email', 'cpf', 'telefone', 'password', 'tipo', 'ug_id', 'unidade_id', 'legado_usuario_id', 'legado_funcionario_id', 'matricula', 'super_admin', 'acesso_geral_ug',
+    'cargo', 'sexo', 'data_nascimento', 'email_secundario'])]
 #[Hidden(['password', 'remember_token', 'dois_fatores_segredo', 'dois_fatores_recuperacao', 'dois_fatores_ultimo_passo'])]
 class User extends Authenticatable
 {
@@ -40,7 +41,14 @@ class User extends Authenticatable
             'dois_fatores_segredo'     => 'encrypted',
             'dois_fatores_recuperacao' => 'encrypted:array',
             'dois_fatores_ativado_em'  => 'datetime',
+            'data_nascimento'          => 'date',
         ];
+    }
+
+    /** Endereço da foto do servidor (servida por rota autenticada) — null sem foto. */
+    public function getFotoUrlAttribute(): ?string
+    {
+        return $this->foto_path ? url("/usuarios/{$this->id}/foto?v=" . substr(md5((string) $this->foto_path), 0, 8)) : null;
     }
 
     /** Verificação em duas etapas (aplicativo autenticador) ativa. */

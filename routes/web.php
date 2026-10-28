@@ -335,6 +335,8 @@ Route::middleware('auth')->group(function () {
         Route::resource('usuarios', UsuarioController::class)->except(['show'])->middleware('can:admin.usuarios');
         Route::post('usuarios/{id}/reativar', [UsuarioController::class, 'reativar'])->middleware('can:admin.usuarios')->name('usuarios.reativar');
         Route::post('usuarios/{id}/dois-fatores/remover', [UsuarioController::class, 'removerDoisFatores'])->middleware('can:admin.usuarios')->name('usuarios.dois-fatores.remover');
+        Route::post('usuarios/{id}/foto', [UsuarioController::class, 'enviarFoto'])->middleware('can:admin.usuarios')->name('usuarios.foto');
+        Route::post('usuarios/{id}/foto/remover', [UsuarioController::class, 'removerFoto'])->middleware('can:admin.usuarios')->name('usuarios.foto.remover');
         Route::resource('perfis', RoleController::class)->parameters(['perfis' => 'role'])->except(['create', 'edit', 'show'])->middleware('can:admin.roles');
 
         // Unidades Gestoras + organograma + banners do portal
@@ -544,6 +546,16 @@ Route::middleware('auth')->group(function () {
     Route::post('assinaturas/{id}/simular-restantes', [AssinaturaController::class, 'simularAssinaturasRestantes'])
         ->name('assinaturas.simular-restantes');
     Route::get('assinaturas/{id}/manifesto', [AssinaturaController::class, 'manifesto'])->name('assinaturas.manifesto');
+
+    // Meu perfil › Meus dados (e-mail, celular, foto, senha) e foto de qualquer servidor
+    Route::prefix('perfil')->name('perfil.')->controller(\App\Http\Controllers\Perfil\PerfilController::class)->group(function () {
+        Route::get('/', 'index')->name('dados');
+        Route::post('/dados', 'atualizar')->middleware('throttle:20,1')->name('dados.salvar');
+        Route::post('/senha', 'alterarSenha')->middleware('throttle:10,1')->name('senha');
+        Route::post('/foto', 'enviarFoto')->middleware('throttle:20,1')->name('foto');
+        Route::post('/foto/remover', 'removerFoto')->name('foto.remover');
+    });
+    Route::get('usuarios/{id}/foto', [\App\Http\Controllers\Perfil\PerfilController::class, 'foto'])->whereNumber('id')->name('usuarios.foto');
 
     // Meu perfil › Segurança: verificação em duas etapas
     Route::prefix('perfil/seguranca')->name('perfil.seguranca')->controller(\App\Http\Controllers\Perfil\SegurancaController::class)->group(function () {

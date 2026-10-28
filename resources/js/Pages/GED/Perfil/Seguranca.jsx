@@ -6,13 +6,15 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
+import PerfilAbas from '../../../Components/PerfilAbas';
 import Button from '../../../Components/Button';
 
 export default function Seguranca({ dois_fatores, configurando, codigos_recuperacao }) {
     return (
         <AdminLayout>
             <Head title="Segurança" />
-            <PageHeader title="Segurança da conta" subtitle="Verificação em duas etapas e certificados digitais" />
+            <PageHeader title="Meu perfil" subtitle="Verificação em duas etapas e certificados digitais" />
+            <PerfilAbas />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="lg:col-span-2 space-y-4">

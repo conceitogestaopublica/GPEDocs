@@ -16,6 +16,10 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
         email:           usuario?.email || '',
         cpf:             usuario?.cpf || '',
         telefone:        usuario?.telefone || '',
+        matricula:       usuario?.matricula || '',
+        cargo:           usuario?.cargo || '',
+        sexo:            usuario?.sexo || '',
+        data_nascimento: usuario?.data_nascimento || '',
         password:        '',
         tipo:            usuario?.tipo || 'interno',
         super_admin:     !! usuario?.super_admin,
@@ -69,7 +73,6 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
     const obrigatoriosFaltando =
         ! data.name.trim() ||
         ! data.email.trim() ||
-        (! isEdit && ! data.password.trim()) ||
         ! data.tipo;
 
     const toggleUg = (id) => {
@@ -118,7 +121,8 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
         { icone: 'fa-id-card',      label: 'CPF',      valor: formatarCpf(data.cpf), vazio: ! data.cpf },
         { icone: 'fa-envelope',     label: 'E-mail',   valor: data.email,   vazio: ! data.email },
         { icone: 'fa-phone',        label: 'Telefone', valor: data.telefone, vazio: ! data.telefone },
-        { icone: 'fa-key',          label: 'Senha',    valor: data.password ? '••••••••' : (isEdit ? 'manter atual' : ''), vazio: ! isEdit && ! data.password },
+        { icone: 'fa-key',          label: 'Senha',    valor: data.password ? '••••••••' : (isEdit ? 'manter atual' : 'link por e-mail') },
+        { icone: 'fa-briefcase',    label: 'Cargo',    valor: data.cargo, vazio: ! data.cargo },
         { icone: 'fa-building',     label: 'UGs',
           valor: ugsSel.length === 0 ? '' : ugsSel.map(u => u.codigo).join(', ') + (ugsSel.length === 1 ? ` · ${ugsSel[0].nome}` : ''),
           vazio: ugsSel.length === 0 },
@@ -222,15 +226,46 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Matrícula</label>
+                            <input type="text" value={data.matricula} onChange={(e) => setData('matricula', e.target.value)}
+                                className="ds-input" maxLength={30} />
+                            {errors.matricula && <p className="mt-1 text-xs text-red-600">{errors.matricula}</p>}
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Cargo / função</label>
+                            <input type="text" value={data.cargo} onChange={(e) => setData('cargo', e.target.value)}
+                                className="ds-input" maxLength={120} placeholder="Ex.: Agente Administrativo" />
+                            {errors.cargo && <p className="mt-1 text-xs text-red-600">{errors.cargo}</p>}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Sexo</label>
+                            <select value={data.sexo} onChange={(e) => setData('sexo', e.target.value)} className="ds-input">
+                                <option value="">—</option>
+                                <option value="F">Feminino</option>
+                                <option value="M">Masculino</option>
+                                <option value="O">Outro / prefere não informar</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Data de nascimento</label>
+                            <input type="date" value={data.data_nascimento} onChange={(e) => setData('data_nascimento', e.target.value)} className="ds-input" />
+                            {errors.data_nascimento && <p className="mt-1 text-xs text-red-600">{errors.data_nascimento}</p>}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Senha {! isEdit && <span className="text-red-500">*</span>}
-                                {isEdit && <span className="text-gray-400 font-normal"> (deixe vazio para manter)</span>}
+                                Senha
+                                <span className="text-gray-400 font-normal">{isEdit ? ' (deixe vazio para manter)' : ' (vazia: o servidor recebe por e-mail o link para criar a dele)'}</span>
                             </label>
                             <input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)}
                                 className="ds-input" autoComplete="new-password"
                                 placeholder={isEdit ? '••••••••' : 'Mínimo 8 caracteres'} />
                             {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
                         </div>
+                        {isEdit && <FotoAdmin usuario={usuario} />}
                     </div>
                 </CadastroSecao>
 
@@ -516,6 +551,35 @@ function UnidadeCombo({ value, onChange, unidades, ugPrincipal }) {
                     </ul>
                 </div>
             )}
+        </div>
+    );
+}
+
+/** Foto do servidor: sobe ao escolher o arquivo (recorte quadrado no servidor). */
+function FotoAdmin({ usuario }) {
+    const { errors } = usePage().props;
+    const enviar = (e) => {
+        const arquivo = e.target.files?.[0];
+        if (arquivo) router.post(`/configuracoes/usuarios/${usuario.id}/foto`, { foto: arquivo }, { forceFormData: true, preserveScroll: true });
+        e.target.value = '';
+    };
+    return (
+        <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Foto (aparece na tramitação)</label>
+            <div className="flex items-center gap-3">
+                {usuario.foto_url
+                    ? <img src={usuario.foto_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                    : <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center"><i className="fas fa-user" /></div>}
+                <label className="ds-btn ds-btn-sm ds-btn-outline cursor-pointer">
+                    <i className="fas fa-camera mr-1" />{usuario.foto_url ? 'Trocar' : 'Enviar'}
+                    <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={enviar} />
+                </label>
+                {usuario.foto_url && (
+                    <button type="button" className="text-xs text-red-600 hover:underline"
+                        onClick={() => router.post(`/configuracoes/usuarios/${usuario.id}/foto/remover`, {}, { preserveScroll: true })}>Remover</button>
+                )}
+            </div>
+            {errors.foto && <p className="mt-1 text-xs text-red-600">{errors.foto}</p>}
         </div>
     );
 }

@@ -274,9 +274,13 @@ function UserMenu({ user }) {
         <div className="relative" ref={ref}>
             <button onClick={() => setOpen(!open)}
                 className="flex items-center gap-3 pl-1 pr-3 py-1 rounded-xl hover:bg-gray-50 transition-colors">
-                <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-md shadow-cyan-200">
-                    <span className="text-white font-bold text-sm">{initials}</span>
-                </div>
+                {user?.foto_url ? (
+                    <img src={user.foto_url} alt="" className="w-10 h-10 rounded-xl object-cover shadow-md shadow-cyan-200" />
+                ) : (
+                    <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-md shadow-cyan-200">
+                        <span className="text-white font-bold text-sm">{initials}</span>
+                    </div>
+                )}
                 <div className="hidden md:block text-left">
                     <p className="text-sm font-semibold text-gray-800 leading-tight">{user?.name || 'Usuário'}</p>
                     <p className="text-[11px] text-gray-400 leading-tight">{user?.perfil_nome || 'Usuário'}</p>
@@ -291,6 +295,13 @@ function UserMenu({ user }) {
                         <p className="text-xs text-gray-400">{user?.email}</p>
                     </div>
                     <div className="py-1">
+                        <Link href="/perfil"
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                            <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center">
+                                <i className="fas fa-user text-xs text-gray-400" />
+                            </div>
+                            <span className="font-medium">Meu perfil</span>
+                        </Link>
                         <Link href="/perfil/certificados"
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
                             <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center">

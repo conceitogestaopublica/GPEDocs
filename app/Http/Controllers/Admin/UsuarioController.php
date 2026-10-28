@@ -93,6 +93,11 @@ class UsuarioController extends Controller
                 'email'           => $usuario->email,
                 'cpf'             => $usuario->cpf,
                 'telefone'        => $usuario->telefone,
+                'matricula'       => $usuario->matricula,
+                'cargo'           => $usuario->cargo,
+                'sexo'            => $usuario->sexo,
+                'data_nascimento' => $usuario->data_nascimento?->format('Y-m-d'),
+                'foto_url'        => $usuario->foto_url,
                 'tipo'            => $usuario->tipo,
                 'super_admin'     => (bool) $usuario->super_admin,
                 'acesso_geral_ug' => (bool) $usuario->acesso_geral_ug,
@@ -137,7 +142,11 @@ class UsuarioController extends Controller
                 'email'           => $validated['email'],
                 'cpf'             => $validated['cpf'] ?? null,
                 'telefone'        => $validated['telefone'] ?? null,
-                'password'        => Hash::make($validated['password']),
+                'matricula'       => $validated['matricula'] ?? null,
+                'cargo'           => $validated['cargo'] ?? null,
+                'sexo'            => $validated['sexo'] ?? null,
+                'data_nascimento' => $validated['data_nascimento'] ?? null,
+                'password'        => Hash::make($validated['password'] ?: \Illuminate\Support\Str::password(24)),
                 'tipo'            => $tipo,
                 'super_admin'     => (bool) ($validated['super_admin'] ?? false),
                 'acesso_geral_ug' => (bool) ($validated['acesso_geral_ug'] ?? false),
@@ -163,6 +172,19 @@ class UsuarioController extends Controller
             }
 
             DB::commit();
+
+            // Sem senha informada: o servidor recebe por e-mail o link para criar a dele
+            if (empty($validated['password'])) {
+                $status = \Illuminate\Support\Facades\Password::broker()->sendResetLink(['email' => $user->email]);
+
+                return redirect()->route('configuracoes.usuarios.index')->with(
+                    $status === \Illuminate\Support\Facades\Password::RESET_LINK_SENT ? 'success' : 'warning',
+                    $status === \Illuminate\Support\Facades\Password::RESET_LINK_SENT
+                        ? "Usuário criado. {$user->email} recebeu o link para definir a senha."
+                        : 'Usuário criado, mas o e-mail para definir a senha não foi enviado. Use "Esqueceu a senha?" ou defina uma senha.'
+                );
+            }
+
             return redirect()->route('configuracoes.usuarios.index')->with('success', 'Usuário criado com sucesso.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -193,6 +215,10 @@ class UsuarioController extends Controller
                 'email'           => $validated['email'],
                 'cpf'             => $validated['cpf'] ?? null,
                 'telefone'        => $validated['telefone'] ?? null,
+                'matricula'       => $validated['matricula'] ?? null,
+                'cargo'           => $validated['cargo'] ?? null,
+                'sexo'            => $validated['sexo'] ?? null,
+                'data_nascimento' => $validated['data_nascimento'] ?? null,
                 'tipo'            => $tipo,
                 'super_admin'     => (bool) ($validated['super_admin'] ?? false),
                 'acesso_geral_ug' => (bool) ($validated['acesso_geral_ug'] ?? false),
@@ -231,7 +257,12 @@ class UsuarioController extends Controller
                               $criando ? 'unique:users,email' : 'unique:users,email,' . $userId],
             'cpf'         => ['nullable', 'string', 'max:14'],
             'telefone'    => ['nullable', 'string', 'max:30'],
-            'password'    => $criando ? ['required', 'string', 'min:8'] : ['nullable', 'string', 'min:8'],
+            'matricula'   => ['nullable', 'string', 'max:30'],
+            'cargo'       => ['nullable', 'string', 'max:120'],
+            'sexo'        => ['nullable', 'in:F,M,O'],
+            'data_nascimento' => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
+            // Vazia no cadastro: o sistema gera e manda ao servidor o link para definir a dele
+            'password'    => ['nullable', 'string', 'min:8'],
             'tipo'        => ['required', 'in:interno,externo'],
             'super_admin'      => ['boolean'],
             'acesso_geral_ug'  => ['boolean'],
@@ -302,6 +333,28 @@ class UsuarioController extends Controller
         ]);
 
         return redirect()->back()->with('success', "Acesso de {$user->name} reativado.");
+    }
+
+    /** Foto do servidor enviada pelo administrador (mesmo tratamento do Meu perfil). */
+    public function enviarFoto(Request $request, $id)
+    {
+        $this->bloquearAlteracaoDeSuperAdmin($request, (int) $id);
+        $request->validate(['foto' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:5120']]);
+        try {
+            \App\Support\FotoUsuario::salvar(User::findOrFail($id), $request->file('foto'));
+        } catch (\RuntimeException $e) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['foto' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Foto atualizada.');
+    }
+
+    public function removerFoto(Request $request, $id)
+    {
+        $this->bloquearAlteracaoDeSuperAdmin($request, (int) $id);
+        \App\Support\FotoUsuario::remover(User::findOrFail($id));
+
+        return back()->with('success', 'Foto removida.');
     }
 
     /** Servidor perdeu o celular e os códigos de recuperação: volta a entrar só com a senha. */

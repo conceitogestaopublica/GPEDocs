@@ -30,6 +30,7 @@ class HandleInertiaRequests extends Middleware
                     'id'          => $user->id,
                     'name'        => $user->name,
                     'email'       => $user->email,
+                    'foto_url'    => $user->foto_url,
                     'super_admin' => (bool) $user->super_admin,
                     // Subtítulo do menu do usuário na topbar (como no gpe2).
                     'perfil_nome' => $user->super_admin ? 'Super Admin' : ($user->roles()->orderBy('nome')->value('nome') ?? 'Usuário'),
