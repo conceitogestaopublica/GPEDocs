@@ -39,6 +39,14 @@ return [
         'url'  => 'http://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der',
     ],
 
+    /*
+     * /Filter e /SubFilter do dicionário de assinatura no PDF:
+     *   pbad  → PBAD_PAdES / PBAD.PAdES (exigido pela PA_PAdES_AD_RB do ITI)
+     *   etsi  → Adobe.PPKLite / ETSI.CAdES.detached (PAdES ETSI, lido pelo Adobe)
+     *   adobe → Adobe.PPKLite / adbe.pkcs7.detached (legado)
+     */
+    'pades_dicionario' => env('ICP_BRASIL_PADES_DICIONARIO', 'etsi'),
+
     'politica_padrao' => [
         'oid'  => '2.16.76.1.7.1.1.2.3',
         'nome' => 'AD-RB v2 (Assinatura Digital de Referência Básica)',
