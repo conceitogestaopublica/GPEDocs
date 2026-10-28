@@ -307,7 +307,8 @@ class AssinaturaExternaController extends Controller
         $versao = $assinatura->documento->versaoAtual;
 
         try {
-            DB::transaction(function () use ($assinatura, $cidadao, $versao, $posicao, $request) {
+            // Travado por documento: o selo é acrescentado ao último original assinado
+            $assinatura->documento->comTravaDeAssinatura(fn () => DB::transaction(function () use ($assinatura, $cidadao, $versao, $posicao, $request) {
                 // Trava a linha: dois cliques (ou duas abas) não assinam duas vezes.
                 $travada = Assinatura::whereKey($assinatura->id)->lockForUpdate()->first();
                 if ($travada->status !== 'pendente') {
@@ -329,17 +330,20 @@ class AssinaturaExternaController extends Controller
                     'assinado_em'        => now(),
                 ]);
 
+                // Original: só muda se houver selo (acrescentado de forma
+                // incremental); a cópia para impressão sai sempre
                 $gerado = $this->carimbo->gerar($assinatura);
                 $selo = $gerado['selo'];
                 $assinatura->update([
                     'arquivo_assinado_path'  => $gerado['caminho'],
-                    'hash_assinatura_sha256' => hash('sha256', Storage::disk('documentos')->get($gerado['caminho'])),
+                    'arquivo_impressao_path' => $gerado['impressao'],
+                    'hash_assinatura_sha256' => hash('sha256', Storage::disk('documentos')->get($gerado['caminho'] ?? $gerado['impressao'])),
                     'timestamp_assinatura'   => now(),
                     'politica_assinatura'    => $selo
                         ? 'Eletrônica por link, selada pela prefeitura (' . ($selo['icp_brasil'] ? 'ICP-Brasil' : 'certificado de teste') . ')'
                         : 'Eletrônica por link (sem selo da prefeitura)',
                 ]);
-            });
+            }));
         } catch (\DomainException $e) {
             return $e->getMessage();
         } catch (Throwable $e) {
@@ -684,19 +688,8 @@ class AssinaturaExternaController extends Controller
     /** Arquivo assinado mais recente do documento; sem nenhum, a versão atual. */
     private function arquivoOficial(Assinatura $assinatura): string
     {
-        $disk = Storage::disk('documentos');
-        $assinada = Assinatura::where('documento_id', $assinatura->documento_id)
-            ->where('status', 'assinado')
-            ->whereNotNull('arquivo_assinado_path')
-            ->orderByDesc('assinado_em')
-            ->first();
-
-        if ($assinada && $disk->exists($assinada->arquivo_assinado_path)) {
-            return $assinada->arquivo_assinado_path;
-        }
-
-        $caminho = $assinatura->documento?->versaoAtual?->arquivo_path;
-        abort_unless($caminho && $disk->exists($caminho), 404);
+        $caminho = $assinatura->documento?->caminhoOficial();
+        abort_unless($caminho && Storage::disk('documentos')->exists($caminho), 404);
 
         return $caminho;
     }

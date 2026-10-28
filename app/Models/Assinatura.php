@@ -30,6 +30,7 @@ class Assinatura extends Model
         'politica_assinatura',
         'algoritmo_hash',
         'arquivo_assinado_path',
+        'arquivo_impressao_path',
         'hash_assinatura_sha256',
         'timestamp_assinatura',
         'versao_id',

@@ -759,7 +759,8 @@ class AssinaturaController extends Controller
             return redirect()->back()->with('error', 'Documento sem versão disponível para assinar.');
         }
 
-        $pdfRelativo = $versao->arquivo_path;
+        // A assinatura é acrescentada ao último PDF assinado (incremental), não à versão original
+        $pdfRelativo = $assinatura->documento->caminhoOficial() ?? $versao->arquivo_path;
         $pdfAbsoluto = Storage::disk('documentos')->path($pdfRelativo);
 
         if (! is_file($pdfAbsoluto) || ! str_ends_with(strtolower($pdfRelativo), '.pdf')) {
@@ -821,60 +822,36 @@ class AssinaturaController extends Controller
                 $material['extracerts']
             );
 
-            // Coleta carimbos das assinaturas ICP já feitas (antes desta) para
-            // desenhá-los visualmente também — a versão livre do FPDI não
-            // preserva assinaturas criptográficas anteriores ao re-renderizar
-            // o PDF, mas pelo menos os carimbos VISUAIS permanecem.
-            $assinaturasAnteriores = Assinatura::with('certificado')
-                ->where('documento_id', $assinatura->documento_id)
-                ->where('id', '!=', $assinatura->id)
-                ->where('status', 'assinado')
-                // Externos (assinatura por link) também: o carimbo deles não pode sumir do PDF oficial.
-                ->where(fn ($q) => $q->where('tipo_assinatura', 'qualificada')->orWhere('tipo_signatario', 'externo'))
-                ->whereNotNull('signature_position')
-                ->orderBy('assinado_em')
-                ->get()
-                ->map(fn ($a) => [
-                    'position' => $a->signature_position,
-                    'meta'     => array_filter([
-                        'subject_cn'    => $a->externo ? $a->nome_signatario : ($a->certificado?->subject_cn ?? ''),
-                        'subject_cpf'   => $a->cpf_signatario,
-                        'serial_number' => $a->certificado?->serial_number ?? '',
-                        'codigo'        => $a->codigo_verificacao,
-                    ], fn ($v) => $v !== null),
-                    'assinado_em' => optional($a->assinado_em)->format('d/m/Y H:i:s'),
-                ])->all();
+            // 4) Assina de forma incremental o PDF oficial mais recente, com o
+            //    documento travado: duas assinaturas ao mesmo tempo partiriam do
+            //    mesmo arquivo e uma se perderia. O caminho é relido dentro da
+            //    trava (outra assinatura pode ter terminado enquanto esperava).
+            //    Carimbo visual, tarja e termo vão para a cópia para impressão.
+            $documento = $assinatura->documento;
+            $documento->comTravaDeAssinatura(function () use (
+                $documento, $versao, $assinatura, $assinaturaIcpService, $pfxBinary, $senha, $meta,
+                $request, $certificado, $cpfCert
+            ) {
+                $origem = Storage::disk('documentos')->path($documento->caminhoOficial() ?? $versao->arquivo_path);
+                $resultado = $assinaturaIcpService->assinarPdf($origem, $pfxBinary, $senha, [
+                    'razao'   => $request->input('razao', 'Assinatura Eletrônica Qualificada (Lei 14.063/2020)'),
+                    'local'   => $request->input('local', 'Brasil'),
+                    'contato' => $meta['subject_cn'],
+                    'url_verificacao' => url('/verificar/' . $documento->qr_code_token),
+                ]);
 
-            // 4) Gera PDF assinado em PAdES-BES
-            //    Se o sistema externo forneceu signature_position, usa-a pra
-            //    posicionar o carimbo visual no quadro de assinatura correto
-            //    (ex.: ORDENADOR/CONTADOR no empenho). Carimbos das assinaturas
-            //    anteriores também são desenhados pra evidenciar todas as firmas.
-            $resultado = $assinaturaIcpService->assinarPdf(
-                $pdfAbsoluto,
-                $pfxBinary,
-                $senha,
-                [
-                    'razao'    => $request->input('razao', 'Assinatura Eletrônica Qualificada (Lei 14.063/2020)'),
-                    'local'    => $request->input('local', 'Brasil'),
-                    'contato'  => $meta['subject_cn'],
-                    'position' => $assinatura->signature_position,
-                    'previous_stamps' => $assinaturasAnteriores,
-                    // QR do termo: página pública do próprio documento, no endereço do ente.
-                    'url_verificacao' => url('/verificar/' . $assinatura->documento->qr_code_token),
-                ]
-            );
-
-            // 5) Persiste no registro de assinatura
-            $assinaturaIcpService->registrarAssinatura(
-                $assinatura,
-                $certificado,
-                $resultado,
-                $cpfCert,
-                (string) $request->ip(),
-                $request->input('geolocalizacao'),
-                $request->userAgent(),
-            );
+                // 5) Persiste no registro de assinatura
+                $assinaturaIcpService->registrarAssinatura(
+                    $assinatura,
+                    $certificado,
+                    $resultado,
+                    $cpfCert,
+                    (string) $request->ip(),
+                    $request->input('geolocalizacao'),
+                    $request->userAgent(),
+                );
+                $this->gerarCopiaImpressao($assinatura);
+            });
         } catch (Throwable $e) {
             \Illuminate\Support\Facades\Log::error('Falha na assinatura ICP-Brasil A1', [
                 'assinatura_id' => $assinatura->id,
@@ -973,7 +950,7 @@ class AssinaturaController extends Controller
             return response()->json(['erro' => 'Documento sem versão disponível.'], 422);
         }
 
-        $pdfRelativo = $versao->arquivo_path;
+        $pdfRelativo = $assinatura->documento->caminhoOficial() ?? $versao->arquivo_path;
         $pdfAbsoluto = Storage::disk('documentos')->path($pdfRelativo);
 
         if (! is_file($pdfAbsoluto) || ! str_ends_with(strtolower((string) $pdfRelativo), '.pdf')) {
@@ -1057,72 +1034,87 @@ class AssinaturaController extends Controller
             return response()->json(['erro' => 'Sessão de assinatura inválida para esta assinatura.'], 403);
         }
 
-        try {
-            $resultado = $svc->finalizar(
-                (string) $request->input('sessao_id'),
-                (string) $request->input('assinatura_b64'),
-                (array)  $request->input('cadeia_pem', []),
-            );
-        } catch (Throwable $e) {
-            return response()->json(['erro' => 'Falha ao finalizar assinatura: ' . $e->getMessage()], 500);
-        }
+        // Dentro da trava do documento: confere que ninguém assinou desde o
+        // preparo (senão esta assinatura partiria de um arquivo velho e a do
+        // outro se perderia) e grava o registro antes de soltar.
+        $documento = $assinatura->documento;
+        $saida = $documento->comTravaDeAssinatura(function () use ($documento, $svc, $request, $assinatura) {
+            $origemAtual = Storage::disk('documentos')->path((string) ($documento->caminhoOficial() ?? $documento->versaoAtual?->arquivo_path));
+            try {
+                $resultado = $svc->finalizar(
+                    (string) $request->input('sessao_id'),
+                    (string) $request->input('assinatura_b64'),
+                    (array)  $request->input('cadeia_pem', []),
+                    $origemAtual,
+                );
+            } catch (Throwable $e) {
+                return response()->json(['erro' => 'Falha ao finalizar assinatura: ' . $e->getMessage()], 500);
+            }
 
-        $meta = $resultado['meta'];
-        $certPem = $meta['subject_dn'] ? $this->buscarCertNoResultado($resultado) : null;
-        // Nota: registramos o cert via CertificadoService a partir do meta retornado.
-        // Como nao temos o PEM diretamente aqui, lemos o thumbprint para vincular.
-        $thumbprint = $meta['thumbprint_sha256'] ?? '';
+            $meta = $resultado['meta'];
+            $certPem = $meta['subject_dn'] ? $this->buscarCertNoResultado($resultado) : null;
+            // Nota: registramos o cert via CertificadoService a partir do meta retornado.
+            // Como nao temos o PEM diretamente aqui, lemos o thumbprint para vincular.
+            $thumbprint = $meta['thumbprint_sha256'] ?? '';
 
-        $certificado = \App\Models\Certificado::where('user_id', Auth::id())
-            ->where('thumbprint_sha256', $thumbprint)
-            ->first();
+            $certificado = \App\Models\Certificado::where('user_id', Auth::id())
+                ->where('thumbprint_sha256', $thumbprint)
+                ->first();
 
-        // Se ainda nao registrado, persiste a partir do PEM da cadeia (devolvido pelo servico)
-        if (! $certificado) {
-            // Recupera o PEM via cache da sessao OU via fingerprint (recarregar do estado pre-finalizar nao da, ja foi limpado).
-            // Como protecao: apenas registra dados minimos.
-            $certificado = \App\Models\Certificado::create([
-                'user_id'           => Auth::id(),
-                'tipo'              => 'A3',
-                'subject_cn'        => $meta['subject_cn'] ?? '',
-                'subject_cpf'       => $meta['subject_cpf'] ?? null,
-                'subject_dn'        => $meta['subject_dn'] ?? '',
-                'issuer_cn'         => $meta['issuer_cn'] ?? '',
-                'issuer_dn'         => $meta['issuer_dn'] ?? '',
-                'serial_number'     => $meta['serial_number'] ?? '',
-                'thumbprint_sha1'   => $meta['thumbprint_sha1'] ?? '',
-                'thumbprint_sha256' => $thumbprint,
-                'valido_de'         => $meta['valido_de'] ?? now(),
-                'valido_ate'        => $meta['valido_ate'] ?? now(),
-                'certificado_pem'   => '',
-                'icp_brasil'        => true,
-                'verificado_em'     => now(),
+            // Se ainda nao registrado, persiste a partir do PEM da cadeia (devolvido pelo servico)
+            if (! $certificado) {
+                // Recupera o PEM via cache da sessao OU via fingerprint (recarregar do estado pre-finalizar nao da, ja foi limpado).
+                // Como protecao: apenas registra dados minimos.
+                $certificado = \App\Models\Certificado::create([
+                    'user_id'           => Auth::id(),
+                    'tipo'              => 'A3',
+                    'subject_cn'        => $meta['subject_cn'] ?? '',
+                    'subject_cpf'       => $meta['subject_cpf'] ?? null,
+                    'subject_dn'        => $meta['subject_dn'] ?? '',
+                    'issuer_cn'         => $meta['issuer_cn'] ?? '',
+                    'issuer_dn'         => $meta['issuer_dn'] ?? '',
+                    'serial_number'     => $meta['serial_number'] ?? '',
+                    'thumbprint_sha1'   => $meta['thumbprint_sha1'] ?? '',
+                    'thumbprint_sha256' => $thumbprint,
+                    'valido_de'         => $meta['valido_de'] ?? now(),
+                    'valido_ate'        => $meta['valido_ate'] ?? now(),
+                    'certificado_pem'   => '',
+                    'icp_brasil'        => true,
+                    'verificado_em'     => now(),
+                ]);
+            }
+
+            $assinatura->update([
+                'status'                  => 'assinado',
+                'tipo_assinatura'         => 'qualificada',
+                'certificado_id'          => $certificado->id,
+                'cpf_signatario'          => $meta['subject_cpf'] ?? null,
+                'ip'                      => $request->ip(),
+                'geolocalizacao'          => $request->input('geolocalizacao'),
+                'user_agent'              => $request->userAgent(),
+                'hash_documento'          => $resultado['pdf_sha256'],
+                // assinatura_pkcs7 nao e mais persistida (vive no PDF embutido
+                // em arquivo_assinado_path); evita erro UTF-8 do PostgreSQL com
+                // bytes binarios em coluna text.
+                'cadeia_certificados'     => array_map(
+                    fn ($pem) => ['cn' => '', 'thumbprint' => strtolower((string) openssl_x509_fingerprint($pem, 'sha256'))],
+                    (array) $request->input('cadeia_pem', []),
+                ),
+                'politica_assinatura'     => \App\Services\CmsAdRb::rotuloPolitica(),
+                'algoritmo_hash'          => 'SHA-256',
+                'arquivo_assinado_path'   => $resultado['caminho'],
+                'hash_assinatura_sha256'  => hash('sha256', $resultado['pkcs7']),
+                'timestamp_assinatura'    => now(),
+                'assinado_em'             => now(),
             ]);
-        }
+            $this->gerarCopiaImpressao($assinatura);
 
-        $assinatura->update([
-            'status'                  => 'assinado',
-            'tipo_assinatura'         => 'qualificada',
-            'certificado_id'          => $certificado->id,
-            'cpf_signatario'          => $meta['subject_cpf'] ?? null,
-            'ip'                      => $request->ip(),
-            'geolocalizacao'          => $request->input('geolocalizacao'),
-            'user_agent'              => $request->userAgent(),
-            'hash_documento'          => $resultado['pdf_sha256'],
-            // assinatura_pkcs7 nao e mais persistida (vive no PDF embutido
-            // em arquivo_assinado_path); evita erro UTF-8 do PostgreSQL com
-            // bytes binarios em coluna text.
-            'cadeia_certificados'     => array_map(
-                fn ($pem) => ['cn' => '', 'thumbprint' => strtolower((string) openssl_x509_fingerprint($pem, 'sha256'))],
-                (array) $request->input('cadeia_pem', []),
-            ),
-            'politica_assinatura'     => \App\Services\CmsAdRb::rotuloPolitica(),
-            'algoritmo_hash'          => 'SHA-256',
-            'arquivo_assinado_path'   => $resultado['caminho'],
-            'hash_assinatura_sha256'  => hash('sha256', $resultado['pkcs7']),
-            'timestamp_assinatura'    => now(),
-            'assinado_em'             => now(),
-        ]);
+            return ['resultado' => $resultado, 'thumbprint' => $thumbprint];
+        });
+        if (! is_array($saida)) {
+            return $saida; // resposta de erro de dentro da trava
+        }
+        ['resultado' => $resultado, 'thumbprint' => $thumbprint] = $saida;
 
         // Atualiza solicitacao
         $solicitacao = $assinatura->solicitacao;
@@ -1174,6 +1166,21 @@ class AssinaturaController extends Controller
             'caminho' => $resultado['caminho'],
             'mensagem'=> 'Documento assinado digitalmente com ICP-Brasil A3.',
         ]);
+    }
+
+    /**
+     * Cópia para impressão (carimbos, tarja, termo) refeita com esta assinatura.
+     * Falhar aqui não desfaz a assinatura: o que vale é o original assinado.
+     */
+    private function gerarCopiaImpressao(Assinatura $assinatura): void
+    {
+        try {
+            $caminho = app(\App\Services\CarimboAssinaturaService::class)
+                ->copiaImpressao($assinatura->documento, $assinatura->refresh());
+            $assinatura->update(['arquivo_impressao_path' => $caminho]);
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     private function buscarCertNoResultado(array $resultado): ?string

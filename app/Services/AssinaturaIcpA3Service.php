@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Support\FpdiAssinatura;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -49,9 +48,13 @@ class AssinaturaIcpA3Service
             throw new RuntimeException('Arquivo PDF não encontrado: ' . $pdfOrigem);
         }
 
-        // 1) Gera PDF com placeholder usando key/cert dummy descartaveis. So
-        //    queremos a estrutura: /AcroForm, /Sig, /ByteRange, /Contents zeros.
-        [$pdfPlaceholder, $byteRange] = $this->gerarPdfComPlaceholder($pdfOrigem, $info);
+        // 1) Espaço da assinatura acrescentado ao fim do PDF oficial (incremental:
+        //    as assinaturas que ele já tem continuam válidas).
+        [$pdfPlaceholder, $byteRange] = PadesIncremental::preparar($pdfOrigem, [
+            'nome'    => $info['contato'] ?? '',
+            'razao'   => $info['razao'] ?? 'Assinatura Eletrônica Qualificada (Lei 14.063/2020)',
+            'local'   => $info['local'] ?? 'Brasil',
+        ]);
 
         // 2) Digest SHA-256 dos bytes cobertos pelo /ByteRange.
         $contentHash = PadesPlaceholder::digest($pdfPlaceholder, $byteRange);
@@ -71,6 +74,7 @@ class AssinaturaIcpA3Service
             'cert_pem'         => $certPem,
             'signed_attrs_der' => base64_encode($signedAttrsDer),
             'content_hash'     => bin2hex($contentHash),
+            'origem_sha256'    => hash_file('sha256', $pdfOrigem),
             'info'             => $info,
         ], now()->addMinutes(10));
 
@@ -106,10 +110,19 @@ class AssinaturaIcpA3Service
         string $sessaoId,
         string $assinaturaB64,
         array $cadeiaCertsPem = [],
+        ?string $origemAtual = null,
     ): array {
         $estado = Cache::get('icp_a3_sessao:' . $sessaoId);
         if (! $estado) {
             throw new RuntimeException('Sessão de assinatura expirada ou inválida.');
+        }
+
+        // Entre o preparo e agora outra pessoa assinou: o arquivo preparado não
+        // tem a assinatura dela, e gravá-lo a apagaria
+        if ($origemAtual !== null && ! empty($estado['origem_sha256'])
+            && (! is_file($origemAtual) || hash_file('sha256', $origemAtual) !== $estado['origem_sha256'])) {
+            Cache::forget('icp_a3_sessao:' . $sessaoId);
+            throw new RuntimeException('O documento recebeu outra assinatura enquanto você assinava. Assine novamente.');
         }
 
         $pdfPlaceholder = base64_decode($estado['pdf_placeholder']);
@@ -158,62 +171,5 @@ class AssinaturaIcpA3Service
                 'content_hash'  => $contentHashHex,
             ],
         ];
-    }
-
-    // ------------------------------------------------------------------------
-    // Helpers privados
-    // ------------------------------------------------------------------------
-
-
-    /**
-     * PDF com o espaço da assinatura reservado. O TCPDF assina com um par
-     * descartável só para montar /Sig, /ByteRange e /Contents — o conteúdo
-     * do /Contents é substituído na finalizar().
-     *
-     * @return array{0: string, 1: int[]}  [pdfBytes, byteRange]
-     */
-    private function gerarPdfComPlaceholder(string $pdfOrigem, array $info): array
-    {
-        [$certDescartavel, $chaveDescartavel] = PadesPlaceholder::materialDescartavel();
-
-        $pdf = new FpdiAssinatura('P', 'mm', 'A4', true, 'UTF-8', false);
-        $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
-        $pdf->SetMargins(0, 0, 0);
-        $pdf->SetAutoPageBreak(false, 0);
-
-        $totalPaginas = $pdf->setSourceFile($pdfOrigem);
-        for ($i = 1; $i <= $totalPaginas; $i++) {
-            $tplId = $pdf->importPage($i);
-            $size  = $pdf->getTemplateSize($tplId);
-            $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
-            $pdf->useTemplate($tplId);
-        }
-
-        $pdf->setSignature(
-            signing_cert: $certDescartavel,
-            private_key:  $chaveDescartavel,
-            private_key_password: '',
-            extracerts:   '',
-            cert_type:    2,
-            info: [
-                'Name'        => $info['contato'] ?? '',
-                'Location'    => $info['local']   ?? 'Brasil',
-                'Reason'      => $info['razao']   ?? 'Assinatura Eletrônica Qualificada (Lei 14.063/2020)',
-                'ContactInfo' => $info['contato'] ?? '',
-            ],
-            approval: ''
-        );
-        $pdf->setSignatureAppearance(170, 280, 35, 12);
-
-        $tmp = tempnam(sys_get_temp_dir(), 'a3_ph_');
-        if ($tmp === false) {
-            throw new RuntimeException('Não foi possível alocar arquivo temporário.');
-        }
-        $pdf->Output($tmp, 'F');
-        $bytes = (string) file_get_contents($tmp);
-        @unlink($tmp);
-
-        return [$bytes, PadesPlaceholder::byteRange($bytes)];
     }
 }

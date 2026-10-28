@@ -22,6 +22,30 @@ configuração em `icp_brasil.politica_pades`).
 > arquivo publicado na LPA. Com o da LPA o validar.iti.gov.br reprova:
 > "O resumo criptográfico da política está incorreto".
 
+**Vários signatários e os dois arquivos.** Cada assinatura ICP (A1, A3) e o
+selo da prefeitura sobre assinaturas por link são **acrescentados ao fim do
+PDF** (`PadesIncremental`, atualização incremental — ISO 32000-1 §7.5.6): os
+bytes já assinados não mudam e todas as assinaturas continuam válidas no
+validar.iti.gov.br e no Adobe. O documento tem então dois arquivos:
+
+| Arquivo | Coluna | O que é |
+|---|---|---|
+| Original assinado | `arquivo_assinado_path` | a versão com todas as assinaturas; o que vale juridicamente |
+| Cópia para impressão | `arquivo_impressao_path` | a versão remontada com carimbos, tarja e termo; selada com o e-CNPJ da prefeitura, se houver |
+
+Carimbo visual nunca vai no original: desenhar na página depois de assinada é
+alteração não permitida e invalidaria as assinaturas anteriores. A tela mostra
+a cópia para impressão; o download padrão é o original assinado.
+`Documento::caminhoOficial()` / `caminhoImpressao()` dão o arquivo mais recente
+de cada tipo, e `comTravaDeAssinatura()` impede duas assinaturas simultâneas
+partindo do mesmo arquivo (no A3, a finalização recusa se o documento mudou
+desde o preparo).
+
+> Configuração Adobe Reader: a ICP-Brasil não está na AATL. Sem importar a AC
+> Raiz (Preferências → Assinaturas → Identidades e certificados confiáveis →
+> Certificados confiáveis → Importar → selecionar o certificado → Confiar…) o
+> Adobe mostra "inválida" por não montar o caminho — não é defeito da assinatura.
+
 ---
 
 ## 2. Visão geral da arquitetura
@@ -52,7 +76,7 @@ configuração em `icp_brasil.politica_pades`).
 ┌─────────────────────────────────────────────────────────────────┐
 │  Services                                                        │
 │  ├── CertificadoService       (parse PFX, valida cadeia, CPF)   │
-│  ├── AssinaturaIcpService     (A1: CmsAdRb + TCPDF)             │
+│  ├── AssinaturaIcpService     (A1: PadesIncremental + CmsAdRb)  │
 │  ├── AssinaturaIcpA3Service   (A3: ASN.1 manual + external sig) │
 │  ├── AssinaturaValidadorService (re-abre PDF e valida)          │
 │  └── AsnDer                   (helpers ASN.1 DER)               │
@@ -67,7 +91,7 @@ configuração em `icp_brasil.politica_pades`).
 │  └── storage/app/private/                                       │
 │      ├── icp-brasil/raiz/*.pem        (truststore ITI)          │
 │      ├── icp-brasil/intermediarias/*  (ACs intermediárias)      │
-│      ├── icp-brasil-internal/         (cert dummy do A3)        │
+│      ├── assinaturas/impressao/      (cópias para impressão)   │
 │      └── assinaturas/icp/             (PDFs assinados)          │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -100,7 +124,7 @@ Browser ──[PFX + senha]──→ Server
                            ├── valida cadeia ICP-Brasil contra truststore
                            ├── confere CPF do cert × CPF do usuário
                            ├── extrai metadados via openssl_x509_parse
-                           ├── TCPDF + FPDI montam PDF com /Sig e /Contents reservado
+                           ├── PadesIncremental acrescenta /Sig e /Contents ao fim do PDF oficial
                            ├── CmsAdRb monta os atributos AD-RB e assina com a chave do PFX
                            └── PadesPlaceholder grava o CMS no /Contents
                            
@@ -125,7 +149,7 @@ deve ser assinado, o token assina, o servidor monta o envelope.
 [Server]  AssinaturaIcpA3Service::preparar()
           ├── valida cert ICP-Brasil
           ├── confere CPF cert × user
-          ├── gera PDF com placeholder via TCPDF (cert dummy descartável)
+          ├── PadesIncremental acrescenta o espaço da assinatura ao PDF oficial
           ├── extrai /ByteRange
           ├── content_hash = SHA-256(byteRange)
           ├── monta SignedAttributes ASN.1 (CmsAdRb — mesmos do A1):
@@ -183,7 +207,7 @@ Windows/Mac/Linux cert store.
 | Arquivo | Responsabilidade |
 |---|---|
 | `CertificadoService` | Abre PFX, valida cadeia ICP-Brasil contra truststore, extrai CPF (OID 2.16.76.1.3.1) e CNPJ (OID 2.16.76.1.3.3), persiste cert público |
-| `AssinaturaIcpService` | Assinatura A1: TCPDF/FPDI (estrutura) + `CmsAdRb` |
+| `AssinaturaIcpService` | Assinatura A1: `PadesIncremental` + `CmsAdRb` |
 | `AssinaturaIcpA3Service` | Assinatura A3: external signing two-step com ASN.1 manual |
 | `AssinaturaValidadorService` | Re-abre PDF, extrai `/ByteRange`/`/Contents`, valida via `openssl smime -verify` (CLI), valida cadeia, decodifica metadados PAdES |
 | `AsnDer` | Helpers ASN.1 DER puros: `seq()`, `set()`, `oid()`, `octet()`, `intFromBytes()`, `utcTime()`, `ctxExplicit()`, `reTag()` |

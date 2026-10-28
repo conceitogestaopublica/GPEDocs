@@ -152,9 +152,22 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
                         </div>
 
                         <Button variant="secondary" icon="fas fa-share-alt">Compartilhar</Button>
-                        <a href={`/documentos/${doc.id}/download`} className="ds-btn ds-btn-primary">
-                            <i className="fas fa-download mr-1" /> Download
-                        </a>
+                        {versao_assinada ? (
+                            <>
+                                <a href={`/documentos/${doc.id}/download?copia=impressao`} className="ds-btn ds-btn-outline"
+                                    title="Com carimbos, tarja e termo de assinatura — para imprimir e anexar">
+                                    <i className="fas fa-print mr-1" /> Cópia para impressão
+                                </a>
+                                <a href={`/documentos/${doc.id}/download`} className="ds-btn ds-btn-primary"
+                                    title="O arquivo com as assinaturas digitais — é o que se confere no validar.iti.gov.br">
+                                    <i className="fas fa-file-signature mr-1" /> Original assinado
+                                </a>
+                            </>
+                        ) : (
+                            <a href={`/documentos/${doc.id}/download`} className="ds-btn ds-btn-primary">
+                                <i className="fas fa-download mr-1" /> Download
+                            </a>
+                        )}
                         <Button variant="danger" icon="fas fa-trash" onClick={async () => {
                             if (await confirmar({ titulo: 'Excluir este documento?', descricao: 'O documento e suas versões saem do repositório.', tom: 'perigo', rotuloConfirmar: 'Excluir' })) {
                                 router.delete(`/documentos/${doc.id}`);
@@ -198,41 +211,49 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
 function TabVisualizar({ documento, versaoAssinada }) {
     const isPdf = documento.mime_type?.includes('pdf');
     const isImage = documento.mime_type?.includes('image');
-    const [verOriginal, setVerOriginal] = useState(false);
+    // impressao (padrão: com carimbos) | assinado (original com as assinaturas) | antes (sem assinaturas)
+    const [modo, setModo] = useState('impressao');
+    const consulta = { impressao: '', assinado: '?copia=original', antes: '?original=1' }[modo];
+    const descricao = {
+        impressao: 'Cópia para impressão — com os carimbos, a tarja e o termo de assinatura',
+        assinado: 'Original assinado — o arquivo com as assinaturas digitais (confira em validar.iti.gov.br)',
+        antes: 'Versão anterior às assinaturas',
+    }[modo];
 
     return (
         <div className="space-y-3">
             {versaoAssinada && (
-                <div className="flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
                     <div className="flex items-start gap-2 text-xs text-emerald-800">
                         <i className="fas fa-shield-alt text-emerald-600 mt-0.5" />
                         <div>
-                            <p className="font-semibold">
-                                {verOriginal ? 'Visualizando versão ORIGINAL (sem assinatura)' : 'Visualizando versão ASSINADA digitalmente (ICP-Brasil PAdES-BES)'}
-                            </p>
+                            <p className="font-semibold">{descricao}</p>
                             <p className="text-emerald-700">
-                                Assinada em {versaoAssinada.assinado_em}
+                                Última assinatura em {versaoAssinada.assinado_em}
                                 {versaoAssinada.tipo && <> · {versaoAssinada.tipo}</>}
                             </p>
                         </div>
                     </div>
-                    <button onClick={() => setVerOriginal(! verOriginal)}
-                        className="text-[11px] px-3 py-1.5 rounded-lg bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 whitespace-nowrap">
-                        <i className={`fas fa-${verOriginal ? 'shield-alt' : 'history'} mr-1`} />
-                        {verOriginal ? 'Ver versão assinada' : 'Ver versão original'}
-                    </button>
+                    <div className="flex rounded-lg border border-emerald-300 overflow-hidden text-[11px]">
+                        {[['impressao', 'fa-print', 'Para impressão'], ['assinado', 'fa-file-signature', 'Original assinado'], ['antes', 'fa-history', 'Antes das assinaturas']].map(([m, icone, rotulo]) => (
+                            <button key={m} onClick={() => setModo(m)}
+                                className={`px-3 py-1.5 whitespace-nowrap ${modo === m ? 'bg-emerald-600 text-white' : 'bg-white text-emerald-700 hover:bg-emerald-50'}`}>
+                                <i className={`fas ${icone} mr-1`} />{rotulo}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
             <div className="flex items-center justify-center min-h-[400px] bg-gray-50 rounded-xl">
             {isPdf ? (
                 <iframe
-                    src={`/documentos/${documento.id}/preview${verOriginal ? '?original=1' : ''}`}
+                    src={`/documentos/${documento.id}/preview${consulta}`}
                     className="w-full h-[600px] rounded-lg"
                     title="Visualizador PDF"
                 />
             ) : isImage ? (
                 <img
-                    src={`/documentos/${documento.id}/preview${verOriginal ? '?original=1' : ''}`}
+                    src={`/documentos/${documento.id}/preview${consulta}`}
                     alt={documento.nome}
                     className="max-w-full max-h-[600px] rounded-lg shadow-lg"
                 />

@@ -490,10 +490,13 @@ class DocumentoController extends Controller
             );
         }
 
-        // Quando ?original=1, ignora assinatura e retorna o PDF pre-assinatura
-        $caminho = $request->boolean('original')
-            ? $versao->arquivo_path
-            : $this->caminhoVersaoOficial($documento, $versao);
+        // ?original=1: PDF de antes das assinaturas; ?copia=impressao: cópia com
+        // carimbos; padrão: o original assinado (o que vale no validar.iti.gov.br)
+        $caminho = match (true) {
+            $request->boolean('original')           => $versao->arquivo_path,
+            $request->input('copia') === 'impressao' => $documento->caminhoImpressao() ?? $this->caminhoVersaoOficial($documento, $versao),
+            default                                  => $this->caminhoVersaoOficial($documento, $versao),
+        };
 
         if (! Storage::disk('documentos')->exists($caminho)) {
             return redirect()->back()->with('error', 'Arquivo não encontrado.');
@@ -520,10 +523,13 @@ class DocumentoController extends Controller
             return redirect()->back()->with('error', 'Arquivo não encontrado.');
         }
 
-        // Quando ?original=1, ignora assinatura e retorna o PDF pre-assinatura
-        $caminho = $request->boolean('original')
-            ? $versao->arquivo_path
-            : $this->caminhoVersaoOficial($documento, $versao);
+        // Na tela, a cópia para impressão (com os carimbos); ?copia=original
+        // mostra o original assinado; ?original=1, o PDF de antes das assinaturas
+        $caminho = match (true) {
+            $request->boolean('original')          => $versao->arquivo_path,
+            $request->input('copia') === 'original' => $this->caminhoVersaoOficial($documento, $versao),
+            default                                 => $documento->caminhoImpressao() ?? $this->caminhoVersaoOficial($documento, $versao),
+        };
 
         if (! Storage::disk('documentos')->exists($caminho)) {
             return redirect()->back()->with('error', 'Arquivo não encontrado.');
@@ -541,18 +547,7 @@ class DocumentoController extends Controller
      */
     private function caminhoVersaoOficial(Documento $documento, $versao): string
     {
-        $assinada = \App\Models\Assinatura::where('documento_id', $documento->id)
-            ->where('status', 'assinado')
-            ->whereNotNull('arquivo_assinado_path')
-            ->orderByDesc('assinado_em')
-            ->first();
-
-        if ($assinada && $assinada->arquivo_assinado_path
-            && Storage::disk('documentos')->exists($assinada->arquivo_assinado_path)) {
-            return $assinada->arquivo_assinado_path;
-        }
-
-        return $versao->arquivo_path;
+        return $documento->caminhoOficial() ?? $versao->arquivo_path;
     }
 
     /**
