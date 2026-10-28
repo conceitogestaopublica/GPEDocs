@@ -45,6 +45,7 @@ class User extends Authenticatable
             'dois_fatores_recuperacao' => 'encrypted:array',
             'dois_fatores_ativado_em'  => 'datetime',
             'data_nascimento'          => 'date',
+            'preferencias'             => 'array',
         ];
     }
 

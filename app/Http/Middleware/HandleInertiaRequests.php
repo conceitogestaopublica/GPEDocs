@@ -31,6 +31,8 @@ class HandleInertiaRequests extends Middleware
                     'name'        => $user->name,
                     'email'       => $user->email,
                     'foto_url'    => $user->foto_url,
+                    // Editor e anexos seguem as preferências (os avisos ficam no servidor)
+                    'preferencias' => array_intersect_key(\App\Support\PreferenciasUsuario::de($user), ['editor' => 1, 'anexos' => 1]),
                     'super_admin' => (bool) $user->super_admin,
                     // Subtítulo do menu do usuário na topbar (como no gpe2).
                     'perfil_nome' => $user->super_admin ? 'Super Admin' : ($user->roles()->orderBy('nome')->value('nome') ?? 'Usuário'),

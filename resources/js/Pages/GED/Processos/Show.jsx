@@ -3,7 +3,7 @@
  *
  * Detalhes completos, timeline de tramitacao, despacho e comentarios.
  */
-import { Head, Link, useForm, router } from '@inertiajs/react';
+import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
@@ -69,6 +69,8 @@ const tabList = [
 export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
+    // Meu perfil › Preferências: abrir anexo no navegador ou baixar
+    const verAnexos = (usePage().props.auth?.user?.preferencias?.anexos || 'visualizar') === 'visualizar';
     const proc = processo || {};
     const tramitacoes = proc.tramitacoes || [];
     const comentarios = proc.comentarios || [];
@@ -551,12 +553,13 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                         </button>
                                                     )}
                                                     <a
-                                                        href={anexo.url || `/processos/anexos/${anexo.id}/download`}
+                                                        href={anexo.url || `/processos/anexos/${anexo.id}/download${verAnexos ? '?inline=1' : ''}`}
                                                         className="text-blue-600 hover:text-blue-800 transition-colors"
                                                         target="_blank"
                                                         rel="noopener noreferrer"
+                                                        title={verAnexos ? 'Abrir' : 'Baixar'}
                                                     >
-                                                        <i className="fas fa-download" />
+                                                        <i className={`fas ${verAnexos ? 'fa-external-link-alt' : 'fa-download'}`} />
                                                     </a>
                                                 </div>
                                             </div>

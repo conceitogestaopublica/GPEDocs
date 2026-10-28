@@ -63,17 +63,6 @@ class NotificacaoController extends Controller
 
     private static function destino(Notificacao $n): ?string
     {
-        if (! $n->referencia_id) {
-            return null;
-        }
-
-        return match ($n->referencia_tipo) {
-            'documento'  => "/documentos/{$n->referencia_id}",
-            'processo'   => "/processos/{$n->referencia_id}",
-            'memorando'  => "/memorandos/{$n->referencia_id}",
-            'oficio'     => "/oficios/{$n->referencia_id}",
-            'circular'   => "/circulares/{$n->referencia_id}",
-            default      => null,
-        };
+        return $n->destino();
     }
 }
