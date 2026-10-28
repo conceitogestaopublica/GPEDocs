@@ -23,6 +23,9 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    /** A foto acompanha o usuário em toda tela que o mostra (tramitação, histórico…). */
+    protected $appends = ['foto_url'];
+
     /**
      * Get the attributes that should be cast.
      *
@@ -48,7 +51,10 @@ class User extends Authenticatable
     /** Endereço da foto do servidor (servida por rota autenticada) — null sem foto. */
     public function getFotoUrlAttribute(): ?string
     {
-        return $this->foto_path ? url("/usuarios/{$this->id}/foto?v=" . substr(md5((string) $this->foto_path), 0, 8)) : null;
+        // Lido cru: em consultas com colunas escolhidas (id, name) a coluna não vem
+        $caminho = $this->attributes['foto_path'] ?? null;
+
+        return $caminho ? url("/usuarios/{$this->id}/foto?v=" . substr(md5((string) $caminho), 0, 8)) : null;
     }
 
     /** Verificação em duas etapas (aplicativo autenticador) ativa. */

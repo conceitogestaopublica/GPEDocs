@@ -11,6 +11,7 @@ import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
 import Tabs from '../../../Components/Tabs';
+import Avatar from '../../../Components/Avatar';
 import AssinarModal from '../../../Components/AssinarModal';
 import { useConfirm, useAvisar } from '../../../Components/ConfirmProvider';
 
@@ -614,9 +615,11 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                                     {tram.status}
                                                                 </span>
                                                             </div>
-                                                            <p className="text-xs text-gray-500">
+                                                            <p className="text-xs text-gray-500 flex items-center flex-wrap gap-1.5">
+                                                                <Avatar usuario={tram.remetente} nome={tram.remetente_nome} tamanho="sm" />
                                                                 {tram.remetente?.name || tram.remetente_nome || '-'}
-                                                                <i className="fas fa-arrow-right mx-1.5 text-[8px]" />
+                                                                <i className="fas fa-arrow-right mx-1 text-[8px]" />
+                                                                {(tram.destinatario || tram.destinatario_nome) && <Avatar usuario={tram.destinatario} nome={tram.destinatario_nome} tamanho="sm" />}
                                                                 {tram.destinatario?.name || tram.destinatario_nome || '-'}
                                                             </p>
                                                         </div>
@@ -1017,7 +1020,11 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                     {[...proc.historico].sort((a, b) => b.id - a.id).map(h => (
                                         <tr key={h.id} className="hover:bg-gray-50">
                                             <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(h.created_at)}</td>
-                                            <td className="px-4 py-3 text-gray-700">{h.usuario?.name || '-'}</td>
+                                            <td className="px-4 py-3 text-gray-700">
+                                                <span className="inline-flex items-center gap-2">
+                                                    {h.usuario && <Avatar usuario={h.usuario} tamanho="xs" />}{h.usuario?.name || '-'}
+                                                </span>
+                                            </td>
                                             <td className="px-4 py-3">
                                                 <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{ACOES_HISTORICO[h.acao] || h.acao}</span>
                                             </td>
@@ -1077,9 +1084,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                         <div key={com.id || idx} className={`p-4 rounded-xl ${com.interno ? 'bg-yellow-50 border border-yellow-100' : 'bg-gray-50'}`}>
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center">
-                                                        <i className="fas fa-user text-blue-600 text-xs" />
-                                                    </div>
+                                                    <Avatar usuario={com.usuario} nome={com.usuario_nome || 'Usuário'} tamanho="sm" />
                                                     <span className="text-sm font-medium text-gray-700">
                                                         {com.usuario?.name || com.usuario_nome || 'Usuário'}
                                                     </span>

@@ -223,9 +223,9 @@ class MemorandoController extends Controller
             'destinatarios.unidade',
             'anexos.enviadoPor',
             'respostas.usuario',
-            'tramitacoes.origemUsuario:id,name',
+            'tramitacoes.origemUsuario:id,name,foto_path',
             'tramitacoes.origemUnidade:id,nome,codigo',
-            'tramitacoes.destinoUsuario:id,name',
+            'tramitacoes.destinoUsuario:id,name,foto_path',
             'tramitacoes.destinoUnidade:id,nome,codigo',
         ])->findOrFail($id);
 

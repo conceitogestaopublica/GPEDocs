@@ -11,6 +11,7 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import Avatar from '../../../Components/Avatar';
 
 export default function MemorandosShow({ memorando, pode_receber, pode_tramitar, meu_status, unidades = [], usuarios = [] }) {
     const confirmar = useConfirm();
@@ -298,10 +299,12 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
                                                 t.em_uso ? 'bg-blue-500' : (t.finalizado ? 'bg-green-500' : 'bg-gray-300')
                                             }`} />
                                             <div className="flex items-center gap-2 flex-wrap">
+                                                <Avatar usuario={t.origem_usuario} nome={origem} tamanho="sm" />
                                                 <span className="text-xs text-gray-700"><strong>{origem}</strong>
                                                     {origemUnid && <span className="text-gray-400"> · {origemUnid}</span>}
                                                 </span>
                                                 <i className="fas fa-arrow-right text-gray-300 text-[10px]" />
+                                                {t.destino_usuario && <Avatar usuario={t.destino_usuario} tamanho="sm" />}
                                                 <span className="text-xs text-gray-700"><strong>{dest}</strong></span>
                                                 {t.em_uso && ! t.finalizado && (
                                                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-bold uppercase">Aguardando</span>
