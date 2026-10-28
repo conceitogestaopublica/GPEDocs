@@ -36,5 +36,6 @@
             <p style="font-size:12px; color:#6b7280;">Se você não esperava este documento, ignore esta mensagem.</p>
         </div>
     </div>
+    @include('emails.partials.rodape-descadastro')
 </body>
 </html>

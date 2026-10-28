@@ -14,6 +14,7 @@ use Illuminate\Queue\SerializesModels;
 class NotificacaoSolicitacaoCidadao extends Mailable
 {
     use Queueable, SerializesModels;
+    use Concerns\ComDescadastro;
 
     public function __construct(
         public Solicitacao $solicitacao,
@@ -27,6 +28,8 @@ class NotificacaoSolicitacaoCidadao extends Mailable
 
     public function build(): self
     {
+        $this->comDescadastro();   // link "deixar de receber" + List-Unsubscribe
+
         $assunto = match ($this->evento) {
             'criada'           => "[{$this->ug->nome}] Solicitacao {$this->solicitacao->codigo} registrada",
             'status_alterado'  => "[{$this->ug->nome}] Atualizacao na solicitacao {$this->solicitacao->codigo}",

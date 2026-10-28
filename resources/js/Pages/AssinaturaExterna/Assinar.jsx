@@ -6,6 +6,7 @@
  */
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Captcha from '../../Components/Captcha';
 import * as pdfjs from 'pdfjs-dist';
 // ?worker (e não ?url): o Vite empacota o worker como .js — o nginx serve .mjs como
 // application/octet-stream e o navegador recusa carregar o worker.
@@ -95,7 +96,7 @@ export default function Assinar(props) {
                     </Mensagem>
                 )}
                 {estado === 'assinado' && <Assinado {...props} />}
-                {estado === 'acesso' && <Acesso convite={convite} base={base} />}
+                {estado === 'acesso' && <Acesso convite={convite} base={base} exigeCaptcha={props.exige_captcha} />}
                 {estado === 'confirmar_email' && <ConfirmarEmail base={base} email={props.email} />}
                 {estado === 'pacote' && <Pacote {...props} base={base} />}
                 {estado === 'assinar' && <TelaAssinatura {...props} />}
@@ -123,7 +124,7 @@ function CartaoConvite({ convite, pacote }) {
     );
 }
 
-function Acesso({ convite, base }) {
+function Acesso({ convite, base, exigeCaptcha = false }) {
     const [aba, setAba] = useState('entrar');
 
     return (
@@ -143,14 +144,14 @@ function Acesso({ convite, base }) {
                 ))}
             </div>
             <div className="p-5">
-                {aba === 'entrar' ? <FormEntrar base={base} /> : <FormCadastro base={base} convite={convite} />}
+                {aba === 'entrar' ? <FormEntrar base={base} exigeCaptcha={exigeCaptcha} /> : <FormCadastro base={base} convite={convite} />}
             </div>
         </div>
     );
 }
 
-function FormEntrar({ base }) {
-    const { data, setData, post, processing, errors } = useForm({ login: '', senha: '' });
+function FormEntrar({ base, exigeCaptcha = false }) {
+    const { data, setData, post, processing, errors } = useForm({ login: '', senha: '', captcha: '' });
 
     return (
         <form onSubmit={(e) => { e.preventDefault(); post(`${base}/entrar`); }} className="space-y-3">
@@ -160,6 +161,9 @@ function FormEntrar({ base }) {
             <Campo label="Senha" erro={errors.senha}>
                 <input type="password" value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input" required autoComplete="current-password" />
             </Campo>
+            {exigeCaptcha && (
+                <Captcha contexto="assinatura-entrar" value={data.captcha} onChange={(v) => setData('captcha', v)} error={errors.captcha} />
+            )}
             <button type="submit" disabled={processing} className="ds-btn ds-btn-primary w-full justify-center">
                 {processing ? <i className="fas fa-spinner fa-spin" /> : 'Entrar'}
             </button>
@@ -170,7 +174,7 @@ function FormEntrar({ base }) {
 function FormCadastro({ base, convite }) {
     const { data, setData, post, processing, errors } = useForm({
         cpf: '', nome: convite?.nome || '', email: '', email_confirmation: '',
-        telefone: '', senha: '', senha_confirmation: '', aceite: false,
+        telefone: '', senha: '', senha_confirmation: '', aceite: false, captcha: '',
     });
 
     return (
@@ -206,6 +210,9 @@ function FormCadastro({ base, convite }) {
                     </span>
                 </label>
                 {errors.aceite && <p className="text-xs text-red-600 mt-1">{errors.aceite}</p>}
+            </div>
+            <div className="sm:col-span-2">
+                <Captcha contexto="assinatura-cadastro" value={data.captcha} onChange={(v) => setData('captcha', v)} error={errors.captcha} />
             </div>
             <div className="sm:col-span-2">
                 <button type="submit" disabled={processing} className="ds-btn ds-btn-primary w-full justify-center">

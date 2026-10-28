@@ -28,6 +28,7 @@ class SenhaController extends Controller
     public function enviar(Request $request)
     {
         $request->validate(['email' => ['required', 'email']]);
+        \App\Support\Captcha::validar($request, 'senha');
 
         // Resposta igual exista ou não a conta: não revela quais e-mails estão cadastrados.
         Password::sendResetLink($request->only('email'));

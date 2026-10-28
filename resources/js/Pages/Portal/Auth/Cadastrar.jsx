@@ -3,6 +3,7 @@
  */
 import { Head, Link, useForm } from '@inertiajs/react';
 import PortalLayout from '../../../Layouts/PortalLayout';
+import Captcha from '../../../Components/Captcha';
 
 export default function PortalCadastrar({ ug }) {
     const { data, setData, post, processing, errors } = useForm({
@@ -12,6 +13,7 @@ export default function PortalCadastrar({ ug }) {
         telefone: '',
         password: '',
         password_confirmation: '',
+        captcha: '',
     });
 
     const submit = (e) => {
@@ -76,6 +78,8 @@ export default function PortalCadastrar({ ug }) {
                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
                         </div>
                     </div>
+
+                    <Captcha contexto="cidadao-cadastro" value={data.captcha} onChange={(v) => setData('captcha', v)} error={errors.captcha} />
 
                     <button type="submit" disabled={processing}
                         className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors mt-2">

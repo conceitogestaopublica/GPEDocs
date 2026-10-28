@@ -8,15 +8,17 @@
  * o login no localStorage para auto-preencher no próximo acesso.
  */
 import { Head, Link, useForm } from '@inertiajs/react';
+import Captcha from '../../Components/Captcha';
 import { useState, useEffect } from 'react';
 
 const STORAGE_KEY = 'gpe_remember_email';
 
-export default function Login({ flash = {} }) {
+export default function Login({ flash = {}, exige_captcha = false }) {
     const { data, setData, post, processing, errors } = useForm({
         login: '',
         password: '',
         remember: false,
+        captcha: '',
     });
     const [showPass, setShowPass] = useState(false);
 
@@ -131,6 +133,12 @@ export default function Login({ flash = {} }) {
                                 </div>
                                 {errors.password && <p className="mt-1.5 text-sm text-red-600">{errors.password}</p>}
                             </div>
+
+                            {/* Depois de algumas senhas erradas: código da imagem */}
+                            {exige_captcha && (
+                                <Captcha contexto="login" value={data.captcha}
+                                    onChange={(v) => setData('captcha', v)} error={errors.captcha} />
+                            )}
 
                             {/* Lembrar + esqueci */}
                             <div className="flex items-center justify-between">

@@ -70,5 +70,6 @@
             </p>
         </div>
     </div>
+    @include('emails.partials.rodape-descadastro')
 </body>
 </html>

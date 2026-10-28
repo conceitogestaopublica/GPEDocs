@@ -55,6 +55,10 @@ class SolicitacaoController extends Controller
         ];
 
         $anonima = $servico->permite_anonimo && (bool) $request->input('anonima', false);
+        // Manifestação anônima sem login é a única entrada sem conta: pede o código da imagem.
+        if ($anonima && ! $cidadao) {
+            \App\Support\Captcha::validar($request, 'solicitacao');
+        }
         if (! $anonima) {
             // Identificada: precisa estar logada
             if (! $cidadao) {

@@ -209,7 +209,7 @@ class PortalSolicitacoesController extends Controller
         });
 
         $email = $solicitacao->email_contato ?? $solicitacao->cidadao?->email;
-        if ($email) {
+        if ($email && ! \App\Support\DescadastroEmail::descadastrado($email)) {   // pediu para não receber avisos
             Mail::to($email)
                 ->send(new NotificacaoSolicitacaoCidadao(
                     $solicitacao->fresh(),
@@ -247,7 +247,7 @@ class PortalSolicitacoesController extends Controller
         ]);
 
         $email = $solicitacao->email_contato ?? $solicitacao->cidadao?->email;
-        if ($email) {
+        if ($email && ! \App\Support\DescadastroEmail::descadastrado($email)) {   // pediu para não receber avisos
             Mail::to($email)
                 ->send(new NotificacaoSolicitacaoCidadao(
                     $solicitacao,

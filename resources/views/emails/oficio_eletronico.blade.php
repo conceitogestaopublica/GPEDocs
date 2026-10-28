@@ -36,5 +36,6 @@
         </div>
     </div>
     <img src="{{ $pixel }}" width="1" height="1" alt="" style="display:block; width:1px; height:1px; border:0;">
+    @include('emails.partials.rodape-descadastro')
 </body>
 </html>

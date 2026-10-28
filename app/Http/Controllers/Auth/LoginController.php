@@ -13,9 +13,11 @@ use Inertia\Response;
 
 class LoginController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        return Inertia::render('Auth/Login');
+        return Inertia::render('Auth/Login', [
+            'exige_captcha' => \App\Support\Captcha::exigidoNaEntrada($request, 'login'),
+        ]);
     }
 
     public function store(Request $request)
@@ -24,6 +26,11 @@ class LoginController extends Controller
             'login'    => ['required', 'string', 'max:255'],
             'password' => ['required', 'string'],
         ]);
+
+        // Depois de algumas senhas erradas deste IP, a entrada passa a pedir o código da imagem.
+        if (\App\Support\Captcha::exigidoNaEntrada($request, 'login')) {
+            \App\Support\Captcha::validar($request, 'login');
+        }
 
         // Aceita e-mail OU CPF (com ou sem pontuação) no mesmo campo.
         $email = $this->emailDoLogin(trim($dados['login']));
@@ -39,6 +46,8 @@ class LoginController extends Controller
         }
 
         if (! Auth::attempt(['email' => $email, 'password' => $dados['password']], $request->boolean('remember'))) {
+            \App\Support\Captcha::registrarFalha($request, 'login');
+
             return back()->withErrors([
                 'login' => 'As credenciais informadas não correspondem aos nossos registros.',
             ])->onlyInput('login');
@@ -54,6 +63,7 @@ class LoginController extends Controller
             ])->onlyInput('login');
         }
 
+        \App\Support\Captcha::limparFalhas($request, 'login');
         $request->session()->regenerate();
 
         // UGs disponiveis: super_admin enxerga TODAS ativas; demais users sao

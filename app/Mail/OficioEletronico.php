@@ -14,6 +14,7 @@ use Illuminate\Queue\SerializesModels;
 class OficioEletronico extends Mailable
 {
     use Queueable, SerializesModels;
+    use Concerns\ComDescadastro;
 
     public function __construct(public Oficio $oficio, private string $pdf)
     {
@@ -21,6 +22,8 @@ class OficioEletronico extends Mailable
 
     public function build(): self
     {
+        $this->comDescadastro();   // link "deixar de receber" + List-Unsubscribe
+
         $orgao = Ug::withoutGlobalScopes()->find($this->oficio->ug_id)?->nome ?? config('app.name');
         $link = url("/oficios/rastrear/{$this->oficio->rastreio_token}");
         $arquivo = 'oficio-' . str_replace(['/', '\\'], '-', $this->oficio->numero) . '.pdf';

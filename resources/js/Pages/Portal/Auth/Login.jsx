@@ -3,11 +3,13 @@
  */
 import { Head, Link, useForm } from '@inertiajs/react';
 import PortalLayout from '../../../Layouts/PortalLayout';
+import Captcha from '../../../Components/Captcha';
 
-export default function PortalLogin({ ug }) {
+export default function PortalLogin({ ug, exige_captcha = false }) {
     const { data, setData, post, processing, errors } = useForm({
         email: '',
         password: '',
+        captcha: '',
     });
 
     const submit = (e) => {
@@ -43,6 +45,9 @@ export default function PortalLogin({ ug }) {
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
                         {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}
                     </div>
+                    {exige_captcha && (
+                        <Captcha contexto="cidadao-entrar" value={data.captcha} onChange={(v) => setData('captcha', v)} error={errors.captcha} />
+                    )}
                     <button type="submit" disabled={processing}
                         className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors">
                         {processing ? 'Entrando...' : 'Entrar'}

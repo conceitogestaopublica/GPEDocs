@@ -122,6 +122,9 @@ class AssinaturaExternaController extends Controller
             'login' => ['required', 'string', 'max:150'],
             'senha' => ['required', 'string'],
         ]);
+        if (\App\Support\Captcha::exigidoNaEntrada($request, 'assinatura-entrar')) {
+            \App\Support\Captcha::validar($request, 'assinatura-entrar');
+        }
 
         $login = trim((string) $request->input('login'));
         $cpf = ConviteAssinaturaService::soDigitos($login);
@@ -130,9 +133,12 @@ class AssinaturaExternaController extends Controller
             : (strlen($cpf) === 11 ? $this->cidadaoPorCpf($cpf) : null);
 
         if (! $cidadao || ! $cidadao->ativo || ! Hash::check((string) $request->input('senha'), $cidadao->senha)) {
+            \App\Support\Captcha::registrarFalha($request, 'assinatura-entrar');
+
             return back()->withErrors(['login' => 'CPF ou senha incorretos.'])->onlyInput('login');
         }
 
+        \App\Support\Captcha::limparFalhas($request, 'assinatura-entrar');
         Auth::guard('cidadao')->login($cidadao);
         $request->session()->regenerate();
 
@@ -158,6 +164,7 @@ class AssinaturaExternaController extends Controller
             'senha.min'       => 'A senha precisa ter pelo menos 8 caracteres.',
             'aceite.accepted' => 'É preciso aceitar os termos de uso.',
         ]);
+        \App\Support\Captcha::validar($request, 'assinatura-cadastro');
 
         $cpf = ConviteAssinaturaService::soDigitos($dados['cpf']);
         if (! ConviteAssinaturaService::cpfValido($cpf)) {
@@ -637,7 +644,10 @@ class AssinaturaExternaController extends Controller
 
     private function tela(string $estado, array $props = []): Response
     {
-        return Inertia::render('AssinaturaExterna/Assinar', ['estado' => $estado] + $props);
+        return Inertia::render('AssinaturaExterna/Assinar', [
+            'estado'        => $estado,
+            'exige_captcha' => \App\Support\Captcha::exigidoNaEntrada(request(), 'assinatura-entrar'),
+        ] + $props);
     }
 
     private function cidadao(): ?Cidadao

@@ -67,7 +67,7 @@ class SincronizarPortalCidadaoService
         }
 
         $email = $solicitacao->email_contato ?? $solicitacao->cidadao?->email;
-        if (! $email) {
+        if (! $email || \App\Support\DescadastroEmail::descadastrado($email)) {   // pediu para não receber avisos
             return;
         }
 

@@ -69,7 +69,7 @@ class RegistrarSolicitacaoService
 
         // Notifica por e-mail apenas quando identificada. Falha de e-mail não
         // desfaz a solicitação já registrada.
-        if (! $anonima && $solicitacao->email_contato) {
+        if (! $anonima && $solicitacao->email_contato && ! \App\Support\DescadastroEmail::descadastrado($solicitacao->email_contato)) {
             try {
                 Mail::to($solicitacao->email_contato)
                     ->send(new NotificacaoSolicitacaoCidadao($solicitacao, $servico, $ug, 'criada'));

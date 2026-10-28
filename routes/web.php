@@ -25,6 +25,16 @@ use App\Http\Controllers\NotificacaoController;
 use App\Http\Controllers\PastaController;
 use Illuminate\Support\Facades\Route;
 
+// Captcha dos formulários públicos (sem "png" no endereço: o nginx serve imagens direto do disco)
+Route::get('captcha/{contexto}', [\App\Http\Controllers\CaptchaController::class, 'imagem'])
+    ->where('contexto', '[a-z-]+')->middleware('throttle:60,1')->name('captcha');
+
+// Descadastro dos avisos por e-mail (link assinado; o POST atende também o botão de um clique)
+Route::get('email/descadastrar', [\App\Http\Controllers\DescadastroEmailController::class, 'mostrar'])
+    ->middleware(['signed', 'throttle:30,1'])->name('email.descadastrar');
+Route::post('email/descadastrar', [\App\Http\Controllers\DescadastroEmailController::class, 'confirmar'])
+    ->middleware(['signed', 'throttle:30,1'])->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+
 // Rastreio de oficio (publico, sem auth)
 Route::get('oficios/rastrear/{token}', [OficioController::class, 'rastrear'])->name('oficios.rastrear');
 Route::get('oficios/rastrear/{token}/pdf', [OficioController::class, 'pdfPublico'])->middleware('throttle:30,1')->name('oficios.rastrear.pdf');

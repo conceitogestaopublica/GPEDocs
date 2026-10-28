@@ -14,6 +14,7 @@ use Illuminate\Queue\SerializesModels;
 class ConviteAssinaturaExterna extends Mailable
 {
     use Queueable, SerializesModels;
+    use Concerns\ComDescadastro;
 
     public function __construct(public Assinatura $assinatura)
     {
@@ -21,6 +22,8 @@ class ConviteAssinaturaExterna extends Mailable
 
     public function build(): self
     {
+        $this->comDescadastro();   // link "deixar de receber" + List-Unsubscribe
+
         $documento = $this->assinatura->documento;
         $orgao = Ug::withoutGlobalScopes()->find($documento?->ug_id)?->nome ?? config('app.name');
 
