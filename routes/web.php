@@ -554,6 +554,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/senha', 'alterarSenha')->middleware('throttle:10,1')->name('senha');
         Route::post('/foto', 'enviarFoto')->middleware('throttle:20,1')->name('foto');
         Route::post('/foto/remover', 'removerFoto')->name('foto.remover');
+        Route::get('/historico', 'historico')->name('historico');
+        Route::get('/administradores', 'administradores')->name('administradores');
     });
     Route::get('usuarios/{id}/foto', [\App\Http\Controllers\Perfil\PerfilController::class, 'foto'])->whereNumber('id')->name('usuarios.foto');
     Route::get('perfil/preferencias', [\App\Http\Controllers\Perfil\PreferenciasController::class, 'index'])->name('perfil.preferencias');

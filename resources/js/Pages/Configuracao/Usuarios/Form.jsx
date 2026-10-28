@@ -5,8 +5,9 @@ import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import CadastroLayout, { CadastroSecao } from '../../../Components/CadastroLayout';
+import HistoricoCadastro from '../../../Components/HistoricoCadastro';
 
-export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = [], registro = null }) {
+export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = [], registro = null, historico = [] }) {
     const isEdit = !! usuario;
     // Só super admin concede o privilégio (o servidor ignora o campo vindo de outro usuário)
     const podeConcederSuperAdmin = !! usePage().props.auth?.user?.super_admin;
@@ -433,6 +434,12 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                                 <i className="fas fa-times mr-1" />Remover
                             </button>
                         </div>
+                    </CadastroSecao>
+                )}
+                {usuario?.id && (
+                    <CadastroSecao icone="fa-history" titulo="Histórico do cadastro"
+                        descricao="Alterações no cadastro deste usuário: o quê, quando e quem alterou">
+                        <HistoricoCadastro historico={historico} />
                     </CadastroSecao>
                 )}
             </CadastroLayout>

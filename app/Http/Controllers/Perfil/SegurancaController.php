@@ -70,6 +70,7 @@ class SegurancaController extends Controller
             'dois_fatores_ultimo_passo' => $passo,
         ])->save();
         $request->session()->forget('dois_fatores_novo');
+        \App\Support\HistoricoUsuario::registrar($user, 'Verificação em duas etapas', 'Desativada', 'Ativada');
 
         return redirect()->route('perfil.seguranca')
             ->with('dois_fatores_codigos', $codigos)
@@ -83,6 +84,7 @@ class SegurancaController extends Controller
             'dois_fatores_segredo' => null, 'dois_fatores_recuperacao' => null,
             'dois_fatores_ativado_em' => null, 'dois_fatores_ultimo_passo' => null,
         ])->save();
+        \App\Support\HistoricoUsuario::registrar(Auth::user(), 'Verificação em duas etapas', 'Ativada', 'Desativada');
 
         return redirect()->route('perfil.seguranca')->with('success', 'Verificação em duas etapas desativada.');
     }

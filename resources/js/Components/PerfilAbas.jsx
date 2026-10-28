@@ -8,6 +8,8 @@ const ABAS = [
     { href: '/perfil/seguranca', icone: 'fa-shield-alt', rotulo: 'Segurança' },
     { href: '/perfil/ausencias', icone: 'fa-umbrella-beach', rotulo: 'Ausências' },
     { href: '/perfil/preferencias', icone: 'fa-sliders-h', rotulo: 'Preferências' },
+    { href: '/perfil/historico', icone: 'fa-history', rotulo: 'Histórico' },
+    { href: '/perfil/administradores', icone: 'fa-user-shield', rotulo: 'Administradores' },
     { href: '/perfil/certificados', icone: 'fa-id-card', rotulo: 'Certificados' },
 ];
 

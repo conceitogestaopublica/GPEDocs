@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\DocumentoPessoa;
 use App\Support\FotoUsuario;
+use App\Support\HistoricoUsuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -61,11 +62,13 @@ class PerfilController extends Controller
             $this->conferirSenha($u, (string) ($dados['senha_atual'] ?? ''));
         }
 
+        $antes = HistoricoUsuario::retrato($u);
         $u->forceFill([
             'email'            => $dados['email'],
             'email_secundario' => $dados['email_secundario'] ?: null,
             'telefone'         => $dados['telefone'] ?: null,
         ])->save();
+        HistoricoUsuario::comparar($u, $antes, HistoricoUsuario::retrato($u));
 
         return back()->with('success', 'Dados atualizados.');
     }
@@ -80,6 +83,7 @@ class PerfilController extends Controller
         $this->conferirSenha($u, $dados['senha_atual']);
 
         $u->forceFill(['password' => Hash::make($dados['senha'])])->save();
+        HistoricoUsuario::registrar($u, 'Senha', null, 'Alterada pelo próprio servidor');
 
         return back()->with('success', 'Senha alterada.');
     }
@@ -92,6 +96,7 @@ class PerfilController extends Controller
         } catch (RuntimeException $e) {
             throw ValidationException::withMessages(['foto' => $e->getMessage()]);
         }
+        HistoricoUsuario::registrar(Auth::user(), 'Foto', null, 'Alterada pelo próprio servidor');
 
         return back()->with('success', 'Foto atualizada.');
     }
@@ -99,8 +104,39 @@ class PerfilController extends Controller
     public function removerFoto()
     {
         FotoUsuario::remover(Auth::user());
+        HistoricoUsuario::registrar(Auth::user(), 'Foto', null, 'Removida pelo próprio servidor');
 
         return back()->with('success', 'Foto removida.');
+    }
+
+    /** Meu perfil › Histórico: o que mudou no meu cadastro, quando e por quem (TR 4.7.22). */
+    public function historico()
+    {
+        return Inertia::render('GED/Perfil/Historico', ['historico' => HistoricoUsuario::de(Auth::user())]);
+    }
+
+    /** Meu perfil › Administradores: a quem recorrer (TR 4.7.21). */
+    public function administradores()
+    {
+        $comPermissao = \Illuminate\Support\Facades\DB::table('ged_user_roles as ur')
+            ->join('ged_role_permissions as rp', 'rp.role_id', '=', 'ur.role_id')
+            ->join('ged_permissions as p', 'p.id', '=', 'rp.permission_id')
+            ->where('p.nome', 'admin.usuarios')
+            ->select('ur.user_id');
+
+        $admins = User::query()
+            ->whereNull('suspenso_em')
+            ->where(fn ($q) => $q->where('super_admin', true)->orWhereIn('id', $comPermissao))
+            ->with('unidade:id,nome')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'telefone', 'cargo', 'unidade_id', 'super_admin', 'foto_path'])
+            ->map(fn (User $u) => [
+                'id' => $u->id, 'name' => $u->name, 'email' => $u->email, 'telefone' => $u->telefone,
+                'cargo' => $u->cargo, 'setor' => $u->unidade?->nome, 'foto_url' => $u->foto_url,
+                'papel' => $u->super_admin ? 'Super administrador' : 'Administrador',
+            ]);
+
+        return Inertia::render('GED/Perfil/Administradores', ['administradores' => $admins]);
     }
 
     /** Foto de qualquer servidor, para quem está logado (aparece na tramitação). */

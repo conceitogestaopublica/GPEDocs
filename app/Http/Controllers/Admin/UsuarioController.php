@@ -9,6 +9,7 @@ use App\Models\Role;
 use App\Models\Ug;
 use App\Models\UgOrganograma;
 use App\Models\User;
+use App\Support\HistoricoUsuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -121,6 +122,7 @@ class UsuarioController extends Controller
                 'suspenso_motivo'  => $usuario->suspenso_motivo,
                 'dois_fatores'     => $usuario->temDoisFatores(),
             ],
+            'historico' => HistoricoUsuario::de($usuario, 50),
             'roles'    => Role::orderBy('nome')->get(),
             'ugs'      => Ug::where('ativo', true)->orderBy('codigo')->get(['id','codigo','nome','nivel_1_label','nivel_2_label','nivel_3_label']),
             'unidades' => UgOrganograma::where('ativo', true)->orderBy('ug_id')->orderBy('nivel')->orderBy('nome')->get(['id','ug_id','parent_id','nivel','codigo','nome']),
@@ -176,6 +178,7 @@ class UsuarioController extends Controller
             }
 
             DB::commit();
+            HistoricoUsuario::registrar($user, 'Cadastro', null, 'Usuário cadastrado');
 
             // Sem senha informada: o servidor recebe por e-mail o link para criar a dele
             if (empty($validated['password'])) {
@@ -213,6 +216,7 @@ class UsuarioController extends Controller
             DB::beginTransaction();
 
             $user = User::findOrFail($id);
+            $antes = HistoricoUsuario::retrato($user);
 
             $data = [
                 'name'            => $validated['name'],
@@ -246,6 +250,11 @@ class UsuarioController extends Controller
             }
 
             DB::commit();
+            HistoricoUsuario::comparar($user, $antes, HistoricoUsuario::retrato($user->fresh()));
+            if (! empty($validated['password'])) {
+                HistoricoUsuario::registrar($user, 'Senha', null, 'Redefinida pelo administrador');
+            }
+
             return redirect()->route('configuracoes.usuarios.index')->with('success', 'Usuário atualizado com sucesso.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -323,6 +332,7 @@ class UsuarioController extends Controller
             'suspenso_por'    => $request->user()->id,
             'suspenso_motivo' => $dados['motivo'] ?? null,
         ]);
+        HistoricoUsuario::registrar($user, 'Situação', 'Ativo', 'Suspenso' . (! empty($dados['motivo']) ? ': ' . $dados['motivo'] : ''));
 
         return redirect()->back()->with('success', "Acesso de {$user->name} suspenso.");
     }
@@ -335,6 +345,7 @@ class UsuarioController extends Controller
         DB::table('users')->where('id', $user->id)->update([
             'suspenso_em' => null, 'suspenso_por' => null, 'suspenso_motivo' => null,
         ]);
+        HistoricoUsuario::registrar($user, 'Situação', 'Suspenso', 'Ativo (reativado)');
 
         return redirect()->back()->with('success', "Acesso de {$user->name} reativado.");
     }
@@ -345,10 +356,11 @@ class UsuarioController extends Controller
         $this->bloquearAlteracaoDeSuperAdmin($request, (int) $id);
         $request->validate(['foto' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:5120']]);
         try {
-            \App\Support\FotoUsuario::salvar(User::findOrFail($id), $request->file('foto'));
+            \App\Support\FotoUsuario::salvar($alvo = User::findOrFail($id), $request->file('foto'));
         } catch (\RuntimeException $e) {
             throw \Illuminate\Validation\ValidationException::withMessages(['foto' => $e->getMessage()]);
         }
+        HistoricoUsuario::registrar($alvo, 'Foto', null, 'Alterada pelo administrador');
 
         return back()->with('success', 'Foto atualizada.');
     }
@@ -356,7 +368,8 @@ class UsuarioController extends Controller
     public function removerFoto(Request $request, $id)
     {
         $this->bloquearAlteracaoDeSuperAdmin($request, (int) $id);
-        \App\Support\FotoUsuario::remover(User::findOrFail($id));
+        \App\Support\FotoUsuario::remover($alvo = User::findOrFail($id));
+        HistoricoUsuario::registrar($alvo, 'Foto', null, 'Removida pelo administrador');
 
         return back()->with('success', 'Foto removida.');
     }
@@ -371,6 +384,7 @@ class UsuarioController extends Controller
             'dois_fatores_segredo' => null, 'dois_fatores_recuperacao' => null,
             'dois_fatores_ativado_em' => null, 'dois_fatores_ultimo_passo' => null,
         ])->save();
+        HistoricoUsuario::registrar($user, 'Verificação em duas etapas', 'Ativada', 'Removida pelo administrador');
         \App\Models\AuditLog::create([
             'usuario_id' => auth()->id(),
             'acao'       => 'usuario_2fa_removido',
