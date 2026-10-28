@@ -798,14 +798,12 @@ class AssinaturaController extends Controller
         try {
             // 1) Valida o certificado e cadeia
             $material = $certificadoService->abrirPfx($pfxBinary, $senha);
-            $cadeiaIcp = $certificadoService->validarCadeiaIcpBrasil(
+            $cadeiaIcp = $certificadoService->verificarCadeia(
                 $material['cert'],
                 $material['extracerts']
             );
-            if (! $cadeiaIcp) {
-                return redirect()->back()->with('error',
-                    'Cadeia ICP-Brasil não pôde ser validada. Verifique se a truststore do ITI está instalada em storage/app/icp-brasil/ e se o certificado é ICP-Brasil válido.'
-                );
+            if (! $cadeiaIcp['ok']) {
+                return redirect()->back()->with('error', $cadeiaIcp['motivo']);
             }
 
             $meta = $certificadoService->lerMetadados($material['cert']);
@@ -985,11 +983,9 @@ class AssinaturaController extends Controller
         $certPem = (string) $request->input('cert_pem');
 
         // Validacoes do cert antes de prosseguir
-        if (! $certificadoService->ehIcpBrasil($certPem)) {
-            return response()->json(['erro' => 'Certificado fora da cadeia ICP-Brasil.'], 422);
-        }
-        if (! $certificadoService->validarCadeiaIcpBrasil($certPem, [])) {
-            return response()->json(['erro' => 'Cadeia ICP-Brasil não validada — verifique a truststore (storage/app/private/icp-brasil).'], 422);
+        $cadeiaIcp = $certificadoService->verificarCadeia($certPem);
+        if (! $cadeiaIcp['ok']) {
+            return response()->json(['erro' => $cadeiaIcp['motivo']], 422);
         }
 
         $meta = $certificadoService->lerMetadados($certPem);

@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\Certificado;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use phpseclib3\File\X509;
 use RuntimeException;
@@ -87,67 +88,209 @@ class CertificadoService
     }
 
     /**
-     * Valida o certificado contra a truststore ICP-Brasil em storage/app/icp-brasil.
+     * Valida o certificado contra a truststore ICP-Brasil, inclusive revogação.
      *
      * @param  array<int,string>  $extraCerts  certs intermediários vindos do PFX (anexados como untrusted)
      */
     public function validarCadeiaIcpBrasil(string $certPem, array $extraCerts = []): bool
     {
-        $bundle = $this->montarBundleTruststore();
-
-        if ($bundle === null) {
-            // Sem truststore configurada → não há como validar; rejeita por segurança
-            return false;
-        }
-
-        // 1ª tentativa: usa apenas o que veio no PFX como intermediarios untrusted
-        if ($this->tentarValidar($certPem, $extraCerts, $bundle)) {
-            return true;
-        }
-
-        // 2ª tentativa: enriquece a cadeia baixando intermediarias via AIA
-        // (extensao Authority Information Access do certificado) e tenta de novo
-        $cadeiaEnriquecida = $this->buscarCadeiaPorAia($certPem, $extraCerts);
-        if (! empty($cadeiaEnriquecida) && $this->tentarValidar($certPem, $cadeiaEnriquecida, $bundle)) {
-            // Persiste as intermediarias novas no diretorio para reuso futuro
-            $this->persistirIntermediarias($cadeiaEnriquecida);
-            return true;
-        }
-
-        return false;
+        return $this->verificarCadeia($certPem, $extraCerts)['ok'];
     }
 
     /**
-     * Valida cadeia X.509 do cert usando phpseclib3 — 100% PHP, sem depender
-     * do openssl CLI (que pode nao estar no PATH no Windows).
+     * Verificação completa da cadeia com `openssl verify`:
+     *  - só as raízes autoassinadas de icp-brasil/raiz são âncora de confiança;
+     *  - intermediárias (do PFX, da pasta intermediarias ou baixadas por AIA)
+     *    entram como -untrusted: servem para montar o caminho, nunca para
+     *    encerrá-lo — uma "AC" falsa dentro do PFX não valida mais nada;
+     *  - todos os níveis têm assinatura e validade conferidas;
+     *  - revogação pela LCR de cada nível (-crl_check_all -crl_download).
      *
-     * @param  string  $bundleFile  caminho do arquivo bundle da truststore
+     * Quando a LCR não pode ser obtida (rede, servidor da AC fora), o resultado
+     * depende de icp_brasil.exigir_lcr: por padrão a cadeia é recusada.
+     *
+     * @param  array<int,string>  $extraCerts
+     * @param  array{revogacao?: bool, momento?: int|null}  $opcoes
+     * @return array{ok: bool, revogacao: string, motivo: ?string}
+     *         revogacao: verificada | revogado | indisponivel | nao_verificada
      */
-    private function tentarValidar(string $certPem, array $untrusted, string $bundleFile): bool
+    public function verificarCadeia(string $certPem, array $extraCerts = [], array $opcoes = []): array
     {
-        try {
-            $x509 = new X509();
+        $comLcr  = (bool) ($opcoes['revogacao'] ?? config('icp_brasil.verificar_revogacao', true));
+        $momento = $opcoes['momento'] ?? null;
 
-            // Carrega CAs confiaveis (truststore)
-            $bundle = (string) file_get_contents($bundleFile);
-            foreach ($this->splitPems($bundle) as $caPem) {
-                $x509->loadCA($caPem);
-            }
-
-            // Carrega intermediarias do PFX como CAs tambem (para a cadeia
-            // chegar ate uma das raizes confiaveis)
-            foreach ($untrusted as $intPem) {
-                $x509->loadCA($intPem);
-            }
-
-            // Carrega o cert do usuario e valida
-            if (! $x509->loadX509($certPem)) {
-                return false;
-            }
-            return (bool) $x509->validateSignature();
-        } catch (Throwable $e) {
-            return false;
+        $raizes = $this->raizesConfiaveis();
+        if (empty($raizes)) {
+            return ['ok' => false, 'revogacao' => 'nao_verificada',
+                'motivo' => 'Truststore ICP-Brasil não instalada (php artisan icp-brasil:install-truststore).'];
         }
+
+        $untrusted = array_values(array_unique(array_merge($extraCerts, $this->intermediariasInstaladas())));
+        // Com data de assinatura, o 1º passo é só estrutural (ver abaixo)
+        $lcrPasso1 = $comLcr && ! $momento;
+        $r = $this->opensslVerify($certPem, $raizes, $untrusted, $lcrPasso1, $momento);
+
+        // O caminho não fechou com o que temos: busca as ACs emissoras por AIA
+        if (! $r['ok'] && in_array($r['codigo'], [2, 20], true)) {
+            $enriquecida = $this->buscarCadeiaPorAia($certPem, $untrusted);
+            if (count($enriquecida) > count($untrusted)) {
+                $untrusted = $enriquecida;
+                $r = $this->opensslVerify($certPem, $raizes, $untrusted, $lcrPasso1, $momento);
+                if ($r['ok'] || $r['codigo'] === 23) {
+                    // Caminho montado: guarda as intermediárias para a próxima vez
+                    // (continuam sendo só material de caminho, não âncora)
+                    $this->persistirIntermediarias($untrusted);
+                }
+            }
+        }
+
+        // Conferência de documento já assinado: a cadeia vale na data da
+        // assinatura (-attime, acima, sem LCR); a LCR atual só é aplicável sem
+        // -attime (senão ela "ainda não vale"). Cert já vencido não aparece
+        // mais na LCR — aí a revogação fica como não verificada.
+        if ($momento && $comLcr) {
+            if (! $r['ok']) {
+                return ['ok' => false, 'revogacao' => 'nao_verificada', 'motivo' => $this->motivoOpenssl($r['codigo'], $r['saida'])];
+            }
+            $agora = $this->opensslVerify($certPem, $raizes, $untrusted, true, null);
+            return match (true) {
+                $agora['ok']              => ['ok' => true, 'revogacao' => 'verificada', 'motivo' => null],
+                $agora['codigo'] === 23   => ['ok' => false, 'revogacao' => 'revogado', 'motivo' => 'Certificado revogado pela Autoridade Certificadora (consta na LCR).'],
+                in_array($agora['codigo'], [9, 10], true) => ['ok' => true, 'revogacao' => 'nao_verificada', 'motivo' => null],
+                default                   => ['ok' => true, 'revogacao' => 'indisponivel', 'motivo' => null],
+            };
+        }
+
+        if ($r['ok']) {
+            return ['ok' => true, 'revogacao' => $comLcr ? 'verificada' : 'nao_verificada', 'motivo' => null];
+        }
+
+        if ($r['codigo'] === 23) {
+            return ['ok' => false, 'revogacao' => 'revogado', 'motivo' => 'Certificado revogado pela Autoridade Certificadora (consta na LCR).'];
+        }
+
+        // LCR indisponível/vencida: confere a cadeia sem ela para separar os casos
+        if ($comLcr && in_array($r['codigo'], [3, 11, 12], true)) {
+            $semLcr = $this->opensslVerify($certPem, $raizes, $untrusted, false, $momento);
+            if (! $semLcr['ok']) {
+                return ['ok' => false, 'revogacao' => 'nao_verificada', 'motivo' => $this->motivoOpenssl($semLcr['codigo'], $semLcr['saida'])];
+            }
+            $exigir = (bool) config('icp_brasil.exigir_lcr', true);
+            return [
+                'ok'        => ! $exigir,
+                'revogacao' => 'indisponivel',
+                'motivo'    => 'Não foi possível consultar a lista de revogação (LCR) da Autoridade Certificadora. Tente novamente em alguns minutos.',
+            ];
+        }
+
+        return ['ok' => false, 'revogacao' => 'nao_verificada', 'motivo' => $this->motivoOpenssl($r['codigo'], $r['saida'])];
+    }
+
+    /**
+     * @param  array<int,string>  $raizes
+     * @param  array<int,string>  $untrusted
+     * @return array{ok: bool, codigo: ?int, saida: string}
+     */
+    private function opensslVerify(string $certPem, array $raizes, array $untrusted, bool $comLcr, ?int $momento): array
+    {
+        $dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'icpv_' . bin2hex(random_bytes(6));
+        @mkdir($dir, 0700, true);
+        try {
+            file_put_contents($dir . '/cert.pem', $certPem);
+            file_put_contents($dir . '/raizes.pem', implode("\n", $raizes));
+
+            $base = ['openssl', 'verify', '-CAfile', $dir . '/raizes.pem'];
+            if (! empty($untrusted)) {
+                file_put_contents($dir . '/untrusted.pem', implode("\n", $untrusted));
+                array_push($base, '-untrusted', $dir . '/untrusted.pem');
+            }
+            if ($momento) {
+                array_push($base, '-attime', (string) $momento);
+            }
+            $rodar = function (array $extras) use ($base, $dir): array {
+                $p = Process::timeout((int) config('icp_brasil.timeout_lcr', 45))
+                    ->run([...$base, ...$extras, $dir . '/cert.pem']);
+                $saida = trim($p->output() . "\n" . $p->errorOutput());
+                $ok = $p->successful() && ! str_contains($saida, 'error ');
+                preg_match('/error (\d+) at (\d+) depth/', $saida, $m);
+                return ['ok' => $ok, 'codigo' => $ok ? null : (isset($m[1]) ? (int) $m[1] : null),
+                    'profundidade' => isset($m[2]) ? (int) $m[2] : null, 'saida' => $saida];
+            };
+
+            $r = $rodar($comLcr ? ['-crl_check_all', '-crl_download'] : []);
+
+            // -crl_check_all pede LCR até da AC Raiz, que é a âncora e em geral
+            // não aponta LCR para si. O openssl confere de baixo para cima: se
+            // a falta de LCR é só no topo, todos os níveis emitidos passaram.
+            if ($comLcr && $r['codigo'] === 3) {
+                $estrutura = $rodar(['-show_chain']);
+                $niveis = preg_match_all('/^depth=\d+/m', $estrutura['saida']);
+                if ($estrutura['ok'] && $niveis > 0 && $r['profundidade'] === $niveis - 1) {
+                    return ['ok' => true, 'codigo' => null, 'saida' => $r['saida']];
+                }
+            }
+            return ['ok' => $r['ok'], 'codigo' => $r['codigo'], 'saida' => $r['saida']];
+        } catch (Throwable $e) {
+            // Timeout baixando a LCR cai aqui: trata como LCR indisponível
+            return ['ok' => false, 'codigo' => $comLcr ? 3 : null, 'saida' => $e->getMessage()];
+        } finally {
+            foreach (glob($dir . '/*') ?: [] as $f) {
+                @unlink($f);
+            }
+            @rmdir($dir);
+        }
+    }
+
+    private function motivoOpenssl(?int $codigo, string $saida): string
+    {
+        return match ($codigo) {
+            2, 20   => 'Certificado não encadeia até a AC Raiz da ICP-Brasil (emissor desconhecido ou não confiável).',
+            7, 4    => 'Assinatura de um dos certificados da cadeia não confere.',
+            9       => 'Certificado (ou AC da cadeia) ainda não é válido.',
+            10      => 'Certificado (ou AC da cadeia) expirado.',
+            18, 19  => 'Certificado autoassinado ou raiz fora da ICP-Brasil.',
+            24      => 'Um certificado da cadeia não é de Autoridade Certificadora.',
+            23      => 'Certificado revogado.',
+            default => 'Cadeia ICP-Brasil não validada' . ($codigo ? " (código {$codigo})" : '') . '.',
+        };
+    }
+
+    /**
+     * Raízes autoassinadas instaladas em icp-brasil/raiz cuja SHA-256 está
+     * fixada em config/icp_brasil.php — as únicas âncoras.
+     *
+     * @return array<int,string>
+     */
+    private function raizesConfiaveis(): array
+    {
+        $fixadas = array_map('strtolower', array_merge(
+            array_column((array) config('icp_brasil.raiz', []), 'sha256'),
+            (array) config('icp_brasil.raizes_extras_sha256', []),
+        ));
+        $disk = Storage::disk('local');
+        if (! $disk->exists('icp-brasil/raiz')) {
+            return [];
+        }
+        $raizes = [];
+        foreach ($disk->allFiles('icp-brasil/raiz') as $f) {
+            if (! preg_match('/\.(pem|crt|cer)$/i', $f)) {
+                continue;
+            }
+            $conteudo = (string) $disk->get($f);
+            $pems = str_contains($conteudo, '-----BEGIN CERTIFICATE-----')
+                ? $this->splitPems($conteudo)
+                : ["-----BEGIN CERTIFICATE-----\n" . chunk_split(base64_encode($conteudo), 64, "\n") . "-----END CERTIFICATE-----\n"];
+            foreach ($pems as $pem) {
+                $info = @openssl_x509_parse($pem, true);
+                $pub  = @openssl_pkey_get_public($pem);
+                if ($info && $pub && ($info['subject'] ?? null) == ($info['issuer'] ?? null)
+                    && openssl_x509_verify($pem, $pub) === 1
+                    && in_array(strtolower((string) openssl_x509_fingerprint($pem, 'sha256')), $fixadas, true)) {
+                    $raizes[] = $pem;
+                }
+            }
+        }
+        return $raizes;
     }
 
     /**
@@ -395,23 +538,19 @@ class CertificadoService
     }
 
     /**
-     * Verifica se o cert é "ICP-Brasil" pela presença do OID de política da
-     * cadeia ou pelo issuer começar com "AC " (heurística suficiente para o MVP).
+     * O cert é ICP-Brasil quando o caminho fecha numa AC Raiz da ICP-Brasil
+     * instalada — nome do emissor ("AC ...") ou OID não provam nada, qualquer
+     * um gera um certificado assim. Não consulta LCR (é classificação; a
+     * revogação é conferida em validarCadeiaIcpBrasil).
+     *
+     * @param  array<int,string>  $extraCerts
      */
-    public function ehIcpBrasil(string $certPem): bool
+    public function ehIcpBrasil(string $certPem, array $extraCerts = []): bool
     {
-        $info = openssl_x509_parse($certPem, true);
-        if ($info === false) {
+        if (@openssl_x509_parse($certPem, true) === false) {
             return false;
         }
-
-        $issuerCn = $info['issuer']['CN'] ?? '';
-        if (str_starts_with($issuerCn, 'AC ') || str_contains($issuerCn, 'ICP-Brasil')) {
-            return true;
-        }
-
-        $certText = $this->certificadoComoTexto($certPem);
-        return $certText !== null && str_contains($certText, '2.16.76.1');
+        return $this->verificarCadeia($certPem, $extraCerts, ['revogacao' => false])['ok'];
     }
 
     /**
@@ -443,15 +582,12 @@ class CertificadoService
             $erros[] = 'Certificado expirado em ' . date('d/m/Y', $ate) . '.';
         }
 
-        // ICP-Brasil
-        if (! $this->ehIcpBrasil($certPem)) {
-            $erros[] = 'Certificado não pertence à cadeia ICP-Brasil.';
+        // Cadeia até a AC Raiz da ICP-Brasil, com revogação
+        $cadeia = $this->verificarCadeia($certPem, $extraCerts);
+        if (! $cadeia['ok']) {
+            $erros[] = $cadeia['motivo'];
         }
-
-        // Cadeia confiavel
-        if (! $this->validarCadeiaIcpBrasil($certPem, $extraCerts)) {
-            $erros[] = 'Cadeia ICP-Brasil não pôde ser validada — verifique a truststore (storage/app/private/icp-brasil).';
-        }
+        $meta['revogacao'] = $cadeia['revogacao'];
 
         // CPF
         $cpfCert = preg_replace('/\D/', '', (string) ($meta['subject_cpf'] ?? ''));
@@ -500,7 +636,7 @@ class CertificadoService
                 'certificado_pem'   => $certPem,
                 'cadeia_pem'        => $extraCerts,
                 'politica_oid'      => $meta['politica_oid'],
-                'icp_brasil'        => $this->ehIcpBrasil($certPem),
+                'icp_brasil'        => $this->ehIcpBrasil($certPem, $extraCerts),
                 'verificado_em'     => now(),
             ]
         );
@@ -618,66 +754,5 @@ class CertificadoService
             return $m[1];
         }
         return null;
-    }
-
-    private function certificadoComoTexto(string $certPem): ?string
-    {
-        $tmp = tempnam(sys_get_temp_dir(), 'ged_cert_');
-        if ($tmp === false) {
-            return null;
-        }
-        file_put_contents($tmp, $certPem);
-
-        $cmd = sprintf(
-            'openssl x509 -in %s -noout -text 2>&1',
-            escapeshellarg($tmp)
-        );
-        $saida = shell_exec($cmd);
-        @unlink($tmp);
-
-        return is_string($saida) ? $saida : null;
-    }
-
-    private function montarBundleTruststore(): ?string
-    {
-        $disk = Storage::disk('local');
-        $files = collect($disk->allFiles('icp-brasil'))
-            ->filter(fn ($f) => str_ends_with($f, '.pem') || str_ends_with($f, '.crt'));
-
-        if ($files->isEmpty()) {
-            return null;
-        }
-
-        $bundle = '';
-        foreach ($files as $f) {
-            $bundle .= $disk->get($f) . "\n";
-        }
-
-        $tmp = tempnam(sys_get_temp_dir(), 'icp_bundle_');
-        if ($tmp === false) {
-            return null;
-        }
-        file_put_contents($tmp, $bundle);
-
-        return $tmp;
-    }
-
-    /**
-     * Concatena PEMs intermediários em um único arquivo (formato esperado pelo
-     * 4º parâmetro de openssl_x509_checkpurpose).
-     *
-     * @param  array<int,string>  $pems
-     */
-    private function materializarUntrustedBundle(array $pems): ?string
-    {
-        if (empty($pems)) {
-            return null;
-        }
-        $tmp = tempnam(sys_get_temp_dir(), 'icp_int_');
-        if ($tmp === false) {
-            return null;
-        }
-        file_put_contents($tmp, implode("\n", $pems));
-        return $tmp;
     }
 }

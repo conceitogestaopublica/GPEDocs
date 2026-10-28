@@ -46,8 +46,18 @@ class IcpBrasilInstallTruststore extends Command
         $this->info('Baixando AC Raiz...');
         foreach ((array) config('icp_brasil.raiz', []) as $cert) {
             $destino = $raiz . DIRECTORY_SEPARATOR . $cert['arquivo'];
-            $resultado = $this->baixarECCConverter($cert['nome'], $cert['url'], $destino, $force);
+            $resultado = $this->baixarECCConverter($cert['nome'], $cert['url'], $destino, $force, $cert['sha256'] ?? null);
             $resultado === 'ok' ? $sucesso++ : ($resultado === 'pulado' ? $pulados++ : $erros++);
+        }
+
+        // Raízes que saíram da lista (ex.: a v10, que é só de SSL) deixam de
+        // ser âncora de qualquer forma; remove o arquivo para não confundir.
+        $esperados = array_column((array) config('icp_brasil.raiz', []), 'arquivo');
+        foreach (glob($raiz . DIRECTORY_SEPARATOR . '*') ?: [] as $arquivo) {
+            if (! in_array(basename($arquivo), $esperados, true)) {
+                @unlink($arquivo);
+                $this->line('  • ' . basename($arquivo) . ' <fg=yellow>[removido — fora da lista de raízes aceitas]</>');
+            }
         }
 
         $this->newLine();
@@ -69,7 +79,7 @@ class IcpBrasilInstallTruststore extends Command
         return $erros > 0 ? self::FAILURE : self::SUCCESS;
     }
 
-    private function baixarECCConverter(string $nome, string $url, string $destino, bool $force): string
+    private function baixarECCConverter(string $nome, string $url, string $destino, bool $force, ?string $sha256 = null): string
     {
         $rotulo = sprintf('  • %s', $nome);
 
@@ -109,6 +119,14 @@ class IcpBrasilInstallTruststore extends Command
             $info = openssl_x509_parse($pem, true);
             if ($info === false) {
                 $this->error($rotulo . ' [openssl nao reconhece como X509]');
+                return 'erro';
+            }
+
+            // Raiz com impressão fixada: arquivo diferente não entra (TLS acima
+            // não é conferido, então é aqui que se garante a origem)
+            $impressao = strtolower((string) openssl_x509_fingerprint($pem, 'sha256'));
+            if ($sha256 && $impressao !== strtolower($sha256)) {
+                $this->error($rotulo . " [SHA-256 {$impressao} não confere com o fixado em config/icp_brasil.php — não instalado]");
                 return 'erro';
             }
 

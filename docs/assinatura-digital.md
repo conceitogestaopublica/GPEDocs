@@ -284,7 +284,7 @@ para cada uma reporta:
 - ✅/❌ **Integridade criptográfica** — hash do `/ByteRange` confere com o
   `messageDigest` do PKCS#7 e a assinatura RSA do cert valida o hash do
   `SignedAttributes` (executado por `openssl smime -verify` via shell)
-- ✅/❌ **Cadeia ICP-Brasil** — `openssl_x509_checkpurpose` contra a
+- ✅/❌ **Cadeia ICP-Brasil** — `openssl verify` (âncora só nas raízes fixadas, LCR) contra a
   truststore de `storage/app/private/icp-brasil/`
 - ✅/❌ **Validade temporal** — `valido_de ≤ now ≤ valido_ate`
 
@@ -317,25 +317,33 @@ Template: `resources/views/assinaturas/manifesto.blade.php`.
 
 ---
 
-## 8. Truststore ICP-Brasil
+## 8. Truststore ICP-Brasil e validação da cadeia
 
-A validação de cadeia depende de ter os certificados raiz e intermediários
-da ICP-Brasil em `storage/app/private/icp-brasil/`.
+A validação (`CertificadoService::verificarCadeia`) roda `openssl verify` com:
 
-### Instalação
+- **âncora**: só as ACs Raiz em `storage/app/private/icp-brasil/raiz/` cuja
+  SHA-256 está fixada em `config/icp_brasil.php` (v2, v4, v5, v6, v7, v12,
+  v13). A v10 (SSL) e a v11 (código) ficam de fora de propósito;
+- **caminho**: intermediárias do PFX, da pasta `intermediarias/` e baixadas
+  por AIA entram como `-untrusted` — montam o caminho, nunca o encerram. Uma
+  "AC" incluída no PFX pelo próprio titular não valida nada;
+- **revogação**: LCR de cada nível emitido (`-crl_check_all -crl_download`).
+  Sem acesso à LCR a assinatura é recusada (`ICP_BRASIL_EXIGIR_LCR=false`
+  relaxa). No validador de documentos, a cadeia é conferida na data da
+  assinatura (`/M`) e a revogação com a LCR atual.
 
-```bash
-php artisan icp-brasil:install-truststore
-```
+`ehIcpBrasil()` agora significa "o caminho fecha numa raiz ICP-Brasil" — nome
+do emissor ("AC ...") ou OID não contam.
 
-Baixa do servidor oficial `acraiz.icpbrasil.gov.br` os certs configurados
-em `config/icp_brasil.php`. Por padrão a AC Raiz V10 (válida até 2032-07-01).
+### Instalação (obrigatória em cada ambiente)
 
 ```bash
 php artisan icp-brasil:install-truststore --force
 ```
 
-Sobrescreve certs existentes (use após o ITI publicar nova versão).
+Baixa as raízes de `acraiz.icpbrasil.gov.br`, confere a SHA-256 fixada e
+remove de `raiz/` o que saiu da lista. Rodar após cada deploy que mude
+`config/icp_brasil.php`.
 
 ### Verificação
 
@@ -343,18 +351,12 @@ Sobrescreve certs existentes (use após o ITI publicar nova versão).
 php artisan icp-brasil:verify-truststore
 ```
 
-Lista os certs instalados, valida formato X.509 e mostra validade. Sai com
-`exit code 1` se a truststore estiver vazia ou se a AC Raiz estiver
-faltando.
+Lista os certs instalados, valida formato X.509 e mostra validade.
 
 ### ACs intermediárias
 
-O comando hoje só baixa a AC Raiz. As intermediárias (Serasa, Caixa,
-Certisign, Valid, Soluti, etc.) precisam ser baixadas manualmente do
-repositório do ITI e colocadas em `storage/app/private/icp-brasil/intermediarias/`.
-
-Para acrescentar uma URL de download ao comando, edite a chave
-`'intermediarias'` em `config/icp_brasil.php`.
+Não precisam ser instaladas: vêm no PFX ou são baixadas pela extensão AIA do
+certificado e guardadas em `intermediarias/` para a próxima vez.
 
 ---
 
@@ -362,7 +364,7 @@ Para acrescentar uma URL de download ao comando, edite a chave
 
 | Comando | Função |
 |---|---|
-| `icp-brasil:install-truststore` | Baixa AC Raiz V10 e intermediárias configuradas |
+| `icp-brasil:install-truststore` | Baixa as ACs Raiz aceitas e confere a SHA-256 |
 | `icp-brasil:verify-truststore` | Lista e valida certs instalados |
 
 ---
@@ -372,8 +374,10 @@ Para acrescentar uma URL de download ao comando, edite a chave
 ### `.env`
 
 ```env
-# Opcional — sobrescreve URLs do ITI caso mudem
-ICP_BRASIL_RAIZ_V10_URL=https://acraiz.icpbrasil.gov.br/credenciadas/RAIZ/ICP-Brasilv10.crt
+# Revogação (LCR): consultar e exigir; timeout do download em segundos
+ICP_BRASIL_VERIFICAR_LCR=true
+ICP_BRASIL_EXIGIR_LCR=true
+ICP_BRASIL_TIMEOUT_LCR=45
 ```
 
 ### `config/icp_brasil.php`
