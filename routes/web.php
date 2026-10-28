@@ -236,6 +236,12 @@ Route::middleware('guest')->group(function () {
     Route::get('/login/certificado/desafio', [\App\Http\Controllers\Auth\CertificadoLoginController::class, 'desafio'])->middleware('throttle:30,1');
     Route::post('/login/certificado', [\App\Http\Controllers\Auth\CertificadoLoginController::class, 'entrar'])->middleware('throttle:login');
 
+    // Entrada pelo gov.br e pelo Google (OpenID Connect) — desligadas sem credenciais
+    Route::get('/login/oidc/{provedor}', [\App\Http\Controllers\Auth\OidcLoginController::class, 'redirecionar'])
+        ->whereIn('provedor', ['govbr', 'google'])->middleware('throttle:30,1')->name('login.oidc');
+    Route::get('/login/oidc/{provedor}/retorno', [\App\Http\Controllers\Auth\OidcLoginController::class, 'retorno'])
+        ->whereIn('provedor', ['govbr', 'google'])->middleware('throttle:login');
+
     // Verificação em duas etapas (código do aplicativo depois da senha)
     Route::get('/login/verificacao', [\App\Http\Controllers\Auth\DoisFatoresController::class, 'formulario'])->name('login.dois-fatores');
     Route::post('/login/verificacao', [\App\Http\Controllers\Auth\DoisFatoresController::class, 'confirmar'])->middleware('throttle:login');

@@ -19,6 +19,9 @@ class LoginController extends Controller
     {
         return Inertia::render('Auth/Login', [
             'exige_captcha' => \App\Support\Captcha::exigidoNaEntrada($request, 'login'),
+            // Botões gov.br / Google só aparecem com as credenciais configuradas
+            'provedores'    => array_values(array_filter(\App\Services\Auth\OidcCliente::PROVEDORES,
+                fn ($p) => \App\Services\Auth\OidcCliente::ativo($p))),
         ]);
     }
 

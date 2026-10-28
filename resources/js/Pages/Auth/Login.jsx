@@ -7,14 +7,15 @@
  * campos login (e-mail OU CPF)/password/remember, POST /login, e "lembrar" guarda
  * o login no localStorage para auto-preencher no próximo acesso.
  */
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import Captcha from '../../Components/Captcha';
 import EntrarComCertificado from '../../Components/EntrarComCertificado';
 import { useState, useEffect } from 'react';
 
 const STORAGE_KEY = 'gpe_remember_email';
 
-export default function Login({ flash = {}, exige_captcha = false }) {
+export default function Login({ flash = {}, exige_captcha = false, provedores = [] }) {
+    const erroEntrada = usePage().props.errors?.login;
     const { data, setData, post, processing, errors } = useForm({
         login: '',
         password: '',
@@ -95,8 +96,12 @@ export default function Login({ flash = {}, exige_captcha = false }) {
                             </div>
                         )}
 
-                        {(errors.login && comCertificado) && (
-                            <p className="mb-4 text-sm text-red-600">{errors.login}</p>
+                        {/* Erro vindo de redirecionamento (gov.br, Google, verificação em duas etapas, suspensão):
+                            chega pelas props da página, não pelo formulário */}
+                        {erroEntrada && !errors.login && (
+                            <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-xl flex items-start gap-2">
+                                <i className="fas fa-exclamation-circle mt-0.5" /> {erroEntrada}
+                            </div>
                         )}
 
                         {comCertificado ? (
@@ -183,6 +188,18 @@ export default function Login({ flash = {}, exige_captcha = false }) {
                             className="w-full py-3 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2">
                             <i className="fas fa-id-card text-cyan-600" /> Entrar com certificado digital
                         </button>
+                        {provedores.includes('govbr') && (
+                            <a href={`/login/oidc/govbr${data.remember ? '?lembrar=1' : ''}`}
+                                className="mt-2 w-full py-3 rounded-xl text-sm font-semibold text-white bg-[#1351B4] hover:bg-[#0c326f] flex items-center justify-center gap-2">
+                                Entrar com <span className="font-extrabold">gov.br</span>
+                            </a>
+                        )}
+                        {provedores.includes('google') && (
+                            <a href={`/login/oidc/google${data.remember ? '?lembrar=1' : ''}`}
+                                className="mt-2 w-full py-3 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2">
+                                <i className="fab fa-google text-[#4285F4]" /> Entrar com Google
+                            </a>
+                        )}
                         </>
                         )}
 

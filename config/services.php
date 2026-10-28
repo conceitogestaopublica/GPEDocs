@@ -35,4 +35,31 @@ return [
         ],
     ],
 
+    /*
+     * Entrada pelo Login Único gov.br e pelo Google (OpenID Connect).
+     * Desligados até haver credenciais. O endereço de retorno é
+     * https://<dominio-da-prefeitura>/login/oidc/{govbr|google}/retorno — cada
+     * domínio precisa estar cadastrado no credenciamento.
+     *  - gov.br: credenciamento no Ministério da Gestão (homologação em
+     *    sso.staging.acesso.gov.br); o "sub" é o CPF.
+     *  - Google: projeto no Google Cloud (OAuth client "Web application").
+     */
+    'govbr' => [
+        'ativo'         => (bool) env('GOVBR_ATIVO', false),
+        'client_id'     => env('GOVBR_CLIENT_ID'),
+        'client_secret' => env('GOVBR_CLIENT_SECRET'),
+        'discovery'     => env('GOVBR_DISCOVERY', env('GOVBR_AMBIENTE', 'staging') === 'producao'
+            ? 'https://sso.acesso.gov.br/.well-known/openid-configuration'
+            : 'https://sso.staging.acesso.gov.br/.well-known/openid-configuration'),
+        'escopos'       => env('GOVBR_ESCOPOS', 'openid email profile'),
+    ],
+
+    'google' => [
+        'ativo'         => (bool) env('GOOGLE_LOGIN_ATIVO', false),
+        'client_id'     => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'discovery'     => env('GOOGLE_DISCOVERY', 'https://accounts.google.com/.well-known/openid-configuration'),
+        'escopos'       => 'openid email profile',
+    ],
+
 ];
