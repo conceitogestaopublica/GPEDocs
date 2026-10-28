@@ -10,6 +10,7 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import StatusPill from '../../../Components/StatusPill';
+import ListaSignatarios from '../../../Components/ListaSignatarios';
 import { useConfirm } from '../../../Components/ConfirmProvider';
 
 const TABS = [
@@ -488,22 +489,8 @@ function TabAssinaturas({ documento, usuarios }) {
             {showSolicitar && (
                 <form onSubmit={submitSolicitar} className="bg-blue-50 rounded-xl p-4 space-y-3">
                     <p className="text-sm font-medium text-blue-800">Selecione os signatários</p>
-                    <div className="max-h-40 overflow-y-auto space-y-1">
-                        {usuarios.map(u => (
-                            <label key={u.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-blue-100 rounded px-2 py-1">
-                                <input type="checkbox" checked={data.signatarios.includes(u.id)}
-                                    onChange={() => toggleUser(u.id)}
-                                    className="rounded border-gray-300 text-blue-600 w-3.5 h-3.5" />
-                                <span className="text-gray-700">{u.name}</span>
-                                <span className="text-xs text-gray-400">{u.email}</span>
-                                {data.sequencial && data.signatarios.includes(u.id) && (
-                                    <span className="ml-auto text-[10px] font-bold text-blue-700 bg-blue-100 rounded px-1.5">
-                                        {data.signatarios.indexOf(u.id) + 1}º
-                                    </span>
-                                )}
-                            </label>
-                        ))}
-                    </div>
+                    <ListaSignatarios usuarios={usuarios} selecionados={data.signatarios} onToggle={toggleUser}
+                        mostrarOrdem={data.sequencial} alturaMaxima="max-h-48" />
                     {/* Externos: assinam por link, com cadastro (CPF) — só PDF */}
                     <div className="border-t border-blue-100 pt-3">
                         <div className="flex items-center justify-between">

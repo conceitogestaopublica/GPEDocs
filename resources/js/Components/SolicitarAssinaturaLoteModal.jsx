@@ -6,6 +6,7 @@
 import { useForm } from '@inertiajs/react';
 import { useEffect } from 'react';
 import Button from './Button';
+import ListaSignatarios from './ListaSignatarios';
 import Modal from './Modal';
 
 export default function SolicitarAssinaturaLoteModal({ show, onClose, documentoIds, usuarios, onSuccess }) {
@@ -51,20 +52,8 @@ export default function SolicitarAssinaturaLoteModal({ show, onClose, documentoI
 
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Selecione os signatários</label>
-                    <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-xl p-2 space-y-1">
-                        {usuarios.map(u => (
-                            <label key={u.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 rounded px-2 py-1.5">
-                                <input type="checkbox" checked={data.signatarios.includes(u.id)}
-                                    onChange={() => toggleUser(u.id)}
-                                    className="rounded border-gray-300 text-blue-600 w-3.5 h-3.5" />
-                                <span className="text-gray-700">{u.name}</span>
-                                <span className="text-xs text-gray-400 ml-auto">{u.email}</span>
-                            </label>
-                        ))}
-                        {usuarios.length === 0 && (
-                            <p className="text-xs text-gray-400 text-center py-3">Nenhum usuário disponível</p>
-                        )}
-                    </div>
+                    <ListaSignatarios usuarios={usuarios} selecionados={data.signatarios} onToggle={toggleUser}
+                        mostrarOrdem={data.sequencial} />
                 </div>
 
                 {/* Externos: um link e um e-mail por pessoa para todos os documentos (pacote) */}
