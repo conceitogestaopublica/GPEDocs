@@ -86,6 +86,8 @@ export default function EntrarComCertificado({ lembrar = false, onVoltar }) {
                     <p className="font-semibold text-amber-800"><i className="fas fa-puzzle-piece mr-1" />Falta a extensão Web PKI</p>
                     <p className="text-xs text-amber-700 mt-1 mb-3">
                         É ela que permite ao navegador usar o certificado instalado no computador ou no token. É gratuita.
+                        No Brave e no Edge a instalação também é pela loja do Chrome (o botão diz "Usar no Chrome"):
+                        depois instale o componente que a extensão pedir e reabra o navegador.
                     </p>
                     <a href="https://get.webpkiplugin.com" target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-700">
