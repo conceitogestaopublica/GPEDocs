@@ -72,6 +72,18 @@ class IcpBrasilInstallTruststore extends Command
             $resultado === 'ok' ? $sucesso++ : ($resultado === 'pulado' ? $pulados++ : $erros++);
         }
 
+        // Rodando como root (docker exec), os arquivos ficariam ilegíveis para o
+        // PHP da web: devolve a pasta ao dono do storage
+        if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+            $dono = fileowner(storage_path('app'));
+            $grupo = filegroup(storage_path('app'));
+            $iter = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($base, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
+            foreach ([$base, ...array_keys(iterator_to_array($iter))] as $caminho) {
+                @chown($caminho, $dono);
+                @chgrp($caminho, $grupo);
+            }
+        }
+
         $this->newLine();
         $this->info(sprintf('Resumo: %d instalados, %d pulados, %d erros.', $sucesso, $pulados, $erros));
         $this->line('Verifique a integridade com: php artisan icp-brasil:verify-truststore');

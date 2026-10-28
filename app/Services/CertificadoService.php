@@ -508,6 +508,16 @@ class CertificadoService
      */
     private function persistirIntermediarias(array $pems): void
     {
+        // É só cache: sem permissão de escrita, a validação segue sem guardar
+        try {
+            $this->gravarIntermediarias($pems);
+        } catch (Throwable $e) {
+            report($e);
+        }
+    }
+
+    private function gravarIntermediarias(array $pems): void
+    {
         $disk = Storage::disk('local');
         $dir = 'icp-brasil/intermediarias';
         if (! $disk->exists($dir)) {
