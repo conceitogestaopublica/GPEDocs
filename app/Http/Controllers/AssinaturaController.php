@@ -74,8 +74,9 @@ class AssinaturaController extends Controller
                                                                 ->orWhere('numero_externo', 'like', $termo))
                           ->orWhereHas('solicitacao', fn ($q2) => $q2->where('mensagem', 'like', $termo))
                           ->orWhere('email_signatario', 'like', $termo);
-                        if ($cpfDigits !== '') {
-                            $q->orWhere('cpf_signatario', 'like', "%{$cpfDigits}%");
+                        // Só o CPF completo encontra (LGPD): busca parcial permitiria descobrir CPFs.
+                        if (strlen($cpfDigits) === 11) {
+                            $q->orWhereRaw("regexp_replace(cpf_signatario, '[^0-9]', '', 'g') = ?", [$cpfDigits]);
                         }
                     });
                 })

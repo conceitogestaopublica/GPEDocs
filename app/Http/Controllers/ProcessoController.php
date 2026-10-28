@@ -345,6 +345,12 @@ class ProcessoController extends Controller
             ->where('processo_id', $processo->id)
             ->first(['id', 'codigo', 'cidadao_id', 'anonima', 'email_contato']);
 
+        // CPF do requerente só em parte na tela (LGPD); o registro no banco não muda.
+        $processo->setAttribute('requerente_cpf', \App\Support\DocumentoPessoa::mascarar($processo->requerente_cpf));
+        if ($processo->relationLoaded('requerente') && $processo->requerente) {
+            $processo->requerente->setAttribute('cpf', \App\Support\DocumentoPessoa::mascarar($processo->requerente->cpf));
+        }
+
         return Inertia::render('GED/Processos/Show', [
             'processo'             => $processo,
             'usuarios'             => $usuarios,

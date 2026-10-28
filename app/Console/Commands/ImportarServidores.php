@@ -22,7 +22,8 @@ use Illuminate\Support\Facades\DB;
  * - Servidor novo: usuário interno da UG da gestora, lotado no departamento da matrícula,
  *   com a MESMA senha (hash bcrypt) do cadastro de RH do gpe2 e o perfil "Servidor" (sem
  *   acesso aos módulos internos). Sem e-mail válido e único na origem, recebe um e-mail
- *   provisório srv-{cpf}@servidor.local, trocado pelo real quando a origem tiver um.
+ *   provisório srv-{código aleatório}@servidor.local (nunca o CPF: o e-mail aparece em listas e na
+ *   busca), trocado pelo real quando a origem tiver um.
  *
  * Idempotente: rodar de novo atualiza pelo funcionário de origem, sem duplicar. A origem é
  * só lida (gpe_legado); --legado troca o nome do banco.
@@ -171,7 +172,8 @@ class ImportarServidores extends Command
                 }
 
                 if (! $emailLivre) {
-                    $email = 'srv-' . $digitos . '@' . self::DOMINIO_PROVISORIO;
+                    // Código aleatório, não o CPF: o e-mail aparece em listas e entra na busca (LGPD).
+                    $email = 'srv-' . \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(16)) . '@' . self::DOMINIO_PROVISORIO;
                     $resumo['email_provisorio']++;
                 }
                 $userId = (int) DB::table('users')->insertGetId([

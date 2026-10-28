@@ -61,7 +61,7 @@ class VerificacaoController extends Controller
                 'externo'     => $a->externo ?: null,
                 'codigo'      => $a->codigo_verificacao,
                 'cpf'         => $sigiloso || ! $a->cpf_signatario ? null
-                    : substr(preg_replace('/\D/', '', $a->cpf_signatario), 0, 3) . '.***.***-' . substr(preg_replace('/\D/', '', $a->cpf_signatario), -2),
+                    : \App\Support\DocumentoPessoa::mascararCpf($a->cpf_signatario),
                 'modalidade'  => $a->tipo_assinatura === 'qualificada' ? 'Qualificada (ICP-Brasil)' : 'Eletrônica simples',
                 'ac'          => $sigiloso ? null : $a->certificado?->issuer_cn,
                 'assinado_em' => \App\Services\CarimboAssinaturaService::horaBrasilia($a->assinado_em) ?: null,
@@ -125,6 +125,16 @@ class VerificacaoController extends Controller
             $resultado = $validador->validar($bytes);
         } catch (Throwable $e) {
             return back()->with('error', 'Falha ao validar PDF: ' . $e->getMessage());
+        }
+
+        // Página pública: CPF/CNPJ do certificado aparecem só em parte (LGPD).
+        foreach ($resultado['assinaturas'] ?? [] as $i => $item) {
+            if (isset($item['signatario']['cpf'])) {
+                $resultado['assinaturas'][$i]['signatario']['cpf'] = \App\Support\DocumentoPessoa::mascararCpf($item['signatario']['cpf']);
+            }
+            if (isset($item['signatario']['cnpj'])) {
+                $resultado['assinaturas'][$i]['signatario']['cnpj'] = \App\Support\DocumentoPessoa::mascararCnpj($item['signatario']['cnpj']);
+            }
         }
 
         return Inertia::render('GED/ValidarAssinatura', [

@@ -90,6 +90,9 @@ class PortalSolicitacoesController extends Controller
                 ->find($solicitacao->processo_id, ['id', 'numero_protocolo', 'status', 'etapa_atual_id']);
         }
 
+        // CPF do cidadão só em parte na tela (LGPD).
+        $solicitacao->cidadao?->setAttribute('cpf', \App\Support\DocumentoPessoa::mascararCpf($solicitacao->cidadao->cpf));
+
         return Inertia::render('Portal/Admin/Solicitacoes/Show', [
             'solicitacao' => $solicitacao,
             'processo'    => $processo,

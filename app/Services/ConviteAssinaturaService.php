@@ -133,8 +133,6 @@ class ConviteAssinaturaService
 
     public static function mascararCpf(?string $cpf): string
     {
-        $d = self::soDigitos($cpf);
-
-        return strlen($d) === 11 ? substr($d, 0, 3) . '.***.***-' . substr($d, 9, 2) : (string) $cpf;
+        return (string) \App\Support\DocumentoPessoa::mascararCpf($cpf);
     }
 }

@@ -46,15 +46,18 @@ class UsuarioController extends Controller
                     $cpfDigits = preg_replace('/\D/', '', $busca);
                     $q->where('users.name', 'like', $termo)
                       ->orWhere('users.email', 'like', $termo);
-                    if ($cpfDigits !== '') {
-                        $q->orWhere('users.cpf', 'like', "%{$cpfDigits}%");
+                    // Só o CPF completo encontra (LGPD): busca parcial permitiria descobrir CPFs por tentativa.
+                    if (strlen($cpfDigits) === 11) {
+                        // O CPF está gravado com e sem pontuação: compara só os dígitos.
+                        $q->orWhereRaw("regexp_replace(users.cpf, '[^0-9]', '', 'g') = ?", [$cpfDigits]);
                     }
                 });
             })
             ->when(in_array($tipoFiltro, ['interno', 'externo'], true), fn ($q) => $q->where('users.tipo', $tipoFiltro))
             ->orderBy('name')
             ->paginate(20)
-            ->withQueryString();
+            ->withQueryString()
+            ->through(fn (User $u) => $u->setAttribute('cpf', \App\Support\DocumentoPessoa::mascararCpf($u->cpf)));
 
         return Inertia::render('GED/Admin/Usuarios/Index', [
             'usuarios' => $usuarios,

@@ -403,9 +403,7 @@ class AssinaturaIcpService
     private function mascararCpf(string $cpf): string
     {
         // Mascara o meio: 851.183.865-04 -> 851.***.***-04
-        $d = preg_replace('/\D/', '', $cpf);
-        if (strlen($d) !== 11) return $cpf;
-        return sprintf('%s.***.***-%s', substr($d, 0, 3), substr($d, 9, 2));
+        return (string) \App\Support\DocumentoPessoa::mascararCpf($cpf);
     }
 
     /**
