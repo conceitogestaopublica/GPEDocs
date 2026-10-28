@@ -131,6 +131,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
             ...(registro.criado_ip ? [{ icone: 'fa-network-wired', label: 'Origem do cadastro',
               valor: `IP ${registro.criado_ip}${registro.criado_navegador ? ' · ' + resumirNavegador(registro.criado_navegador) : ''}` }] : []),
             { icone: 'fa-clock', label: 'Último acesso', valor: registro.ultimo_acesso_em || 'nunca acessou' },
+            { icone: 'fa-mobile-alt', label: 'Duas etapas', valor: registro.dois_fatores ? 'ativada' : 'desativada' },
             ...(registro.suspenso_em ? [{ icone: 'fa-user-slash', label: 'Suspenso',
               valor: `desde ${registro.suspenso_em}${registro.suspenso_motivo ? ' · ' + registro.suspenso_motivo : ''}` }] : []),
         ] : []),
@@ -382,6 +383,23 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                         </div>
                     )}
                 </CadastroSecao>
+
+                {registro?.dois_fatores && (
+                    <CadastroSecao icone="fa-mobile-alt" titulo="Verificação em duas etapas"
+                        descricao="O usuário entra com senha e código do aplicativo autenticador">
+                        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                            <p className="text-gray-600">Ativada. Se o servidor perdeu o celular <b>e</b> os códigos de recuperação, remova para ele entrar só com a senha e ativar de novo.</p>
+                            <button type="button" className="ds-btn ds-btn-sm ds-btn-danger"
+                                onClick={() => {
+                                    if (window.confirm(`Remover a verificação em duas etapas de ${usuario.name}?`)) {
+                                        router.post(`/configuracoes/usuarios/${usuario.id}/dois-fatores/remover`, {}, { preserveScroll: true });
+                                    }
+                                }}>
+                                <i className="fas fa-times mr-1" />Remover
+                            </button>
+                        </div>
+                    </CadastroSecao>
+                )}
             </CadastroLayout>
         </AdminLayout>
     );

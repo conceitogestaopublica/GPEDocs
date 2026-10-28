@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\Auth\EntradaService;
+use Illuminate\Auth\Events\Failed;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -20,7 +22,7 @@ class LoginController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, EntradaService $entrada)
     {
         $dados = $request->validate([
             'login'    => ['required', 'string', 'max:255'],
@@ -45,48 +47,22 @@ class LoginController extends Controller
             ])->onlyInput('login');
         }
 
-        if (! Auth::attempt(['email' => $email, 'password' => $dados['password']], $request->boolean('remember'))) {
+        // Confere a senha SEM abrir a sessão: com verificação em duas etapas a
+        // sessão só abre depois do código do aplicativo (EntradaService).
+        $credenciais = ['email' => $email, 'password' => $dados['password']];
+        if (! Auth::validate($credenciais)) {
             \App\Support\Captcha::registrarFalha($request, 'login');
+            event(new Failed('web', Auth::getProvider()->retrieveByCredentials(['email' => $email]), $credenciais));
 
             return back()->withErrors([
                 'login' => 'As credenciais informadas não correspondem aos nossos registros.',
             ])->onlyInput('login');
         }
 
-        $user = Auth::user();
-        if ($user->suspenso_em) {
-            // A senha confere, mas o acesso está suspenso: não abre sessão.
-            Auth::logout();
-
-            return back()->withErrors([
-                'login' => 'Seu acesso está suspenso. Procure o administrador do sistema.',
-            ])->onlyInput('login');
-        }
-
         \App\Support\Captcha::limparFalhas($request, 'login');
-        $request->session()->regenerate();
+        $user = Auth::getProvider()->retrieveByCredentials(['email' => $email]);
 
-        // UGs disponiveis: super_admin enxerga TODAS ativas; demais users sao
-        // limitados as UGs do pivot.
-        $ugs = $user->super_admin
-            ? \App\Models\Ug::where('ativo', true)->get(['id'])
-            : $user->ugs()->where('ugs.ativo', true)->get(['ugs.id']);
-
-        if ($ugs->count() === 0) {
-            // Super_admin sem nenhuma UG no sistema — segue para modulos (so pode ver/criar UG)
-            if ($user->super_admin) {
-                return redirect()->intended('/modulos');
-            }
-            return redirect()->route('sem-ug');
-        }
-
-        if ($ugs->count() === 1) {
-            session(['ug_id' => $ugs->first()->id]);
-            return redirect()->intended('/modulos');
-        }
-
-        // Mais de uma UG — usuario escolhe (inclusive super_admin)
-        return redirect()->route('selecionar-ug');
+        return $entrada->concluir($request, $user, $request->boolean('remember'), 'senha');
     }
 
     /**

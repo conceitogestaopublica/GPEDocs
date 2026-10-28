@@ -232,6 +232,11 @@ Route::middleware('guest')->group(function () {
     // Limite de tentativas por IP: antes não havia nenhum contra força bruta.
     Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:login');
 
+    // Verificação em duas etapas (código do aplicativo depois da senha)
+    Route::get('/login/verificacao', [\App\Http\Controllers\Auth\DoisFatoresController::class, 'formulario'])->name('login.dois-fatores');
+    Route::post('/login/verificacao', [\App\Http\Controllers\Auth\DoisFatoresController::class, 'confirmar'])->middleware('throttle:login');
+    Route::post('/login/verificacao/cancelar', [\App\Http\Controllers\Auth\DoisFatoresController::class, 'cancelar'])->name('login.dois-fatores.cancelar');
+
     // Recuperação de senha
     Route::get('/forgot-password', [\App\Http\Controllers\Auth\SenhaController::class, 'solicitar'])->name('password.request');
     Route::post('/forgot-password', [\App\Http\Controllers\Auth\SenhaController::class, 'enviar'])->name('password.email')->middleware('throttle:senha');
@@ -319,6 +324,7 @@ Route::middleware('auth')->group(function () {
         // Usuarios e perfis (movidos de /admin)
         Route::resource('usuarios', UsuarioController::class)->except(['show'])->middleware('can:admin.usuarios');
         Route::post('usuarios/{id}/reativar', [UsuarioController::class, 'reativar'])->middleware('can:admin.usuarios')->name('usuarios.reativar');
+        Route::post('usuarios/{id}/dois-fatores/remover', [UsuarioController::class, 'removerDoisFatores'])->middleware('can:admin.usuarios')->name('usuarios.dois-fatores.remover');
         Route::resource('perfis', RoleController::class)->parameters(['perfis' => 'role'])->except(['create', 'edit', 'show'])->middleware('can:admin.roles');
 
         // Unidades Gestoras + organograma + banners do portal
@@ -528,6 +534,15 @@ Route::middleware('auth')->group(function () {
     Route::post('assinaturas/{id}/simular-restantes', [AssinaturaController::class, 'simularAssinaturasRestantes'])
         ->name('assinaturas.simular-restantes');
     Route::get('assinaturas/{id}/manifesto', [AssinaturaController::class, 'manifesto'])->name('assinaturas.manifesto');
+
+    // Meu perfil › Segurança: verificação em duas etapas
+    Route::prefix('perfil/seguranca')->name('perfil.seguranca')->controller(\App\Http\Controllers\Perfil\SegurancaController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::post('/dois-fatores/iniciar', 'iniciar')->name('.iniciar');
+        Route::post('/dois-fatores/ativar', 'ativar')->middleware('throttle:10,1')->name('.ativar');
+        Route::post('/dois-fatores/desativar', 'desativar')->middleware('throttle:10,1')->name('.desativar');
+        Route::post('/dois-fatores/codigos', 'regerarCodigos')->middleware('throttle:10,1')->name('.codigos');
+    });
 
     // Meus Certificados ICP-Brasil (perfil do usuario)
     Route::get('perfil/certificados', [CertificadoController::class, 'index'])->name('certificados.index');

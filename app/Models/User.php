@@ -16,7 +16,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 #[Fillable(['name', 'email', 'cpf', 'telefone', 'password', 'tipo', 'ug_id', 'unidade_id', 'legado_usuario_id', 'legado_funcionario_id', 'matricula', 'super_admin', 'acesso_geral_ug'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'dois_fatores_segredo', 'dois_fatores_recuperacao', 'dois_fatores_ultimo_passo'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -37,7 +37,16 @@ class User extends Authenticatable
             'suspenso_em'         => 'datetime',
             'ultimo_acesso_em'    => 'datetime',
             'ultima_atividade_em' => 'datetime',
+            'dois_fatores_segredo'     => 'encrypted',
+            'dois_fatores_recuperacao' => 'encrypted:array',
+            'dois_fatores_ativado_em'  => 'datetime',
         ];
+    }
+
+    /** Verificação em duas etapas (aplicativo autenticador) ativa. */
+    public function temDoisFatores(): bool
+    {
+        return $this->dois_fatores_ativado_em !== null && ! empty($this->dois_fatores_segredo);
     }
 
     public function documentos(): HasMany

@@ -110,6 +110,7 @@ class UsuarioController extends Controller
                 'ultimo_acesso_em' => $usuario->ultimo_acesso_em?->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i'),
                 'suspenso_em'      => $usuario->suspenso_em?->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i'),
                 'suspenso_motivo'  => $usuario->suspenso_motivo,
+                'dois_fatores'     => $usuario->temDoisFatores(),
             ],
             'roles'    => Role::orderBy('nome')->get(),
             'ugs'      => Ug::where('ativo', true)->orderBy('codigo')->get(['id','codigo','nome','nivel_1_label','nivel_2_label','nivel_3_label']),
@@ -301,5 +302,26 @@ class UsuarioController extends Controller
         ]);
 
         return redirect()->back()->with('success', "Acesso de {$user->name} reativado.");
+    }
+
+    /** Servidor perdeu o celular e os códigos de recuperação: volta a entrar só com a senha. */
+    public function removerDoisFatores(Request $request, $id)
+    {
+        $this->bloquearAlteracaoDeSuperAdmin($request, (int) $id);
+
+        $user = User::findOrFail($id);
+        $user->forceFill([
+            'dois_fatores_segredo' => null, 'dois_fatores_recuperacao' => null,
+            'dois_fatores_ativado_em' => null, 'dois_fatores_ultimo_passo' => null,
+        ])->save();
+        \App\Models\AuditLog::create([
+            'usuario_id' => auth()->id(),
+            'acao'       => 'usuario_2fa_removido',
+            'detalhes'   => ['user_id' => $user->id, 'nome' => $user->name],
+            'ip'         => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return redirect()->back()->with('success', "Verificação em duas etapas de {$user->name} removida.");
     }
 }

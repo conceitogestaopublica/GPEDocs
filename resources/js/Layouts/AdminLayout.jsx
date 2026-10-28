@@ -15,7 +15,7 @@ import { rotinasDe } from '../menus';
 
 // Detectar modulo pela URL
 function getModulo(url) {
-    if (url.startsWith('/configuracoes') || url.startsWith('/perfil/certificados')) return 'configuracoes';
+    if (url.startsWith('/configuracoes') || url.startsWith('/perfil/')) return 'configuracoes';
     if (url.startsWith('/flow') || url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url.startsWith('/oficios') || url === '/admin/tipos-processo' || url.startsWith('/admin/oficios-modelos')) return 'gepsp';
     return 'ged';
 }
@@ -297,6 +297,13 @@ function UserMenu({ user }) {
                                 <i className="fas fa-id-card text-xs text-gray-400" />
                             </div>
                             <span className="font-medium">Meus certificados</span>
+                        </Link>
+                        <Link href="/perfil/seguranca"
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                            <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center">
+                                <i className="fas fa-shield-alt text-xs text-gray-400" />
+                            </div>
+                            <span className="font-medium">Segurança</span>
                         </Link>
                     </div>
                     <div className="border-t border-gray-100 py-1">

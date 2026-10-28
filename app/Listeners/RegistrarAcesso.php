@@ -23,7 +23,8 @@ class RegistrarAcesso
             return;
         }
 
-        $origem = request()->is('sso*', '*/sso*') ? 'sso' : 'senha';
+        $origem = request()->attributes->get('origem_login')
+            ?? (request()->is('sso*', '*/sso*') ? 'sso' : 'senha');
 
         // Senha certa, mas acesso suspenso: o login é desfeito logo em seguida (LoginController e
         // middleware BloquearUsuarioSuspenso). Fica registrado como recusado, sem contar como acesso.
@@ -56,6 +57,18 @@ class RegistrarAcesso
             'login'   => $evento->credentials['email'] ?? null,
             'sucesso' => false,
             'motivo'  => $evento->user ? 'senha incorreta' : 'usuário não encontrado',
+        ]);
+    }
+
+    /** Entrada recusada sem chegar a abrir sessão (suspenso, código do 2FA errado…). */
+    public static function recusa(?\Illuminate\Contracts\Auth\Authenticatable $user, string $motivo, string $origem, ?string $login = null): void
+    {
+        (new self)->gravar([
+            'user_id' => $user?->getAuthIdentifier(),
+            'login'   => $login ?? ($user->email ?? null),
+            'sucesso' => false,
+            'motivo'  => $motivo,
+            'origem'  => $origem,
         ]);
     }
 
