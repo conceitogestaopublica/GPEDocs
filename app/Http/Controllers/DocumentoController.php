@@ -511,7 +511,12 @@ class DocumentoController extends Controller
             'user_agent'   => request()->userAgent(),
         ]);
 
-        return Storage::disk('documentos')->download($caminho, $this->sanitizarNomeArquivo($documento));
+        $nome = $this->sanitizarNomeArquivo($documento);
+        if ($caminho === $documento->caminhoImpressao()) {
+            $nome = preg_replace('/(\.pdf)?$/i', ' - para impressao.pdf', $nome, 1);
+        }
+
+        return Storage::disk('documentos')->download($caminho, $nome);
     }
 
     public function preview($id, Request $request)

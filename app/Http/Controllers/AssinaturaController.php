@@ -1274,12 +1274,17 @@ class AssinaturaController extends Controller
             abort(403, 'Documento cancelado pela origem. Download não disponível.');
         }
 
-        if (! $assinatura->arquivo_assinado_path) {
-            abort(404, 'Esta assinatura não possui PDF qualificado anexado.');
+        // ?copia=impressao: a cópia com carimbos gerada nesta assinatura. Padrão: o
+        // original assinado; assinatura por link sem selo não gera original, só cópia.
+        $caminho = $request->input('copia') === 'impressao'
+            ? ($assinatura->arquivo_impressao_path ?: $assinatura->arquivo_assinado_path)
+            : ($assinatura->arquivo_assinado_path ?: $assinatura->arquivo_impressao_path);
+        if (! $caminho) {
+            abort(404, 'Esta assinatura não possui PDF anexado.');
         }
 
         $disk = Storage::disk('documentos');
-        if (! $disk->exists($assinatura->arquivo_assinado_path)) {
+        if (! $disk->exists($caminho)) {
             abort(404);
         }
 
@@ -1290,7 +1295,7 @@ class AssinaturaController extends Controller
             ? "inline; filename=\"{$nome}\""
             : "attachment; filename=\"{$nome}\"";
 
-        return response($disk->get($assinatura->arquivo_assinado_path), 200, [
+        return response($disk->get($caminho), 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => $disposition,
         ]);

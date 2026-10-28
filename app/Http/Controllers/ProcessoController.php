@@ -316,14 +316,14 @@ class ProcessoController extends Controller
                 if ($processo->solicitacao_assinatura_id) {
                     $assinada = \App\Models\Assinatura::where('solicitacao_id', $processo->solicitacao_assinatura_id)
                         ->where('status', 'assinado')
-                        ->orderByDesc('arquivo_assinado_path')
+                        ->orderByDesc('assinado_em')
                         ->first();
                 }
 
                 $decisaoAssinada = [
                     'assinatura_id'    => $assinada?->id,
                     'documento_id'     => $documentoId,
-                    'tem_pdf_assinado' => $assinada && ! empty($assinada->arquivo_assinado_path),
+                    'tem_pdf_assinado' => $assinada && ($assinada->arquivo_assinado_path || $assinada->arquivo_impressao_path),
                     'tipo_assinatura'  => $assinada?->tipo_assinatura,
                     'assinado_em'      => $assinada?->assinado_em?->format('d/m/Y H:i'),
                     'pasta_id'         => $documento?->pasta_id,

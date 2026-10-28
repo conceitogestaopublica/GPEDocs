@@ -225,13 +225,23 @@ Consulta o status de um documento já enviado (útil pra polling antes do webhoo
   "todas_assinadas": false,
   "callback_executado": false,
   "pdf_assinado_url": "https://docs.exemplo.gov.br/documentos/42/download",
+  "pdf_impressao_url": "https://docs.exemplo.gov.br/documentos/42/download?copia=impressao",
+  "pdf_original_url": "https://docs.exemplo.gov.br/documentos/42/download",
   "visualizacao_url": "https://docs.exemplo.gov.br/documentos/42"
 }
 ```
 
 ### `GET /api/integracoes/documentos/{numero_externo}/pdf-assinado`
 
-Devolve o PDF assinado: o arquivo da assinatura mais recente, que traz os quadros e as assinaturas de todos os anteriores.
+Todo documento assinado tem **dois arquivos**:
+
+| `?arquivo=` | arquivo | uso |
+|---|---|---|
+| *(padrão)* ou `impressao` | **cópia para impressão** — com os quadros/carimbos de quem assinou, tarja e termo; selada pela prefeitura quando há e-CNPJ | mostrar e imprimir (o que esta rota sempre entregou) |
+| `original` | **original assinado** — o PDF com todas as assinaturas digitais ICP-Brasil, sem desenho | guardar como prova; conferir em validar.iti.gov.br |
+
+As assinaturas digitais ficam só no original: desenhar o quadro no arquivo
+depois de assinado invalidaria as assinaturas anteriores.
 
 | situação | resposta |
 |---|---|
