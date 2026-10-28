@@ -9,6 +9,7 @@
  */
 import { Head, Link, useForm } from '@inertiajs/react';
 import Captcha from '../../Components/Captcha';
+import EntrarComCertificado from '../../Components/EntrarComCertificado';
 import { useState, useEffect } from 'react';
 
 const STORAGE_KEY = 'gpe_remember_email';
@@ -21,6 +22,7 @@ export default function Login({ flash = {}, exige_captcha = false }) {
         captcha: '',
     });
     const [showPass, setShowPass] = useState(false);
+    const [comCertificado, setComCertificado] = useState(false);
 
     useEffect(() => {
         try {
@@ -93,6 +95,14 @@ export default function Login({ flash = {}, exige_captcha = false }) {
                             </div>
                         )}
 
+                        {(errors.login && comCertificado) && (
+                            <p className="mb-4 text-sm text-red-600">{errors.login}</p>
+                        )}
+
+                        {comCertificado ? (
+                            <EntrarComCertificado lembrar={data.remember} onVoltar={() => setComCertificado(false)} />
+                        ) : (
+                        <>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             {/* E-mail ou CPF */}
                             <div>
@@ -163,6 +173,18 @@ export default function Login({ flash = {}, exige_captcha = false }) {
                                 {processing ? (<><i className="fas fa-spinner fa-spin" /> Acessando...</>) : (<>Entrar <i className="fas fa-right-to-bracket" /></>)}
                             </button>
                         </form>
+
+                        <div className="flex items-center gap-3 my-5">
+                            <span className="flex-1 h-px bg-slate-200" />
+                            <span className="text-xs text-slate-400">ou</span>
+                            <span className="flex-1 h-px bg-slate-200" />
+                        </div>
+                        <button type="button" onClick={() => setComCertificado(true)}
+                            className="w-full py-3 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2">
+                            <i className="fas fa-id-card text-cyan-600" /> Entrar com certificado digital
+                        </button>
+                        </>
+                        )}
 
                         <p className="lg:hidden text-center text-[11px] text-slate-400 mt-8">
                             © {new Date().getFullYear()} Conceito Gestão Pública — Assessoria &amp; Tecnologia

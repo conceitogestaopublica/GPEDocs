@@ -232,6 +232,10 @@ Route::middleware('guest')->group(function () {
     // Limite de tentativas por IP: antes não havia nenhum contra força bruta.
     Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:login');
 
+    // Entrada com certificado digital ICP-Brasil (Web PKI)
+    Route::get('/login/certificado/desafio', [\App\Http\Controllers\Auth\CertificadoLoginController::class, 'desafio'])->middleware('throttle:30,1');
+    Route::post('/login/certificado', [\App\Http\Controllers\Auth\CertificadoLoginController::class, 'entrar'])->middleware('throttle:login');
+
     // Verificação em duas etapas (código do aplicativo depois da senha)
     Route::get('/login/verificacao', [\App\Http\Controllers\Auth\DoisFatoresController::class, 'formulario'])->name('login.dois-fatores');
     Route::post('/login/verificacao', [\App\Http\Controllers\Auth\DoisFatoresController::class, 'confirmar'])->middleware('throttle:login');
