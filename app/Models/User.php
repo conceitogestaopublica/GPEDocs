@@ -154,4 +154,21 @@ class User extends Authenticatable
     {
         return $this->tipo === 'externo';
     }
+
+    /**
+     * Servidores que podem ser escolhidos como signatários: ativos, com quem
+     * está pedindo no topo ("você" — o autor costuma assinar o próprio documento).
+     *
+     * @return \Illuminate\Support\Collection<int, array{id: int, name: string, email: string, voce: bool}>
+     */
+    public static function paraAssinatura(?int $atualId, bool $soInternos = true)
+    {
+        return static::query()
+            ->whereNull('suspenso_em')
+            ->when($soInternos, fn ($q) => $q->where('tipo', 'interno'))
+            ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [(int) $atualId])
+            ->orderBy('name')
+            ->get(['id', 'name', 'email'])
+            ->map(fn ($u) => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email, 'voce' => $u->id === $atualId]);
+    }
 }

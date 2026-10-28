@@ -59,7 +59,7 @@ class DocumentoController extends Controller
         // Marcar favoritos do usuario
         $favoritoIds = Auth::user()->favoritos()->pluck('documento_id')->toArray();
 
-        $usuarios = User::where('id', '!=', Auth::id())->orderBy('name')->get(['id', 'name', 'email']);
+        $usuarios = User::paraAssinatura(Auth::id(), soInternos: false);
 
         return Inertia::render('GED/Documentos/Index', [
             'documentos'   => $documentos,
@@ -97,7 +97,7 @@ class DocumentoController extends Controller
         }
 
         $isFavorito = Auth::user()->favoritos()->where('documento_id', $id)->exists();
-        $usuarios = User::where('id', '!=', Auth::id())->orderBy('name')->get(['id', 'name', 'email']);
+        $usuarios = User::paraAssinatura(Auth::id(), soInternos: false);
 
         // Info da assinatura ICP (a mais recente) — para banner "vendo versao assinada"
         $assinada = \App\Models\Assinatura::where('documento_id', $documento->id)

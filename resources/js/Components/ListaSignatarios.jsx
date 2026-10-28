@@ -12,7 +12,8 @@ export default function ListaSignatarios({ usuarios = [], selecionados = [], onT
 
     const visiveis = useMemo(() => {
         const termo = normalizar(busca.trim());
-        const confere = (u) => !termo || normalizar(u.name).includes(termo) || normalizar(u.email).includes(termo);
+        const confere = (u) => !termo || normalizar(u.name).includes(termo) || normalizar(u.email).includes(termo)
+            || (u.voce && ['eu', 'voce', 'eu mesmo'].includes(termo));
         // Marcados na ordem em que foram marcados (é a ordem da assinatura sequencial)
         const marcados = selecionados.map(id => usuarios.find(u => u.id === id)).filter(Boolean);
         const outros = usuarios.filter(u => !selecionados.includes(u.id) && confere(u));
@@ -42,6 +43,9 @@ export default function ListaSignatarios({ usuarios = [], selecionados = [], onT
                             <input type="checkbox" checked={marcado} onChange={() => onToggle(u.id)}
                                 className="rounded border-gray-300 text-blue-600 w-3.5 h-3.5" />
                             <span className="text-gray-700">{u.name}</span>
+                            {u.voce && (
+                                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">você</span>
+                            )}
                             <span className="text-xs text-gray-400 ml-auto truncate">{u.email}</span>
                             {mostrarOrdem && marcado && (
                                 <span className="text-[10px] font-bold text-blue-700 bg-blue-100 rounded px-1.5">
