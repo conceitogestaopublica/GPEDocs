@@ -88,7 +88,8 @@ class Oficio extends Model
      */
     public function variaveis(): array
     {
-        $data = ($this->enviado_em ?? $this->created_at ?? now())->locale('pt_BR');
+        // Gravado em UTC: sem converter, um ofício enviado depois das 21h sairia com a data do dia seguinte.
+        $data = ($this->enviado_em ?? $this->created_at ?? now())->copy()->setTimezone('America/Sao_Paulo')->locale('pt_BR');
 
         return [
             'destinatario' => (string) $this->destinatario_nome,

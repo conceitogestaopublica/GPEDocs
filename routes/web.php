@@ -308,6 +308,7 @@ Route::middleware('auth')->group(function () {
 
         // Usuarios e perfis (movidos de /admin)
         Route::resource('usuarios', UsuarioController::class)->except(['show'])->middleware('can:admin.usuarios');
+        Route::post('usuarios/{id}/reativar', [UsuarioController::class, 'reativar'])->middleware('can:admin.usuarios')->name('usuarios.reativar');
         Route::resource('perfis', RoleController::class)->parameters(['perfis' => 'role'])->except(['create', 'edit', 'show'])->middleware('can:admin.roles');
 
         // Unidades Gestoras + organograma + banners do portal

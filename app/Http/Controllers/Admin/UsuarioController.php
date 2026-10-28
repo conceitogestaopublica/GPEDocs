@@ -61,6 +61,9 @@ class UsuarioController extends Controller
 
         return Inertia::render('GED/Admin/Usuarios/Index', [
             'usuarios' => $usuarios,
+            // "Online agora" = alguma atividade nos últimos minutos (middleware BloquearUsuarioSuspenso).
+            'online'   => User::whereNull('suspenso_em')->where('ultima_atividade_em', '>=', now()->subMinutes(\App\Http\Middleware\BloquearUsuarioSuspenso::MINUTOS_ONLINE))->count(),
+            'minutos_online' => \App\Http\Middleware\BloquearUsuarioSuspenso::MINUTOS_ONLINE,
             'filtros'  => [
                 'busca'     => $busca,
                 'tipo'      => $tipoFiltro,
@@ -98,6 +101,16 @@ class UsuarioController extends Controller
                 'ug_ids'          => $usuario->ugs->pluck('id')->all(),  // UGs vinculadas (multi)
                 'roles'           => $usuario->roles->pluck('id')->all(),
             ],
+            // Registro do cadastro e situação do acesso (só leitura na tela).
+            'registro' => [
+                'criado_em'        => $usuario->created_at?->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i'),
+                'criado_por'       => $usuario->criado_por ? User::whereKey($usuario->criado_por)->value('name') : null,
+                'criado_ip'        => $usuario->criado_ip,
+                'criado_navegador' => $usuario->criado_user_agent,
+                'ultimo_acesso_em' => $usuario->ultimo_acesso_em?->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i'),
+                'suspenso_em'      => $usuario->suspenso_em?->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i'),
+                'suspenso_motivo'  => $usuario->suspenso_motivo,
+            ],
             'roles'    => Role::orderBy('nome')->get(),
             'ugs'      => Ug::where('ativo', true)->orderBy('codigo')->get(['id','codigo','nome','nivel_1_label','nivel_2_label','nivel_3_label']),
             'unidades' => UgOrganograma::where('ativo', true)->orderBy('ug_id')->orderBy('nivel')->orderBy('nome')->get(['id','ug_id','parent_id','nivel','codigo','nome']),
@@ -129,6 +142,13 @@ class UsuarioController extends Controller
                 'acesso_geral_ug' => (bool) ($validated['acesso_geral_ug'] ?? false),
                 'ug_id'           => $ugIds[0] ?? null,  // UG primaria = primeira do array
                 'unidade_id'      => $unidadeId,
+            ]);
+
+            // Cadeia de responsabilidade do cadastro: quem, de onde e com que navegador.
+            DB::table('users')->where('id', $user->id)->update([
+                'criado_por'        => $request->user()->id,
+                'criado_ip'         => $request->ip(),
+                'criado_user_agent' => mb_substr((string) $request->userAgent(), 0, 500),
             ]);
 
             // Sincroniza pivot multi-UG
@@ -246,19 +266,40 @@ class UsuarioController extends Controller
         }
     }
 
+    /**
+     * Usuário não é excluído, é suspenso: o histórico de quem tramitou, assinou e despachou continua
+     * apontando para a pessoa. Suspenso não entra (LoginController) e perde a sessão aberta
+     * (middleware BloquearUsuarioSuspenso). Perfis e vínculos ficam, para a reativação devolver o acesso.
+     */
     public function destroy(Request $request, $id)
     {
         $this->bloquearAlteracaoDeSuperAdmin($request, (int) $id);
 
-        try {
-            $user = User::findOrFail($id);
+        $dados = $request->validate(['motivo' => ['nullable', 'string', 'max:500']]);
+        $user = User::findOrFail($id);
 
-            DB::table('ged_user_roles')->where('user_id', $user->id)->delete();
-            $user->delete();
-
-            return redirect()->back()->with('success', 'Usuário excluído com sucesso.');
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Erro ao excluir usuário: ' . $e->getMessage());
+        if ($user->id === $request->user()->id) {
+            return redirect()->back()->with('error', 'Você não pode suspender o seu próprio acesso.');
         }
+
+        DB::table('users')->where('id', $user->id)->update([
+            'suspenso_em'     => now(),
+            'suspenso_por'    => $request->user()->id,
+            'suspenso_motivo' => $dados['motivo'] ?? null,
+        ]);
+
+        return redirect()->back()->with('success', "Acesso de {$user->name} suspenso.");
+    }
+
+    public function reativar(Request $request, $id)
+    {
+        $this->bloquearAlteracaoDeSuperAdmin($request, (int) $id);
+
+        $user = User::findOrFail($id);
+        DB::table('users')->where('id', $user->id)->update([
+            'suspenso_em' => null, 'suspenso_por' => null, 'suspenso_motivo' => null,
+        ]);
+
+        return redirect()->back()->with('success', "Acesso de {$user->name} reativado.");
     }
 }

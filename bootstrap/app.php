@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\EnsureUgSelected::class,
+            \App\Http\Middleware\BloquearUsuarioSuspenso::class,
             ]);
 
             // Aliases para uso em rotas

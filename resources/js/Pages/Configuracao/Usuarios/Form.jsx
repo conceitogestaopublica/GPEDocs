@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import CadastroLayout, { CadastroSecao } from '../../../Components/CadastroLayout';
 
-export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = [] }) {
+export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = [], registro = null }) {
     const isEdit = !! usuario;
     // Só super admin concede o privilégio (o servidor ignora o campo vindo de outro usuário)
     const podeConcederSuperAdmin = !! usePage().props.auth?.user?.super_admin;
@@ -124,6 +124,16 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
           vazio: ugsSel.length === 0 },
         { icone: 'fa-sitemap',      label: 'Unidade',  valor: unidadeSel?.nome, vazio: ! unidadeSel },
         { icone: 'fa-shield-alt',   label: 'Perfis',   valor: rolesSel.map(r => r.nome).join(', '), vazio: rolesSel.length === 0 },
+        // Registro do cadastro e situação do acesso (só leitura).
+        ...(registro ? [
+            { icone: 'fa-user-plus', label: 'Cadastrado',
+              valor: [registro.criado_em, registro.criado_por && `por ${registro.criado_por}`].filter(Boolean).join(' ') || 'sem registro' },
+            ...(registro.criado_ip ? [{ icone: 'fa-network-wired', label: 'Origem do cadastro',
+              valor: `IP ${registro.criado_ip}${registro.criado_navegador ? ' · ' + resumirNavegador(registro.criado_navegador) : ''}` }] : []),
+            { icone: 'fa-clock', label: 'Último acesso', valor: registro.ultimo_acesso_em || 'nunca acessou' },
+            ...(registro.suspenso_em ? [{ icone: 'fa-user-slash', label: 'Suspenso',
+              valor: `desde ${registro.suspenso_em}${registro.suspenso_motivo ? ' · ' + registro.suspenso_motivo : ''}` }] : []),
+        ] : []),
     ];
 
     return (
@@ -375,6 +385,14 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
             </CadastroLayout>
         </AdminLayout>
     );
+}
+
+/** "Chrome 130 · Windows" a partir do user agent gravado no cadastro. */
+function resumirNavegador(ua) {
+    const nav = (ua.match(/(Edg|OPR|Firefox|Chrome|Safari)\/(\d+)/) || []);
+    const nome = { Edg: 'Edge', OPR: 'Opera' }[nav[1]] || nav[1];
+    const so = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac OS/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
+    return [nome && `${nome} ${nav[2]}`, so].filter(Boolean).join(' · ') || ua.slice(0, 60);
 }
 
 function formatarCpf(cpf) {

@@ -44,8 +44,17 @@ class LoginController extends Controller
             ])->onlyInput('login');
         }
 
-        $request->session()->regenerate();
         $user = Auth::user();
+        if ($user->suspenso_em) {
+            // A senha confere, mas o acesso está suspenso: não abre sessão.
+            Auth::logout();
+
+            return back()->withErrors([
+                'login' => 'Seu acesso está suspenso. Procure o administrador do sistema.',
+            ])->onlyInput('login');
+        }
+
+        $request->session()->regenerate();
 
         // UGs disponiveis: super_admin enxerga TODAS ativas; demais users sao
         // limitados as UGs do pivot.

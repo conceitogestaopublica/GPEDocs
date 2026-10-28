@@ -30,6 +30,10 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Support\Facades\RateLimiter::for('senha', fn ($request) =>
             \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by($request->ip()));
 
+        // Registro de cada entrada (senha e SSO) e do último acesso.
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Auth\Events\Login::class, [\App\Listeners\RegistrarAcesso::class, 'login']);
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Auth\Events\Failed::class, [\App\Listeners\RegistrarAcesso::class, 'falha']);
+
         // RBAC: super admin passa em tudo; as habilidades do catálogo (módulo.ação) vêm
         // dos perfis do usuário. Habilidade fora do catálogo segue o fluxo normal do Gate.
         \Illuminate\Support\Facades\Gate::before(function ($user, string $ability) {

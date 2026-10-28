@@ -34,6 +34,9 @@ class User extends Authenticatable
             'password' => 'hashed',
             'super_admin'     => 'boolean',
             'acesso_geral_ug' => 'boolean',
+            'suspenso_em'         => 'datetime',
+            'ultimo_acesso_em'    => 'datetime',
+            'ultima_atividade_em' => 'datetime',
         ];
     }
 
