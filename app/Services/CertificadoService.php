@@ -53,6 +53,24 @@ class CertificadoService
     }
 
     /**
+     * Certificado em PEM a partir do que o navegador mandou: a extensão Web PKI
+     * devolve base64 do DER, sem cabeçalho. Null se não for um certificado.
+     */
+    public static function normalizarPem(string $cert): ?string
+    {
+        $cert = trim($cert);
+        if (! str_contains($cert, '-----BEGIN CERTIFICATE-----')) {
+            $der = base64_decode((string) preg_replace('/\s+/', '', $cert), true);
+            if ($der === false || $der === '') {
+                return null;
+            }
+            $cert = "-----BEGIN CERTIFICATE-----\n" . chunk_split(base64_encode($der), 64, "\n") . "-----END CERTIFICATE-----\n";
+        }
+
+        return @openssl_x509_parse($cert) !== false ? $cert : null;
+    }
+
+    /**
      * Extrai metadados do certificado (subject, issuer, validade, CPF do titular, etc.).
      */
     public function lerMetadados(string $certPem): array

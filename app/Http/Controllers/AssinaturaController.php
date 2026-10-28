@@ -957,7 +957,11 @@ class AssinaturaController extends Controller
             return response()->json(['erro' => 'Apenas arquivos PDF podem receber assinatura ICP-Brasil.'], 422);
         }
 
-        $certPem = (string) $request->input('cert_pem');
+        // Web PKI manda o certificado em base64 (DER), sem cabeçalho PEM
+        $certPem = CertificadoService::normalizarPem((string) $request->input('cert_pem'));
+        if (! $certPem) {
+            return response()->json(['erro' => 'Certificado não reconhecido.'], 422);
+        }
 
         // Validacoes do cert antes de prosseguir
         $cadeiaIcp = $certificadoService->verificarCadeia($certPem);

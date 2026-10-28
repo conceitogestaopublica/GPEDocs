@@ -5,6 +5,7 @@
  * o CPF do titular. A chave privada não sai da máquina.
  */
 import { useEffect, useState } from 'react';
+import { aguardar } from '../Support/webPki';
 
 export default function EntrarComCertificado({ lembrar = false, onVoltar }) {
     const [estado, setEstado] = useState('iniciando'); // iniciando | sem_extensao | pronto | entrando | erro
@@ -27,7 +28,7 @@ export default function EntrarComCertificado({ lembrar = false, onVoltar }) {
                         setPki(p);
                         try {
                             // Só certificados ICP-Brasil com CPF (e-CPF) e dentro da validade
-                            const lista = (await p.listCertificates()).filter(c => c.pkiBrazil?.cpf
+                            const lista = (await aguardar(p.listCertificates())).filter(c => c.pkiBrazil?.cpf
                                 && (!c.validityEnd || new Date(c.validityEnd) > new Date()));
                             if (cancelado) return;
                             setCerts(lista);
@@ -59,9 +60,9 @@ export default function EntrarComCertificado({ lembrar = false, onVoltar }) {
         const xsrf = decodeURIComponent((document.cookie.match(/XSRF-TOKEN=([^;]+)/) || [])[1] || '');
         const cabecalhos = { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': xsrf };
         try {
-            const certPem = await pki.readCertificate({ thumbprint });
+            const certPem = await aguardar(pki.readCertificate({ thumbprint }));
             const desafio = await (await fetch('/login/certificado/desafio', { headers: cabecalhos })).json();
-            const assinatura = await pki.signHash({ thumbprint, hash: desafio.hash, digestAlgorithm: desafio.algoritmo });
+            const assinatura = await aguardar(pki.signHash({ thumbprint, hash: desafio.hash, digestAlgorithm: desafio.algoritmo }));
             const resp = await fetch('/login/certificado', {
                 method: 'POST', headers: cabecalhos,
                 body: JSON.stringify({ cert_pem: certPem, assinatura_b64: assinatura, lembrar }),

@@ -55,7 +55,7 @@ class CertificadoLoginController extends Controller
             return $this->recusar('O tempo para assinar acabou. Tente de novo.');
         }
 
-        $certPem = $this->normalizarPem((string) $request->input('cert_pem'));
+        $certPem = CertificadoService::normalizarPem((string) $request->input('cert_pem'));
         $assinatura = base64_decode((string) $request->input('assinatura_b64'), true);
         $chave = $certPem ? @openssl_pkey_get_public($certPem) : false;
         if (! $chave || $assinatura === false
@@ -110,18 +110,5 @@ class CertificadoLoginController extends Controller
         }
 
         return response()->json(['erro' => $mensagem], 422);
-    }
-
-    /** Web PKI devolve o certificado em base64 (DER) sem cabeçalho; aceita os dois. */
-    private function normalizarPem(string $cert): ?string
-    {
-        $cert = trim($cert);
-        if (str_contains($cert, '-----BEGIN CERTIFICATE-----')) {
-            return $cert;
-        }
-        $der = base64_decode(preg_replace('/\s+/', '', $cert), true);
-
-        return $der === false ? null
-            : "-----BEGIN CERTIFICATE-----\n" . chunk_split(base64_encode($der), 64, "\n") . "-----END CERTIFICATE-----\n";
     }
 }
