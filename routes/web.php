@@ -556,6 +556,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/foto/remover', 'removerFoto')->name('foto.remover');
     });
     Route::get('usuarios/{id}/foto', [\App\Http\Controllers\Perfil\PerfilController::class, 'foto'])->whereNumber('id')->name('usuarios.foto');
+    Route::get('perfil/ausencias', [\App\Http\Controllers\Perfil\AusenciasController::class, 'index'])->name('perfil.ausencias');
+    Route::post('perfil/ausencias', [\App\Http\Controllers\Perfil\AusenciasController::class, 'store'])->name('perfil.ausencias.salvar');
+    Route::delete('perfil/ausencias/{id}', [\App\Http\Controllers\Perfil\AusenciasController::class, 'destroy'])->whereNumber('id')->name('perfil.ausencias.remover');
 
     // Meu perfil › Segurança: verificação em duas etapas
     Route::prefix('perfil/seguranca')->name('perfil.seguranca')->controller(\App\Http\Controllers\Perfil\SegurancaController::class)->group(function () {

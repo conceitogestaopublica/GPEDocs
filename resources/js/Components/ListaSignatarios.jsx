@@ -46,6 +46,11 @@ export default function ListaSignatarios({ usuarios = [], selecionados = [], onT
                             {u.voce && (
                                 <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">você</span>
                             )}
+                            {u.ausencia && (
+                                <span className="text-[10px] font-semibold text-amber-800 bg-amber-100 rounded-full px-2 py-0.5" title="Servidor ausente neste período">
+                                    <i className="fas fa-umbrella-beach mr-1" />{u.ausencia}
+                                </span>
+                            )}
                             <span className="text-xs text-gray-400 ml-auto truncate">{u.email}</span>
                             {mostrarOrdem && marcado && (
                                 <span className="text-[10px] font-bold text-blue-700 bg-blue-100 rounded px-1.5">

@@ -57,6 +57,24 @@ class User extends Authenticatable
         return $caminho ? url("/usuarios/{$this->id}/foto?v=" . substr(md5((string) $caminho), 0, 8)) : null;
     }
 
+    public function ausencias(): HasMany
+    {
+        return $this->hasMany(UsuarioAusencia::class)->orderByDesc('inicio');
+    }
+
+    /**
+     * Ausência vigente hoje de cada usuário, em uma consulta: [user_id => "Férias até 15/11"].
+     *
+     * @param  iterable<int>  $ids
+     * @return array<int, string>
+     */
+    public static function ausentesHoje(iterable $ids): array
+    {
+        return UsuarioAusencia::vigentes()->whereIn('user_id', collect($ids)->all())
+            ->orderBy('fim')->get()->keyBy('user_id')
+            ->map(fn (UsuarioAusencia $a) => $a->rotulo())->all();
+    }
+
     /** Verificação em duas etapas (aplicativo autenticador) ativa. */
     public function temDoisFatores(): bool
     {
@@ -186,12 +204,17 @@ class User extends Authenticatable
      */
     public static function paraAssinatura(?int $atualId, bool $soInternos = true)
     {
-        return static::query()
+        $usuarios = static::query()
             ->whereNull('suspenso_em')
             ->when($soInternos, fn ($q) => $q->where('tipo', 'interno'))
             ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [(int) $atualId])
             ->orderBy('name')
-            ->get(['id', 'name', 'email'])
-            ->map(fn ($u) => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email, 'voce' => $u->id === $atualId]);
+            ->get(['id', 'name', 'email']);
+        $ausentes = static::ausentesHoje($usuarios->pluck('id'));
+
+        return $usuarios->map(fn ($u) => [
+            'id' => $u->id, 'name' => $u->name, 'email' => $u->email, 'voce' => $u->id === $atualId,
+            'ausencia' => $ausentes[$u->id] ?? null,
+        ]);
     }
 }

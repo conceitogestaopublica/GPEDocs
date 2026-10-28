@@ -59,6 +59,10 @@ class UsuarioController extends Controller
             ->withQueryString()
             ->through(fn (User $u) => $u->setAttribute('cpf', \App\Support\DocumentoPessoa::mascararCpf($u->cpf)));
 
+        // Férias / afastamento / licença vigente de quem está na página
+        $ausentes = User::ausentesHoje(collect($usuarios->items())->pluck('id'));
+        $usuarios->through(fn (User $u) => $u->setAttribute('ausencia', $ausentes[$u->id] ?? null));
+
         return Inertia::render('GED/Admin/Usuarios/Index', [
             'usuarios' => $usuarios,
             // "Online agora" = alguma atividade nos últimos minutos (middleware BloquearUsuarioSuspenso).

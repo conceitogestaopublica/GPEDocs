@@ -62,6 +62,11 @@ export default function Usuarios({ usuarios, filtros = {}, online = 0, minutos_o
                             <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium"
                                 title={row.suspenso_motivo || ''}>Suspenso</span>
                         )}
+                        {row.ausencia && (
+                            <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">
+                                <i className="fas fa-umbrella-beach mr-1" />{row.ausencia}
+                            </span>
+                        )}
                     </p>
                     {/* CPF já chega mascarado do servidor (LGPD). */}
                     <p className="text-xs text-gray-400">{row.email}{row.cpf && ' · ' + row.cpf}</p>
