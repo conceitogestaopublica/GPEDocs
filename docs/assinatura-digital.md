@@ -14,8 +14,13 @@ onde
 (DOC-ICP-15.03 do ITI), OID `2.16.76.1.7.1.11.1.3`, algoritmo SHA-256 com RSA.
 É a política de referência básica do ITI para assinaturas em PDF (a v1.2 foi
 revogada em 23/07/2025). O CMS leva exatamente os atributos que ela exige:
-contentType, messageDigest, signingCertificateV2 e sigPolicyId com o hash
-publicado na LPA_PAdES (`CmsAdRb`, configuração em `icp_brasil.politica_pades`).
+contentType, messageDigest, signingCertificateV2 e sigPolicyId (`CmsAdRb`,
+configuração em `icp_brasil.politica_pades`).
+
+> O hash do sigPolicyId é o campo `signPolicyHash` do próprio arquivo da
+> política (SHA-256 de algoritmo + SignPolicyInfo), **não** o SHA-256 do
+> arquivo publicado na LPA. Com o da LPA o validar.iti.gov.br reprova:
+> "O resumo criptográfico da política está incorreto".
 
 ---
 

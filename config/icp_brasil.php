@@ -27,14 +27,23 @@ return [
 
     /*
      * Política das assinaturas em PDF: PA_PAdES_AD_RB v1.3 (vigente desde
-     * 23/07/2025; a v1.2 foi revogada nessa data). O hash é o SHA-256 do
-     * arquivo .der da política, o mesmo publicado na LPA_PAdES do ITI
-     * (http://politicas.icpbrasil.gov.br/LPA_PAdES.der) — conferido em
-     * 2026-10-28. Atualize os três campos juntos quando o ITI publicar nova versão.
+     * 23/07/2025; a v1.2 foi revogada nessa data).
+     *
+     * Dois hashes diferentes — não confundir:
+     *  - hash: o que vai no sigPolicyId da assinatura. É o campo signPolicyHash
+     *    gravado no fim do próprio .der da política = SHA-256 de
+     *    (signPolicyHashAlg + signPolicyInfo). O verificador do ITI recusa
+     *    ("resumo criptográfico da política está incorreto") com qualquer outro.
+     *  - hash_arquivo: SHA-256 do arquivo .der inteiro, o publicado na
+     *    LPA_PAdES (http://politicas.icpbrasil.gov.br/LPA_PAdES.der); serve só
+     *    para conferir que o arquivo baixado é o oficial.
+     * Conferidos em 2026-10-28 (e o primeiro no validar.iti.gov.br). Atualize
+     * tudo junto quando o ITI publicar nova versão.
      */
     'politica_pades' => [
         'oid'  => '2.16.76.1.7.1.11.1.3',
-        'hash' => '23da544aef71f7a75dc85fa6e17a83875741e4baef41ec178258a5c86ace54dd',
+        'hash' => '23e4be4b9b362172e4ebb0e72b86a133ece5aad843d8651c6e38a0ba3f08fc60',
+        'hash_arquivo' => '23da544aef71f7a75dc85fa6e17a83875741e4baef41ec178258a5c86ace54dd',
         'nome' => 'PA_PAdES_AD_RB v1.3',
         'url'  => 'http://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der',
     ],
