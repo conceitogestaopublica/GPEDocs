@@ -11,6 +11,7 @@ use App\Models\Processo\TipoProcesso;
 use App\Models\UgOrganograma;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -70,6 +71,8 @@ class CartaServicosController extends Controller
                 'publico_alvo'  => $publicoAlvo,
             ],
             'publicos' => Servico::PUBLICOS,
+            'areas'    => CategoriaServico::AREAS,
+            'acoesFiscais' => Servico::ACOES_FISCAIS,
         ]);
     }
 
@@ -82,6 +85,7 @@ class CartaServicosController extends Controller
             'icone'     => ['nullable', 'string', 'max:60'],
             'cor'       => ['nullable', 'string', 'max:20'],
             'descricao' => ['nullable', 'string'],
+            'area'      => ['nullable', 'string', Rule::in(array_keys(CategoriaServico::AREAS))],
             'ordem'     => ['nullable', 'integer'],
         ]);
 
@@ -102,6 +106,7 @@ class CartaServicosController extends Controller
             'icone'     => ['nullable', 'string', 'max:60'],
             'cor'       => ['nullable', 'string', 'max:20'],
             'descricao' => ['nullable', 'string'],
+            'area'      => ['nullable', 'string', Rule::in(array_keys(CategoriaServico::AREAS))],
             'ordem'     => ['nullable', 'integer'],
             'ativo'     => ['nullable', 'boolean'],
         ]);
@@ -183,6 +188,7 @@ class CartaServicosController extends Controller
             'orgao_responsavel'      => ['nullable', 'string', 'max:200'],
             'setor_responsavel_id'   => ['nullable', 'integer', 'exists:ug_organograma,id'],
             'tipo_processo_id'       => ['nullable', 'integer', 'exists:proc_tipos_processo,id'],
+            'acao_fiscal'            => ['nullable', 'string', Rule::in(array_keys(Servico::ACOES_FISCAIS))],
             'permite_anonimo'        => ['nullable', 'boolean'],
             'legislacao'             => ['nullable', 'string'],
             'palavras_chave'         => ['nullable', 'array'],

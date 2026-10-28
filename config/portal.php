@@ -20,4 +20,15 @@ return [
     |
     */
     'domain' => env('PORTAL_DOMAIN', '{ug}.lvh.me'),
+
+    /*
+    | API do Portal do Cidadao (Next.js) — `api/portal/*`.
+    |
+    | api_sistema: codigo do SistemaIntegrado cujo token o portal usa. So ele
+    |   acessa a API do portal (e a chave de outro sistema nao vale aqui).
+    | api_eco_codigo: SO EM DESENVOLVIMENTO (APP_ENV=local) — devolve o codigo
+    |   de confirmacao na resposta, porque o e-mail local so vai para o log.
+    */
+    'api_sistema'    => env('PORTAL_API_SISTEMA', 'portal-cidadao'),
+    'api_eco_codigo' => (bool) env('PORTAL_API_ECO_CODIGO', false),
 ];

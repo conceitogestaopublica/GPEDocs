@@ -145,7 +145,18 @@ sem gerar um e-mail e um link por documento, envie em cada chamada o mesmo códi
 
 Os documentos com o mesmo `pacote` (do mesmo sistema) entram no mesmo link de cada externo
 (`link_pacote` na resposta). O e-mail sai na primeira chamada e no máximo um a cada
-10 minutos depois — a página do link sempre mostra a lista atualizada. Lá o externo abre
+10 minutos depois — a página do link sempre mostra a lista atualizada.
+
+Para o e-mail sair **uma vez, com a lista completa**, envie cada documento do lote com
+`"notificar": false` e, no fim, chame:
+
+```
+POST /api/integracoes/pacotes/{codigo}/notificar
+→ 200 { "pacote": "EMPENHOS-2026-10-23", "emails_enviados": 2 }
+```
+
+Só recebe e-mail quem já tem algum documento na vez (em ordem, os demais recebem quando
+chegar a vez deles). Lá o externo abre
 cada documento ou usa **"Assinar todos"** (confirma que conferiu e digita a senha uma vez).
 No "Assinar todos", se o signatário veio com `signature_position`, o carimbo vai nesse
 quadro; senão, na parte de baixo da última página.
@@ -217,6 +228,18 @@ Consulta o status de um documento já enviado (útil pra polling antes do webhoo
   "visualizacao_url": "https://docs.exemplo.gov.br/documentos/42"
 }
 ```
+
+### `GET /api/integracoes/documentos/{numero_externo}/pdf-assinado`
+
+Devolve o PDF assinado: o arquivo da assinatura mais recente, que traz os quadros e as assinaturas de todos os anteriores.
+
+| situação | resposta |
+|---|---|
+| todos assinaram | `200`, o PDF |
+| ainda há assinatura pendente | `409` |
+| pendente, com `?parcial=1` | `200`, a **versão atual**, com os quadros de quem já assinou, para o sistema de origem mostrar o andamento |
+| ninguém assinou ainda | `404` |
+| documento cancelado | `410` |
 
 ### Webhook de callback
 

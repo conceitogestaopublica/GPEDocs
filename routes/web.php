@@ -88,6 +88,9 @@ Route::prefix('api/integracoes')
         Route::post('documentos/{numero}/cancelar', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'cancelar'])
             ->where('numero', '[^/]+')
             ->name('api.integracoes.documentos.cancelar');
+        Route::post('pacotes/{codigo}/notificar', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'notificarPacote'])
+            ->where('codigo', '[^/]+')
+            ->name('api.integracoes.pacotes.notificar');
         Route::get('documentos/{numero}', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'show'])
             ->where('numero', '[^/]+')
             ->name('api.integracoes.documentos.show');
@@ -98,6 +101,41 @@ Route::prefix('api/integracoes')
         Route::get('arquivos/{id}/conteudo', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'conteudo'])
             ->where('id', '[0-9]+')
             ->name('api.integracoes.arquivos.conteudo');
+    });
+
+// API do Portal do Cidadao (Next.js): Carta de Servicos, cadastro unico do
+// cidadao (portal_cidadaos) e solicitacoes. Mesmo token de sistema integrado,
+// mas so o sistema do portal entra (SomenteSistemaPortalCidadao). A UG vem
+// do parametro `ug` (= ugs.portal_slug). Ver docs/api-portal-cidadao.md.
+Route::prefix('api/portal')
+    ->withoutMiddleware([
+        \App\Http\Middleware\HandleInertiaRequests::class,
+        \App\Http\Middleware\EnsureUgSelected::class,
+        \Illuminate\Auth\Middleware\Authenticate::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+    ])
+    ->middleware(['sistema.api', \App\Http\Middleware\SomenteSistemaPortalCidadao::class])
+    ->name('api.portal.')
+    ->group(function () {
+        Route::get('catalogo', [\App\Http\Controllers\Api\Portal\CatalogoController::class, 'show'])->name('catalogo');
+
+        Route::post('cidadaos/identificar', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'identificar'])->name('cidadaos.identificar');
+        Route::post('cidadaos', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'cadastrar'])->name('cidadaos.cadastrar');
+        Route::post('cidadaos/confirmar-email', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'confirmarEmail'])->name('cidadaos.confirmar-email');
+        Route::post('cidadaos/reenviar-codigo', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'reenviarCodigo'])->name('cidadaos.reenviar-codigo');
+        Route::post('cidadaos/autenticar', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'autenticar'])->name('cidadaos.autenticar');
+        Route::post('cidadaos/senha/codigo', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'codigoSenha'])->name('cidadaos.senha.codigo');
+        Route::post('cidadaos/senha/redefinir', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'redefinirSenha'])->name('cidadaos.senha.redefinir');
+        Route::get('cidadaos/{id}', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'show'])->whereNumber('id')->name('cidadaos.show');
+
+        Route::get('solicitacoes', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'index'])->name('solicitacoes.index');
+        Route::post('solicitacoes', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'store'])->name('solicitacoes.store');
+        Route::get('solicitacoes/{codigo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'show'])->where('codigo', '[^/]+')->name('solicitacoes.show');
+        Route::post('solicitacoes/{codigo}/cancelar', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'cancelar'])->where('codigo', '[^/]+')->name('solicitacoes.cancelar');
     });
 
 // Portal Cidadao — Carta de Servicos (publico, sem auth)
@@ -319,14 +357,6 @@ Route::middleware('auth')->group(function () {
             ->name('sistemas-integrados.toggle-ativo');
         });
 
-        // Solicitacoes do Portal Cidadao (atendimento pelos servidores)
-        Route::prefix('solicitacoes-portal')->name('solicitacoes-portal.')->middleware('can:portal.atendimento')->group(function () {
-            Route::get('/',                       [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'index'])->name('index');
-            Route::get('/{id}',                   [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'show'])->name('show');
-            Route::post('/{id}/status',           [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'alterarStatus'])->name('status');
-            Route::post('/{id}/comentar',         [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'comentar'])->name('comentar');
-        });
-
         // Carta de Servicos (admin) — gestor da UG mantem catalogo publicado no /portal
         Route::prefix('carta-servicos')->name('carta-servicos.')->middleware('can:portal.carta_servicos')->group(function () {
             Route::get('/', [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'index'])->name('index');
@@ -356,6 +386,28 @@ Route::middleware('auth')->group(function () {
         // Redirects das URLs antigas para o modulo Configuracoes
         Route::redirect('usuarios', '/configuracoes/usuarios');
         Route::redirect('roles', '/configuracoes/perfis');
+
+    });
+
+    // As Solicitações do Portal mudaram de GPE Config para o GPE Fluxos e Processos
+    // (/flow/portal/solicitacoes). O endereço antigo segue valendo.
+    // Fora do grupo nomeado: redirecionamento sem nome (nome repetido quebra o route:cache).
+    Route::redirect('configuracoes/solicitacoes-portal', '/flow/portal/solicitacoes');
+    Route::get('configuracoes/solicitacoes-portal/{id}', fn (string $id) => redirect("/flow/portal/solicitacoes/{$id}"))->whereNumber('id');
+
+    // GPE Fluxos e Processos — Portal do Cidadão: atendimento das solicitações
+    // (ouvidoria, protocolo...), que viram processos. Mesmos nomes de rota de antes.
+    Route::prefix('flow/portal')->name('configuracoes.')->group(function () {
+        // Solicitacoes do Portal Cidadao (atendimento pelos servidores)
+        Route::prefix('solicitacoes')->name('solicitacoes-portal.')->middleware('can:portal.atendimento')->group(function () {
+            Route::get('/',                       [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'index'])->name('index');
+            Route::get('/{id}',                   [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'show'])->name('show');
+            Route::post('/{id}/status',           [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'alterarStatus'])->name('status');
+            Route::post('/{id}/comentar',         [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'comentar'])->name('comentar');
+            Route::get('/{id}/anexos/{anexoId}',  [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'anexo'])->whereNumber(['id', 'anexoId'])->name('anexo');
+            Route::post('/{id}/processo',         [\App\Http\Controllers\Configuracao\PortalSolicitacoesController::class, 'abrirProcesso'])
+                ->whereNumber('id')->middleware('can:processo.criar')->name('processo');
+        });
     });
 
     // Memorandos
@@ -397,6 +449,10 @@ Route::middleware('auth')->group(function () {
 
     // GPE Flow — Inbox unificada por ESTADO
     Route::prefix('flow')->name('flow.')->group(function () {
+        // Atendimento › Consultar Protocolo (balcão/telefone): processos e solicitações do portal.
+        Route::get('atendimento/consultar', \App\Http\Controllers\Flow\ConsultaProtocoloController::class)
+            ->middleware('can:processo.visualizar')->name('atendimento.consultar');
+
         // Entrada (preciso agir)
         Route::get('inbox-pessoal',         [\App\Http\Controllers\Flow\InboxController::class, 'pessoal'])->name('inbox-pessoal');
         Route::get('inbox-setor',           [\App\Http\Controllers\Flow\InboxController::class, 'setor'])->name('inbox-setor');

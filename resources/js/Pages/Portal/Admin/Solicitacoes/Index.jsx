@@ -29,17 +29,17 @@ export default function SolicitacoesIndex({ solicitacoes, servicos, statusList, 
         if (busca) params.q = busca;
         if (filtroStatus) params.status = filtroStatus;
         if (filtroServico) params.servico_id = filtroServico;
-        router.get('/configuracoes/solicitacoes-portal', params, { preserveState: true });
+        router.get('/flow/portal/solicitacoes', params, { preserveState: true });
     };
 
     const limpar = () => {
         setBusca(''); setFiltroStatus(''); setFiltroServico('');
-        router.get('/configuracoes/solicitacoes-portal');
+        router.get('/flow/portal/solicitacoes');
     };
 
     const irParaStatus = (status) => {
         setFiltroStatus(status);
-        router.get('/configuracoes/solicitacoes-portal', { status }, { preserveState: true });
+        router.get('/flow/portal/solicitacoes', { status }, { preserveState: true });
     };
 
     return (
@@ -133,7 +133,7 @@ export default function SolicitacoesIndex({ solicitacoes, servicos, statusList, 
                                         {new Date(sol.created_at).toLocaleDateString('pt-BR')}
                                     </td>
                                     <td className="px-4 py-3 text-center">
-                                        <Link href={`/configuracoes/solicitacoes-portal/${sol.id}`}
+                                        <Link href={`/flow/portal/solicitacoes/${sol.id}`}
                                             className="inline-block px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100">
                                             Atender
                                         </Link>

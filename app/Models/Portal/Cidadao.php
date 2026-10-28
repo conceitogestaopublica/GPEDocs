@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models\Portal;
 
+use App\Models\User;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -15,6 +17,7 @@ class Cidadao extends Authenticatable
     protected $table = 'portal_cidadaos';
 
     protected $fillable = [
+        'user_id',
         'nome',
         'email',
         'cpf',
@@ -47,6 +50,12 @@ class Cidadao extends Authenticatable
     public function getAuthPassword(): string
     {
         return $this->senha;
+    }
+
+    /** Usuário do GPE Docs que é esta pessoa: a senha conferida é a dele. */
+    public function usuario(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function solicitacoes(): HasMany

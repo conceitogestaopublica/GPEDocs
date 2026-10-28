@@ -28,7 +28,6 @@ export const MENU_CONFIGURACOES = [
     { title: 'Perfis e Permissões', icon: 'fas fa-shield-alt', href: '/configuracoes/perfis', color: 'text-slate-600 bg-slate-100', permissao: 'admin.roles' },
     { section: 'label', label: 'Portal do Cidadão' },
     { title: 'Carta de Serviços', icon: 'fas fa-clipboard-list', href: '/configuracoes/carta-servicos', color: 'text-blue-600 bg-blue-100', permissao: 'portal.carta_servicos' },
-    { title: 'Solicitações', icon: 'fas fa-inbox', href: '/configuracoes/solicitacoes-portal', color: 'text-indigo-600 bg-indigo-100', permissao: 'portal.atendimento' },
     { section: 'label', label: 'Integrações' },
     { title: 'Sistemas Integrados', icon: 'fas fa-plug', href: '/configuracoes/sistemas-integrados', color: 'text-violet-600 bg-violet-100', permissao: 'admin.sistemas_integrados' },
 ];
@@ -67,6 +66,15 @@ export const MENU_GEPSP = [
         ],
     },
     {
+        // Atendimento ao cidadão: solicitações do portal e protocolo de balcão (abrir e consultar).
+        title: 'Atendimento', icon: 'fas fa-headset', color: 'text-sky-600 bg-sky-100',
+        children: [
+            { title: 'Solicitações',        icon: 'fas fa-inbox',          href: '/flow/portal/solicitacoes',   color: 'text-indigo-600 bg-indigo-100', permissao: 'portal.atendimento' },
+            { title: 'Novo Protocolo',      icon: 'fas fa-file-signature', href: '/processos/create?origem=balcao', color: 'text-emerald-600 bg-emerald-100', permissao: 'processo.criar' },
+            { title: 'Consultar Protocolo', icon: 'fas fa-search',         href: '/flow/atendimento/consultar', color: 'text-sky-600 bg-sky-100', permissao: 'processo.visualizar' },
+        ],
+    },
+    {
         title: 'Privado', icon: 'fas fa-lock', color: 'text-emerald-600 bg-emerald-100',
         children: [
             { title: 'Saída (Originados)', icon: 'fas fa-paper-plane',  href: '/flow/saida',     color: 'text-emerald-600 bg-emerald-100' },
@@ -84,7 +92,7 @@ export const MENU_GEPSP = [
 
 export const MODULO_CONFIG = {
     ged:           { nome: 'GPE Docs',   subtitulo: 'Gestão Documental',   icon: 'fas fa-archive',         iconText: 'Docs', cor: 'from-blue-600 to-indigo-700',  shadow: 'shadow-blue-200',  menu: MENU_GED },
-    gepsp:         { nome: 'GPE Flow',   subtitulo: 'Fluxos e Tramitação', icon: 'fas fa-project-diagram', iconText: 'Flow', cor: 'from-teal-600 to-emerald-700', shadow: 'shadow-teal-200',  menu: MENU_GEPSP },
+    gepsp:         { nome: 'GPE Fluxos e Processos', subtitulo: 'Tramitação e Atendimento', icon: 'fas fa-project-diagram', iconText: 'Fluxos', cor: 'from-teal-600 to-emerald-700', shadow: 'shadow-teal-200',  menu: MENU_GEPSP },
     configuracoes: { nome: 'GPE Config', subtitulo: 'Ajustes e Estrutura', icon: 'fas fa-cog',             iconText: 'Conf', cor: 'from-slate-600 to-gray-700',   shadow: 'shadow-slate-200', menu: MENU_CONFIGURACOES },
 };
 

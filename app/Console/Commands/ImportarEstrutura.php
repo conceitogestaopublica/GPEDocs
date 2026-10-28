@@ -88,13 +88,39 @@ class ImportarEstrutura extends Command
             ->leftJoin('bairro as b', 'b.id', '=', 'l.bairro_id')
             ->leftJoin('municipio as m', 'm.id', '=', 'b.municipio_id')
             ->orderBy('g.codigo_tce')
+            ->orderBy('g.id')
             ->get(['g.id', 'g.codigo_tce', 'g.dt_encerramento', 'p.nome', 'p.doc', 'p.email',
                 'p.numero_lograd', 'p.comple_lograd', 'l.nome as logradouro', 'l.cep', 'b.nome as bairro',
                 'm.nome as cidade', 'm.uf_id as uf']);
 
+        // O código do TCE NÃO é único: fundos municipais costumam prestar contas
+        // junto com a Prefeitura e repetem o código dela (Taquaraçu: Prefeitura e
+        // 4 fundos com codigo_tce=2). A gestora de menor id com aquele código
+        // fica com "UG-002"; as demais, "UG-002-{id}" — `ugs.codigo` é único.
+        $primeiraDoCodigo = [];
+        foreach ($gestoras as $g) {
+            $tce = (string) ($g->codigo_tce ?? $g->id);
+            $primeiraDoCodigo[$tce] = min($primeiraDoCodigo[$tce] ?? PHP_INT_MAX, (int) $g->id);
+        }
+
         $mapa = [];
-        $this->components->task("UGs ({$gestoras->count()} gestoras)", function () use ($gestoras, &$mapa) {
+        $this->components->task("UGs ({$gestoras->count()} gestoras)", function () use ($gestoras, $primeiraDoCodigo, &$mapa) {
             foreach ($gestoras as $g) {
+                $tce = (string) ($g->codigo_tce ?? $g->id);
+                $codigo = str_pad($tce, 3, '0', STR_PAD_LEFT)
+                    . ($primeiraDoCodigo[$tce] === (int) $g->id ? '' : '-' . $g->id);
+
+                // E-mail também é único: o mesmo e-mail em duas gestoras (fundo que
+                // usa o da Prefeitura) fica só na primeira; a outra recebe o marcador.
+                $email = filter_var(trim((string) $g->email), FILTER_VALIDATE_EMAIL)
+                    ? mb_strtolower(trim($g->email))
+                    : null;
+                if ($email && DB::table('ugs')->where('email_institucional', $email)
+                    ->where(fn ($q) => $q->whereNull('legado_orgao_id')->orWhere('legado_orgao_id', '<>', $g->id))
+                    ->exists()) {
+                    $email = null;
+                }
+
                 $logradouro = Logradouro::resolverFromFlat([
                     'logradouro' => $this->texto($g->logradouro),
                     'bairro'     => mb_convert_case($this->texto($g->bairro), MB_CASE_TITLE),
@@ -105,7 +131,7 @@ class ImportarEstrutura extends Command
                 $complemento = preg_match('/^\**$/', (string) $g->comple_lograd) ? null : $this->texto($g->comple_lograd);
 
                 DB::table('ugs')->updateOrInsert(['legado_orgao_id' => $g->id], [
-                    'codigo'              => 'UG-' . str_pad((string) ($g->codigo_tce ?? $g->id), 3, '0', STR_PAD_LEFT),
+                    'codigo'              => 'UG-' . $codigo,
                     'nome'                => $this->texto($g->nome),
                     'cnpj'                => $this->cnpj($g->doc),
                     'logradouro_id'       => $logradouro?->id,
@@ -113,9 +139,7 @@ class ImportarEstrutura extends Command
                     'complemento'         => $complemento,
                     // Único e obrigatório: sem e-mail na origem vira marcador .invalid (domínio
                     // reservado, nunca entrega) para ser corrigido no cadastro da UG.
-                    'email_institucional' => filter_var(trim((string) $g->email), FILTER_VALIDATE_EMAIL)
-                        ? mb_strtolower(trim($g->email))
-                        : 'ug-' . str_pad((string) ($g->codigo_tce ?? $g->id), 3, '0', STR_PAD_LEFT) . '@email-nao-informado.invalid',
+                    'email_institucional' => $email ?? 'ug-' . $codigo . '@email-nao-informado.invalid',
                     'nivel_1_label'       => self::NIVEIS[0],
                     'nivel_2_label'       => self::NIVEIS[1],
                     'nivel_3_label'       => self::NIVEIS[2],

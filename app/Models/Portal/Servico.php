@@ -38,6 +38,7 @@ class Servico extends Model
         'permite_anonimo',
         'setor_responsavel_id',
         'tipo_processo_id',
+        'acao_fiscal',
     ];
 
     protected function casts(): array
@@ -67,5 +68,25 @@ class Servico extends Model
         'cidadao'  => 'Cidadão',
         'empresa'  => 'Empresa',
         'servidor' => 'Servidor',
+    ];
+
+    /**
+     * Autoatendimento no tributário: qual tela do Portal do Cidadão o serviço
+     * abre. Só vale para o município que tem o tributário integrado; sem ação
+     * fiscal, o serviço é de solicitação (abre processo).
+     */
+    public const ACOES_FISCAIS = [
+        'debitos'        => 'Consultar débitos',
+        'segunda_via'    => '2ª via de guias',
+        'certidao'       => 'Certidão negativa (CND)',
+        'parcelamento'   => 'Parcelamento',
+        'caixa_postal'   => 'Caixa postal (DTE)',
+        'nfse'           => 'Nota fiscal (NFS-e)',
+        'dms'            => 'Declaração (DMS)',
+        'prestei'        => 'Serviço prestado no município',
+        'desif'          => 'DES-IF (bancos)',
+        'processos'      => 'Processos tributários',
+        'procuracoes'    => 'Procurações',
+        'meus_cadastros' => 'Meus cadastros',
     ];
 }

@@ -275,7 +275,7 @@ class CircularController extends Controller
                 'tamanho'      => strlen($pdfBytes),
                 'hash_sha256'  => hash('sha256', $pdfBytes),
                 'autor_id'     => Auth::id(),
-                'comentario'   => 'Arquivado automaticamente do GPE Flow',
+                'comentario'   => 'Arquivado automaticamente do GPE Fluxos e Processos',
             ]);
 
             $circular->update(['documento_id' => $documento->id]);

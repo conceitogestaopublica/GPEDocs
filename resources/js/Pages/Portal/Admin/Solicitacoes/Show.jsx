@@ -22,24 +22,41 @@ const TIPO_ICONE = {
     atendida:         'fas fa-check-circle',
     recusada:         'fas fa-times-circle',
     cancelada:        'fas fa-ban',
+    processo_aberto:  'fas fa-folder-open',
 };
 
-export default function SolicitacaoAdminShow({ solicitacao, processo, statusList }) {
+export default function SolicitacaoAdminShow({ solicitacao, processo, statusList, tiposProcesso = [], setores = [], sugestao = {} }) {
+    const formProcesso = useForm({
+        tipo_processo_id: sugestao.tipo_processo_id ?? '',
+        setor_id: sugestao.setor_id ?? '',
+    });
+    const [abrindoProcesso, setAbrindoProcesso] = useState(false);
+    const finalizada = ['atendida', 'recusada', 'cancelada'].includes(solicitacao.status);
+
+    const submitProcesso = (e) => {
+        e.preventDefault();
+        formProcesso.post(`/flow/portal/solicitacoes/${solicitacao.id}/processo`, {
+            preserveScroll: true,
+            onSuccess: () => setAbrindoProcesso(false),
+        });
+    };
     const formStatus = useForm({
-        status: solicitacao.status,
+        decisao: '',
+        status: '',
         resposta: solicitacao.resposta || '',
     });
     const formComentario = useForm({ mensagem: '' });
     const [aba, setAba] = useState('atender');
 
-    const submitStatus = (e) => {
-        e.preventDefault();
-        formStatus.post(`/configuracoes/solicitacoes-portal/${solicitacao.id}/status`, { preserveScroll: true });
+    // Deferir / Indeferir / Em análise: um clique grava a decisão com a resposta.
+    const decidir = (decisao, status = '') => {
+        formStatus.transform((d) => ({ ...d, decisao, status }));
+        formStatus.post(`/flow/portal/solicitacoes/${solicitacao.id}/status`, { preserveScroll: true });
     };
 
     const submitComentario = (e) => {
         e.preventDefault();
-        formComentario.post(`/configuracoes/solicitacoes-portal/${solicitacao.id}/comentar`, {
+        formComentario.post(`/flow/portal/solicitacoes/${solicitacao.id}/comentar`, {
             preserveScroll: true,
             onSuccess: () => formComentario.reset('mensagem'),
         });
@@ -53,7 +70,7 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                 title={solicitacao.codigo}
                 subtitle={solicitacao.servico?.titulo}
             >
-                <Link href="/configuracoes/solicitacoes-portal"
+                <Link href="/flow/portal/solicitacoes"
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-semibold">
                     <i className="fas fa-arrow-left text-xs" /> Voltar
                 </Link>
@@ -87,6 +104,24 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
 
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Descrição do cidadão</h3>
                         <p className="text-sm text-gray-700 whitespace-pre-line bg-gray-50 rounded-lg p-4 leading-relaxed">{solicitacao.descricao}</p>
+
+                        {solicitacao.anexos?.length > 0 && (
+                            <>
+                                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mt-4 mb-2">Anexos do cidadão</h3>
+                                <ul className="space-y-1.5">
+                                    {solicitacao.anexos.map((a) => (
+                                        <li key={a.id}>
+                                            <a href={`/flow/portal/solicitacoes/${solicitacao.id}/anexos/${a.id}`} target="_blank" rel="noreferrer"
+                                                className="inline-flex items-center gap-2 text-sm text-blue-700 hover:underline">
+                                                <i className={a.mime_type === 'application/pdf' ? 'fas fa-file-pdf text-red-500' : 'fas fa-file-image text-indigo-500'} aria-hidden="true" />
+                                                {a.nome}
+                                                <span className="text-xs text-gray-400">({Math.max(1, Math.round(a.tamanho / 1024))} KB)</span>
+                                            </a>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </>
+                        )}
                     </Card>
 
                     {/* Tabs Atender / Comentar */}
@@ -95,7 +130,7 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                             <button onClick={() => setAba('atender')}
                                 className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors
                                     ${aba === 'atender' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                                <i className="fas fa-check-circle mr-1.5 text-xs" /> Alterar status
+                                <i className="fas fa-gavel mr-1.5 text-xs" /> Decidir pedido
                             </button>
                             <button onClick={() => setAba('comentar')}
                                 className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors
@@ -105,30 +140,90 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                         </div>
 
                         {aba === 'atender' ? (
-                            <form onSubmit={submitStatus} className="space-y-3">
+                            <div className="space-y-3">
+                                <p className="text-xs text-gray-500">
+                                    Situação atual: <strong className="text-gray-700">{statusList[solicitacao.status] ?? solicitacao.status}</strong>
+                                </p>
                                 <div>
-                                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Status</label>
-                                    <select value={formStatus.data.status} onChange={(e) => formStatus.setData('status', e.target.value)}
-                                        className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm">
-                                        {Object.entries(statusList).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                                        Resposta ao cidadão <span className="text-gray-400 font-normal">(opcional, será enviada por email)</span>
+                                    <label htmlFor="resposta-decisao" className="text-xs font-semibold text-gray-600 mb-1 block">
+                                        Resposta ao requerente <span className="text-gray-400 font-normal">(enviada por e-mail e mostrada no portal; obrigatória para indeferir)</span>
                                     </label>
-                                    <textarea value={formStatus.data.resposta} onChange={(e) => formStatus.setData('resposta', e.target.value)}
+                                    <textarea id="resposta-decisao" value={formStatus.data.resposta} onChange={(e) => formStatus.setData('resposta', e.target.value)}
                                         rows={5} maxLength={5000}
-                                        placeholder="Escreva uma resposta ou orientação..."
+                                        placeholder="Ex.: Férias deferidas de 10/01 a 24/01. / Indeferido: período aquisitivo ainda não completo."
                                         className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm" />
+                                    {formStatus.errors.resposta && <p className="text-xs text-red-600 mt-1" role="alert">{formStatus.errors.resposta}</p>}
                                 </div>
-                                <div className="flex justify-end pt-2">
-                                    <button type="submit" disabled={formStatus.processing}
-                                        className="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 text-sm">
-                                        {formStatus.processing ? 'Salvando...' : 'Atualizar e notificar cidadão'}
+                                <div className="flex flex-wrap justify-end gap-2 pt-2">
+                                    {processo ? (
+                                        <Link href={`/processos/${processo.id}`}
+                                            className="px-4 py-2.5 rounded-xl border border-indigo-300 text-indigo-700 font-semibold hover:bg-indigo-50 text-sm">
+                                            <i className="fas fa-folder-open mr-1.5" aria-hidden="true" /> Ver processo {processo.numero_protocolo}
+                                        </Link>
+                                    ) : !finalizada && (
+                                        <button type="button" onClick={() => setAbrindoProcesso((v) => !v)} aria-expanded={abrindoProcesso}
+                                            className="px-4 py-2.5 rounded-xl border border-indigo-300 text-indigo-700 font-semibold hover:bg-indigo-50 text-sm">
+                                            <i className="fas fa-folder-plus mr-1.5" aria-hidden="true" /> Abrir processo
+                                        </button>
+                                    )}
+                                    <button type="button" disabled={formStatus.processing} onClick={() => decidir('indeferir')}
+                                        className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-50 text-sm">
+                                        <i className="fas fa-times-circle mr-1.5" aria-hidden="true" /> Indeferir
+                                    </button>
+                                    <button type="button" disabled={formStatus.processing} onClick={() => decidir('deferir')}
+                                        className="px-5 py-2.5 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 disabled:opacity-50 text-sm">
+                                        <i className="fas fa-check-circle mr-1.5" aria-hidden="true" /> Deferir
                                     </button>
                                 </div>
-                            </form>
+
+                                {abrindoProcesso && !processo && (
+                                    <form onSubmit={submitProcesso} className="mt-2 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 space-y-3">
+                                        <p className="text-sm font-semibold text-indigo-800">
+                                            <i className="fas fa-folder-plus mr-1.5" aria-hidden="true" /> Abrir processo a partir deste pedido
+                                        </p>
+                                        <p className="text-xs text-gray-600">
+                                            O processo recebe um número de protocolo e vai para a caixa do setor escolhido. Os anexos vão junto
+                                            e o requerente acompanha o andamento no portal.
+                                        </p>
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            <div>
+                                                <label htmlFor="proc-tipo" className="text-xs font-semibold text-gray-600 mb-1 block">Tipo de processo</label>
+                                                <select id="proc-tipo" value={formProcesso.data.tipo_processo_id} required
+                                                    onChange={(e) => formProcesso.setData('tipo_processo_id', e.target.value)}
+                                                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm bg-white">
+                                                    <option value="">Selecione…</option>
+                                                    {tiposProcesso.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                                                </select>
+                                                {tiposProcesso.length === 0 && (
+                                                    <p className="text-xs text-amber-700 mt-1">Nenhum tipo de processo ativo. Cadastre em Cadastros › Tipos de Processo.</p>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <label htmlFor="proc-setor" className="text-xs font-semibold text-gray-600 mb-1 block">Setor de destino</label>
+                                                <select id="proc-setor" value={formProcesso.data.setor_id} required
+                                                    onChange={(e) => formProcesso.setData('setor_id', e.target.value)}
+                                                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm bg-white">
+                                                    <option value="">Selecione…</option>
+                                                    {setores.map((s) => <option key={s.id} value={s.id}>{'— '.repeat(Math.max(0, (s.nivel ?? 1) - 1))}{s.nome}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        {(formProcesso.errors.processo || formProcesso.errors.tipo_processo_id || formProcesso.errors.setor_id) && (
+                                            <p className="text-xs text-red-600" role="alert">
+                                                {formProcesso.errors.processo || formProcesso.errors.tipo_processo_id || formProcesso.errors.setor_id}
+                                            </p>
+                                        )}
+                                        <div className="flex justify-end gap-2">
+                                            <button type="button" onClick={() => setAbrindoProcesso(false)}
+                                                className="px-4 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm hover:bg-white">Cancelar</button>
+                                            <button type="submit" disabled={formProcesso.processing}
+                                                className="px-5 py-2 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 disabled:opacity-50">
+                                                {formProcesso.processing ? 'Abrindo…' : 'Abrir processo'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
+                            </div>
                         ) : (
                             <form onSubmit={submitComentario} className="space-y-3">
                                 <div>
@@ -197,13 +292,13 @@ export default function SolicitacaoAdminShow({ solicitacao, processo, statusList
                         <Card>
                             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                                 <i className="fas fa-project-diagram text-purple-600" />
-                                Processo no GPE Flow
+                                Processo no GPE Fluxos e Processos
                             </h3>
                             <p className="text-[10px] text-gray-400 uppercase tracking-wider">Protocolo</p>
                             <p className="font-mono text-sm font-bold text-gray-800 mb-3">{processo.numero_protocolo}</p>
                             <Link href={`/processos/${processo.id}`}
                                 className="block w-full text-center px-3 py-2 rounded-lg bg-purple-50 text-purple-700 text-xs font-semibold hover:bg-purple-100">
-                                <i className="fas fa-arrow-right mr-1" /> Abrir no GPE Flow
+                                <i className="fas fa-arrow-right mr-1" /> Abrir no GPE Fluxos e Processos
                             </Link>
                         </Card>
                     )}

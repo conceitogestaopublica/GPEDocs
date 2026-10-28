@@ -197,14 +197,8 @@ class AssinaturaIcpService
                 $pdf->useTemplate($tplId);
             }
 
-            // Conta total de signatarios (anteriores + atual) para a tarja lateral
-            $totalSignatarios = count($previousStamps) + 1;
-
-            // Tarja vertical na margem direita de cada pagina (estilo 1doc)
-            for ($p = 1; $p <= $totalPaginas; $p++) {
-                $pdf->setPage($p);
-                $this->desenharTarjaLateral($pdf, $totalSignatarios);
-            }
+            // Tarja lateral em cada página (padrão único dos sistemas e TR): anteriores + atual.
+            TarjaAssinatura::desenhar($pdf, $totalPaginas, count($previousStamps) + 1, rtrim(url('/'), '/') . '/validar-assinatura');
 
             // Primeiro, redesenha carimbos das assinaturas ICP anteriores (visualmente
             // — não preserva criptografia, que é trabalho do PAdES Part 2; mantemos
@@ -391,63 +385,6 @@ class AssinaturaIcpService
         $pdf->SetTextColor(140, 140, 140);
         $pdf->SetXY($x, $y + 10.5);
         $pdf->Cell($largura, 2.5, 'Validar em ' . url('/validar-assinatura'), 0, 1, 'L');
-    }
-
-    /**
-     * Tarja vertical na margem direita da pagina, estilo 1doc.
-     * Texto le-se naturalmente girando a cabeca para a DIREITA (rotacao +90,
-     * lendo de cima para baixo). Logo "GPE Docs" no rodape da tarja.
-     */
-    private function desenharTarjaLateral(Fpdi $pdf, int $totalSignatarios): void
-    {
-        $pageWidth  = $pdf->getPageWidth();
-        $pageHeight = $pdf->getPageHeight();
-
-        $appUrl = rtrim(url('/'), '/');
-        $hostShort = preg_replace('#^https?://#', '', $appUrl);
-        $plural = $totalSignatarios === 1 ? 'pessoa' : 'pessoas';
-        $texto  = sprintf(
-            'Assinado digitalmente por %d %s. Para verificar a validade das assinaturas, acesse %s/validar-assinatura',
-            $totalSignatarios,
-            $plural,
-            $hostShort
-        );
-
-        // Posicao vertical da tarja: 8mm da margem direita
-        $xLinha = $pageWidth - 8;
-
-        // Texto principal — preto puro, lendo de cima para baixo (gire a cabeca pra DIREITA)
-        $pdf->SetTextColor(0, 0, 0);
-        $pdf->SetFont('helvetica', '', 7.5);
-
-        // O texto fica entre y=10 (topo) e y=pageHeight-30 (acima do logo)
-        $alturaTexto = $pageHeight - 40; // espaco disponivel
-        $centerY = ($pageHeight - 30) / 2 + 5;
-        $pdf->StartTransform();
-        $pdf->Rotate(90, $xLinha + 2, $centerY); // +90 = horario, le de cima pra baixo
-        $pdf->SetXY($xLinha + 2 - ($alturaTexto / 2), $centerY - 1.2);
-        $pdf->Cell($alturaTexto, 3, $texto, 0, 0, 'C');
-        $pdf->StopTransform();
-
-        // Logo "GPE Docs" no rodape da tarja (estilo "1D" do 1doc)
-        $logoX = $xLinha - 1;
-        $logoY = $pageHeight - 18;
-        $logoW = 9;
-        $logoH = 9;
-
-        // Quadrado arredondado turquesa
-        $pdf->SetFillColor(69, 181, 187);
-        $pdf->RoundedRect($logoX, $logoY, $logoW, $logoH, 1.5, '1111', 'F');
-
-        // Texto "GPE Docs" dentro do quadrado em 2 linhas
-        $pdf->SetTextColor(255, 255, 255);
-        $pdf->SetFont('helvetica', 'B', 4.5);
-        $pdf->SetXY($logoX, $logoY + 1);
-        $pdf->Cell($logoW, 2.5, 'GPE', 0, 1, 'C');
-        $pdf->SetTextColor(255, 200, 100); // laranja claro
-        $pdf->SetFont('helvetica', 'B', 4.5);
-        $pdf->SetXY($logoX, $logoY + 4.5);
-        $pdf->Cell($logoW, 2.5, 'Docs', 0, 1, 'C');
     }
 
     /**

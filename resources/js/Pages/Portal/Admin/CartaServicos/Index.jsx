@@ -20,7 +20,7 @@ const COR_BG = {
     pink: 'bg-pink-100 text-pink-600', cyan: 'bg-cyan-100 text-cyan-600',
 };
 
-export default function CartaServicosAdmin({ servicos, categorias, setores, tiposProcesso, filtros, publicos }) {
+export default function CartaServicosAdmin({ servicos, categorias, setores, tiposProcesso, filtros, publicos, areas = {}, acoesFiscais = {} }) {
     const confirmar = useConfirm();
     // Listagem rola só por dentro — a página nunca (padrão gpe2).
     const scrollRef = useFillViewportHeight();
@@ -203,6 +203,7 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
             {showCatForm && (
                 <CategoriaForm
                     categoria={editCat}
+                    areas={areas}
                     onClose={() => setShowCatForm(false)}
                 />
             )}
@@ -214,6 +215,7 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
                     setores={setores}
                     tiposProcesso={tiposProcesso}
                     publicos={publicos}
+                    acoesFiscais={acoesFiscais}
                     onClose={() => setShowServForm(false)}
                 />
             )}
@@ -222,13 +224,14 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
 }
 
 // ============ Form Categoria ============
-function CategoriaForm({ categoria, onClose }) {
+function CategoriaForm({ categoria, areas, onClose }) {
     const isEdit = !!categoria;
     const { data, setData, post, put, processing, errors } = useForm({
         nome: categoria?.nome || '',
         icone: categoria?.icone || 'fas fa-folder',
         cor: categoria?.cor || 'blue',
         descricao: categoria?.descricao || '',
+        area: categoria?.area || '',
         ordem: categoria?.ordem || 0,
         ativo: categoria?.ativo ?? true,
     });
@@ -275,6 +278,16 @@ function CategoriaForm({ categoria, onClose }) {
                         rows={2}
                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
                 </div>
+                <div>
+                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Área no Portal do Cidadão</label>
+                    <select value={data.area} onChange={(e) => setData('area', e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white">
+                        <option value="">Protocolo e Ouvidoria (padrão)</option>
+                        {Object.entries(areas).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                    <p className="text-[10px] text-gray-400 mt-1">"Atendimento ao Contribuinte" só aparece no portal do município que tem o tributário.</p>
+                    {errors.area && <p className="text-xs text-red-500 mt-1">{errors.area}</p>}
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                     <div>
                         <label className="text-xs font-semibold text-gray-600 mb-1 block">Ordem</label>
@@ -303,7 +316,7 @@ function CategoriaForm({ categoria, onClose }) {
 }
 
 // ============ Form Servico ============
-function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, onClose }) {
+function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, acoesFiscais, onClose }) {
     const isEdit = !!servico;
     const { data, setData, post, put, processing, errors } = useForm({
         categoria_id: servico?.categoria_id || '',
@@ -319,6 +332,7 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, on
         orgao_responsavel: servico?.orgao_responsavel || '',
         setor_responsavel_id: servico?.setor_responsavel_id || '',
         tipo_processo_id: servico?.tipo_processo_id || '',
+        acao_fiscal: servico?.acao_fiscal || '',
         permite_anonimo: servico?.permite_anonimo ?? false,
         legislacao: servico?.legislacao || '',
         palavras_chave: servico?.palavras_chave || [],
@@ -351,6 +365,7 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, on
             categoria_id: data.categoria_id || null,
             setor_responsavel_id: data.setor_responsavel_id || null,
             tipo_processo_id: data.tipo_processo_id || null,
+            acao_fiscal: data.acao_fiscal || null,
         };
         const opts = { preserveScroll: true, onSuccess: onClose };
         if (isEdit) router.put(`/configuracoes/carta-servicos/servicos/${servico.id}`, payload, opts);
@@ -482,7 +497,7 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, on
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
                     <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
-                        <i className="fas fa-project-diagram" /> Integração com GPE Flow
+                        <i className="fas fa-project-diagram" /> Integração com GPE Fluxos e Processos
                     </h4>
                     <p className="text-[11px] text-blue-700">Quando configurado, cada solicitação deste serviço abre automaticamente um processo no setor responsável.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -503,6 +518,22 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, on
                             </select>
                         </div>
                     </div>
+                </div>
+
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-2">
+                    <h4 className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2">
+                        <i className="fas fa-receipt" /> Autoatendimento no Tributário
+                    </h4>
+                    <p className="text-[11px] text-emerald-700">
+                        Para serviço feito na hora pelo contribuinte (2ª via, certidão...): escolha a tela que o Portal do Cidadão abre.
+                        Com ação fiscal, o serviço não vira solicitação, e só aparece no município que tem o tributário.
+                    </p>
+                    <select value={data.acao_fiscal} onChange={(e) => setData('acao_fiscal', e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white">
+                        <option value="">— Nenhuma (serviço de solicitação) —</option>
+                        {Object.entries(acoesFiscais).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                    {errors.acao_fiscal && <p className="text-xs text-red-500 mt-1">{errors.acao_fiscal}</p>}
                 </div>
 
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">

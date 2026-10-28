@@ -21,6 +21,7 @@ class CategoriaServico extends Model
         'icone',
         'cor',
         'descricao',
+        'area',
         'ordem',
         'ativo',
     ];
@@ -42,4 +43,16 @@ class CategoriaServico extends Model
     {
         return $this->hasMany(Servico::class, 'categoria_id')->where('publicado', true);
     }
+
+    /**
+     * Área de atendimento do Portal do Cidadão em que a categoria aparece. A
+     * área "contribuinte" só é exibida no município com tributário integrado;
+     * "servidor" e "transparencia", com o gpe2.
+     */
+    public const AREAS = [
+        'contribuinte'  => 'Atendimento ao Contribuinte',
+        'protocolo'     => 'Protocolo e Ouvidoria',
+        'servidor'      => 'Servidor Público',
+        'transparencia' => 'Transparência',
+    ];
 }
