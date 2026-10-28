@@ -11,7 +11,7 @@ export default function Rastreio({ valido, oficio }) {
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
             <Head title={valido ? 'Ofício Recebido' : 'Rastreio de Ofício'} />
 
-            <div className="w-full max-w-lg">
+            <div className="w-full max-w-2xl">
                 {/* Header */}
                 <div className="text-center mb-6">
                     <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-blue-200 mb-3">
@@ -36,10 +36,24 @@ export default function Rastreio({ valido, oficio }) {
                             </div>
 
                             <div className="px-6 py-5 space-y-4">
+                                {oficio.orgao && <InfoRow label="Remetente" value={oficio.orgao} />}
                                 <InfoRow label="Número" value={oficio.numero} />
                                 <InfoRow label="Assunto" value={oficio.assunto} />
                                 {oficio.lido_em && (
                                     <InfoRow label="Recebido em" value={oficio.lido_em} />
+                                )}
+
+                                {/* HTML limpo no servidor e com as variáveis trocadas (Oficio::conteudoFinal). */}
+                                {oficio.conteudo && (
+                                    <div className="conteudo-oficio text-sm text-gray-700 leading-relaxed border border-gray-100 rounded-lg p-4 bg-gray-50"
+                                        dangerouslySetInnerHTML={{ __html: oficio.conteudo }} />
+                                )}
+
+                                {oficio.pdf_url && (
+                                    <a href={oficio.pdf_url} target="_blank" rel="noopener noreferrer"
+                                        className="ds-btn ds-btn-outline w-full justify-center">
+                                        <i className="fas fa-file-pdf mr-1" /> Baixar o ofício em PDF
+                                    </a>
                                 )}
 
                                 <div className="bg-blue-50 rounded-lg p-4 mt-4">

@@ -27,6 +27,8 @@ use Illuminate\Support\Facades\Route;
 
 // Rastreio de oficio (publico, sem auth)
 Route::get('oficios/rastrear/{token}', [OficioController::class, 'rastrear'])->name('oficios.rastrear');
+Route::get('oficios/rastrear/{token}/pdf', [OficioController::class, 'pdfPublico'])->middleware('throttle:30,1')->name('oficios.rastrear.pdf');
+Route::get('oficios/rastrear/{token}/aberto', [OficioController::class, 'pixelAbertura'])->middleware('throttle:60,1')->name('oficios.rastrear.aberto');
 
 /* ─── SSO consume — recebe token emitido pelo landlord (fluxo multi-tenant) ─── */
 // GET porque o landlord redireciona via 302 com ?t=<token>. O token é de uso
@@ -434,6 +436,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('oficios', OficioController::class)->only(['index', 'create', 'store', 'show'])
         ->middlewareFor(['create', 'store'], 'can:comunicacao.enviar');
     Route::post('oficios/{id}/responder', [OficioController::class, 'responder'])->name('oficios.responder');
+    Route::post('oficios/{id}/reenviar-email', [OficioController::class, 'reenviarEmail'])
+        ->middleware(['can:comunicacao.enviar', 'throttle:10,1'])->name('oficios.reenviar-email');
     Route::post('oficios/{id}/arquivar', [OficioController::class, 'arquivar'])->name('oficios.arquivar');
     Route::post('oficios/{id}/arquivar-no-ged', [OficioController::class, 'arquivarNoGed'])->name('oficios.arquivar-no-ged');
     Route::get('oficios/{id}/pdf', [OficioController::class, 'downloadPdf'])->name('oficios.pdf');

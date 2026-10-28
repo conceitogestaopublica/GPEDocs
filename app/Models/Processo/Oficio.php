@@ -37,6 +37,7 @@ class Oficio extends Model
         'rastreio_token',
         'qr_code_token',
         'documento_id',
+        'modo_envio',
     ];
 
     protected function casts(): array
@@ -46,6 +47,8 @@ class Oficio extends Model
             'entregue_em'  => 'datetime',
             'lido_em'      => 'datetime',
             'arquivado_em' => 'datetime',
+            'email_enviado_em' => 'datetime',
+            'email_aberto_em'  => 'datetime',
         ];
     }
 

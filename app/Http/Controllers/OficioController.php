@@ -146,6 +146,10 @@ class OficioController extends Controller
         $modoEnvio = $request->input('modo_envio')
             ?? ($request->filled('destinatario_email') ? 'eletronico' : 'fisico');
 
+        if ($modoEnvio === 'eletronico' && ! $request->filled('destinatario_email')) {
+            return redirect()->back()->withErrors(['destinatario_email' => 'Informe o e-mail do destinatário para o envio eletrônico.'])->withInput();
+        }
+
         try {
             DB::beginTransaction();
 
@@ -173,6 +177,7 @@ class OficioController extends Controller
                 'destinatario_orgao' => $request->input('destinatario_orgao'),
                 'status'             => 'enviado',
                 'enviado_em'         => $dataEnvio,
+                'modo_envio'         => $modoEnvio,
             ]);
 
             if ($request->hasFile('files')) {
@@ -202,17 +207,44 @@ class OficioController extends Controller
             ]);
 
             DB::commit();
-
-            $msg = $modoEnvio === 'fisico'
-                ? "Oficio {$numero} registrado no livro de controle."
-                : "Oficio {$numero} enviado eletronicamente.";
-
-            return redirect("/oficios/{$oficio->id}")->with('success', $msg);
         } catch (\Exception $e) {
             DB::rollBack();
 
             return redirect()->back()->with('error', 'Erro ao enviar ofício: ' . $e->getMessage());
         }
+
+        if ($modoEnvio === 'fisico') {
+            return redirect("/oficios/{$oficio->id}")->with('success', "Ofício {$numero} registrado no livro de controle.");
+        }
+
+        // Depois do commit: falha no e-mail não desfaz o ofício; fica registrada e pode ser reenviada.
+        $servico = app(\App\Services\OficioEmailService::class);
+        if ($servico->enviar($oficio)) {
+            return redirect("/oficios/{$oficio->id}")->with('success', "Ofício {$numero} enviado por e-mail para {$oficio->destinatario_email}.");
+        }
+
+        return redirect("/oficios/{$oficio->id}")->with('error', "Ofício {$numero} registrado, mas o e-mail não foi enviado: {$oficio->email_falha_motivo}");
+    }
+
+    /** Reenvia o e-mail do ofício eletrônico (após falha ou a pedido do remetente). */
+    public function reenviarEmail(Request $request, $id)
+    {
+        $oficio = Oficio::findOrFail($id);
+        if ($oficio->remetente_id !== Auth::id()) {
+            abort(403, 'Você não tem permissão para reenviar este ofício.');
+        }
+
+        $data = $request->validate(['destinatario_email' => ['nullable', 'email', 'max:255']]);
+        if (! empty($data['destinatario_email']) && $data['destinatario_email'] !== $oficio->destinatario_email) {
+            $oficio->forceFill(['destinatario_email' => $data['destinatario_email']])->save();
+        }
+        if ($oficio->modo_envio === 'fisico' || ! $oficio->modo_envio) {
+            $oficio->forceFill(['modo_envio' => 'eletronico'])->save();
+        }
+
+        return app(\App\Services\OficioEmailService::class)->enviar($oficio)
+            ? redirect()->back()->with('success', "E-mail do ofício {$oficio->numero} enviado para {$oficio->destinatario_email}.")
+            : redirect()->back()->with('error', "O e-mail não foi enviado: {$oficio->email_falha_motivo}");
     }
 
     /** Download de anexo (a rota que a tela usava não existia). Mesma regra de ver o ofício. */
@@ -391,9 +423,23 @@ class OficioController extends Controller
         return $pdf->download($filename);
     }
 
+    /**
+     * Ofício pelo token de rastreio (páginas públicas). Quem abre o link pode estar logado no GED em
+     * outra UG, ou em nenhuma: a autorização é o próprio token, não o escopo da sessão.
+     */
+    private function porToken(string $token): ?Oficio
+    {
+        if (strlen($token) < 32) {
+            return null;
+        }
+
+        return Oficio::withoutGlobalScopes()->where('rastreio_token', $token)->first();
+    }
+
+    /** Página do destinatário: registra a leitura e mostra o ofício, com o PDF para baixar. */
     public function rastrear($token)
     {
-        $oficio = Oficio::where('rastreio_token', $token)->first();
+        $oficio = $this->porToken($token);
 
         if (! $oficio) {
             return Inertia::render('GED/Oficios/Rastreio', [
@@ -402,26 +448,53 @@ class OficioController extends Controller
             ]);
         }
 
-        if (is_null($oficio->lido_em)) {
-            $oficio->update([
-                'lido_em' => now(),
-                'status'  => 'lido',
-            ]);
-        }
-
-        if (is_null($oficio->entregue_em)) {
-            $oficio->update([
-                'entregue_em' => now(),
-            ]);
-        }
+        app(\App\Services\OficioEmailService::class)->registrarLeitura($oficio);
+        $ug = \App\Models\Ug::withoutGlobalScopes()->find($oficio->ug_id);
 
         return Inertia::render('GED/Oficios/Rastreio', [
             'valido' => true,
             'oficio' => [
-                'numero'  => $oficio->numero,
-                'assunto' => $oficio->assunto,
-                'lido_em' => $oficio->lido_em?->format('d/m/Y H:i:s'),
+                'numero'       => $oficio->numero,
+                'assunto'      => $oficio->assunto,
+                'orgao'        => $ug?->nome,
+                'destinatario' => $oficio->destinatario_nome,
+                'enviado_em'   => $oficio->enviado_em?->format('d/m/Y'),
+                'lido_em'      => $oficio->lido_em?->format('d/m/Y H:i:s'),
+                'conteudo'     => $oficio->conteudoFinal(),
+                'pdf_url'      => url("/oficios/rastrear/{$token}/pdf"),
             ],
+        ]);
+    }
+
+    /** PDF do ofício para o destinatário (link da página de rastreio). */
+    public function pdfPublico($token)
+    {
+        $oficio = $this->porToken($token);
+        abort_unless($oficio, 404);
+
+        $arquivo = 'oficio-' . str_replace(['/', '\\'], '-', $oficio->numero) . '.pdf';
+
+        return response(app(\App\Services\OficioEmailService::class)->pdf($oficio), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => "inline; filename=\"{$arquivo}\"",
+        ]);
+    }
+
+    /**
+     * Imagem de 1x1 do e-mail: carregada quando o destinatário abre a mensagem. Leitores que bloqueiam
+     * imagens não a carregam (aí a abertura só aparece no acesso ao link); responde a imagem mesmo com
+     * token inválido, para não revelar quais tokens existem.
+     */
+    public function pixelAbertura($token)
+    {
+        if ($oficio = $this->porToken($token)) {
+            app(\App\Services\OficioEmailService::class)->registrarAbertura($oficio);
+        }
+
+        return response(base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'), 200, [
+            'Content-Type'  => 'image/gif',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma'        => 'no-cache',
         ]);
     }
 }
