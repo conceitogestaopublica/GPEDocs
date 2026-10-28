@@ -207,7 +207,8 @@ function ModeloModal({ modelo, onClose }) {
                     {errors.conteudo && <p className="text-xs text-red-600 mt-1">{errors.conteudo}</p>}
                     <p className="text-[10px] text-gray-500 mt-1">
                         Variáveis disponíveis: <code>{'{{destinatário}}'}</code> <code>{'{{cargo}}'}</code>{' '}
-                        <code>{'{{órgão}}'}</code> <code>{'{{assunto}}'}</code> <code>{'{{data}}'}</code>
+                        <code>{'{{órgão}}'}</code> <code>{'{{assunto}}'}</code> <code>{'{{número}}'}</code>{' '}
+                        <code>{'{{data}}'}</code> — trocadas pelos dados do ofício na tela e no PDF.
                     </p>
                 </div>
 

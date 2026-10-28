@@ -13,11 +13,15 @@
         }
     }
 
+    // Endereço vem da cadeia logradouro → bairro → município (Ug::enderecoArray). Ler $ug->logradouro
+    // direto imprimia o objeto da relação em JSON no cabeçalho.
+    $end = $ug ? $ug->enderecoArray() : [];
     $endereco = trim(implode(', ', array_filter([
-        $ug?->logradouro . ($ug?->numero ? ", {$ug->numero}" : ''),
-        $ug?->bairro,
-        ($ug?->cidade && $ug?->uf) ? "{$ug->cidade} - {$ug->uf}" : ($ug?->cidade ?? $ug?->uf),
-        $ug?->cep ? "CEP {$ug->cep}" : null,
+        ($end['logradouro'] ?? null) ? $end['logradouro'] . (($end['numero'] ?? null) ? ", {$end['numero']}" : '') : null,
+        $end['complemento'] ?? null,
+        $end['bairro'] ?? null,
+        (($end['cidade'] ?? null) && ($end['uf'] ?? null)) ? "{$end['cidade']} - {$end['uf']}" : ($end['cidade'] ?? $end['uf'] ?? null),
+        ($end['cep'] ?? null) ? "CEP {$end['cep']}" : null,
     ])), ', ');
 
     $contato = trim(implode(' - ', array_filter([
