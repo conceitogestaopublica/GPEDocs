@@ -117,4 +117,13 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+     * Bloqueio por inatividade (TR 4.7.29): servidor que passa este número de
+     * dias sem entrar tem o acesso bloqueado na próxima tentativa e precisa
+     * ser reativado pelo superior (responsável pelo setor) ou pelo
+     * administrador. 0 desliga. Não vale para super admin nem para quem
+     * nunca entrou (servidores importados ainda sem primeiro acesso).
+     */
+    'dias_inatividade' => (int) env('GED_DIAS_INATIVIDADE', 90),
+
 ];

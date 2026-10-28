@@ -342,9 +342,10 @@ class UsuarioController extends Controller
         $this->bloquearAlteracaoDeSuperAdmin($request, (int) $id);
 
         $user = User::findOrFail($id);
+        $porInatividade = str_starts_with((string) $user->suspenso_motivo, \App\Services\Auth\EntradaService::MOTIVO_INATIVIDADE);
         DB::table('users')->where('id', $user->id)->update([
             'suspenso_em' => null, 'suspenso_por' => null, 'suspenso_motivo' => null,
-        ]);
+        ] + ($porInatividade ? ['ultimo_acesso_em' => now()] : []));   // reinicia o prazo, senão bloquearia de novo
         HistoricoUsuario::registrar($user, 'Situação', 'Suspenso', 'Ativo (reativado)');
 
         return redirect()->back()->with('success', "Acesso de {$user->name} reativado.");

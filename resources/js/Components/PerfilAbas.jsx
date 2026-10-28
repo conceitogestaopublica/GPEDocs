@@ -1,5 +1,6 @@
 /**
  * Abas do "Meu perfil" — comum às páginas do perfil do servidor.
+ * "Minha equipe" só aparece para quem responde por algum setor.
  */
 import { Link, usePage } from '@inertiajs/react';
 
@@ -9,17 +10,19 @@ const ABAS = [
     { href: '/perfil/ausencias', icone: 'fa-umbrella-beach', rotulo: 'Ausências' },
     { href: '/perfil/preferencias', icone: 'fa-sliders-h', rotulo: 'Preferências' },
     { href: '/perfil/historico', icone: 'fa-history', rotulo: 'Histórico' },
+    { href: '/perfil/equipe', icone: 'fa-users', rotulo: 'Minha equipe', soResponsavel: true },
     { href: '/perfil/administradores', icone: 'fa-user-shield', rotulo: 'Administradores' },
     { href: '/perfil/certificados', icone: 'fa-id-card', rotulo: 'Certificados' },
 ];
 
 export default function PerfilAbas() {
-    const { url } = usePage();
+    const { url, props } = usePage();
     const caminho = url.split('?')[0];
+    const responsavel = !!props.auth?.user?.responsavel_setor;
 
     return (
         <div className="flex flex-wrap gap-1 mb-4 border-b border-gray-200">
-            {ABAS.map((a) => {
+            {ABAS.filter((a) => !a.soResponsavel || responsavel).map((a) => {
                 const ativa = caminho === a.href;
                 return (
                     <Link key={a.href} href={a.href}

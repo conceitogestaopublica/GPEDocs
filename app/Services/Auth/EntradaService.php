@@ -27,11 +27,15 @@ final class EntradaService
      */
     public function concluir(Request $request, User $user, bool $lembrar, string $origem, bool $dispensa2fa = false): RedirectResponse
     {
+        $this->bloquearSeInativo($user);
+
         if ($user->suspenso_em) {
             RegistrarAcesso::recusa($user, 'acesso suspenso', $origem);
 
             return redirect()->route('login')->withErrors([
-                'login' => 'Seu acesso está suspenso. Procure o administrador do sistema.',
+                'login' => str_starts_with((string) $user->suspenso_motivo, self::MOTIVO_INATIVIDADE)
+                    ? "Seu acesso foi bloqueado por ficar mais de {$this->dias()} dias sem entrar. Peça a reativação ao responsável pelo seu setor ou ao administrador."
+                    : 'Seu acesso está suspenso. Procure o administrador do sistema.',
             ]);
         }
 
@@ -47,6 +51,32 @@ final class EntradaService
         }
 
         return $this->abrirSessao($request, $user, $lembrar, $origem);
+    }
+
+    /** Início do suspenso_motivo de bloqueio automático — o superior só reativa estes. */
+    public const MOTIVO_INATIVIDADE = 'Inatividade';
+
+    /** Passou do prazo sem entrar (TR 4.7.29): bloqueia agora, antes de abrir a sessão. */
+    private function bloquearSeInativo(User $user): void
+    {
+        $dias = $this->dias();
+        if ($dias <= 0 || $user->suspenso_em || $user->super_admin || ! $user->ultimo_acesso_em
+            || $user->ultimo_acesso_em->gt(now()->subDays($dias))) {
+            return;
+        }
+
+        $ultimo = $user->ultimo_acesso_em->setTimezone('America/Sao_Paulo')->format('d/m/Y');
+        $user->forceFill([
+            'suspenso_em'     => now(),
+            'suspenso_por'    => null,
+            'suspenso_motivo' => self::MOTIVO_INATIVIDADE . ": sem entrar desde {$ultimo}",
+        ])->save();
+        \App\Support\HistoricoUsuario::registrar($user, 'Situação', 'Ativo', "Bloqueado por inatividade (sem entrar desde {$ultimo})");
+    }
+
+    private function dias(): int
+    {
+        return (int) config('auth.dias_inatividade', 90);
     }
 
     public function abrirSessao(Request $request, User $user, bool $lembrar, string $origem): RedirectResponse

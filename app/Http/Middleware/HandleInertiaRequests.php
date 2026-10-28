@@ -31,6 +31,8 @@ class HandleInertiaRequests extends Middleware
                     'name'        => $user->name,
                     'email'       => $user->email,
                     'foto_url'    => $user->foto_url,
+                    // Responde por algum setor: mostra "Minha equipe" no perfil
+                    'responsavel_setor' => \App\Http\Controllers\Perfil\EquipeController::ehResponsavel($user->id),
                     // Editor e anexos seguem as preferências (os avisos ficam no servidor)
                     'preferencias' => array_intersect_key(\App\Support\PreferenciasUsuario::de($user), ['editor' => 1, 'anexos' => 1]),
                     'super_admin' => (bool) $user->super_admin,

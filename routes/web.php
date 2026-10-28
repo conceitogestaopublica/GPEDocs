@@ -558,6 +558,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/administradores', 'administradores')->name('administradores');
     });
     Route::get('usuarios/{id}/foto', [\App\Http\Controllers\Perfil\PerfilController::class, 'foto'])->whereNumber('id')->name('usuarios.foto');
+    Route::get('perfil/equipe', [\App\Http\Controllers\Perfil\EquipeController::class, 'index'])->name('perfil.equipe');
+    Route::post('perfil/equipe/{id}/reativar', [\App\Http\Controllers\Perfil\EquipeController::class, 'reativar'])->whereNumber('id')->name('perfil.equipe.reativar');
     Route::get('perfil/preferencias', [\App\Http\Controllers\Perfil\PreferenciasController::class, 'index'])->name('perfil.preferencias');
     Route::post('perfil/preferencias', [\App\Http\Controllers\Perfil\PreferenciasController::class, 'salvar'])->name('perfil.preferencias.salvar');
     Route::get('perfil/ausencias', [\App\Http\Controllers\Perfil\AusenciasController::class, 'index'])->name('perfil.ausencias');
