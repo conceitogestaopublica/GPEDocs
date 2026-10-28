@@ -183,7 +183,7 @@
                     </div>
                     <div class="info-row">
                         <div class="info-label">Politica:</div>
-                        <div class="info-value">{{ $a->politica_assinatura ?? 'AD-RB v2 (OID 2.16.76.1.7.1.1.2.3)' }}</div>
+                        <div class="info-value">{{ $a->politica_assinatura ?? \App\Services\CmsAdRb::rotuloPolitica() }}</div>
                     </div>
                     <div class="info-row">
                         <div class="info-label">Carimbo de Tempo:</div>
@@ -222,8 +222,8 @@
         <strong>Art. 4, II (Avancada):</strong> usa certificado digital nao ICP-Brasil, com vinculo univoco ao signatario.<br>
         <strong>Art. 4, III (Qualificada):</strong> usa certificado digital ICP-Brasil — equivale juridicamente a assinatura manuscrita
         e e o unico tipo aceito sem restricao em qualquer interacao com o poder publico (Decreto 10.543/2020).<br><br>
-        <strong>Padrao tecnico:</strong> assinaturas qualificadas neste manifesto seguem PAdES-BES com politica AD-RB v2
-        (DOC-ICP-15.03 do ITI), algoritmo SHA-256 com RSA. A integridade pode ser verificada reabrindo o PDF em qualquer
+        <strong>Padrao tecnico:</strong> assinaturas qualificadas neste manifesto seguem PAdES com a politica
+        {{ \App\Services\CmsAdRb::rotuloPolitica() }} (DOC-ICP-15.03 do ITI), algoritmo SHA-256 com RSA. A integridade pode ser verificada reabrindo o PDF em qualquer
         leitor compativel (Adobe Reader, ITI Verificador) — a assinatura embutida e o /ByteRange permitem validacao offline
         contra a cadeia da AC Raiz da ICP-Brasil.
     </div>

@@ -10,9 +10,12 @@ onde
 **Decreto 10.543/2020** define que, para interagir com o poder público, a
 **Qualificada** é o único tipo aceito sem restrição. Por isso o foco do GED.
 
-**Padrão técnico adotado**: PAdES-BES com política **AD-RB v2** (DOC-ICP-15.03
-do ITI), OID `2.16.76.1.7.1.1.2.3`, algoritmo SHA-256 com RSA. Esta política é
-a referência básica para assinaturas em PDF aceitas em órgãos brasileiros.
+**Padrão técnico adotado**: PAdES com a política **PA_PAdES_AD_RB v1.3**
+(DOC-ICP-15.03 do ITI), OID `2.16.76.1.7.1.11.1.3`, algoritmo SHA-256 com RSA.
+É a política de referência básica do ITI para assinaturas em PDF (a v1.2 foi
+revogada em 23/07/2025). O CMS leva exatamente os atributos que ela exige:
+contentType, messageDigest, signingCertificateV2 e sigPolicyId com o hash
+publicado na LPA_PAdES (`CmsAdRb`, configuração em `icp_brasil.politica_pades`).
 
 ---
 
@@ -44,7 +47,7 @@ a referência básica para assinaturas em PDF aceitas em órgãos brasileiros.
 ┌─────────────────────────────────────────────────────────────────┐
 │  Services                                                        │
 │  ├── CertificadoService       (parse PFX, valida cadeia, CPF)   │
-│  ├── AssinaturaIcpService     (A1: openssl_pkcs7_sign + TCPDF)  │
+│  ├── AssinaturaIcpService     (A1: CmsAdRb + TCPDF)             │
 │  ├── AssinaturaIcpA3Service   (A3: ASN.1 manual + external sig) │
 │  ├── AssinaturaValidadorService (re-abre PDF e valida)          │
 │  └── AsnDer                   (helpers ASN.1 DER)               │
@@ -92,8 +95,9 @@ Browser ──[PFX + senha]──→ Server
                            ├── valida cadeia ICP-Brasil contra truststore
                            ├── confere CPF do cert × CPF do usuário
                            ├── extrai metadados via openssl_x509_parse
-                           ├── TCPDF + FPDI montam PDF com /AcroForm + /Sig
-                           └── openssl_pkcs7_sign embute o envelope
+                           ├── TCPDF + FPDI montam PDF com /Sig e /Contents reservado
+                           ├── CmsAdRb monta os atributos AD-RB e assina com a chave do PFX
+                           └── PadesPlaceholder grava o CMS no /Contents
                            
 Server ──[PDF assinado]──→ Browser
 ```
@@ -119,11 +123,12 @@ deve ser assinado, o token assina, o servidor monta o envelope.
           ├── gera PDF com placeholder via TCPDF (cert dummy descartável)
           ├── extrai /ByteRange
           ├── content_hash = SHA-256(byteRange)
-          ├── monta SignedAttributes ASN.1:
+          ├── monta SignedAttributes ASN.1 (CmsAdRb — mesmos do A1):
           │     ├── contentType (1.2.840.113549.1.9.3) → id-data
           │     ├── messageDigest (1.2.840.113549.1.9.4) → content_hash
-          │     ├── signingTime (1.2.840.113549.1.9.5) → UTCTime now
-          │     └── signingCertV2 (1.2.840.113549.1.9.16.2.47) → SHA-256(cert)
+          │     ├── signingCertV2 (1.2.840.113549.1.9.16.2.47) → SHA-256(cert) + emissor/serial
+          │     └── sigPolicyId (1.2.840.113549.1.9.16.2.15) → OID + hash da PA_PAdES_AD_RB
+          │     (sem signing-time: no PAdES a hora vai no /M do dicionário)
           ├── hash_a_assinar = SHA-256(DER de SignedAttributes)
           └── cacheia { pdf_placeholder, signed_attrs, byte_range, cert } por 10min
 [Server → Browser] { sessao_id, hash_a_assinar (b64), algoritmo_digest }
@@ -173,7 +178,7 @@ Windows/Mac/Linux cert store.
 | Arquivo | Responsabilidade |
 |---|---|
 | `CertificadoService` | Abre PFX, valida cadeia ICP-Brasil contra truststore, extrai CPF (OID 2.16.76.1.3.1) e CNPJ (OID 2.16.76.1.3.3), persiste cert público |
-| `AssinaturaIcpService` | Assinatura A1: TCPDF/FPDI + `openssl_pkcs7_sign` |
+| `AssinaturaIcpService` | Assinatura A1: TCPDF/FPDI (estrutura) + `CmsAdRb` |
 | `AssinaturaIcpA3Service` | Assinatura A3: external signing two-step com ASN.1 manual |
 | `AssinaturaValidadorService` | Re-abre PDF, extrai `/ByteRange`/`/Contents`, valida via `openssl smime -verify` (CLI), valida cadeia, decodifica metadados PAdES |
 | `AsnDer` | Helpers ASN.1 DER puros: `seq()`, `set()`, `oid()`, `octet()`, `intFromBytes()`, `utcTime()`, `ctxExplicit()`, `reTag()` |
@@ -240,7 +245,7 @@ Validador (público, sem auth):
 | `hash_documento` | string(64) | SHA-256 |
 | `assinatura_pkcs7` | longblob | envelope CMS detached |
 | `cadeia_certificados` | json | resumo da cadeia |
-| `politica_assinatura` | string(120) | ex: "AD-RB v2 (OID 2.16.76.1.7.1.1.2.3)" |
+| `politica_assinatura` | string(120) | ex: "PA_PAdES_AD_RB v1.3 (OID 2.16.76.1.7.1.11.1.3)" |
 | `algoritmo_hash` | string(20) | SHA-256 |
 | `arquivo_assinado_path` | string(500) | em storage/app/private |
 | `hash_assinatura_sha256` | string(64) | hash do envelope |
@@ -531,14 +536,14 @@ openssl smime -verify -in pkcs7.bin -inform DER -content covered.bin -noverify -
 | `1.2.840.113549.1.7.2` | id-signedData |
 | `1.2.840.113549.1.9.3` | content-type |
 | `1.2.840.113549.1.9.4` | message-digest |
-| `1.2.840.113549.1.9.5` | signing-time |
+| `1.2.840.113549.1.9.16.2.15` | signature-policy-identifier (sigPolicyId) |
 | `1.2.840.113549.1.9.16.2.47` | signing-certificate-v2 (RFC 5035) |
 | `2.16.840.1.101.3.4.2.1` | SHA-256 |
 | `1.2.840.113549.1.1.1` | rsaEncryption |
 | `1.2.840.113549.1.1.11` | sha256WithRSAEncryption |
 | `2.16.76.1.3.1` | ICP-Brasil — CPF do titular (subjectAltName otherName) |
 | `2.16.76.1.3.3` | ICP-Brasil — CNPJ do titular |
-| `2.16.76.1.7.1.1.2.3` | Política AD-RB v2 |
+| `2.16.76.1.7.1.11.1.3` | Política PA_PAdES_AD_RB v1.3 |
 
 ---
 

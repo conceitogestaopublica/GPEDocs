@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\Assinatura;
 use App\Models\Certificado;
+use App\Support\FpdiAssinatura;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use setasign\Fpdi\Tcpdf\Fpdi;
@@ -17,19 +18,14 @@ use TCPDF;
  * Fluxo:
  *   1) Recebe um PDF de origem + PFX/senha do signatário (A1)
  *   2) Importa as páginas do PDF original via FPDI dentro de um TCPDF
- *   3) Aciona TCPDF::setSignature() — TCPDF reserva /ByteRange e /Contents,
- *      gera o hash, monta o PKCS#7 detached via openssl_pkcs7_sign e embute
- *      o envelope no PDF resultante (assinatura PAdES-BES)
+ *   3) TCPDF reserva /ByteRange e /Contents (PadesPlaceholder); o CMS é montado
+ *      no padrão da política PA_PAdES_AD_RB do ITI (CmsAdRb), assinado com a
+ *      chave do PFX e gravado no espaço reservado
  *   4) Persiste o arquivo assinado em storage/app/assinaturas/icp/
  *   5) Atualiza o registro de Assinatura com metadados criptográficos
- *
- * Política adotada: AD-RB v2 (DOC-ICP-15.03 do ITI) — OID 2.16.76.1.7.1.1.2.3
  */
 class AssinaturaIcpService
 {
-    private const POLITICA_OID = '2.16.76.1.7.1.1.2.3';
-    private const POLITICA_NOME = 'AD-RB v2 (Assinatura Digital de Referência Básica)';
-
     public function __construct(
         private readonly CertificadoService $certificadoService,
     ) {
@@ -66,14 +62,14 @@ class AssinaturaIcpService
         $meta = $this->certificadoService->lerMetadados($certPem);
         $meta['url_verificacao'] = $razao['url_verificacao'] ?? null;
 
-        if (! $this->certificadoService->ehIcpBrasil($certPem)) {
+        if (! $this->certificadoService->ehIcpBrasil($certPem, $cadeia)) {
             throw new RuntimeException(
                 'O certificado informado não pertence à cadeia ICP-Brasil — assinatura qualificada exige cert. ICP-Brasil.'
             );
         }
 
         // Gera o PDF assinado a partir do PDF original importado via FPDI
-        $pdfAssinado = $this->gerarPdfAssinado(
+        [$pdfAssinado, $pkcs7] = $this->gerarPdfAssinado(
             pdfOrigem: $pdfOrigem,
             certPem: $certPem,
             pkeyPem: $pkeyPem,
@@ -95,17 +91,14 @@ class AssinaturaIcpService
         );
         $disk->put($nomeArquivo, $pdfAssinado);
 
-        // Extrai o PKCS#7 embutido no PDF (entre /Contents <...>) para auditoria
-        $pkcs7 = $this->extrairPkcs7($pdfAssinado);
-
         return [
             'caminho' => $nomeArquivo,
             'pkcs7'   => $pkcs7,
             'cadeia'  => $cadeia,
             'cert'    => $certPem,
             'meta'    => $meta + [
-                'politica_oid'  => self::POLITICA_OID,
-                'politica_nome' => self::POLITICA_NOME,
+                'politica_oid'  => CmsAdRb::politica()['oid'],
+                'politica_nome' => CmsAdRb::politica()['nome'],
                 'algoritmo'     => 'SHA-256',
                 'hash_pdf'      => hash('sha256', $pdfAssinado),
             ],
@@ -143,7 +136,7 @@ class AssinaturaIcpService
                 fn (string $pem) => $this->resumoCert($pem),
                 $resultado['cadeia']
             ),
-            'politica_assinatura'     => self::POLITICA_NOME . ' (OID ' . self::POLITICA_OID . ')',
+            'politica_assinatura'     => CmsAdRb::rotuloPolitica(),
             'algoritmo_hash'          => 'SHA-256',
             'arquivo_assinado_path'   => $resultado['caminho'],
             'hash_assinatura_sha256'  => hash('sha256', $resultado['pkcs7']),
@@ -165,22 +158,9 @@ class AssinaturaIcpService
         array $meta = [],
         ?array $position = null,
         array $previousStamps = [],
-    ): string {
-        // signing_cert e private_key sao passados como PEM inline porque
-        // openssl_pkcs7_sign no Windows com PHP 8.3 + OpenSSL 3 falha ao
-        // decodificar PKCS#8 lido por path (error:1E08010C:DECODER unsupported).
-        // Já extracerts (7º arg de openssl_pkcs7_sign) exige um caminho de arquivo.
-        $extraFile = null;
-        $cadeiaConcatenada = implode("\n", $extracerts);
-        if ($cadeiaConcatenada !== '') {
-            $extraFile = tempnam(sys_get_temp_dir(), 'ged_chain_');
-            if ($extraFile !== false) {
-                file_put_contents($extraFile, $cadeiaConcatenada);
-            }
-        }
-
+    ): array {
         try {
-            $pdf = new Fpdi('P', 'mm', 'A4', true, 'UTF-8', false);
+            $pdf = new FpdiAssinatura('P', 'mm', 'A4', true, 'UTF-8', false);
             $pdf->setPrintHeader(false);
             $pdf->setPrintFooter(false);
             $pdf->SetMargins(0, 0, 0);
@@ -250,11 +230,14 @@ class AssinaturaIcpService
             // consolidada em vez de uma pagina por signatario.
             $this->adicionarPaginaTermo($pdf, $meta, $razao, $local, $previousStamps);
 
+            // O TCPDF só monta a estrutura (/Sig, /ByteRange, /Contents) com um par
+            // descartável; o CMS real (AD-RB) é montado e gravado logo abaixo.
+            [$certDescartavel, $chaveDescartavel] = PadesPlaceholder::materialDescartavel();
             $pdf->setSignature(
-                signing_cert: $certPem,
-                private_key:  $pkeyPem,
+                signing_cert: $certDescartavel,
+                private_key:  $chaveDescartavel,
                 private_key_password: '',
-                extracerts:   $extraFile ?: '',
+                extracerts:   '',
                 cert_type:    2,
                 info: [
                     'Name'        => $contato,
@@ -280,32 +263,16 @@ class AssinaturaIcpService
                 throw new RuntimeException('Falha ao gerar PDF assinado.');
             }
 
-            return $bytes;
+            $byteRange = PadesPlaceholder::byteRange($bytes);
+            $atributos = CmsAdRb::atributosAssinados($certPem, PadesPlaceholder::digest($bytes, $byteRange));
+            $cms = CmsAdRb::envelope($certPem, $extracerts, $atributos, CmsAdRb::assinarComChave($atributos, $pkeyPem));
+
+            return [PadesPlaceholder::embutir($bytes, $byteRange, $cms), $cms];
         } finally {
-            if ($extraFile && is_file($extraFile)) {
-                @unlink($extraFile);
-            }
             if (isset($fonte)) {
                 \App\Support\PdfCompativel::liberar($fonte, $pdfOrigem);
             }
         }
-    }
-
-    /**
-     * Extrai o envelope PKCS#7/CMS embutido no PDF (entre /Contents <...>).
-     */
-    private function extrairPkcs7(string $pdfBytes): string
-    {
-        if (! preg_match('/\/Contents\s*<([0-9a-fA-F\s]+)>/', $pdfBytes, $m)) {
-            return '';
-        }
-        $hex = preg_replace('/\s+/', '', $m[1]);
-        $bin = hex2bin((string) $hex);
-        if ($bin === false) {
-            return '';
-        }
-        // Remove o padding zero (TCPDF preenche o /Contents com zeros até o tamanho reservado)
-        return rtrim($bin, "\0");
     }
 
     /**
@@ -513,7 +480,7 @@ class AssinaturaIcpService
         $pdf->Cell(0, 6, 'Politica de Assinatura', 0, 1);
         $pdf->SetTextColor(...$cinzaEsc);
 
-        $politica  = self::POLITICA_NOME . ' (OID ' . self::POLITICA_OID . ')';
+        $politica  = CmsAdRb::rotuloPolitica();
         $algoritmo = 'SHA-256 com RSA';
 
         $linhas = [

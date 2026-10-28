@@ -25,6 +25,20 @@ return [
     'exigir_lcr'          => env('ICP_BRASIL_EXIGIR_LCR', true),
     'timeout_lcr'         => (int) env('ICP_BRASIL_TIMEOUT_LCR', 45),
 
+    /*
+     * Política das assinaturas em PDF: PA_PAdES_AD_RB v1.3 (vigente desde
+     * 23/07/2025; a v1.2 foi revogada nessa data). O hash é o SHA-256 do
+     * arquivo .der da política, o mesmo publicado na LPA_PAdES do ITI
+     * (http://politicas.icpbrasil.gov.br/LPA_PAdES.der) — conferido em
+     * 2026-10-28. Atualize os três campos juntos quando o ITI publicar nova versão.
+     */
+    'politica_pades' => [
+        'oid'  => '2.16.76.1.7.1.11.1.3',
+        'hash' => '23da544aef71f7a75dc85fa6e17a83875741e4baef41ec178258a5c86ace54dd',
+        'nome' => 'PA_PAdES_AD_RB v1.3',
+        'url'  => 'http://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der',
+    ],
+
     'politica_padrao' => [
         'oid'  => '2.16.76.1.7.1.1.2.3',
         'nome' => 'AD-RB v2 (Assinatura Digital de Referência Básica)',

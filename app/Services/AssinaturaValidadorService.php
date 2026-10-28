@@ -216,6 +216,17 @@ class AssinaturaValidadorService
             $cadeia = [];
         }
 
+        // O -signer acima grava só o certificado do signatário; as ACs que vêm
+        // dentro do CMS entram como material de caminho para a cadeia
+        $todosDoCms = (string) shell_exec(sprintf('openssl pkcs7 -inform DER -in %s -print_certs 2>/dev/null', escapeshellarg($sigP7Der)));
+        if (preg_match_all('/-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----/s', $todosDoCms, $doCms)) {
+            foreach ($doCms[0] as $pem) {
+                if ($signatarioCert === null || openssl_x509_fingerprint($pem, 'sha256') !== openssl_x509_fingerprint($signatarioCert, 'sha256')) {
+                    $cadeia[] = $pem;
+                }
+            }
+        }
+
         if ($signatarioCert) {
             $meta = $this->certificadoService->lerMetadados($signatarioCert);
 
