@@ -59,6 +59,10 @@ class Processo extends Model
         'decisao',
         'solicitacao_assinatura_id',
         'documento_decisao_id',
+        'latitude',
+        'longitude',
+        'local_endereco',
+        'reaberturas',
     ];
 
     protected function casts(): array
@@ -66,6 +70,8 @@ class Processo extends Model
         return [
             'dados_formulario' => 'array',
             'concluido_em' => 'datetime',
+            'latitude' => 'float',
+            'longitude' => 'float',
         ];
     }
 

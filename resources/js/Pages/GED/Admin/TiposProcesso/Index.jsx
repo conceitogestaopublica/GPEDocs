@@ -108,6 +108,8 @@ export default function Index({ tipos, unidades = [] }) {
         categoria: 'administrativo',
         sla_padrao_horas: '',
         prazo_dias_uteis: false,
+        localizacao: 'nao',
+        avaliacao: true,
         ativo: true,
         schema_formulario: [],
         etapas: [],
@@ -130,6 +132,8 @@ export default function Index({ tipos, unidades = [] }) {
             categoria: tipo.categoria || 'administrativo',
             sla_padrao_horas: tipo.sla_padrao_horas || '',
             prazo_dias_uteis: !! tipo.prazo_dias_uteis,
+            localizacao: tipo.localizacao || 'nao',
+            avaliacao: tipo.avaliacao !== false,
             ativo: tipo.ativo !== false,
             schema_formulario: tipo.schema_formulario || [],
             etapas: (tipo.etapas || []).map(e => ({ ...e, unidades: e.unidades || [], obrigatorio: e.obrigatorio ?? true })),
@@ -437,6 +441,19 @@ export default function Index({ tipos, unidades = [] }) {
                                         <input type="checkbox" checked={!! data.prazo_dias_uteis} onChange={(e) => setData('prazo_dias_uteis', e.target.checked)}
                                             className="mt-0.5 rounded border-gray-300 text-blue-600" />
                                         <span>Contar em dias úteis (cada 24h = 1 dia útil; vence no fechamento do expediente, sem fins de semana e feriados — Configurações › Expediente e feriados)</span>
+                                    </label>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Local da demanda no mapa</label>
+                                    <select value={data.localizacao} onChange={(e) => setData('localizacao', e.target.value)} className="ds-input">
+                                        <option value="nao">Não pede</option>
+                                        <option value="opcional">Pede, opcional</option>
+                                        <option value="obrigatoria">Obrigatório marcar no mapa</option>
+                                    </select>
+                                    <label className="mt-2 flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
+                                        <input type="checkbox" checked={!! data.avaliacao} onChange={(e) => setData('avaliacao', e.target.checked)}
+                                            className="mt-0.5 rounded border-gray-300 text-blue-600" />
+                                        <span>Pedir avaliação por estrelas ao concluir</span>
                                     </label>
                                 </div>
                             </div>

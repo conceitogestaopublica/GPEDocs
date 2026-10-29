@@ -56,8 +56,8 @@ class SolicitacaoController extends PortalApiController
     {
         $solicitacao = $this->doCidadao($request, $codigo);
         $processo = $solicitacao->processo_id
-            ? Processo::query()->withoutGlobalScope('ug')
-                ->find($solicitacao->processo_id, ['id', 'numero_protocolo', 'status'])
+            ? Processo::query()->withoutGlobalScope('ug')->with('tipoProcesso:id,avaliacao')
+                ->find($solicitacao->processo_id, ['id', 'numero_protocolo', 'status', 'tipo_processo_id', 'latitude', 'longitude', 'local_endereco', 'reaberturas'])
             : null;
 
         return response()->json([
@@ -71,6 +71,14 @@ class SolicitacaoController extends PortalApiController
                 'processo'  => $processo ? [
                     'numero_protocolo' => $processo->numero_protocolo,
                     'status'           => $processo->status,
+                    'localizacao'      => $processo->latitude !== null || $processo->local_endereco
+                        ? ['latitude' => $processo->latitude, 'longitude' => $processo->longitude, 'endereco' => $processo->local_endereco] : null,
+                    // Avaliação por estrelas depois da conclusão (TR 4.32.25–27): pode = falta avaliar esta rodada
+                    'avaliacao'        => [
+                        'pode'       => \App\Support\Avaliacoes::pode($processo),
+                        'realizadas' => array_map(fn ($a) => ['nota' => $a['nota'], 'comentario' => $a['comentario'], 'rodada' => $a['rodada'], 'em' => $a['created_at']],
+                            \App\Support\Avaliacoes::doProcesso($processo->id)),
+                    ],
                 ] : null,
                 'eventos' => $solicitacao->eventos->map(fn (SolicitacaoEvento $e) => [
                     'tipo'        => $e->tipo,
@@ -143,6 +151,9 @@ class SolicitacaoController extends PortalApiController
             $dados['dados_formulario'] = null;
         }
 
+        // Onde fica a demanda, conforme o assunto (TR 4.32.21, 4.33.9)
+        $local = \App\Support\Avaliacoes::localizacao($request->input('localizacao'), (string) ($tipo?->localizacao ?? 'nao'));
+
         try {
             $prontos = [
                 ...$anexos->prepararExigidos($tipo?->anexos_exigidos, $dados['documentos_exigidos'] ?? []),
@@ -154,11 +165,28 @@ class SolicitacaoController extends PortalApiController
         }
 
         $solicitacao = $registrar->registrar($ug, $servico, $cidadao, $dados, procurador: $procurador);
+        if ($solicitacao->processo_id && ($local['latitude'] !== null || $local['local_endereco'] !== null)) {
+            Processo::query()->withoutGlobalScope('ug')->whereKey($solicitacao->processo_id)->update($local);
+        }
         if ($prontos) {
             $anexos->gravar($solicitacao, $procurador ?? $cidadao, $prontos);
         }
 
         return response()->json(['solicitacao' => $this->resumo($solicitacao->load(['servico:id,titulo,slug', 'cidadao:id,nome', 'procurador:id,nome']))], 201);
+    }
+
+    /** Cidadão avalia o atendimento concluído (1 a 5 estrelas e comentário). */
+    public function avaliar(Request $request, string $codigo): JsonResponse
+    {
+        $solicitacao = $this->doCidadao($request, $codigo);
+        $d = $request->validate(['nota' => ['required', 'integer', 'between:1,5'], 'comentario' => ['nullable', 'string', 'max:2000']]);
+        $processo = $solicitacao->processo_id ? Processo::query()->withoutGlobalScope('ug')->with('tipoProcesso')->find($solicitacao->processo_id) : null;
+        if (! $processo) {
+            return response()->json(['erro' => 'Esta solicitação não tem atendimento para avaliar.'], 422);
+        }
+        \App\Support\Avaliacoes::registrar($processo, (int) $d['nota'], $d['comentario'] ?? null, 'portal', $this->cidadao($request)->id);
+
+        return response()->json(['ok' => true], 201);
     }
 
     public function cancelar(Request $request, string $codigo): JsonResponse

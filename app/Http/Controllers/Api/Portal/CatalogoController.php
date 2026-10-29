@@ -76,6 +76,9 @@ class CatalogoController extends PortalApiController
                 // Formulário e documentos exigidos do assunto (TR 4.38.3–4.38.9, 4.38.18)
                 'formulario'             => self::formulario($tipos[$s->tipo_processo_id] ?? null),
                 'documentos_exigidos'    => self::documentos($tipos[$s->tipo_processo_id] ?? null),
+                // Local no mapa (nao | opcional | obrigatoria) e avaliação ao concluir (TR 4.32.21, 4.32.25)
+                'localizacao'            => $tipos[$s->tipo_processo_id]?->localizacao ?? 'nao',
+                'avaliacao'              => (bool) ($tipos[$s->tipo_processo_id]?->avaliacao ?? false),
             ])->values(),
         ]);
     }

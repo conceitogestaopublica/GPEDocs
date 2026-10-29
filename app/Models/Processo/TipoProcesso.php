@@ -25,6 +25,8 @@ class TipoProcesso extends Model
         'sla_padrao_horas',
         'ativo',
         'criado_por',
+        'localizacao',
+        'avaliacao',
     ];
 
     protected function casts(): array
@@ -34,6 +36,7 @@ class TipoProcesso extends Model
             'templates_despacho' => 'array',
             'anexos_exigidos'    => 'array',
             'prazo_dias_uteis'   => 'boolean',
+            'avaliacao'          => 'boolean',
             'ativo' => 'boolean',
         ];
     }

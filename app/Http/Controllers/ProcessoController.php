@@ -91,6 +91,7 @@ class ProcessoController extends Controller
             'tipos_processo' => $tiposProcesso,
             'unidades'       => $unidades,
             'usuarios'       => $usuarios,
+            'cidade'         => \App\Http\Controllers\Flow\MapaAvaliacaoController::cidade(),
         ]);
     }
 
@@ -125,6 +126,8 @@ class ProcessoController extends Controller
             $nomes["anexos_exigidos.{$i}"] = (string) ($ax['nome'] ?? 'Documento');
         }
         $request->validate($regras, [], $nomes);
+        // Onde fica a demanda, conforme o assunto pede (TR 4.32.21) — antes da transação, para o erro ir ao campo
+        $local = \App\Support\Avaliacoes::localizacao($request->input('localizacao'), (string) (TipoProcesso::find((int) $request->input('tipo_processo_id'))?->localizacao ?? 'nao'));
 
         try {
             DB::beginTransaction();
@@ -156,7 +159,7 @@ class ProcessoController extends Controller
                     ->withErrors(['setor_destino_inicial' => "Este assunto começa em: {$nomes}."]);
             }
 
-            $processo = Processo::create([
+            $processo = Processo::create($local + [
                 'numero_protocolo'  => $protocolo,
                 'tipo_processo_id'  => $tipoId,
                 'assunto'           => $request->input('assunto'),
@@ -387,6 +390,7 @@ class ProcessoController extends Controller
 
         return Inertia::render('GED/Processos/Show', [
             'classificacao'        => \App\Support\Classificacao::doItem('processo', $processo->id),
+            'mapa_avaliacao'       => \App\Http\Controllers\Flow\MapaAvaliacaoController::paraTela($processo),
             'processo'             => $processo,
             'usuarios'             => $usuarios,
             'unidades'             => $unidades,

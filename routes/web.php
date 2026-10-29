@@ -159,7 +159,8 @@ Route::prefix('api/portal')
         Route::get('solicitacoes', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'index'])->name('solicitacoes.index');
         Route::post('solicitacoes', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'store'])->name('solicitacoes.store');
         Route::get('solicitacoes/{codigo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'show'])->where('codigo', '[^/]+')->name('solicitacoes.show');
-        Route::post('solicitacoes/{codigo}/cancelar', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'cancelar'])->where('codigo', '[^/]+')->name('solicitacoes.cancelar');
+        Route::post('solicitacoes/{codigo}/avaliacao', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'avaliar'])->where('codigo', '[^/]+')->name('solicitacoes.avaliacao');
+        Route::post('solicitacoes/{codigo}/cancelar',[\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'cancelar'])->where('codigo', '[^/]+')->name('solicitacoes.cancelar');
     });
 
 // Portal Cidadao — Carta de Servicos (publico, sem auth)
@@ -537,6 +538,8 @@ Route::middleware('auth')->group(function () {
             Route::delete('etiquetas/{id}', 'destroy')->whereNumber('id')->name('etiquetas.destroy');
             Route::post('etiquetar', 'aplicar')->name('etiquetar');
         });
+        // Mapa das demandas (TR 4.32.21, 4.33.9)
+        Route::get('mapa', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'mapa'])->middleware('can:processo.visualizar')->name('mapa');
         // Contatos (TR 4.21)
         Route::middleware('can:contato.gerenciar')->controller(\App\Http\Controllers\Contatos\ContatoController::class)->group(function () {
             Route::get('contatos', 'index')->name('contatos');
@@ -608,6 +611,10 @@ Route::middleware('auth')->group(function () {
         Route::post('processos/{id}/concluir', [ProcessoController::class, 'concluir'])->name('processos.concluir');
         Route::post('processos/{id}/cancelar', [ProcessoController::class, 'cancelar'])->name('processos.cancelar');
         Route::post('processos/{id}/assunto', [ProcessoController::class, 'alterarAssunto'])->name('processos.assunto');
+        // Localização, avaliação no balcão e reabertura (TR 4.32.21, 4.32.25–27, 4.33.9)
+        Route::post('processos/{id}/localizacao', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'localizacao'])->whereNumber('id')->name('processos.localizacao');
+        Route::post('processos/{id}/avaliacao', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'avaliar'])->whereNumber('id')->name('processos.avaliacao');
+        Route::post('processos/{id}/reabrir', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'reabrir'])->whereNumber('id')->name('processos.reabrir');
         // Prazos e atividades lançados à mão (TR 4.13, 4.32.16)
         Route::post('processos/{id}/prazos', [\App\Http\Controllers\PrazoController::class, 'store'])->whereNumber('id')->name('processos.prazos.store');
         Route::put('prazos/{id}', [\App\Http\Controllers\PrazoController::class, 'update'])->whereNumber('id')->name('prazos.update');

@@ -10,9 +10,11 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import EnderecoForm from '../../../Components/EnderecoForm';
+import LocalizacaoDemanda from '../../../Components/LocalizacaoDemanda';
 
-export default function Create({ tipos_processo, unidades = [], usuarios = [] }) {
+export default function Create({ tipos_processo, unidades = [], usuarios = [], cidade = '' }) {
     const tipos = tipos_processo || [];
+    const [local, setLocal] = useState({ latitude: null, longitude: null, endereco: '' });
     const [files, setFiles] = useState([]);
     const [exigidos, setExigidos] = useState({});   // índice do documento exigido → arquivo
 
@@ -131,6 +133,10 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
         if (data.requerente_email) formData.append('requerente_email', data.requerente_email);
         if (data.requerente_telefone) formData.append('requerente_telefone', data.requerente_telefone);
 
+        // Onde fica a demanda (TR 4.32.21)
+        if (local.latitude != null) { formData.append('localizacao[latitude]', local.latitude); formData.append('localizacao[longitude]', local.longitude); }
+        if (local.endereco) formData.append('localizacao[endereco]', local.endereco);
+
         // Destino inicial
         if (data.setor_destino_inicial) formData.append('setor_destino_inicial', data.setor_destino_inicial);
         if (data.destinatario_inicial) formData.append('destinatario_inicial', data.destinatario_inicial);
@@ -247,6 +253,12 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                                         </div>
                                     ))}
                                 </div>
+                            </Card>
+                        )}
+
+                        {tipoSelecionado && (tipoSelecionado.localizacao || 'nao') !== 'nao' && (
+                            <Card title="Onde fica a demanda" subtitle={tipoSelecionado.localizacao === 'obrigatoria' ? 'Obrigatório marcar no mapa' : 'Opcional'}>
+                                <LocalizacaoDemanda value={local} onChange={setLocal} cidade={cidade} erro={errors.localizacao} obrigatoria={tipoSelecionado.localizacao === 'obrigatoria'} />
                             </Card>
                         )}
 

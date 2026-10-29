@@ -47,6 +47,8 @@ class ProcessoDashboardController extends Controller
                 'inbox_count'        => $inboxCount,
             ],
             'processos_recentes' => $processosRecentes,
+            // Satisfação (TR 4.32.26): média das avaliações por estrelas, geral e por assunto, nos últimos 12 meses
+            'avaliacoes'         => \App\Support\Avaliacoes::indicadores(now()->subYear()->toDateString()),
         ]);
     }
 }
