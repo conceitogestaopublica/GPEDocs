@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\Portal;
 
 use App\Models\Portal\CategoriaServico;
 use App\Models\Portal\Servico;
+use App\Models\Processo\TipoProcesso;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -34,6 +35,7 @@ class CatalogoController extends PortalApiController
             ->get();
 
         $slugCategoria = $categorias->pluck('slug', 'id');
+        $tipos = TipoProcesso::whereIn('id', $servicos->pluck('tipo_processo_id')->filter()->unique())->get()->keyBy('id');
 
         return response()->json([
             'ug' => [
@@ -71,7 +73,42 @@ class CatalogoController extends PortalApiController
                 // Solicitação vira processo sozinha (tipo de processo + setor).
                 'abre_processo'          => $s->tipo_processo_id !== null && $s->setor_responsavel_id !== null,
                 'ordem'                  => $s->ordem,
+                // Formulário e documentos exigidos do assunto (TR 4.38.3–4.38.9, 4.38.18)
+                'formulario'             => self::formulario($tipos[$s->tipo_processo_id] ?? null),
+                'documentos_exigidos'    => self::documentos($tipos[$s->tipo_processo_id] ?? null),
             ])->values(),
         ]);
+    }
+
+    /** Campos do assunto para o portal montar o formulário (mesmas regras do GED). */
+    private static function formulario(?TipoProcesso $tipo): array
+    {
+        return collect($tipo?->schema_formulario ?? [])
+            ->filter(fn ($c) => trim((string) ($c['campo'] ?? '')) !== '')
+            ->map(fn ($c) => [
+                'campo'       => trim((string) $c['campo']),
+                'tipo'        => $c['tipo'] ?? 'text',
+                'rotulo'      => (string) ($c['label'] ?? $c['campo']),
+                'obrigatorio' => ! empty($c['obrigatorio']),
+                'opcoes'      => ($c['tipo'] ?? '') === 'select'
+                    ? array_values(array_filter(array_map('trim', explode(',', (string) ($c['opcoes'] ?? ''))), 'strlen')) : [],
+                'formula'     => ($c['tipo'] ?? '') === 'calculo' ? (string) ($c['formula'] ?? '') : null,
+                'ajuda'       => ($c['ajuda'] ?? '') ?: null,
+                // GET api/portal/ajuda-imagem/{id} (com o token do portal)
+                'ajuda_imagem_id' => preg_match('/([0-9a-f-]{36})$/', (string) ($c['ajuda_imagem'] ?? ''), $m) ? $m[1] : null,
+            ])->values()->all();
+    }
+
+    private static function documentos(?TipoProcesso $tipo): array
+    {
+        return collect($tipo?->anexos_exigidos ?? [])->values()->map(fn ($d, $i) => [
+            'indice'      => $i,
+            'nome'        => (string) ($d['nome'] ?? 'Documento'),
+            'obrigatorio' => (bool) ($d['obrigatorio'] ?? true),
+            // O portal aceita só PDF, JPG e PNG (AnexosSolicitacaoService::TIPOS)
+            'extensoes'   => array_values(array_intersect(
+                array_filter(array_map(fn ($e) => strtolower(trim($e, " .\t")), explode(',', (string) ($d['extensoes'] ?? '')))) ?: ['pdf', 'jpg', 'png'],
+                ['pdf', 'jpg', 'jpeg', 'png'])),
+        ])->all();
     }
 }

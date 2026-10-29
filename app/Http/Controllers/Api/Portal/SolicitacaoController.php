@@ -97,6 +97,12 @@ class SolicitacaoController extends PortalApiController
             'anexos.*.nome'     => ['required', 'string', 'max:200'],
             'anexos.*.conteudo' => ['required', 'string'],
             'procurador_cidadao_id' => ['nullable', 'integer'],
+            // Formulário e documentos exigidos do assunto do serviço (TR 4.38.3–4.38.9, 4.38.18)
+            'dados_formulario'               => ['nullable', 'array'],
+            'documentos_exigidos'            => ['nullable', 'array', 'max:30'],
+            'documentos_exigidos.*.indice'   => ['required', 'integer', 'min:0'],
+            'documentos_exigidos.*.nome'     => ['nullable', 'string', 'max:200'],
+            'documentos_exigidos.*.conteudo' => ['required', 'string'],
         ]);
 
         // Por procuração: cidadao_id é o titular (outorgante) e quem protocola é o procurador.
@@ -127,8 +133,22 @@ class SolicitacaoController extends PortalApiController
             return response()->json(['erro' => 'Serviço exclusivo para servidores municipais.'], 403);
         }
 
+        // Assunto do serviço: o formulário segue as mesmas regras da abertura pelo GED
+        $tipo = $servico->tipo_processo_id ? \App\Models\Processo\TipoProcesso::find($servico->tipo_processo_id) : null;
+        if ($tipo?->schema_formulario) {
+            [$regras, $nomes] = \App\Support\CamposDinamicos::regras($tipo->schema_formulario, 'dados_formulario');
+            \Illuminate\Support\Facades\Validator::make($request->all(), $regras, [], $nomes)->validate();
+            $dados['dados_formulario'] = \App\Support\CamposDinamicos::normalizar($tipo->schema_formulario, $request->input('dados_formulario'));
+        } else {
+            $dados['dados_formulario'] = null;
+        }
+
         try {
-            $prontos = $anexos->preparar($dados['anexos'] ?? []);
+            $prontos = [
+                ...$anexos->prepararExigidos($tipo?->anexos_exigidos, $dados['documentos_exigidos'] ?? []),
+                ...$anexos->preparar($dados['anexos'] ?? []),
+            ];
+            $anexos->conferirTotal($prontos);
         } catch (CidadaoPortalException $e) {
             return response()->json(['erro' => $e->getMessage()], 422);
         }

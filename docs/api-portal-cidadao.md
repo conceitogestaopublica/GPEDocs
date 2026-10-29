@@ -34,6 +34,17 @@ ativo/publicado.
   `parcelamento`, `debitos`, ...). Com ação fiscal o serviço **não** vira solicitação.
 - `servicos[].abre_processo`: o serviço tem tipo de processo + setor, então a solicitação abre o
   processo sozinha.
+- `servicos[].formulario`: campos do assunto do serviço (vazio se não tem). Cada campo:
+  `{ campo, tipo, rotulo, obrigatorio, opcoes[], formula, ajuda, ajuda_imagem_id }`.
+  - `tipo`: `text`, `textarea`, `number`, `money`, `date`, `select` (escolher de `opcoes`),
+    `cpf_cnpj` (o GED confere o dígito), `cep` (valor é objeto `{ cep, logradouro, numero,
+    complemento, bairro, cidade, uf }` — preencher pelo ViaCEP), `email`, `telefone`, `checkbox`
+    (obrigatório = tem de marcar), `calculo` (só mostrar: `formula` como `{qtd} * {valor}`, com
+    + − * / e parênteses; o GED recalcula e ignora o que vier).
+  - `ajuda_imagem_id`: imagem de ajuda em `GET ajuda-imagem/{id}` (com o token; o portal repassa ao
+    navegador).
+- `servicos[].documentos_exigidos`: `[{ indice, nome, obrigatorio, extensoes[] }]` — `extensoes`
+  já vem limitado a pdf/jpg/jpeg/png.
 
 ## Cidadão
 
@@ -111,7 +122,7 @@ Sempre com `ug` e `cidadao_id` (o portal só informa o id do cidadão autenticad
 | Rota | O que faz |
 |---|---|
 | `GET solicitacoes` | lista do cidadão — como titular **ou** como procurador (até 200, mais recentes primeiro) |
-| `POST solicitacoes` | `servico` (slug), `descricao`, `telefone_contato?`, `email_contato?`, `anexos?` (até 3 `{ nome, conteudo }` em base64; PDF/JPG/PNG, 10 MB) → 201; abre o processo se o serviço tiver tipo + setor (anexos vão junto quando quem pede é usuário); avisa por e-mail; 403 em serviço da área "servidor" para quem não é servidor |
+| `POST solicitacoes` | `servico` (slug), `descricao`, `telefone_contato?`, `email_contato?`, `anexos?` (até 3 `{ nome, conteudo }` em base64; PDF/JPG/PNG, 10 MB), `dados_formulario?`, `documentos_exigidos?` → 201; abre o processo se o serviço tiver tipo + setor (formulário e anexos vão junto); avisa por e-mail; 403 em serviço da área "servidor" para quem não é servidor |
 | `GET solicitacoes/{codigo}` | detalhe: descrição, resposta, processo (`numero_protocolo`, `status`) e eventos |
 | `POST solicitacoes/{codigo}/cancelar` | cancela (422 se já finalizada) |
 
@@ -119,6 +130,17 @@ Sempre com `ug` e `cidadao_id` (o portal só informa o id do cidadão autenticad
 `procurador_cidadao_id` é quem protocola (o cidadão logado; a procuração vai nos anexos). Os dois
 veem, acompanham e podem cancelar. Lista e detalhe trazem `titular: { id, nome }` e
 `procurador: { id, nome } | null`; o evento "criada" registra o procurador como autor.
+
+**Formulário e documentos do assunto** (serviço com `formulario`/`documentos_exigidos` no catálogo):
+
+- `dados_formulario`: objeto `{ campo: valor }` com as chaves de `formulario[].campo` (o `cep` é o
+  objeto do endereço). Validado com as mesmas regras da abertura no GED; erro vem no formato de
+  validação do Laravel (422) com chaves `dados_formulario.<campo>`.
+- `documentos_exigidos`: `[{ indice, nome, conteudo }]` (base64) — `indice` é o do catálogo. Sem um
+  obrigatório ou com tipo fora de `extensoes` (conferido pelo conteúdo) → 422 `{ erro }`.
+- Cada arquivo até 10 MB; avulsos + exigidos juntos até 30 MB.
+- O processo recebe o formulário (com o cálculo feito no GED) e os documentos com o nome do
+  documento na frente ("Cópia do RG — rg.pdf"), também quando o cidadão não é usuário do GED.
 
 A solicitação é registrada pelo mesmo serviço do portal embutido (`RegistrarSolicitacaoService`),
 e o andamento do processo volta sozinho para ela (`SincronizarPortalCidadaoService`).

@@ -31,6 +31,7 @@ class Solicitacao extends Model
         'processo_id',
         'resposta',
         'respondida_em',
+        'dados_formulario',
     ];
 
     protected function casts(): array
@@ -38,6 +39,7 @@ class Solicitacao extends Model
         return [
             'respondida_em' => 'datetime',
             'anonima'       => 'boolean',
+            'dados_formulario' => 'array',
         ];
     }
 

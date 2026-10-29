@@ -134,6 +134,8 @@ Route::prefix('api/portal')
     ->name('api.portal.')
     ->group(function () {
         Route::get('catalogo', [\App\Http\Controllers\Api\Portal\CatalogoController::class, 'show'])->name('catalogo');
+        // Imagem de ajuda dos campos do formulário do assunto (o portal repassa ao navegador)
+        Route::get('ajuda-imagem/{id}', [\App\Http\Controllers\Admin\TipoProcessoController::class, 'imagemAjuda'])->whereUuid('id')->name('ajuda-imagem');
 
         Route::post('cidadaos/identificar', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'identificar'])->name('cidadaos.identificar');
         Route::post('cidadaos', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'cadastrar'])->name('cidadaos.cadastrar');

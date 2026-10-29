@@ -60,6 +60,8 @@ class AbrirProcessoDoPortalService
                 'Origem'                  => 'Portal do Cidadao',
                 'Tipo de solicitacao'     => $solicitacao->anonima ? 'Anonima' : 'Identificada',
                 'Descricao do solicitante' => $solicitacao->descricao,
+                // Formulário do assunto preenchido no portal (chaves = identificadores do esquema)
+                ...($solicitacao->dados_formulario ?? []),
             ];
 
             $processo = Processo::query()->withoutGlobalScope('ug')->create([

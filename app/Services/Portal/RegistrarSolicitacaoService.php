@@ -46,6 +46,7 @@ class RegistrarSolicitacaoService
                 'descricao'        => $dados['descricao'],
                 'telefone_contato' => $anonima ? null : (($dados['telefone_contato'] ?? null) ?: $cidadao?->telefone),
                 'email_contato'    => $anonima ? null : (($dados['email_contato'] ?? null) ?: $cidadao?->email),
+                'dados_formulario' => $dados['dados_formulario'] ?? null,
             ]);
 
             SolicitacaoEvento::create([
