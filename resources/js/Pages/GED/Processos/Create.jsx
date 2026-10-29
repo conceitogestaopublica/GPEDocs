@@ -3,18 +3,19 @@
  *
  * Formulario com campos dinamicos baseados no tipo de processo selecionado.
  */
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import EnderecoForm from '../../../Components/EnderecoForm';
 
 export default function Create({ tipos_processo, unidades = [], usuarios = [] }) {
     const tipos = tipos_processo || [];
     const [files, setFiles] = useState([]);
 
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors: errosDoForm } = useForm({
         tipo_processo_id: '',
         assunto: '',
         descricao: '',
@@ -27,6 +28,9 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
         setor_destino_inicial: '',
         destinatario_inicial: '',
     });
+    // O envio é por router.post (FormData com arquivos): os erros de validação chegam nas
+    // props da página, não no useForm — antes nenhum erro aparecia na tela.
+    const errors = { ...errosDoForm, ...(usePage().props.errors || {}) };
 
     // Combobox setor
     const [setorSearch, setSetorSearch] = useState('');
@@ -109,7 +113,13 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
 
         // Dados dinamicos do formulario
         Object.entries(data.dados_formulario).forEach(([chave, valor]) => {
-            if (valor !== '' && valor !== null && valor !== undefined) {
+            if (valor === '' || valor === null || valor === undefined) return;
+            if (typeof valor === 'boolean') {
+                formData.append(`dados_formulario[${chave}]`, valor ? '1' : '0');
+            } else if (typeof valor === 'object') {
+                // Endereço do campo CEP
+                Object.entries(valor).forEach(([parte, v]) => v && formData.append(`dados_formulario[${chave}][${parte}]`, v));
+            } else {
                 formData.append(`dados_formulario[${chave}]`, valor);
             }
         });
@@ -211,12 +221,24 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                             <Card title={`Formulário - ${tipoSelecionado.nome}`}>
                                 <div className="space-y-4">
                                     {schemaCampos.map((campo) => (
-                                        <div key={campo.campo}>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                {campo.label}
-                                                {campo.obrigatorio && <span className="text-red-500 ml-0.5">*</span>}
-                                            </label>
-                                            {renderDynamicField(campo, data.dados_formulario[campo.campo] || '', (val) => setDadoFormulario(campo.campo, val))}
+                                        <div key={campo.campo} className={campo.tipo === 'cep' ? 'md:col-span-2' : ''}>
+                                            {campo.tipo !== 'checkbox' && (
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    {campo.label}
+                                                    {campo.obrigatorio && <span className="text-red-500 ml-0.5">*</span>}
+                                                </label>
+                                            )}
+                                            {campo.tipo === 'calculo'
+                                                ? <input readOnly value={formatarCalculo(calcular(campo.formula, data.dados_formulario))} className="ds-input bg-gray-50" title={`Calculado: ${campo.formula}`} />
+                                                : renderDynamicField(campo, data.dados_formulario[campo.campo] ?? '', (val) => setDadoFormulario(campo.campo, val),
+                                                    (parte) => errors[`dados_formulario.${campo.campo}.${parte}`])}
+                                            {/* Ajuda do campo (TR 4.38.6) */}
+                                            {campo.ajuda && <p className="mt-1 text-[11px] text-gray-500"><i className="fas fa-circle-info mr-1" />{campo.ajuda}</p>}
+                                            {campo.ajuda_imagem && (
+                                                <a href={campo.ajuda_imagem} target="_blank" rel="noreferrer" className="inline-block mt-1">
+                                                    <img src={campo.ajuda_imagem} alt={`Ajuda: ${campo.label}`} className="max-h-24 rounded border border-gray-200" />
+                                                </a>
+                                            )}
                                             {errors[`dados_formulario.${campo.campo}`] && (
                                                 <p className="mt-1 text-xs text-red-600">{errors[`dados_formulario.${campo.campo}`]}</p>
                                             )}
@@ -478,8 +500,55 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
     );
 }
 
-function renderDynamicField(campo, value, onChange) {
+/** Mesmo cálculo do servidor (App\Support\Formula): só números, + − * / ( ) e {campo}. */
+function calcular(formula, valores) {
+    const expr = (formula || '').replace(/\{\s*([A-Za-z0-9_]+)\s*\}/g, (_, c) => {
+        const n = parseFloat(String(valores[c] ?? '').replace(',', '.'));
+        return `(${Number.isFinite(n) ? n : 0})`;
+    });
+    if (! expr.trim() || ! /^[\d\s.+\-*/()eE]+$/.test(expr)) return null;
+    try {
+        const v = Function(`"use strict"; return (${expr});`)();
+        return Number.isFinite(v) ? v : null;
+    } catch {
+        return null;
+    }
+}
+const formatarCalculo = (v) => v === null ? '' : v.toLocaleString('pt-BR', { maximumFractionDigits: 6 });
+
+const mascaraCpfCnpj = (v) => {
+    const d = v.replace(/\D/g, '').slice(0, 14);
+    return d.length <= 11
+        ? d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+        : d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
+};
+const mascaraTelefone = (v) => {
+    const d = v.replace(/\D/g, '').slice(0, 11);
+    return d.length > 10 ? d.replace(/^(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3') : d.replace(/^(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3').replace(/-$/, '');
+};
+
+function renderDynamicField(campo, value, onChange, erroParte = () => null) {
     switch (campo.tipo) {
+        case 'cpf_cnpj':
+            return <input type="text" inputMode="numeric" value={value} onChange={(e) => onChange(mascaraCpfCnpj(e.target.value))}
+                className="ds-input" placeholder="000.000.000-00" maxLength={18} />;
+        case 'email':
+            return <input type="email" value={value} onChange={(e) => onChange(e.target.value)} className="ds-input" placeholder="nome@exemplo.com" />;
+        case 'telefone':
+            return <input type="tel" value={value} onChange={(e) => onChange(mascaraTelefone(e.target.value))} className="ds-input" placeholder="(31) 99999-9999" />;
+        case 'checkbox':
+            return (
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer pt-6">
+                    <input type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} className="rounded border-gray-300 text-blue-600" />
+                    {campo.label}{campo.obrigatorio && <span className="text-red-500">*</span>}
+                </label>
+            );
+        case 'cep': {
+            // Endereço completo; o CEP preenche logradouro, bairro, cidade e UF (TR 4.38.7)
+            const end = value && typeof value === 'object' ? value : {};
+            const setEnd = (k, v) => onChange(typeof k === 'object' ? k : { ...end, [k]: v });
+            return <EnderecoForm data={end} setData={setEnd} errors={{ cep: erroParte('cep') }} />;
+        }
         case 'text':
             return (
                 <input

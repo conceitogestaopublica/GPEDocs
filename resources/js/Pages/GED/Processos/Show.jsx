@@ -573,14 +573,17 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                 <p className="text-sm text-gray-400">Nenhum dado preenchido</p>
                             ) : (
                                 <div className="space-y-3">
-                                    {Object.entries(dadosFormulario).map(([key, value]) => (
-                                        <div key={key} className="flex items-start justify-between py-2 border-b border-gray-50 last:border-0">
-                                            <span className="text-sm font-medium text-gray-500 capitalize">
-                                                {key.replace(/_/g, ' ')}
-                                            </span>
-                                            <span className="text-sm text-gray-800 text-right max-w-[60%]">{value || '-'}</span>
-                                        </div>
-                                    ))}
+                                    {Object.entries(dadosFormulario).map(([key, value]) => {
+                                        const campo = (tipoProcesso.schema_formulario || []).find(c => c.campo === key);
+                                        return (
+                                            <div key={key} className="flex items-start justify-between py-2 border-b border-gray-50 last:border-0">
+                                                <span className={`text-sm font-medium text-gray-500 ${campo ? '' : 'capitalize'}`}>
+                                                    {campo?.label || key.replace(/_/g, ' ')}
+                                                </span>
+                                                <span className="text-sm text-gray-800 text-right max-w-[60%]">{valorDoCampo(campo?.tipo, value)}</span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </Card>
@@ -1509,6 +1512,24 @@ function getFileIcon(mime) {
     if (mime.includes('word') || mime.includes('document')) return 'fas fa-file-word text-blue-400';
     if (mime.includes('sheet') || mime.includes('excel')) return 'fas fa-file-excel text-green-400';
     return 'fas fa-file text-gray-400';
+}
+
+/** Valor do formulário do assunto como texto legível (endereço, sim/não, CPF/CNPJ, cálculo). */
+function valorDoCampo(tipo, v) {
+    if (v === null || v === undefined || v === '') return '-';
+    if (tipo === 'checkbox' || typeof v === 'boolean') return v ? 'Sim' : 'Não';
+    if (tipo === 'cep' || typeof v === 'object') {
+        const cep = String(v.cep || '').replace(/^(\d{5})(\d{3})$/, '$1-$2');
+        return [[v.logradouro, v.numero].filter(Boolean).join(', '), v.complemento, v.bairro,
+            [v.cidade, v.uf].filter(Boolean).join('/'), cep && `CEP ${cep}`].filter(Boolean).join(' — ');
+    }
+    if (tipo === 'cpf_cnpj') {
+        const d = String(v);
+        return d.length === 11 ? d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+            : d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+    }
+    if (tipo === 'calculo' || tipo === 'money') return Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 6, minimumFractionDigits: tipo === 'money' ? 2 : 0 });
+    return String(v);
 }
 
 /** Manifestação do setor (TR 4.38.14): deferir ou indeferir na sua etapa; a decisão final é do fluxo principal. */

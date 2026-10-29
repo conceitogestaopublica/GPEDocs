@@ -416,6 +416,7 @@ Route::middleware('auth')->group(function () {
         Route::middleware('can:admin.tipos_processo')->group(function () {
             Route::resource('tipos-processo', TipoProcessoController::class)->except(['create', 'edit', 'show']);
             Route::post('tipos-processo/{id}/toggle-ativo', [TipoProcessoController::class, 'toggleAtivo'])->name('tipos-processo.toggle-ativo');
+            Route::post('tipos-processo/ajuda-imagem', [TipoProcessoController::class, 'enviarImagemAjuda'])->name('tipos-processo.ajuda-imagem');
             Route::resource('oficios-modelos', \App\Http\Controllers\Admin\OficioModeloController::class)->only(['index', 'store', 'update', 'destroy']);
             Route::post('oficios-modelos/importar-docx', [\App\Http\Controllers\Admin\OficioModeloController::class, 'importarDocx'])->name('oficios-modelos.importar-docx');
         });
@@ -518,6 +519,9 @@ Route::middleware('auth')->group(function () {
     Route::get('processos/inbox', [TramitacaoController::class, 'inbox'])->name('processos.inbox')->middleware('can:processo.visualizar');
     Route::get('processos/anexos/{anexo}/download', [ProcessoController::class, 'downloadAnexo'])->name('processos.anexos.download')->middleware('can:processo.visualizar');
     Route::post('processos/{id}/comentarios', [ProcessoController::class, 'comentar'])->name('processos.comentarios.store')->middleware('can:processo.visualizar');
+    // Imagem de ajuda dos campos do formulário do assunto (TR 4.38.6)
+    Route::get('processos/ajuda-imagem/{id}', [\App\Http\Controllers\Admin\TipoProcessoController::class, 'imagemAjuda'])
+        ->whereUuid('id')->name('processos.ajuda-imagem');
     Route::resource('processos', ProcessoController::class)->except(['edit', 'update', 'destroy'])
         ->middlewareFor(['index', 'show'], 'can:processo.visualizar')
         ->middlewareFor(['create', 'store'], 'can:processo.criar');

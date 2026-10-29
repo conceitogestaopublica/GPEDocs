@@ -190,6 +190,30 @@ class TipoProcessoController extends Controller
         return redirect()->back()->with('success', 'Tipo de processo excluído com sucesso.');
     }
 
+    /** Imagem de ajuda de um campo do formulário (TR 4.38.6). Devolve o endereço para o campo. */
+    public function enviarImagemAjuda(Request $request)
+    {
+        $request->validate(['imagem' => ['required', 'image', 'mimes:png,jpg,jpeg,webp,gif', 'max:2048']]);
+        $id = (string) \Illuminate\Support\Str::uuid();
+        $ext = strtolower($request->file('imagem')->extension() ?: 'png');
+        $request->file('imagem')->storeAs(\App\Tenant\TenantStorage::pasta('ajuda-campos'), "{$id}.{$ext}", 'documentos');
+
+        // Endereço sem extensão: o nginx serve *.png etc. como arquivo estático e nem chega aqui
+        return response()->json(['url' => route('processos.ajuda-imagem', $id, false)]);
+    }
+
+    public function imagemAjuda(string $id)
+    {
+        $disco = \Illuminate\Support\Facades\Storage::disk('documentos');
+        foreach (['png', 'jpg', 'jpeg', 'webp', 'gif'] as $ext) {
+            $caminho = \App\Tenant\TenantStorage::pasta('ajuda-campos') . "/{$id}.{$ext}";
+            if ($disco->exists($caminho)) {
+                return $disco->response($caminho, "ajuda.{$ext}", ['Cache-Control' => 'private, max-age=86400']);
+            }
+        }
+        abort(404);
+    }
+
     public function toggleAtivo($id)
     {
         $tipo = TipoProcesso::findOrFail($id);

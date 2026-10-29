@@ -153,7 +153,8 @@ class ProcessoController extends Controller
                 'tipo_processo_id'  => $tipoId,
                 'assunto'           => $request->input('assunto'),
                 'descricao'         => $request->input('descricao'),
-                'dados_formulario'  => $request->input('dados_formulario'),
+                // Cálculos feitos aqui, CPF/CNPJ e CEP só com dígitos (TR 4.38.4–4.38.9)
+                'dados_formulario'  => \App\Support\CamposDinamicos::normalizar($tipo->schema_formulario, $request->input('dados_formulario')),
                 'prioridade'        => $request->input('prioridade', 'normal'),
                 'requerente_nome'   => $request->input('requerente_nome'),
                 'requerente_cpf'    => $request->input('requerente_cpf'),

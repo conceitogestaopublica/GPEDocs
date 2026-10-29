@@ -29,7 +29,54 @@ const tiposCampo = [
     { value: 'select', label: 'Seleção' },
     { value: 'textarea', label: 'Texto longo' },
     { value: 'money', label: 'Monetário' },
+    { value: 'cpf_cnpj', label: 'CPF/CNPJ (validado)' },
+    { value: 'cep', label: 'Endereço com CEP' },
+    { value: 'email', label: 'E-mail' },
+    { value: 'telefone', label: 'Telefone' },
+    { value: 'checkbox', label: 'Caixa de marcar' },
+    { value: 'calculo', label: 'Cálculo entre campos' },
 ];
+
+/** Ajuda do campo para quem preenche (TR 4.38.6): texto e imagem. */
+function AjudaDoCampo({ field, onChange }) {
+    const [enviando, setEnviando] = useState(false);
+    const enviar = async (arquivo) => {
+        if (! arquivo) return;
+        setEnviando(true);
+        try {
+            const fd = new FormData(); fd.append('imagem', arquivo);
+            const xsrf = decodeURIComponent((document.cookie.match(/XSRF-TOKEN=([^;]+)/) || [])[1] || '');
+            const r = await fetch('/admin/tipos-processo/ajuda-imagem', { method: 'POST', body: fd, headers: { 'X-XSRF-TOKEN': xsrf, Accept: 'application/json' } });
+            const j = await r.json();
+            if (j.url) onChange('ajuda_imagem', j.url);
+        } finally {
+            setEnviando(false);
+        }
+    };
+    return (
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="md:col-span-2">
+                <label className="block text-[11px] font-medium text-gray-500 mb-1">Ajuda (aparece abaixo do campo)</label>
+                <input type="text" value={field.ajuda || ''} onChange={(e) => onChange('ajuda', e.target.value)}
+                    className="ds-input text-xs" placeholder="Ex.: informe a matrícula que está no carnê do IPTU" maxLength={500} />
+            </div>
+            <div>
+                <label className="block text-[11px] font-medium text-gray-500 mb-1">Imagem de ajuda</label>
+                {field.ajuda_imagem ? (
+                    <div className="flex items-center gap-2">
+                        <img src={field.ajuda_imagem} alt="" className="h-9 rounded border border-gray-200" />
+                        <button type="button" onClick={() => onChange('ajuda_imagem', '')} className="text-xs text-red-600 hover:underline">Remover</button>
+                    </div>
+                ) : (
+                    <label className="ds-btn ds-btn-outline ds-btn-sm cursor-pointer">
+                        <i className={`fas ${enviando ? 'fa-spinner fa-spin' : 'fa-image'} mr-1`} />{enviando ? 'Enviando…' : 'Escolher imagem'}
+                        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={(e) => enviar(e.target.files[0])} />
+                    </label>
+                )}
+            </div>
+        </div>
+    );
+}
 
 const tiposEtapa = [
     { value: 'analise', label: 'Analise' },
@@ -487,6 +534,19 @@ export default function Index({ tipos, unidades = [] }) {
                                                     />
                                                 </div>
                                             )}
+                                            {field.tipo === 'calculo' && (
+                                                <div className="mt-3">
+                                                    <label className="block text-[11px] font-medium text-gray-500 mb-1">Fórmula</label>
+                                                    <input type="text" value={field.formula || ''}
+                                                        onChange={(e) => updateField(idx, 'formula', e.target.value)}
+                                                        className="ds-input text-xs font-mono" placeholder="{quantidade} * {valor_unitario}" />
+                                                    <p className="mt-1 text-[10px] text-gray-400">
+                                                        Use o identificador dos outros campos entre chaves e + − * / ( ). Disponíveis: {data.schema_formulario
+                                                            .filter(c => c.campo && ['number', 'money', 'calculo'].includes(c.tipo) && c !== field).map(c => `{${c.campo}}`).join(' ') || 'nenhum campo numérico ainda'}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            <AjudaDoCampo field={field} onChange={(k, v) => updateField(idx, k, v)} />
                                         </div>
                                     ))}
                                 </div>
