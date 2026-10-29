@@ -182,6 +182,11 @@ Route::prefix('api/portal')
         Route::get('solicitacoes/{codigo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'show'])->where('codigo', '[^/]+')->name('solicitacoes.show');
         Route::post('solicitacoes/{codigo}/avaliacao', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'avaliar'])->where('codigo', '[^/]+')->name('solicitacoes.avaliacao');
         Route::post('solicitacoes/{codigo}/cancelar',[\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'cancelar'])->where('codigo', '[^/]+')->name('solicitacoes.cancelar');
+        // Interação depois de abrir, comprovante e processos do cidadão (TR 4.32.1, 4.32.11, 4.32.23)
+        Route::post('solicitacoes/{codigo}/mensagens', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'mensagem'])->where('codigo', '[^/]+')->middleware('throttle:30,1')->name('solicitacoes.mensagens');
+        Route::get('solicitacoes/{codigo}/comprovante', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'comprovante'])->where('codigo', '[^/]+')->name('solicitacoes.comprovante');
+        Route::get('processos', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'processos'])->name('processos.index');
+        Route::get('processos/{numero}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'processo'])->where('numero', '[^/]+')->name('processos.show');
     });
 
 // Portal Cidadao — Carta de Servicos (publico, sem auth)
@@ -674,6 +679,9 @@ Route::middleware('auth')->group(function () {
         Route::post('processos/{id}/assunto', [ProcessoController::class, 'alterarAssunto'])->name('processos.assunto');
         // Localização, avaliação no balcão e reabertura (TR 4.32.21, 4.32.25–27, 4.33.9)
         Route::post('processos/{id}/localizacao', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'localizacao'])->whereNumber('id')->name('processos.localizacao');
+    // Recebimento de documento físico com comprovante (TR 4.32.28)
+    Route::post('processos/{id}/recebimentos', [\App\Http\Controllers\RecebimentoFisicoController::class, 'store'])->whereNumber('id')->middleware('can:processo.tramitar')->name('processos.recebimentos.store');
+    Route::get('processos/{id}/recebimentos/{recebimento}/comprovante', [\App\Http\Controllers\RecebimentoFisicoController::class, 'comprovante'])->whereNumber(['id', 'recebimento'])->middleware('can:processo.visualizar')->name('processos.recebimentos.comprovante');
         Route::post('processos/{id}/avaliacao', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'avaliar'])->whereNumber('id')->name('processos.avaliacao');
         Route::post('processos/{id}/reabrir', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'reabrir'])->whereNumber('id')->name('processos.reabrir');
         // Prazos e atividades lançados à mão (TR 4.13, 4.32.16)

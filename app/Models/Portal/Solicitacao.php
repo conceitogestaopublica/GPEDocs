@@ -79,6 +79,12 @@ class Solicitacao extends Model
         return $this->hasMany(SolicitacaoAnexo::class, 'solicitacao_id')->orderBy('id');
     }
 
+    /** Pessoas envolvidas que acompanham pela Central (TR 4.23.9). */
+    public function envolvidos(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(SolicitacaoEnvolvido::class, 'solicitacao_id')->orderBy('id');
+    }
+
     public function eventos(): HasMany
     {
         return $this->hasMany(SolicitacaoEvento::class, 'solicitacao_id')->orderBy('id');

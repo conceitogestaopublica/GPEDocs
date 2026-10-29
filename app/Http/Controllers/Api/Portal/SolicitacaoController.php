@@ -34,8 +34,8 @@ class SolicitacaoController extends PortalApiController
 
         $lista = Solicitacao::query()->withoutGlobalScope('ug')
             ->where('ug_id', $ug->id)
-            ->where(fn ($q) => $q->where('cidadao_id', $cidadao->id)->orWhere('procurador_cidadao_id', $cidadao->id))
-            ->with(['servico:id,titulo,slug', 'cidadao:id,nome', 'procurador:id,nome'])
+            ->where(fn ($q) => self::doTitularOuEnvolvido($q, $cidadao))
+            ->with(['servico:id,titulo,slug,setor_responsavel_id', 'cidadao:id,nome', 'procurador:id,nome'])
             ->orderByDesc('id')
             ->limit(200)
             ->get();
@@ -64,6 +64,7 @@ class SolicitacaoController extends PortalApiController
             'solicitacao' => $this->resumo($solicitacao) + [
                 'descricao' => $solicitacao->descricao,
                 'resposta'  => $solicitacao->resposta,
+                'envolvidos' => $solicitacao->envolvidos->map(fn ($p) => ['nome' => $p->nome, 'papel' => $p->papel])->values(),
                 'anexos'    => $solicitacao->anexos->map(fn ($a) => [
                     'nome'    => $a->nome,
                     'tamanho' => $a->tamanho,
@@ -84,6 +85,9 @@ class SolicitacaoController extends PortalApiController
                     'tipo'        => $e->tipo,
                     'autor_tipo'  => $e->autor_tipo,
                     'autor_nome'  => $e->autor_nome,
+                    // Setor e sigla de quem do GED interagiu (TR 4.23.3)
+                    'setor'       => $e->setor_nome,
+                    'setor_sigla' => $e->setor_sigla,
                     'status_novo' => $e->status_novo,
                     'mensagem'    => $e->mensagem,
                     'em'          => $e->created_at?->toIso8601String(),
@@ -111,6 +115,12 @@ class SolicitacaoController extends PortalApiController
             'documentos_exigidos.*.indice'   => ['required', 'integer', 'min:0'],
             'documentos_exigidos.*.nome'     => ['nullable', 'string', 'max:200'],
             'documentos_exigidos.*.conteudo' => ['required', 'string'],
+            // Pessoas envolvidas que acompanham pela Central (TR 4.23.9, 4.32.22)
+            'envolvidos'         => ['nullable', 'array', 'max:10'],
+            'envolvidos.*.nome'  => ['required', 'string', 'max:200'],
+            'envolvidos.*.cpf'   => ['required', 'string', 'max:14', function ($a, $v, $falha) { if (! \App\Services\ConviteAssinaturaService::cpfValido(preg_replace('/\D/', '', (string) $v))) { $falha('CPF de pessoa envolvida inválido.'); } }],
+            'envolvidos.*.email' => ['nullable', 'email', 'max:255'],
+            'envolvidos.*.papel' => ['nullable', 'string', 'max:60'],
         ]);
 
         // Por procuração: cidadao_id é o titular (outorgante) e quem protocola é o procurador.
@@ -171,8 +181,15 @@ class SolicitacaoController extends PortalApiController
         if ($prontos) {
             $anexos->gravar($solicitacao, $procurador ?? $cidadao, $prontos);
         }
+        foreach ($dados['envolvidos'] ?? [] as $p) {
+            \App\Models\Portal\SolicitacaoEnvolvido::firstOrCreate(['solicitacao_id' => $solicitacao->id, 'cpf' => preg_replace('/\D/', '', $p['cpf'])],
+                ['nome' => $p['nome'], 'email' => $p['email'] ?? null, 'papel' => $p['papel'] ?? null]);
+        }
 
-        return response()->json(['solicitacao' => $this->resumo($solicitacao->load(['servico:id,titulo,slug', 'cidadao:id,nome', 'procurador:id,nome']))], 201);
+        // Comprovante logo após abrir: código, setor que vai atender e número do processo (TR 4.32.11)
+        return response()->json(['solicitacao' => $this->resumo($solicitacao->load(['servico:id,titulo,slug,setor_responsavel_id', 'cidadao:id,nome', 'procurador:id,nome'])) + [
+            'comprovante_url' => url("/api/portal/solicitacoes/{$solicitacao->codigo}/comprovante"),
+        ]], 201);
     }
 
     /** Cidadão avalia o atendimento concluído (1 a 5 estrelas e comentário). */
@@ -231,10 +248,136 @@ class SolicitacaoController extends PortalApiController
 
         return Solicitacao::query()->withoutGlobalScope('ug')
             ->where('ug_id', $ug->id)
-            ->where(fn ($q) => $q->where('cidadao_id', $cidadao->id)->orWhere('procurador_cidadao_id', $cidadao->id))
+            ->where(fn ($q) => self::doTitularOuEnvolvido($q, $cidadao))
             ->where('codigo', $codigo)
-            ->with(['servico:id,titulo,slug', 'eventos', 'cidadao:id,nome', 'procurador:id,nome'])
+            ->with(['servico:id,titulo,slug,setor_responsavel_id', 'eventos', 'envolvidos', 'cidadao:id,nome', 'procurador:id,nome'])
             ->firstOrFail();
+    }
+
+    /**
+     * Cidadão (titular, procurador ou envolvido) escreve e anexa depois de abrir (TR 4.32.23).
+     * Quem atende é avisado; os anexos vão também para o processo.
+     */
+    public function mensagem(Request $request, string $codigo, AnexosSolicitacaoService $anexos): JsonResponse
+    {
+        $solicitacao = $this->doCidadao($request, $codigo);
+        $cidadao = $this->cidadao($request);
+        $dados = $request->validate([
+            'texto'             => ['required_without:anexos', 'nullable', 'string', 'max:5000'],
+            'anexos'            => ['nullable', 'array', 'max:' . AnexosSolicitacaoService::MAX_ARQUIVOS],
+            'anexos.*.nome'     => ['required', 'string', 'max:200'],
+            'anexos.*.conteudo' => ['required', 'string'],
+        ]);
+        if (in_array($solicitacao->status, ['cancelada'], true)) {
+            return response()->json(['erro' => 'Solicitação cancelada não recebe mensagens.'], 422);
+        }
+        try {
+            $prontos = $anexos->preparar($dados['anexos'] ?? []);
+            $anexos->conferirTotal($prontos);
+        } catch (CidadaoPortalException $e) {
+            return response()->json(['erro' => $e->getMessage()], 422);
+        }
+
+        DB::transaction(function () use ($solicitacao, $cidadao, $dados, $prontos, $anexos) {
+            SolicitacaoEvento::create([
+                'solicitacao_id' => $solicitacao->id, 'tipo' => 'comentario', 'autor_tipo' => 'cidadao', 'autor_nome' => $cidadao->nome,
+                'autor_cidadao_id' => $cidadao->id,
+                'mensagem' => trim(($dados['texto'] ?? '') . ($prontos ? "\n(" . count($prontos) . ' anexo(s))' : '')),
+            ]);
+            if ($prontos) {
+                $anexos->gravar($solicitacao, $cidadao, $prontos);
+            }
+        });
+
+        // Avisa quem atende: o atendente da solicitação ou quem está com o processo
+        $avisar = $solicitacao->atendente_id ? [$solicitacao->atendente_id] : [];
+        if (! $avisar && $solicitacao->processo_id) {
+            $etapa = \App\Models\Processo\Tramitacao::where('processo_id', $solicitacao->processo_id)->where('frente', 1)->orderByDesc('ordem')->first();
+            $avisar = $etapa?->destinatario_id ? [$etapa->destinatario_id] : ($etapa?->destino_unidade_id ? \App\Support\Setores::servidores((int) $etapa->destino_unidade_id) : []);
+        }
+        foreach (array_unique($avisar) as $uid) {
+            \App\Models\Notificacao::create(['usuario_id' => $uid, 'tipo' => 'processo', 'titulo' => 'Mensagem do cidadão',
+                'mensagem' => "{$cidadao->nome} escreveu na solicitação {$solicitacao->codigo}" . ($prontos ? ' e anexou ' . count($prontos) . ' arquivo(s)' : '') . '.',
+                'referencia_tipo' => $solicitacao->processo_id ? 'processo' : null, 'referencia_id' => $solicitacao->processo_id, 'lida' => false]);
+        }
+
+        return response()->json(['ok' => true], 201);
+    }
+
+    /** Comprovante da solicitação em PDF (TR 4.32.11): código, setor de destino, processo e anexos. */
+    public function comprovante(Request $request, string $codigo)
+    {
+        $s = $this->doCidadao($request, $codigo);
+        $s->load('anexos', 'servico:id,titulo,setor_responsavel_id', 'cidadao:id,nome,cpf', 'ug');   // load: o cidadão já veio sem o CPF
+
+        return \App\Support\Relatorio::pdf('pdf.comprovante-solicitacao', [
+            'solicitacao' => $s, 'resumo' => $this->resumo($s), 'ug' => $s->ug,
+            'link' => 'http://' . $s->ug?->portal_slug . '.' . parse_url((string) config('app.url'), PHP_URL_HOST) . "/minhas-solicitacoes/{$s->id}",
+        ])->stream("comprovante-{$s->codigo}.pdf");
+    }
+
+    /**
+     * Processos abertos em nome do cidadão — inclusive no balcão, pelo atendente (TR 4.32.1):
+     * o CPF do requerente é o do cidadão logado.
+     */
+    public function processos(Request $request): JsonResponse
+    {
+        $ug = $this->ug($request);
+        $cpf = preg_replace('/\D/', '', (string) $this->cidadao($request)->cpf);
+        if (strlen($cpf) !== 11) {
+            return response()->json(['processos' => []]);
+        }
+        $lista = Processo::query()->withoutGlobalScope('ug')->with('tipoProcesso:id,nome')
+            ->where('ug_id', $ug->id)->whereRaw("regexp_replace(coalesce(requerente_cpf, ''), '\D', '', 'g') = ?", [$cpf])
+            ->orderByDesc('id')->limit(200)->get(['id', 'numero_protocolo', 'assunto', 'status', 'tipo_processo_id', 'created_at']);
+
+        return response()->json(['processos' => $lista->map(fn (Processo $p) => [
+            'numero' => $p->numero_protocolo, 'assunto' => $p->assunto, 'tipo' => $p->tipoProcesso?->nome, 'status' => $p->status,
+            'aberto_em' => $p->created_at?->toIso8601String(), 'setor_atual' => self::setorAtual($p->id),
+        ])->values()]);
+    }
+
+    /** Andamento de um processo do cidadão: por onde passou (setor e sigla), sem o conteúdo interno. */
+    public function processo(Request $request, string $numero): JsonResponse
+    {
+        $ug = $this->ug($request);
+        $cpf = preg_replace('/\D/', '', (string) $this->cidadao($request)->cpf);
+        $p = Processo::query()->withoutGlobalScope('ug')->with('tipoProcesso:id,nome')->where('ug_id', $ug->id)
+            ->where('numero_protocolo', $numero)->whereRaw("regexp_replace(coalesce(requerente_cpf, ''), '\D', '', 'g') = ?", [$cpf])->firstOrFail();
+        $etapas = \App\Models\Processo\Tramitacao::with('destinoUnidade:id,nome,sigla')->where('processo_id', $p->id)->orderBy('ordem')->orderBy('id')->get();
+
+        return response()->json(['processo' => [
+            'numero' => $p->numero_protocolo, 'assunto' => $p->assunto, 'tipo' => $p->tipoProcesso?->nome, 'status' => $p->status,
+            'aberto_em' => $p->created_at?->toIso8601String(), 'concluido_em' => $p->concluido_em?->toIso8601String(),
+            'andamento' => $etapas->map(fn ($t) => ['setor' => $t->destinoUnidade?->nome ?? $t->setor_destino, 'sigla' => $t->destinoUnidade?->sigla,
+                'situacao' => $t->status, 'desde' => ($t->despachado_em ?? $t->created_at)?->toIso8601String()])->values(),
+        ]]);
+    }
+
+    private static function setorAtual(int $processoId): ?array
+    {
+        $t = \App\Models\Processo\Tramitacao::with('destinoUnidade:id,nome,sigla')->where('processo_id', $processoId)->where('frente', 1)->orderByDesc('ordem')->orderByDesc('id')->first();
+
+        return $t ? ['nome' => $t->destinoUnidade?->nome ?? $t->setor_destino, 'sigla' => $t->destinoUnidade?->sigla] : null;
+    }
+
+    /** Titular, procurador ou pessoa envolvida (pelo CPF) — TR 4.23.9. */
+    private static function doTitularOuEnvolvido($q, Cidadao $cidadao): void
+    {
+        $q->where('cidadao_id', $cidadao->id)->orWhere('procurador_cidadao_id', $cidadao->id);
+        if ($cidadao->cpf) {
+            $q->orWhereHas('envolvidos', fn ($e) => $e->where('cpf', preg_replace('/\D/', '', (string) $cidadao->cpf)));
+        }
+    }
+
+    /** Setor que vai atender: o do processo (etapa atual) ou o responsável pelo serviço. */
+    private static function setorDestino(Solicitacao $s): ?array
+    {
+        $id = $s->processo_id ? \App\Models\Processo\Tramitacao::where('processo_id', $s->processo_id)->where('frente', 1)->orderByDesc('ordem')->value('destino_unidade_id') : null;
+        $id ??= $s->servico?->setor_responsavel_id;
+        $u = $id ? \App\Models\UgOrganograma::find($id, ['nome', 'sigla']) : null;
+
+        return $u ? ['nome' => $u->nome, 'sigla' => $u->sigla] : null;
     }
 
     private function resumo(Solicitacao $s): array
@@ -247,6 +390,8 @@ class SolicitacaoController extends PortalApiController
             'aberta_em'      => $s->created_at?->toIso8601String(),
             'respondida_em'  => $s->respondida_em?->toIso8601String(),
             'tem_processo'   => $s->processo_id !== null,
+            'processo_numero' => $s->processo_id ? Processo::query()->withoutGlobalScope('ug')->whereKey($s->processo_id)->value('numero_protocolo') : null,
+            'setor_destino'  => self::setorDestino($s),
             'titular'        => $s->cidadao ? ['id' => $s->cidadao->id, 'nome' => $s->cidadao->nome] : null,
             'procurador'     => $s->procurador ? ['id' => $s->procurador->id, 'nome' => $s->procurador->nome] : null,
         ];

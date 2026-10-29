@@ -390,6 +390,7 @@ class ProcessoController extends Controller
 
         return Inertia::render('GED/Processos/Show', [
             'variaveis_despacho'   => \App\Support\Variaveis::paraEditor(\App\Models\Processo\Processo::ROTULOS_VARIAVEIS_DESPACHO),
+            'recebimentos_fisicos' => \App\Http\Controllers\RecebimentoFisicoController::doProcesso($processo->id),
             'marcadores'      => ['citado_em' => \App\Support\Marcadores::citadoEm('processo', $processo->id), 'pessoas' => \App\Support\Marcadores::doDocumento('processo', $processo->id)],
             'classificacao'        => \App\Support\Classificacao::doItem('processo', $processo->id),
             'mapa_avaliacao'       => \App\Http\Controllers\Flow\MapaAvaliacaoController::paraTela($processo),
