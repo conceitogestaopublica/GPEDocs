@@ -302,7 +302,7 @@ export default function OficiosCreate({ modelos = [], setores = [], autorizacoes
                                 <RichEditor somenteLeitura={!! r.travadoPor}
                                     html={data.conteudo}
                                     onChange={(html) => setData('conteudo', html)}
-                                    minHeight={420} variaveis={variaveis} erro={errors.conteudo}
+                                    minHeight={420} variaveis={variaveis} marcadores={['mencao', 'referencia', 'assinatura']} erro={errors.conteudo}
                                     placeholder="Digite o conteúdo do ofício ou selecione um modelo acima..."
                                 />
                                 {errors.conteudo && <p className="text-xs text-red-500 mt-1">{errors.conteudo}</p>}

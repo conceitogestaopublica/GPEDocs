@@ -19,7 +19,7 @@ import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
 import Placeholder from '@tiptap/extension-placeholder';
-import { ImagemComLargura, TamanhoFonte, variavel } from './extensoes';
+import { ImagemComLargura, MARCADORES, TamanhoFonte, variavel } from './extensoes';
 
 const TAMANHOS = ['10px', '12px', '14px', '16px', '18px', '24px', '32px'];
 const MAX_IMAGEM = 1600; // px no lado maior; o resto é reduzido no navegador antes de embutir
@@ -49,7 +49,7 @@ function imagemParaDataUri(arquivo) {
     });
 }
 
-export default function EditorTexto({ html, onChange, minHeight = 350, placeholder = '', variaveis = [], extensoes = [], compacto = false, erro = null, somenteLeitura = false }) {
+export default function EditorTexto({ html, onChange, minHeight = 350, placeholder = '', variaveis = [], extensoes = [], marcadores = [], compacto = false, erro = null, somenteLeitura = false }) {
     const variaveisRef = useRef(variaveis);
     variaveisRef.current = variaveis;
     const [telaCheia, setTelaCheia] = useState(false);
@@ -76,6 +76,7 @@ export default function EditorTexto({ html, onChange, minHeight = 350, placehold
             ImagemComLargura,
             Placeholder.configure({ placeholder }),
             variavel(variaveisRef),
+            ...marcadores.filter((m) => MARCADORES[m]).map((m) => MARCADORES[m]()),
             ...extensoes,
         ],
         content: html || '',
@@ -227,8 +228,13 @@ export default function EditorTexto({ html, onChange, minHeight = 350, placehold
                 </div>
             </div>
             {aviso && <p className="mt-1 text-xs text-amber-700"><i className="fas fa-triangle-exclamation mr-1" />{aviso}</p>}
-            {! telaCheia && variaveis.length > 0 && (
-                <p className="mt-1 text-[11px] text-gray-500">Digite <kbd className="px-1 rounded bg-gray-100 border border-gray-200">{'{'}</kbd> para inserir uma variável — ela é trocada pelo valor ao gerar o documento.</p>
+            {! telaCheia && ! somenteLeitura && (variaveis.length > 0 || marcadores.length > 0) && (
+                <p className="mt-1 text-[11px] text-gray-500 flex flex-wrap gap-x-3">
+                    {variaveis.length > 0 && <span><Tecla>{'{'}</Tecla> variável</span>}
+                    {marcadores.includes('mencao') && <span><Tecla>@</Tecla> mencionar pessoa (avisa e dá acesso)</span>}
+                    {marcadores.includes('referencia') && <span><Tecla>#</Tecla> citar documento</span>}
+                    {marcadores.includes('assinatura') && <span><Tecla>!</Tecla> pedir assinatura ao enviar</span>}
+                </p>
             )}
         </div>
     );
@@ -249,5 +255,7 @@ function MiniBotao({ onClick, children, perigo = false }) {
             className={`px-2 py-0.5 rounded border ${perigo ? 'border-red-200 text-red-700 hover:bg-red-50' : 'border-gray-200 text-gray-700 hover:bg-white'}`}>{children}</button>
     );
 }
+
+const Tecla = ({ children }) => <kbd className="px-1 rounded bg-gray-100 border border-gray-200 font-mono">{children}</kbd>;
 
 const Sep = () => <span className="w-px h-5 bg-gray-200 mx-1" />;

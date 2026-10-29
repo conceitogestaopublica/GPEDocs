@@ -115,6 +115,8 @@ class TramitacaoController extends Controller
                 'despacho'      => $this->textoDoDespacho($request, $processo, $tramitacaoAtual),
                 'manifestacao'  => $request->input('manifestacao') ?: null,
             ]);
+            // @ menções e # citações do despacho (TR 4.16.13–4.16.16)
+            \App\Support\Marcadores::aposSalvar('processo', $processo->id, $tramitacaoAtual->despacho, Auth::user(), null, "Processo {$processo->numero_protocolo}");
 
             // Etapa de destino: o fluxo do tipo de processo é o da frente principal, sem pular
             // etapa obrigatória e só para os setores dela (TR 4.38.19, 4.38.20)
@@ -234,6 +236,8 @@ class TramitacaoController extends Controller
                 'despachado_em' => now(),
                 'despacho'      => $this->textoDoDespacho($request, $processo, $tramitacaoAtual),
             ]);
+            // @ menções e # citações do despacho (TR 4.16.13–4.16.16)
+            \App\Support\Marcadores::aposSalvar('processo', $processo->id, $tramitacaoAtual->despacho, Auth::user(), null, "Processo {$processo->numero_protocolo}");
 
             // Criar nova tramitacao devolvendo ao remetente anterior
             $novaTramitacao = Tramitacao::create([

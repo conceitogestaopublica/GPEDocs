@@ -10,6 +10,7 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import ClassificacaoDoItem from '../../../Components/ClassificacaoDoItem';
+import MarcadoresDoDocumento from '../../../Components/MarcadoresDoDocumento';
 import MapaAvaliacaoDoProcesso from '../../../Components/MapaAvaliacaoDoProcesso';
 import Modal from '../../../Components/Modal';
 import Tabs from '../../../Components/Tabs';
@@ -75,7 +76,7 @@ const tabList = [
     { key: 'arvore', label: 'Árvore', icon: 'fas fa-sitemap' },
 ];
 
-export default function Show({ variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
+export default function Show({ marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
     acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [], classificacao = null, mapa_avaliacao = null }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
@@ -593,6 +594,7 @@ export default function Show({ variaveis_despacho = [], processo, usuarios, unid
                     </Card>
                 )}
                 {activeTab === 'detalhes' && <MapaAvaliacaoDoProcesso processoId={processo.id} dados={mapa_avaliacao} className="mb-6" />}
+                {activeTab === 'detalhes' && <MarcadoresDoDocumento dados={marcadores} className="mb-6" />}
                 {activeTab === 'detalhes' && <ClassificacaoDoItem classificacao={classificacao} className="mb-6" />}
                 {activeTab === 'detalhes' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1012,7 +1014,7 @@ export default function Show({ variaveis_despacho = [], processo, usuarios, unid
                                             Despacho <span className="text-red-500">*</span>
                                         </label>
                                         <RichEditor html={despacharForm.data.despacho} onChange={(v) => despacharForm.setData('despacho', v)}
-                                            minHeight={160} compacto variaveis={variaveis_despacho} erro={despacharForm.errors.despacho}
+                                            minHeight={160} compacto variaveis={variaveis_despacho} marcadores={['mencao', 'referencia']} erro={despacharForm.errors.despacho}
                                             placeholder="Texto do despacho…" />
                                         {despacharForm.errors.despacho && (
                                             <p className="mt-1 text-xs text-red-600">{despacharForm.errors.despacho}</p>

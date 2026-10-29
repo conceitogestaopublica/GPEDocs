@@ -167,6 +167,10 @@ class CircularController extends Controller
 
             DB::commit();
             \App\Support\Rascunhos::concluir($request->integer('rascunho_id') ?: null, Auth::user());
+            // @ menções, # citações e ! assinaturas do texto (TR 4.16.13–4.16.18)
+            if ($avisos = \App\Support\Marcadores::aposSalvar('circular', $circular->id, $circular->conteudo, Auth::user(), $circular)) {
+                session()->flash('warning', implode(' ', $avisos));
+            }
 
             return redirect("/circulares/{$circular->id}")->with('success', 'Circular enviada com sucesso. Número: ' . $numero);
         } catch (\Exception $e) {
@@ -201,7 +205,8 @@ class CircularController extends Controller
         $isRemetente    = $circular->remetente_id === $userId;
         $isDestinatario = $circular->destinatarios->contains('usuario_id', $userId);
 
-        if (! $isRemetente && ! $isDestinatario) {
+        // Mencionado no texto (@) ou chamado a assinar (!) também vê — TR 4.16.16
+        if (! $isRemetente && ! $isDestinatario && ! \App\Support\Marcadores::temAcesso('circular', $circular->id, $userId)) {
             abort(403, 'Você não tem permissão para visualizar esta circular.');
         }
 
@@ -221,6 +226,7 @@ class CircularController extends Controller
             'classificacao' => \App\Support\Classificacao::doItem('circular', $circular->id),
             'circular' => $circular,
             'conteudo_html' => $circular->conteudoFinal(),
+            'marcadores'      => ['citado_em' => \App\Support\Marcadores::citadoEm('circular', $circular->id), 'pessoas' => \App\Support\Marcadores::doDocumento('circular', $circular->id)],
             'acessos'  => \App\Support\Acessos::de('circular', $circular->id),
         ]);
     }

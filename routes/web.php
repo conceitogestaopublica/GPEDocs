@@ -44,6 +44,8 @@ Route::get('oficios/rastrear/{token}/pdf', [OficioController::class, 'pdfPublico
 Route::get('oficios/rastrear/{token}/aberto', [OficioController::class, 'pixelAbertura'])->middleware('throttle:60,1')->name('oficios.rastrear.aberto');
 // Organograma público para incorporar no site da prefeitura (TR 4.12.8) — só com a chave da UG
 Route::get('organograma/publico/{token}', [\App\Http\Controllers\OrganogramaController::class, 'publico'])->middleware('throttle:60,1')->name('organograma.publico');
+// PDF do documento para o contato externo mencionado no texto (TR 4.16.17) — link assinado do e-mail
+Route::get('documentos-redigidos/{tipo}/{id}', [\App\Http\Controllers\EditorController::class, 'publico'])->whereIn('tipo', ['memorando', 'circular', 'oficio'])->whereNumber('id')->middleware(['signed', 'throttle:30,1'])->name('documentos-redigidos.publico');
 
 /* ─── SSO consume — recebe token emitido pelo landlord (fluxo multi-tenant) ─── */
 // GET porque o landlord redireciona via 302 com ?t=<token>. O token é de uso
@@ -287,6 +289,9 @@ Route::middleware('auth')->group(function () {
 
     // Organograma (TR 4.12): todos os servidores veem; quem administra UGs desativa, reativa e publica
     Route::get('organograma', [\App\Http\Controllers\OrganogramaController::class, 'index'])->name('organograma');
+
+    // Sugestões do editor: @ pessoas, ! quem assina, # documentos (TR 4.16.13–4.16.18)
+    Route::get('editor/sugestoes', [\App\Http\Controllers\EditorController::class, 'sugestoes'])->middleware('throttle:120,1')->name('editor.sugestoes');
 
     // Rascunho automático do editor (TR 4.16.6–4.16.8) — chamadas da tela de criação
     Route::controller(\App\Http\Controllers\RascunhoController::class)->prefix('rascunhos')->name('rascunhos.')->group(function () {

@@ -10,11 +10,12 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import ClassificacaoDoItem from '../../../Components/ClassificacaoDoItem';
+import MarcadoresDoDocumento from '../../../Components/MarcadoresDoDocumento';
 import QuemAcessou from '../../../Components/QuemAcessou';
 import { useConfirm } from '../../../Components/ConfirmProvider';
 import EmitidoPorContrassenha from '../../../Components/EmitidoPorContrassenha';
 
-export default function CircularesShow({ classificacao = null, acessos = [], circular, conteudo_html = '' }) {
+export default function CircularesShow({ marcadores = null, classificacao = null, acessos = [], circular, conteudo_html = '' }) {
     const confirmar = useConfirm();
     const circ = circular || {};
     const destinatarios = circ.destinatarios || [];
@@ -206,6 +207,7 @@ export default function CircularesShow({ classificacao = null, acessos = [], cir
                     </Card>
                 </div>
             </div>
+            <MarcadoresDoDocumento dados={marcadores} className="mt-6" />
             <ClassificacaoDoItem classificacao={classificacao} className="mt-6" />
             <QuemAcessou acessos={acessos} />
         </AdminLayout>

@@ -259,7 +259,7 @@ export default function CircularesCreate({ usuarios, autorizacoes = [], variavei
                             Conteúdo <span className="text-red-500">*</span>
                         </label>
                         <RichEditor somenteLeitura={!! r.travadoPor} html={data.conteudo} onChange={(v) => setData('conteudo', v)} minHeight={260}
-                            variaveis={variaveis} erro={errors.conteudo}
+                            variaveis={variaveis} marcadores={['mencao', 'referencia', 'assinatura']} erro={errors.conteudo}
                             placeholder="Digite o conteúdo da circular…" />
                         {errors.conteudo && <p className="text-xs text-red-500 mt-1">{errors.conteudo}</p>}
                     </div>

@@ -191,6 +191,10 @@ class MemorandoController extends Controller
 
             DB::commit();
             \App\Support\Rascunhos::concluir($request->integer('rascunho_id') ?: null, Auth::user());
+            // @ menções, # citações e ! assinaturas do texto (TR 4.16.13–4.16.18)
+            if ($avisos = \App\Support\Marcadores::aposSalvar('memorando', $memorando->id, $memorando->conteudo, Auth::user(), $memorando)) {
+                session()->flash('warning', implode(' ', $avisos));
+            }
 
             return redirect("/memorandos/{$memorando->id}")->with('success', 'Memorando enviado com sucesso. Número: ' . $numero);
         } catch (\Exception $e) {
@@ -218,7 +222,9 @@ class MemorandoController extends Controller
                 $t->destino_usuario_id === $user->id
                 || Setores::atende($user, $t->destino_unidade_id)
                 || ($acessoGeral && $t->destino_unidade_id !== null))
-            || $memorando->tramitacoes->contains('origem_usuario_id', $user->id);
+            || $memorando->tramitacoes->contains('origem_usuario_id', $user->id)
+            // Mencionado no texto (@) ou chamado a assinar (!) — TR 4.16.16
+            || \App\Support\Marcadores::temAcesso('memorando', $memorando->id, $user->id);
     }
 
     /** Download de anexo — a rota que a tela usava não existia (404). */
@@ -325,6 +331,7 @@ class MemorandoController extends Controller
             'acessos'         => Acessos::de('memorando', $memorando->id),
             'memorando'       => $memorando,
             'conteudo_html'   => $memorando->conteudoFinal(),
+            'marcadores'      => ['citado_em' => \App\Support\Marcadores::citadoEm('memorando', $memorando->id), 'pessoas' => \App\Support\Marcadores::doDocumento('memorando', $memorando->id)],
             'pode_receber'    => $podeReceber,
             'pode_tramitar'   => $podeTramitar,
             'meu_status'      => $meuStatus,

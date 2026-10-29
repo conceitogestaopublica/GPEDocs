@@ -11,12 +11,13 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import ClassificacaoDoItem from '../../../Components/ClassificacaoDoItem';
+import MarcadoresDoDocumento from '../../../Components/MarcadoresDoDocumento';
 import QuemAcessou from '../../../Components/QuemAcessou';
 import { useConfirm } from '../../../Components/ConfirmProvider';
 import Avatar from '../../../Components/Avatar';
 import EmitidoPorContrassenha from '../../../Components/EmitidoPorContrassenha';
 
-export default function MemorandosShow({ classificacao = null, acessos = [], memorando, conteudo_html = '', pode_receber, pode_tramitar, meu_status, unidades = [], usuarios = [] }) {
+export default function MemorandosShow({ marcadores = null, classificacao = null, acessos = [], memorando, conteudo_html = '', pode_receber, pode_tramitar, meu_status, unidades = [], usuarios = [] }) {
     const confirmar = useConfirm();
     const memo = memorando || {};
     const respostas = memo.respostas || [];
@@ -494,6 +495,7 @@ export default function MemorandosShow({ classificacao = null, acessos = [], mem
                     </div>
                 </div>
             )}
+            <MarcadoresDoDocumento dados={marcadores} className="mt-6" />
             <ClassificacaoDoItem classificacao={classificacao} className="mt-6" />
             <QuemAcessou acessos={acessos} />
         </AdminLayout>

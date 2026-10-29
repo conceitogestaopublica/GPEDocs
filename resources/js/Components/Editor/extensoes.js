@@ -9,6 +9,7 @@ import Image from '@tiptap/extension-image';
 import Mention from '@tiptap/extension-mention';
 import { ReactRenderer } from '@tiptap/react';
 import { PluginKey } from '@tiptap/pm/state';
+import axios from 'axios';
 import ListaSugestoes from './ListaSugestoes';
 
 export const TamanhoFonte = Extension.create({
@@ -107,3 +108,38 @@ export const variavel = (listaRef) => marcador({
             .slice(0, 12);
     },
 });
+
+/** Busca no servidor com cache curto (a lista abre a cada tecla). */
+const cacheBusca = new Map();
+function buscarNoServidor(tipo, q) {
+    const chave = `${tipo}|${(q || '').toLowerCase()}`;
+    if (! cacheBusca.has(chave)) {
+        cacheBusca.set(chave, axios.get('/editor/sugestoes', { params: { tipo, q } }).then((r) => r.data)
+            .catch(() => { cacheBusca.delete(chave); return []; }));
+        setTimeout(() => cacheBusca.delete(chave), 30000);
+    }
+    return cacheBusca.get(chave);
+}
+
+const PREFIXOS = { memorando: '/memorandos', circular: '/circulares', oficio: '/oficios', processo: '/processos' };
+
+/** @ menciona servidor (avisa e dá acesso) ou contato externo (recebe o link por e-mail) — TR 4.16.16–17. */
+export const mencao = () => marcador({
+    nome: 'mencao', char: '@', texto: (a) => `@${a.label}`,
+    buscar: (q) => buscarNoServidor('pessoas', q),
+});
+
+/** # cita documento: vira link, e o citado mostra onde foi citado — TR 4.16.13–15. */
+export const referencia = () => marcador({
+    nome: 'referencia', char: '#', tag: 'a', texto: (a) => a.label,
+    atributos: (a) => { const [t, id] = String(a.id || '').split(':'); return PREFIXOS[t] ? { href: `${PREFIXOS[t]}/${id}` } : {}; },
+    buscar: (q) => buscarNoServidor('documentos', q),
+});
+
+/** ! pede assinatura de servidor ou externo ao enviar o documento — TR 4.16.18. */
+export const assinatura = () => marcador({
+    nome: 'assinatura', char: '!', texto: (a) => `✍ ${a.label}`,
+    buscar: (q) => buscarNoServidor('assinatura', q),
+});
+
+export const MARCADORES = { mencao, referencia, assinatura };

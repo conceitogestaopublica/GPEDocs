@@ -224,6 +224,10 @@ class OficioController extends Controller
 
             DB::commit();
             \App\Support\Rascunhos::concluir($request->integer('rascunho_id') ?: null, Auth::user());
+            // @ menções, # citações e ! assinaturas do texto (TR 4.16.13–4.16.18)
+            if ($avisos = \App\Support\Marcadores::aposSalvar('oficio', $oficio->id, $oficio->conteudo, Auth::user(), $oficio)) {
+                session()->flash('warning', implode(' ', $avisos));
+            }
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -268,7 +272,7 @@ class OficioController extends Controller
     public function downloadAnexo($id, $anexoId)
     {
         $oficio = Oficio::findOrFail($id);
-        if (! $oficio->eDoUsuario(Auth::id())) {
+        if (! $oficio->eDoUsuario(Auth::id()) && ! \App\Support\Marcadores::temAcesso('oficio', $oficio->id, Auth::id())) {
             abort(403);
         }
         $anexo = \App\Models\Processo\OficioAnexo::where('oficio_id', $oficio->id)->findOrFail($anexoId);
@@ -284,7 +288,7 @@ class OficioController extends Controller
             'respostas.usuario',
         ])->findOrFail($id);
 
-        if (! $oficio->eDoUsuario(Auth::id())) {
+        if (! $oficio->eDoUsuario(Auth::id()) && ! \App\Support\Marcadores::temAcesso('oficio', $oficio->id, Auth::id())) {
             abort(403, 'Você não tem permissão para visualizar este ofício.');
         }
 
@@ -294,6 +298,7 @@ class OficioController extends Controller
             'classificacao' => \App\Support\Classificacao::doItem('oficio', $oficio->id),
             'oficio'        => $oficio,
             'conteudo_html' => $oficio->conteudoFinal(),
+            'marcadores'    => ['citado_em' => \App\Support\Marcadores::citadoEm('oficio', $oficio->id), 'pessoas' => \App\Support\Marcadores::doDocumento('oficio', $oficio->id)],
             'acessos'       => \App\Support\Acessos::de('oficio', $oficio->id),
         ]);
     }
@@ -422,7 +427,7 @@ class OficioController extends Controller
             'respostas.usuario',
         ])->findOrFail($id);
 
-        if (! $oficio->eDoUsuario(Auth::id())) {
+        if (! $oficio->eDoUsuario(Auth::id()) && ! \App\Support\Marcadores::temAcesso('oficio', $oficio->id, Auth::id())) {
             abort(403, 'Você não tem permissão para baixar este ofício.');
         }
 
