@@ -120,7 +120,8 @@ class ProcessoController extends Controller
         foreach ($tipoProcesso?->anexos_exigidos ?? [] as $i => $ax) {
             $extensoes = array_values(array_filter(array_map(fn ($e) => strtolower(trim($e, " .\t")), explode(',', (string) ($ax['extensoes'] ?? '')))));
             $regras["anexos_exigidos.{$i}"] = [($ax['obrigatorio'] ?? true) ? 'required' : 'nullable', 'file', 'max:51200',
-                ...($extensoes ? ['extensions:' . implode(',', $extensoes)] : [])];
+                // extensions confere o nome; mimes confere o conteúdo (PNG renomeado para .pdf não passa)
+                ...($extensoes ? ['extensions:' . implode(',', $extensoes), 'mimes:' . implode(',', $extensoes)] : [])];
             $nomes["anexos_exigidos.{$i}"] = (string) ($ax['nome'] ?? 'Documento');
         }
         $request->validate($regras, [], $nomes);
