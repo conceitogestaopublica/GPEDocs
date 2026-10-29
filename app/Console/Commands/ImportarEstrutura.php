@@ -170,10 +170,11 @@ class ImportarEstrutura extends Command
                     $idOrgao = $this->no($ugId, null, 1, 'orgao', $o->id, $o->num_orgao, $o->nome, $o->dt_encerramento);
                     $total++;
                     foreach ($origem->table('unidade')->where('orgao_id', $o->id)->orderBy('num_unidade')->get() as $u) {
-                        $idUnidade = $this->no($ugId, $idOrgao, 2, 'unidade', $u->id, $u->num_unidade, $u->nome, $u->dt_encerramento);
+                        $fimUnidade = $this->primeiroFim($o->dt_encerramento, $u->dt_encerramento);
+                        $idUnidade = $this->no($ugId, $idOrgao, 2, 'unidade', $u->id, $u->num_unidade, $u->nome, $fimUnidade);
                         $total++;
                         foreach ($origem->table('departamento')->where('unidade_id', $u->id)->orderBy('num_departamento')->get() as $d) {
-                            $this->no($ugId, $idUnidade, 3, 'departamento', $d->id, $d->num_departamento, $d->nome, $d->dt_encerramento);
+                            $this->no($ugId, $idUnidade, 3, 'departamento', $d->id, $d->num_departamento, $d->nome, $this->primeiroFim($fimUnidade, $d->dt_encerramento));
                             $total++;
                         }
                     }
@@ -186,24 +187,42 @@ class ImportarEstrutura extends Command
         return $total;
     }
 
+    /**
+     * Encerramento efetivo: o setor acaba quando ele ou o de cima acaba (o gpe2 encerra o
+     * órgão antigo e deixa os departamentos dele sem data — ficavam ativos sob pai inativo).
+     */
+    private function primeiroFim($dePai, $proprio): ?string
+    {
+        $datas = array_filter([$dePai, $proprio], fn ($d) => $d !== null && $d !== '');
+
+        return $datas ? (string) min(array_map(fn ($d) => substr((string) $d, 0, 10), $datas)) : null;
+    }
+
     private function no(int $ugId, ?int $parentId, int $nivel, string $tipo, $legadoId, $numero, ?string $nome, $encerramento): int
     {
-        DB::table('ug_organograma')->updateOrInsert(
-            ['ug_id' => $ugId, 'legado_id' => $legadoId, 'legado_tipo' => $tipo],
-            [
-                'parent_id'       => $parentId,
-                'nivel'           => $nivel,
-                'codigo'          => str_pad((string) $numero, 3, '0', STR_PAD_LEFT),
-                'nome'            => $this->texto($nome),
-                'dt_encerramento' => $encerramento,
-                'ativo'           => $encerramento === null || strtotime((string) $encerramento) >= time(),
-                'updated_at'      => now(),
-                'created_at'      => now(),
-            ]
-        );
+        $chave = ['ug_id' => $ugId, 'legado_id' => $legadoId, 'legado_tipo' => $tipo];
+        $encerrado = $encerramento !== null && strtotime((string) $encerramento) < time();
+        $dados = [
+            'parent_id'  => $parentId,
+            'nivel'      => $nivel,
+            'codigo'     => str_pad((string) $numero, 3, '0', STR_PAD_LEFT),
+            'nome'       => $this->texto($nome),
+            'updated_at' => now(),
+        ];
+        $atual = DB::table('ug_organograma')->where($chave)->first(['id']);
+        if ($atual) {
+            // Encerrado na origem desativa; ativo na origem não reativa o que o GED desativou (TR 4.12.9)
+            DB::table('ug_organograma')->where('id', $atual->id)->update($dados + ($encerrado
+                ? ['ativo' => false, 'dt_encerramento' => $encerramento] : []));
 
-        return (int) DB::table('ug_organograma')
-            ->where(['ug_id' => $ugId, 'legado_id' => $legadoId, 'legado_tipo' => $tipo])->value('id');
+            return (int) $atual->id;
+        }
+
+        return (int) DB::table('ug_organograma')->insertGetId($chave + $dados + [
+            'dt_encerramento' => $encerramento,
+            'ativo'           => ! $encerrado,
+            'created_at'      => now(),
+        ]);
     }
 
     /**
