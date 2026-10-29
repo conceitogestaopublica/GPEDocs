@@ -109,6 +109,7 @@ export default function Index({ tipos, unidades = [] }) {
         sla_padrao_horas: '',
         prazo_dias_uteis: false,
         localizacao: 'nao',
+        modalidade: '',
         avaliacao: true,
         ativo: true,
         schema_formulario: [],
@@ -133,6 +134,7 @@ export default function Index({ tipos, unidades = [] }) {
             sla_padrao_horas: tipo.sla_padrao_horas || '',
             prazo_dias_uteis: !! tipo.prazo_dias_uteis,
             localizacao: tipo.localizacao || 'nao',
+            modalidade: tipo.modalidade || '',
             avaliacao: tipo.avaliacao !== false,
             ativo: tipo.ativo !== false,
             schema_formulario: tipo.schema_formulario || [],
@@ -444,6 +446,12 @@ export default function Index({ tipos, unidades = [] }) {
                                     </label>
                                 </div>
                                 <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Modalidade</label>
+                                    <select value={data.modalidade} onChange={(e) => setData('modalidade', e.target.value)} className="ds-input mb-3">
+                                        <option value="">Processo comum</option>
+                                        <option value="ouvidoria">Ouvidoria (Lei 13.460 — 30 dias úteis, sigilo, decisão final)</option>
+                                        <option value="esic">e-SIC / acesso à informação (LAI — 20 dias + 10)</option>
+                                    </select>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Local da demanda no mapa</label>
                                     <select value={data.localizacao} onChange={(e) => setData('localizacao', e.target.value)} className="ds-input">
                                         <option value="nao">Não pede</option>

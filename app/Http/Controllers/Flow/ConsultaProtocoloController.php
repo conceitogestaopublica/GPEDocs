@@ -33,14 +33,17 @@ class ConsultaProtocoloController extends Controller
         $solicitacoes = collect();
 
         if (mb_strlen($q) >= 3) {
+            $sigilo = ! (auth()->user()->super_admin || auth()->user()->can('ouvidoria.gerir'));
             // Processo já é escopado pela UG da sessão (BelongsToUg).
             $processos = Processo::query()
                 ->with(['tipoProcesso:id,nome,sigla', 'etapaAtual:id,setor_destino'])
-                ->where(function ($w) use ($q, $digitos, $porDocumento) {
+                ->where(function ($w) use ($q, $digitos, $porDocumento, $sigilo) {
                     $w->where('numero_protocolo', 'ilike', "%{$q}%")
-                        ->orWhere('requerente_nome', 'ilike', "%{$q}%");
+                        // Manifestante sigiloso: pelo nome/CPF só a ouvidoria acha (TR 4.33.27)
+                        ->orWhere(fn ($r) => $r->where('requerente_nome', 'ilike', "%{$q}%")->when($sigilo, fn ($s) => $s->where('identificacao', '<>', 'sigilosa')));
                     if ($porDocumento) {
-                        $w->orWhereRaw("regexp_replace(coalesce(requerente_cpf, ''), '[^0-9]', '', 'g') = ?", [$digitos]);
+                        $w->orWhere(fn ($r) => $r->whereRaw("regexp_replace(coalesce(requerente_cpf, ''), '[^0-9]', '', 'g') = ?", [$digitos])
+                            ->when($sigilo, fn ($s) => $s->where('identificacao', '<>', 'sigilosa')));
                     }
                 })
                 ->orderByDesc('created_at')
@@ -51,8 +54,8 @@ class ConsultaProtocoloController extends Controller
                     'protocolo'  => $p->numero_protocolo,
                     'assunto'    => $p->assunto,
                     'tipo'       => $p->tipoProcesso?->nome,
-                    'requerente' => $p->requerente_nome,
-                    'documento'  => $p->requerente_cpf,
+                    'requerente' => $sigilo && $p->identificacao === 'sigilosa' ? 'Manifestante sigiloso' : $p->requerente_nome,
+                    'documento'  => $sigilo && $p->identificacao === 'sigilosa' ? null : $p->requerente_cpf,
                     'status'     => $p->status,
                     'setor'      => $p->etapaAtual?->setor_destino,
                     'aberto_em'  => $p->created_at?->toIso8601String(),

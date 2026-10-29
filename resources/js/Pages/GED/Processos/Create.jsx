@@ -12,7 +12,7 @@ import Card from '../../../Components/Card';
 import EnderecoForm from '../../../Components/EnderecoForm';
 import LocalizacaoDemanda from '../../../Components/LocalizacaoDemanda';
 
-export default function Create({ tipos_processo, unidades = [], usuarios = [], cidade = '' }) {
+export default function Create({ tipos_processo, unidades = [], usuarios = [], cidade = '', ouvidoria = { manifestacoes: {}, identificacoes: {}, canais: {} } }) {
     const tipos = tipos_processo || [];
     const [local, setLocal] = useState({ latitude: null, longitude: null, endereco: '' });
     const [files, setFiles] = useState([]);
@@ -30,6 +30,10 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [], c
         requerente_telefone: '',
         setor_destino_inicial: '',
         destinatario_inicial: '',
+        // Ouvidoria (TR 4.33.4, 4.33.8, 4.33.27)
+        canal: 'balcao',
+        manifestacao_tipo: '',
+        identificacao: 'aberta',
     });
     // O envio é por router.post (FormData com arquivos): os erros de validação chegam nas
     // props da página, não no useForm — antes nenhum erro aparecia na tela.
@@ -127,11 +131,17 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [], c
             }
         });
 
-        // Requerente
-        if (data.requerente_nome) formData.append('requerente_nome', data.requerente_nome);
-        if (data.requerente_cpf) formData.append('requerente_cpf', data.requerente_cpf);
-        if (data.requerente_email) formData.append('requerente_email', data.requerente_email);
-        if (data.requerente_telefone) formData.append('requerente_telefone', data.requerente_telefone);
+        formData.append('canal', data.canal);
+        if (tipoSelecionado?.modalidade === 'ouvidoria') {
+            formData.append('manifestacao_tipo', data.manifestacao_tipo);
+            formData.append('identificacao', data.identificacao);
+        }
+
+        // Requerente — manifestação anônima não leva identificação nenhuma (TR 4.33.27)
+        const anonima = tipoSelecionado?.modalidade === 'ouvidoria' && data.identificacao === 'anonima';
+        if (! anonima) {
+            ['requerente_nome', 'requerente_cpf', 'requerente_email', 'requerente_telefone'].forEach((c) => { if (data[c]) formData.append(c, data[c]); });
+        }
 
         // Onde fica a demanda (TR 4.32.21)
         if (local.latitude != null) { formData.append('localizacao[latitude]', local.latitude); formData.append('localizacao[longitude]', local.longitude); }
@@ -262,8 +272,43 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [], c
                             </Card>
                         )}
 
+                        {/* Ouvidoria: tipo, identificação e canal (TR 4.33.4, 4.33.8, 4.33.27) */}
+                        {tipoSelecionado?.modalidade === 'ouvidoria' && (
+                            <Card title="Manifestação de ouvidoria" subtitle="Lei 13.460/2017 — resposta em até 30 dias úteis, prorrogáveis por mais 30">
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tipo da manifestação <span className="text-red-500">*</span></label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {Object.entries(ouvidoria.manifestacoes).map(([v, r]) => (
+                                                <button key={v} type="button" onClick={() => setData('manifestacao_tipo', v)}
+                                                    className={`px-3 py-1.5 rounded-lg border text-sm ${data.manifestacao_tipo === v ? 'border-cyan-600 bg-cyan-600 text-white' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}>{r}</button>
+                                            ))}
+                                        </div>
+                                        {errors.manifestacao_tipo && <p className="mt-1 text-xs text-red-600">{errors.manifestacao_tipo}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Identificação do manifestante</label>
+                                        <div className="space-y-1">
+                                            {Object.entries(ouvidoria.identificacoes).map(([v, r]) => (
+                                                <label key={v} className="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="radio" name="identificacao" checked={data.identificacao === v} onChange={() => setData('identificacao', v)} /> {r}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
+                        )}
+
+                        <Card title="Canal de entrada">
+                            <select value={data.canal} onChange={(e) => setData('canal', e.target.value)} className="ds-input">
+                                {Object.entries(ouvidoria.canais).map(([v, r]) => <option key={v} value={v}>{r}</option>)}
+                            </select>
+                            <p className="mt-1 text-[11px] text-gray-500">Por onde o pedido chegou: balcão, telefone, e-mail ou redes sociais.</p>
+                        </Card>
+
                         {/* Requerente */}
-                        <Card title="Requerente" subtitle="Informações do solicitante (opcional)">
+                        {! (tipoSelecionado?.modalidade === 'ouvidoria' && data.identificacao === 'anonima') && <Card title="Requerente" subtitle="Informações do solicitante (opcional)">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
@@ -306,7 +351,7 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [], c
                                     />
                                 </div>
                             </div>
-                        </Card>
+                        </Card>}
 
                         {/* Destino inicial — para onde o processo vai */}
                         <Card title="Para qual setor enviar" subtitle="Setor que vai receber o processo na Caixa de Entrada (obrigatório)" className="overflow-visible">

@@ -122,10 +122,13 @@ class BuscaController extends Controller
     private function processos(array $f, User $user)
     {
         $q = Processo::query()->with('tipoProcesso:id,nome');
+        // Manifestante sigiloso: só a ouvidoria acha o processo pelo nome/CPF dele (TR 4.33.27)
+        $sigilo = ! (Auth::user()->super_admin || Auth::user()->can('ouvidoria.gerir'));
+        $doRequerente = fn ($w) => $sigilo ? $w->where('identificacao', '<>', 'sigilosa') : $w;
         foreach ($this->termos($f['q']) as $t) {
             $l = $this->like($t);
             $q->where(fn (Builder $w) => $w->where('numero_protocolo', 'ilike', $l)->orWhere('assunto', 'ilike', $l)
-                ->orWhere('descricao', 'ilike', $l)->orWhere('requerente_nome', 'ilike', $l)
+                ->orWhere('descricao', 'ilike', $l)->orWhere(fn ($r) => $doRequerente($r->where('requerente_nome', 'ilike', $l)))
                 ->orWhereRaw('dados_formulario::text ilike ?', [$l])->orWhere('observacao_conclusao', 'ilike', $l)
                 ->orWhereHas('tramitacoes', fn ($x) => $x->where('despacho', 'ilike', $l)->orWhere('parecer', 'ilike', $l))
                 ->orWhereHas('comentarios', fn ($x) => $x->where('texto', 'ilike', $l))
@@ -145,6 +148,7 @@ class BuscaController extends Controller
             $d = preg_replace('/\D/', '', $f['externo']);
             $q->where(fn ($w) => $w->where('requerente_nome', 'ilike', $this->like($f['externo']))
                 ->when(strlen($d) >= 5, fn ($w) => $w->orWhereRaw("regexp_replace(coalesce(requerente_cpf,''), '[^0-9]', '', 'g') like ?", ["%{$d}%"])));
+            $doRequerente($q);
         }
         $this->etiqueta($q, $f, 'processo');
         // Situação geral (TR 4.15.8): parcialmente arquivado = algum setor já resolveu a parte dele
@@ -158,7 +162,7 @@ class BuscaController extends Controller
 
         return $q->orderByDesc('created_at')->limit(self::LIMITE)->get()->map(fn (Processo $p) => [
             'tipo' => 'processo', 'id' => $p->id, 'numero' => $p->numero_protocolo, 'titulo' => $p->assunto,
-            'detalhe' => $p->tipoProcesso?->nome . ($p->requerente_nome ? " · {$p->requerente_nome}" : ''),
+            'detalhe' => $p->tipoProcesso?->nome . ($p->requerente_nome ? ' · ' . ($sigilo && $p->identificacao === 'sigilosa' ? 'Manifestante sigiloso' : $p->requerente_nome) : ''),
             'situacao' => $p->status, 'data' => $p->created_at?->toIso8601String(), 'link' => "/processos/{$p->id}",
         ]);
     }

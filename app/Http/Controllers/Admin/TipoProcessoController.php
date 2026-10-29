@@ -49,6 +49,7 @@ class TipoProcessoController extends Controller
             'sla_padrao_horas'        => ['required', 'integer'],
             'prazo_dias_uteis'        => ['nullable', 'boolean'],
             'localizacao'             => ['nullable', 'in:nao,opcional,obrigatoria'],
+            'modalidade'              => ['nullable', 'in:ouvidoria,esic'],
             'avaliacao'               => ['nullable', 'boolean'],
             'etapas'                  => ['nullable', 'array'],
             'etapas.*.nome'           => ['required', 'string'],
@@ -76,6 +77,8 @@ class TipoProcessoController extends Controller
                 'sla_padrao_horas'  => $request->input('sla_padrao_horas'),
                 'prazo_dias_uteis'  => $request->boolean('prazo_dias_uteis'),
                 'localizacao'       => $request->input('localizacao', 'nao'),
+                // Ouvidoria (Lei 13.460) ou e-SIC (LAI): prazo legal, sigilo e painéis próprios
+                'modalidade'        => $request->input('modalidade') ?: null,
                 'avaliacao'         => $request->boolean('avaliacao', true),
                 'ativo'             => true,
                 'criado_por'        => Auth::id(),
@@ -123,6 +126,7 @@ class TipoProcessoController extends Controller
             'sla_padrao_horas'        => ['required', 'integer'],
             'prazo_dias_uteis'        => ['nullable', 'boolean'],
             'localizacao'             => ['nullable', 'in:nao,opcional,obrigatoria'],
+            'modalidade'              => ['nullable', 'in:ouvidoria,esic'],
             'avaliacao'               => ['nullable', 'boolean'],
             'etapas'                  => ['nullable', 'array'],
             'etapas.*.id'             => ['nullable', 'integer'],
@@ -152,6 +156,8 @@ class TipoProcessoController extends Controller
                 'sla_padrao_horas'  => $request->input('sla_padrao_horas'),
                 'prazo_dias_uteis'  => $request->boolean('prazo_dias_uteis'),
                 'localizacao'       => $request->input('localizacao', 'nao'),
+                // Ouvidoria (Lei 13.460) ou e-SIC (LAI): prazo legal, sigilo e painéis próprios
+                'modalidade'        => $request->input('modalidade') ?: null,
                 'avaliacao'         => $request->boolean('avaliacao', true),
             ]);
 

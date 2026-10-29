@@ -12,6 +12,7 @@ import Card from '../../../Components/Card';
 import ClassificacaoDoItem from '../../../Components/ClassificacaoDoItem';
 import MarcadoresDoDocumento from '../../../Components/MarcadoresDoDocumento';
 import RecebimentosFisicos from '../../../Components/RecebimentosFisicos';
+import OuvidoriaDoProcesso from '../../../Components/OuvidoriaDoProcesso';
 import FerramentasDoTexto from '../../../Components/FerramentasDoTexto';
 import MapaAvaliacaoDoProcesso from '../../../Components/MapaAvaliacaoDoProcesso';
 import Modal from '../../../Components/Modal';
@@ -78,7 +79,7 @@ const tabList = [
     { key: 'arvore', label: 'Árvore', icon: 'fas fa-sitemap' },
 ];
 
-export default function Show({ recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
+export default function Show({ ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
     acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [], classificacao = null, mapa_avaliacao = null }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
@@ -596,6 +597,7 @@ export default function Show({ recebimentos_fisicos = [], marcadores = null, var
                     </Card>
                 )}
                 {activeTab === 'detalhes' && <MapaAvaliacaoDoProcesso processoId={processo.id} dados={mapa_avaliacao} className="mb-6" />}
+                {activeTab === 'detalhes' && <OuvidoriaDoProcesso processoId={processo.id} dados={ouvidoria} className="mb-6" />}
                 {activeTab === 'detalhes' && <MarcadoresDoDocumento dados={marcadores} className="mb-6" />}
                 {activeTab === 'detalhes' && <RecebimentosFisicos processoId={processo.id} recebimentos={recebimentos_fisicos} className="mb-6"
                     podeRegistrar={['*', 'processo.tramitar'].some((p) => (auth?.user?.permissoes || []).includes(p))} />}

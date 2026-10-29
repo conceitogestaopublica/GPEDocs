@@ -21,7 +21,10 @@ class Processo extends Model
     {
         // Requerente com CPF/CNPJ entra na base de contatos (TR 4.21)
         static::created(function (Processo $p) {
-            if ($p->contato_id || ! $p->requerente_cpf) {
+            // Ouvidoria/e-SIC: prazo legal; anônima não guarda identificação (TR 4.33.27)
+            \App\Support\Ouvidoria::aoAbrir($p);
+            // Manifestante sigiloso ou anônimo não vai para a base de contatos (seria visto por quem consulta contatos)
+            if ($p->contato_id || ! $p->requerente_cpf || in_array($p->identificacao, ['sigilosa', 'anonima'], true)) {
                 return;
             }
             try {
@@ -63,6 +66,15 @@ class Processo extends Model
         'longitude',
         'local_endereco',
         'reaberturas',
+        // Ouvidoria e e-SIC (TR 4.33, 4.34)
+        'canal',
+        'manifestacao_tipo',
+        'identificacao',
+        'prazo_legal_em',
+        'prorrogado_em',
+        'prorrogacao_motivo',
+        'decisao_final',
+        'decisao_final_em',
     ];
 
     protected function casts(): array
@@ -70,6 +82,9 @@ class Processo extends Model
         return [
             'dados_formulario' => 'array',
             'concluido_em' => 'datetime',
+            'prazo_legal_em' => 'datetime',
+            'prorrogado_em' => 'datetime',
+            'decisao_final_em' => 'datetime',
             'latitude' => 'float',
             'longitude' => 'float',
         ];

@@ -92,6 +92,9 @@ class ProcessoController extends Controller
             'unidades'       => $unidades,
             'usuarios'       => $usuarios,
             'cidade'         => \App\Http\Controllers\Flow\MapaAvaliacaoController::cidade(),
+            // Ouvidoria (TR 4.33.4, 4.33.8, 4.33.27): tipo, identificação e canal de quem registrou
+            'ouvidoria'      => ['manifestacoes' => \App\Support\Ouvidoria::MANIFESTACOES, 'identificacoes' => \App\Support\Ouvidoria::IDENTIFICACOES,
+                'canais' => array_diff_key(\App\Support\Ouvidoria::CANAIS, ['portal' => 1])],
         ]);
     }
 
@@ -107,6 +110,9 @@ class ProcessoController extends Controller
             'requerente_cpf'     => ['nullable', 'string', 'max:20'],
             'requerente_email'   => ['nullable', 'string', 'email', 'max:255'],
             'requerente_telefone'=> ['nullable', 'string', 'max:20'],
+            'canal'              => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\Ouvidoria::CANAIS))],
+            'manifestacao_tipo'  => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\Ouvidoria::MANIFESTACOES))],
+            'identificacao'      => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\Ouvidoria::IDENTIFICACOES))],
             'setor_origem'       => ['nullable', 'string', 'max:150'],
             'setor_destino_inicial' => ['required', 'integer', 'exists:ug_organograma,id'],
             'destinatario_inicial'  => ['nullable', 'integer', 'exists:users,id'],
@@ -116,6 +122,9 @@ class ProcessoController extends Controller
 
         // Campos do formulário de abertura definidos no tipo de processo (obrigatoriedade e tipo).
         $tipoProcesso = TipoProcesso::find($request->input('tipo_processo_id'));
+        if ($tipoProcesso?->modalidade === 'ouvidoria') {
+            $request->validate(['manifestacao_tipo' => ['required']], ['manifestacao_tipo.required' => 'Escolha o tipo da manifestação.']);
+        }
         [$regras, $nomes] = \App\Support\CamposDinamicos::regras($tipoProcesso?->schema_formulario, 'dados_formulario');
         // Documentos exigidos pelo assunto: obrigatórios e extensões (TR 4.32.14, 4.38.18)
         foreach ($tipoProcesso?->anexos_exigidos ?? [] as $i => $ax) {
@@ -171,6 +180,9 @@ class ProcessoController extends Controller
                 'requerente_cpf'    => $request->input('requerente_cpf'),
                 'requerente_email'  => $request->input('requerente_email'),
                 'requerente_telefone' => $request->input('requerente_telefone'),
+                'canal'             => $request->input('canal') ?: 'balcao',
+                'manifestacao_tipo' => $tipoProcesso?->modalidade === 'ouvidoria' ? $request->input('manifestacao_tipo') : null,
+                'identificacao'     => $tipoProcesso?->modalidade === 'ouvidoria' ? ($request->input('identificacao') ?: 'aberta') : 'aberta',
                 'setor_origem'      => $request->input('setor_origem'),
                 'status'            => 'aberto',
                 'aberto_por'        => Auth::id(),
@@ -382,6 +394,12 @@ class ProcessoController extends Controller
             ->where('processo_id', $processo->id)
             ->first(['id', 'codigo', 'cidadao_id', 'anonima', 'email_contato']);
 
+        // Manifestante sigiloso: só a ouvidoria vê os dados (TR 4.33.27)
+        $verManifestante = \App\Support\Ouvidoria::podeVerManifestante(Auth::user(), $processo);
+        if (! $verManifestante) {
+            \App\Support\Ouvidoria::ocultarManifestante($processo);
+            $processo->setRelation('requerente', null);
+        }
         // CPF do requerente só em parte na tela (LGPD); o registro no banco não muda.
         $processo->setAttribute('requerente_cpf', \App\Support\DocumentoPessoa::mascarar($processo->requerente_cpf));
         if ($processo->relationLoaded('requerente') && $processo->requerente) {
@@ -391,6 +409,7 @@ class ProcessoController extends Controller
         return Inertia::render('GED/Processos/Show', [
             'variaveis_despacho'   => \App\Support\Variaveis::paraEditor(\App\Models\Processo\Processo::ROTULOS_VARIAVEIS_DESPACHO),
             'recebimentos_fisicos' => \App\Http\Controllers\RecebimentoFisicoController::doProcesso($processo->id),
+            'ouvidoria'       => self::dadosOuvidoria($processo),
             'marcadores'      => ['citado_em' => \App\Support\Marcadores::citadoEm('processo', $processo->id), 'pessoas' => \App\Support\Marcadores::doDocumento('processo', $processo->id)],
             'classificacao'        => \App\Support\Classificacao::doItem('processo', $processo->id),
             'mapa_avaliacao'       => \App\Http\Controllers\Flow\MapaAvaliacaoController::paraTela($processo),
@@ -987,4 +1006,44 @@ class ProcessoController extends Controller
         }
     }
 
+    /** Cartão de ouvidoria/e-SIC na tela do processo (TR 4.33, 4.34). */
+    private static function dadosOuvidoria(Processo $p): ?array
+    {
+        $mod = \App\Support\Ouvidoria::modalidade($p->loadMissing('tipoProcesso'));
+        if (! $mod) {
+            return null;
+        }
+        $u = Auth::user();
+        $aberto = ! in_array($p->status, ['concluido', 'arquivado', 'cancelado'], true);
+        $gere = $u->super_admin || $u->can($mod === 'esic' ? 'esic.gerir' : 'ouvidoria.gerir');
+
+        return [
+            'modalidade'      => $mod,
+            'manifestacao'    => \App\Support\Ouvidoria::MANIFESTACOES[$p->manifestacao_tipo] ?? null,
+            'identificacao'   => $p->identificacao,
+            'identificacao_rotulo' => \App\Support\Ouvidoria::IDENTIFICACOES[$p->identificacao] ?? $p->identificacao,
+            'canal'           => \App\Support\Ouvidoria::CANAIS[$p->canal] ?? $p->canal,
+            'prazo'           => \App\Support\Ouvidoria::situacaoPrazo($p),
+            'prorrogacao'     => $p->prorrogado_em ? ['em' => $p->prorrogado_em->toIso8601String(), 'motivo' => $p->prorrogacao_motivo] : null,
+            'decisao_final'   => $p->decisao_final ? ['texto' => $p->decisao_final, 'em' => $p->decisao_final_em?->toIso8601String()] : null,
+            'pode_prorrogar'  => $gere && $aberto && ! $p->prorrogado_em,
+            'pode_resolver'   => $mod === 'ouvidoria' && $gere && $aberto,
+        ];
+    }
+
+    public function prorrogarPrazo(Request $request, int $id)
+    {
+        $d = $request->validate(['motivo' => ['required', 'string', 'max:2000']]);
+        \App\Support\Ouvidoria::prorrogar(Processo::with('tipoProcesso')->findOrFail($id), $d['motivo'], Auth::user());
+
+        return back()->with('success', 'Prazo prorrogado. O manifestante vê o novo prazo e o motivo.');
+    }
+
+    public function resolverOuvidoria(Request $request, int $id)
+    {
+        $d = $request->validate(['decisao' => ['required', 'string', 'max:20000']]);
+        \App\Support\Ouvidoria::resolverEmTodos(Processo::with('tipoProcesso')->findOrFail($id), $d['decisao'], Auth::user());
+
+        return back()->with('success', 'Manifestação resolvida em todos os setores e decisão final enviada ao manifestante.');
+    }
 }

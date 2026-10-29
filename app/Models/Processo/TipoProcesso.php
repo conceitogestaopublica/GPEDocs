@@ -27,6 +27,7 @@ class TipoProcesso extends Model
         'criado_por',
         'localizacao',
         'avaliacao',
+        'modalidade',
     ];
 
     protected function casts(): array

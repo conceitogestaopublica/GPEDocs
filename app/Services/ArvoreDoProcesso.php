@@ -119,7 +119,9 @@ final class ArvoreDoProcesso
             'meta'   => 'Em ' . $this->fmt($p->created_at) . ($p->abertoPor ? " por {$p->abertoPor->name}" : '') . ($p->setor_origem ? " · origem: {$p->setor_origem}" : ''),
             'dados'  => array_filter([
                 'Número' => $p->numero_protocolo, 'Assunto' => $p->assunto, 'Tipo' => $p->tipoProcesso?->nome,
-                'Requerente' => $p->requerente_nome, 'CPF/CNPJ do requerente' => \App\Support\DocumentoPessoa::mascarar($p->requerente_cpf),
+                // Manifestante sigiloso só aparece para a ouvidoria (TR 4.33.27)
+                'Requerente' => \App\Support\Ouvidoria::podeVerManifestante(auth()->user(), $p) ? $p->requerente_nome : 'Manifestante sigiloso',
+                'CPF/CNPJ do requerente' => \App\Support\Ouvidoria::podeVerManifestante(auth()->user(), $p) ? \App\Support\DocumentoPessoa::mascarar($p->requerente_cpf) : null,
                 'Prioridade' => $p->prioridade,
             ]) + $this->dadosFormulario($p),
             'texto'  => $p->descricao,
