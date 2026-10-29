@@ -266,7 +266,7 @@ class ProcessoController extends Controller
             'tramitacoes.destinatario',
             'tramitacoes.recebedor',
             'tramitacoes.resolvedor:id,name,foto_path',
-            'anexos.enviadoPor',
+            'anexos.enviadoPor', 'anexos.avaliador:id,name',
             'comentarios.usuario',
             'historico.usuario',
             'tipoProcesso.etapas',
@@ -768,6 +768,9 @@ class ProcessoController extends Controller
     {
         $anexo = ProcessoAnexo::findOrFail($anexoId);
         Processo::findOrFail($anexo->processo_id); // escopo de UG: anexo de processo de outra UG dá 404
+        if (! request()->boolean('inline')) {
+            ProcessoAnexo::whereKey($anexo->id)->increment('downloads');   // TR 4.14.5 (abrir para ver não conta)
+        }
 
         return \App\Support\Anexos::baixar($anexo->arquivo_path, $anexo->nome);
     }

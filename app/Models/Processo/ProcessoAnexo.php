@@ -22,7 +22,22 @@ class ProcessoAnexo extends Model
         'hash_sha256',
         'enviado_por',
         'documento_id',
+        'ordem',
+        'avaliacao',
+        'avaliacao_motivo',
+        'avaliado_por',
+        'avaliado_em',
     ];
+
+    protected function casts(): array
+    {
+        return ['avaliado_em' => 'datetime', 'downloads' => 'integer', 'ordem' => 'integer'];
+    }
+
+    public function avaliador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'avaliado_por');
+    }
 
     /** Documento do GED criado quando o anexo foi enviado para assinatura. */
     public function documento(): BelongsTo

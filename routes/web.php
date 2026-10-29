@@ -37,6 +37,9 @@ Route::post('email/descadastrar', [\App\Http\Controllers\DescadastroEmailControl
 
 // Rastreio de oficio (publico, sem auth)
 Route::get('oficios/rastrear/{token}', [OficioController::class, 'rastrear'])->name('oficios.rastrear');
+// Anexo de processo por link seguro com validade (TR 4.20.2) — público, só com a assinatura do link
+Route::get('anexos/compartilhado/{anexo}', [\App\Http\Controllers\AnexoProcessoController::class, 'compartilhado'])
+    ->whereNumber('anexo')->middleware(['signed', 'throttle:30,1'])->name('anexos.compartilhado');
 Route::get('oficios/rastrear/{token}/pdf', [OficioController::class, 'pdfPublico'])->middleware('throttle:30,1')->name('oficios.rastrear.pdf');
 Route::get('oficios/rastrear/{token}/aberto', [OficioController::class, 'pixelAbertura'])->middleware('throttle:60,1')->name('oficios.rastrear.aberto');
 
@@ -531,6 +534,13 @@ Route::middleware('auth')->group(function () {
     Route::get('processos/dashboard', [ProcessoDashboardController::class, '__invoke'])->name('processos.dashboard')->middleware('can:processo.visualizar');
     Route::get('processos/inbox', [TramitacaoController::class, 'inbox'])->name('processos.inbox')->middleware('can:processo.visualizar');
     Route::get('processos/anexos/{anexo}/download', [ProcessoController::class, 'downloadAnexo'])->name('processos.anexos.download')->middleware('can:processo.visualizar');
+    // Anexos: ZIP, ordem, avaliação e link seguro (TR 4.14.5, 4.20, 4.38.24–4.38.26)
+    Route::get('processos/{id}/anexos/zip', [\App\Http\Controllers\AnexoProcessoController::class, 'zip'])->whereNumber('id')->name('processos.anexos.zip')->middleware('can:processo.visualizar');
+    Route::middleware('can:processo.tramitar')->controller(\App\Http\Controllers\AnexoProcessoController::class)->group(function () {
+        Route::post('processos/{id}/anexos/ordem', 'ordenar')->whereNumber('id')->name('processos.anexos.ordem');
+        Route::post('processos/anexos/{anexo}/avaliar', 'avaliar')->whereNumber('anexo')->name('processos.anexos.avaliar');
+        Route::post('processos/anexos/{anexo}/link', 'link')->whereNumber('anexo')->name('processos.anexos.link');
+    });
     Route::post('processos/{id}/comentarios', [ProcessoController::class, 'comentar'])->name('processos.comentarios.store')->middleware('can:processo.visualizar');
     // Imagem de ajuda dos campos do formulário do assunto (TR 4.38.6)
     Route::get('processos/ajuda-imagem/{id}', [\App\Http\Controllers\Admin\TipoProcessoController::class, 'imagemAjuda'])

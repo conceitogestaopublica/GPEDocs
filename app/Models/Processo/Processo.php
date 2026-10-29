@@ -66,7 +66,8 @@ class Processo extends Model
 
     public function anexos(): HasMany
     {
-        return $this->hasMany(ProcessoAnexo::class);
+        // Na ordem que quem trata o processo definiu; os sem ordem, na ordem de chegada
+        return $this->hasMany(ProcessoAnexo::class)->orderByRaw('ordem is null')->orderBy('ordem')->orderBy('id');
     }
 
     public function comentarios(): HasMany

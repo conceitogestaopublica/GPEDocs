@@ -15,6 +15,7 @@ import Avatar from '../../../Components/Avatar';
 import QuemAcessou from '../../../Components/QuemAcessou';
 import SetoresMulti from '../../../Components/SetoresMulti';
 import PrazosDoProcesso from '../../../Components/PrazosDoProcesso';
+import AnexosDoProcesso from '../../../Components/AnexosDoProcesso';
 import AssinarModal from '../../../Components/AssinarModal';
 import { useConfirm, useAvisar } from '../../../Components/ConfirmProvider';
 
@@ -625,49 +626,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             </Card>
 
                             {/* Anexos */}
-                            <Card title={`Anexos (${anexos.length})`}>
-                                {anexos.length === 0 ? (
-                                    <p className="text-sm text-gray-400">Nenhum anexo</p>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {anexos.map((anexo, idx) => (
-                                            <div key={idx} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
-                                                <div className="flex items-center gap-3">
-                                                    <i className={`${getFileIcon(anexo.mime_type || anexo.tipo)} text-lg`} />
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-700">{anexo.nome || anexo.nome_original}</p>
-                                                        {anexo.tamanho && <p className="text-xs text-gray-400">{formatBytes(anexo.tamanho)}</p>}
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-3 shrink-0">
-                                                    {anexo.id && anexo.documento_id ? (
-                                                        <Link href={`/documentos/${anexo.documento_id}?aba=assinaturas`}
-                                                            className="text-xs text-emerald-700 hover:underline">
-                                                            <i className="fas fa-file-signature mr-1" />Ver assinaturas
-                                                        </Link>
-                                                    ) : anexo.id && (anexo.mime_type || '').includes('pdf') && (
-                                                        <button type="button"
-                                                            onClick={() => router.post(`/processos/anexos/${anexo.id}/enviar-assinatura`)}
-                                                            className="text-xs text-blue-600 hover:underline"
-                                                            title="Arquiva o anexo no GED e escolhe quem assina (servidores e externos por link)">
-                                                            <i className="fas fa-pen-nib mr-1" />Enviar para assinatura
-                                                        </button>
-                                                    )}
-                                                    <a
-                                                        href={anexo.url || `/processos/anexos/${anexo.id}/download${verAnexos ? '?inline=1' : ''}`}
-                                                        className="text-blue-600 hover:text-blue-800 transition-colors"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        title={verAnexos ? 'Abrir' : 'Baixar'}
-                                                    >
-                                                        <i className={`fas ${verAnexos ? 'fa-external-link-alt' : 'fa-download'}`} />
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </Card>
+                            <AnexosDoProcesso processoId={proc.id} anexos={anexos} podeOrganizar={pode_despachar} abrirDireto={verAnexos} />
                         </div>
                     </div>
                 )}
@@ -1655,6 +1614,7 @@ const ACOES_HISTORICO = {
     aos_cuidados: 'Aos cuidados', resolucao_setor: 'Setor resolveu a parte dele', estagio: 'Estágio',
     ciencia_copia: 'Ciência da cópia', decisao: 'Decisão', alteracao_assunto: 'Assunto alterado',
     prazo_criado: 'Prazo incluído', prazo_alterado: 'Prazo alterado', prazo_realizado: 'Prazo realizado', prazo_excluido: 'Prazo excluído',
+    anexos_reordenados: 'Anexos reordenados', anexo_avaliado: 'Anexo avaliado', link_anexo: 'Link seguro de anexo',
 };
 
 function formatDate(dateStr) {
