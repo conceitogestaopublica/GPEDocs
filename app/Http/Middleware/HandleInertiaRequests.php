@@ -42,6 +42,8 @@ class HandleInertiaRequests extends Middleware
                     'permissoes'  => $user->super_admin ? ['*'] : $user->permissoes(),
                 ] : null,
             ],
+            // Brasão e fundo da tela de acesso e cor do município (TR 4.22.1) — também antes do login
+            'identidade' => fn () => \App\Support\IdentidadeVisual::paraTela(),
             'flash' => [
                 'success'       => $request->session()->get('success'),
                 'error'         => $request->session()->get('error'),

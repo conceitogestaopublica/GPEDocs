@@ -44,6 +44,8 @@ class CatalogoController extends PortalApiController
                 'email'    => $ug->email_institucional,
                 'telefone' => $ug->telefone,
             ],
+            // Identidade visual do município para o portal (TR 4.22.1): cor predominante e brasão
+            'identidade' => array_intersect_key(\App\Support\IdentidadeVisual::paraTela(), ['cor' => 1, 'brasao_url' => 1]),
             'categorias' => $categorias->map(fn (CategoriaServico $c) => [
                 'slug'      => $c->slug,
                 'nome'      => $c->nome,

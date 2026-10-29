@@ -42,6 +42,9 @@ Route::get('anexos/compartilhado/{anexo}', [\App\Http\Controllers\AnexoProcessoC
     ->whereNumber('anexo')->middleware(['signed', 'throttle:30,1'])->name('anexos.compartilhado');
 Route::get('oficios/rastrear/{token}/pdf', [OficioController::class, 'pdfPublico'])->middleware('throttle:30,1')->name('oficios.rastrear.pdf');
 Route::get('oficios/rastrear/{token}/aberto', [OficioController::class, 'pixelAbertura'])->middleware('throttle:60,1')->name('oficios.rastrear.aberto');
+// Identidade visual na tela de acesso (TR 4.22.1): brasão e fundo, antes do login
+Route::get('identidade/brasao', [\App\Http\Controllers\Configuracao\IdentidadeVisualController::class, 'brasao'])->middleware('throttle:120,1')->name('identidade.brasao');
+Route::get('identidade/fundo', [\App\Http\Controllers\Configuracao\IdentidadeVisualController::class, 'fundo'])->middleware('throttle:120,1')->name('identidade.fundo');
 // Rastreio de e-mail externo (TR 4.11.12–14): pixel de abertura, clique e retorno do provedor
 Route::get('e/{token}/a', [\App\Http\Controllers\RastreioEmailController::class, 'aberto'])->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:120,1')->name('email.aberto');
 Route::get('e/{token}/l', [\App\Http\Controllers\RastreioEmailController::class, 'clique'])->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:120,1')->name('email.clique');
@@ -390,6 +393,9 @@ Route::middleware('auth')->group(function () {
         Route::resource('perfis', RoleController::class)->parameters(['perfis' => 'role'])->except(['create', 'edit', 'show'])->middleware('can:admin.roles');
 
         // Expediente e feriados — base do prazo em dias úteis (TR 4.13.9–4.13.11)
+        // Identidade visual do município (TR 4.22.1)
+        Route::get('identidade-visual', [\App\Http\Controllers\Configuracao\IdentidadeVisualController::class, 'index'])->name('identidade')->middleware('can:admin.configuracoes');
+        Route::post('identidade-visual', [\App\Http\Controllers\Configuracao\IdentidadeVisualController::class, 'salvar'])->name('identidade.salvar')->middleware('can:admin.configuracoes');
         Route::prefix('expediente')->name('expediente.')->middleware('can:admin.configuracoes')
             ->controller(\App\Http\Controllers\Configuracao\ExpedienteController::class)->group(function () {
                 Route::get('/', 'index')->name('index');

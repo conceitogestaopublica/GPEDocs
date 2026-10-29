@@ -16,6 +16,8 @@ const STORAGE_KEY = 'gpe_remember_email';
 
 export default function Login({ flash = {}, exige_captcha = false, provedores = [] }) {
     const erroEntrada = usePage().props.errors?.login;
+    // Brasão e fundo do município (TR 4.22.1)
+    const identidade = usePage().props.identidade || {};
     const { data, setData, post, processing, errors } = useForm({
         login: '',
         password: '',
@@ -48,8 +50,10 @@ export default function Login({ flash = {}, exige_captcha = false, provedores = 
 
             <div className="min-h-screen flex bg-white">
                 {/* ═══ ESQUERDA — Boas-vindas ═══ */}
-                <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-center px-16 xl:px-24
-                    bg-gradient-to-br from-cyan-50 via-white to-blue-50">
+                <div className={`hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-center px-16 xl:px-24 ${identidade.fundo_url ? 'bg-cover bg-center' : 'bg-gradient-to-br from-cyan-50 via-white to-blue-50'}`}
+                    style={identidade.fundo_url ? { backgroundImage: `url(${identidade.fundo_url})` } : undefined}>
+                    {/* Com imagem de fundo, uma camada clara mantém o texto legível */}
+                    {identidade.fundo_url && <div className="absolute inset-0 bg-white/75" />}
                     {/* blobs decorativos */}
                     <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-cyan-200/30 blur-3xl" />
                     <div className="absolute -bottom-32 -right-10 w-96 h-96 rounded-full bg-blue-200/30 blur-3xl" />
@@ -57,8 +61,11 @@ export default function Login({ flash = {}, exige_captcha = false, provedores = 
                     <div className="relative">
                         {/* Mesmo arquivo de logo do GPE Cloud usado no gpe2 e no tributário — a
                             nuvem desenhada à mão divergia da marca no primeiro retoque. */}
+                        {identidade.brasao_url && (
+                            <img src={identidade.brasao_url} alt="Brasão do município" className="h-24 xl:h-28 w-auto mb-6 select-none drop-shadow" />
+                        )}
                         <img src="/images/logo-gpe-cloud-full.png" alt="GPE Cloud — Gestão Pública Eficiente"
-                            className="h-24 xl:h-28 w-auto mb-10 select-none" />
+                            className={`w-auto mb-10 select-none ${identidade.brasao_url ? 'h-12 xl:h-14' : 'h-24 xl:h-28'}`} />
 
                         <h1 className="text-4xl font-extrabold leading-tight text-slate-800">Bem-vindo de volta!</h1>
                         <p className="mt-3 text-lg text-slate-500 max-w-md">
@@ -83,7 +90,8 @@ export default function Login({ flash = {}, exige_captcha = false, provedores = 
                 <div className="w-full lg:w-1/2 flex items-center justify-center px-6 sm:px-10 py-12">
                     <div className="w-full max-w-md">
                         {/* Logo + marca */}
-                        <div className="mb-8 lg:hidden">
+                        <div className="mb-8 lg:hidden flex items-center gap-3">
+                            {identidade.brasao_url && <img src={identidade.brasao_url} alt="Brasão do município" className="h-14 w-auto" />}
                             <img src="/images/logo-gpe-cloud-full.png" alt="GPE Cloud" className="h-11 w-auto" />
                         </div>
 
