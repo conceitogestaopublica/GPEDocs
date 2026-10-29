@@ -6,7 +6,6 @@ namespace App\Jobs;
 
 use App\Mail\AvisoServidor;
 use App\Models\Notificacao;
-use App\Support\PreferenciasUsuario;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Throwable;

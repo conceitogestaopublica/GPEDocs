@@ -25,6 +25,8 @@ final class PreferenciasUsuario
         'canais'           => ['email' => 'direcionado', 'sms' => 'nada'],
         'email_mencao'     => true,
         'email_assinatura' => true,
+        // E-mails que enviei para fora: de quais módulos quero aviso em cada evento (TR 4.11.7–4.11.10)
+        'rastreio'         => ['falha' => ['oficio', 'mencao', 'assinatura', 'cidadao'], 'entrega' => [], 'abertura' => ['oficio'], 'clique' => ['oficio', 'assinatura']],
     ];
 
     /** @return array{editor: string, anexos: string, canais: array{email: string, sms: string}, email_mencao: bool, email_assinatura: bool} */
@@ -37,6 +39,7 @@ final class PreferenciasUsuario
         }
         $p = array_replace(self::PADRAO, array_intersect_key($salvas, self::PADRAO));
         $p['canais'] = array_replace(self::PADRAO['canais'], array_intersect_key((array) $p['canais'], self::PADRAO['canais']));
+        $p['rastreio'] = array_replace(self::PADRAO['rastreio'], array_intersect_key((array) $p['rastreio'], self::PADRAO['rastreio']));
 
         return $p;
     }

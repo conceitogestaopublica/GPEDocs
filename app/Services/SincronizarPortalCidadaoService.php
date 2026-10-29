@@ -77,14 +77,15 @@ class SincronizarPortalCidadaoService
             $pdfAssinado = $this->localizarPdfAssinado($processo->documento_decisao_id);
         }
 
-        Mail::to($email)->send(new NotificacaoSolicitacaoCidadao(
+        // Rastreado (TR 4.11.12)
+        \App\Support\RastreioEmail::enviar(new NotificacaoSolicitacaoCidadao(
             $solicitacao->fresh(),
             $solicitacao->servico,
             $solicitacao->ug,
             'status_alterado',
             null,
             $pdfAssinado,
-        ));
+        ), $email, 'cidadao', "Solicitação {$solicitacao->codigo}", 'solicitacao', $solicitacao->id, null);
     }
 
     /**

@@ -32,6 +32,7 @@ export default function QuemAcessou({ acessos = [], className = 'mt-6' }) {
                                     {a.externo
                                         ? <span className="ml-2 text-[10px] font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2 py-0.5">externo</span>
                                         : a.setor && <span className="block text-xs text-gray-500">{a.setor}</span>}
+                                    {a.dispositivo && <span className="block text-[11px] text-gray-400"><i className={`fas ${a.dispositivo.startsWith('Celular') ? 'fa-mobile-screen' : a.dispositivo.startsWith('Tablet') ? 'fa-tablet-screen-button' : 'fa-desktop'} mr-1`} />{a.dispositivo}</span>}
                                 </td>
                                 <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">{data(a.primeiro_em)}</td>
                                 <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">{data(a.ultimo_em)}</td>

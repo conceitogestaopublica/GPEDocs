@@ -37,6 +37,8 @@ class Oficio extends Model
         'destinatario_email',
         'destinatario_cargo',
         'destinatario_orgao',
+        'destinatario_celular',
+        'avisar_sms',
         'status',
         'enviado_em',
         'entregue_em',

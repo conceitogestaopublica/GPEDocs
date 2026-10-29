@@ -23,6 +23,7 @@ class PreferenciasController extends Controller
             'abrangencias' => \App\Support\Notificacoes::ABRANGENCIAS,
             'emails'       => array_values(array_filter([$user->email, $user->email_secundario])),
             'celular'      => $user->telefone,
+            'rastreio'     => ['modulos' => \App\Support\RastreioEmail::MODULOS, 'eventos' => \App\Support\RastreioEmail::EVENTOS],
         ]);
     }
 
@@ -35,7 +36,12 @@ class PreferenciasController extends Controller
             'canais.sms'       => ['required', Rule::in(array_keys(\App\Support\Notificacoes::ABRANGENCIAS))],
             'email_mencao'     => ['boolean'],
             'email_assinatura' => ['boolean'],
+            'rastreio'         => ['array'],
+            'rastreio.*'       => ['array'],
+            'rastreio.*.*'     => [Rule::in(array_keys(\App\Support\RastreioEmail::MODULOS))],
         ]);
+        $dados['rastreio'] = collect(\App\Support\RastreioEmail::EVENTOS)->keys()
+            ->mapWithKeys(fn ($e) => [$e => array_values(array_unique($dados['rastreio'][$e] ?? []))])->all();
         $dados['email_mencao'] = (bool) ($dados['email_mencao'] ?? false);
         $dados['email_assinatura'] = (bool) ($dados['email_assinatura'] ?? false);
 

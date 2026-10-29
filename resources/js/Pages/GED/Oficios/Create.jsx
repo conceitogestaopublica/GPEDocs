@@ -38,6 +38,8 @@ export default function OficiosCreate({ setores = [], autorizacoes = [], variave
         destinatario_email: '',
         destinatario_cargo: '',
         destinatario_orgao: '',
+        destinatario_celular: '',
+        avisar_sms: false,
         setor_origem: '',
         em_nome_de: '',
         contrassenha: '',
@@ -60,6 +62,8 @@ export default function OficiosCreate({ setores = [], autorizacoes = [], variave
         formData.append('destinatario_email', data.destinatario_email);
         formData.append('destinatario_cargo', data.destinatario_cargo);
         formData.append('destinatario_orgao', data.destinatario_orgao);
+        formData.append('destinatario_celular', data.destinatario_celular || '');
+        formData.append('avisar_sms', data.avisar_sms && ! isFisico ? '1' : '0');
         formData.append('setor_origem', data.setor_origem);
         if (data.em_nome_de) {
             formData.append('em_nome_de', data.em_nome_de);
@@ -225,6 +229,23 @@ export default function OficiosCreate({ setores = [], autorizacoes = [], variave
                                     {errors.destinatario_orgao && <p className="text-xs text-red-500 mt-1">{errors.destinatario_orgao}</p>}
                                 </div>
                             </div>
+
+                            {/* SMS junto com o envio oficial por e-mail (TR 4.47.2) */}
+                            {! isFisico && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Celular do destinatário</label>
+                                        <input type="tel" value={data.destinatario_celular} onChange={(e) => setData('destinatario_celular', e.target.value)}
+                                            className="ds-input" placeholder="(31) 99999-0000" />
+                                        {errors.destinatario_celular && <p className="text-xs text-red-500 mt-1">{errors.destinatario_celular}</p>}
+                                    </div>
+                                    <label className={`flex items-center gap-2 text-sm pb-2 ${data.destinatario_celular ? 'text-gray-700 cursor-pointer' : 'text-gray-400'}`}>
+                                        <input type="checkbox" disabled={! data.destinatario_celular} checked={data.avisar_sms && !! data.destinatario_celular}
+                                            onChange={(e) => setData('avisar_sms', e.target.checked)} className="rounded border-gray-300 text-cyan-600" />
+                                        Avisar também por SMS, com o link do ofício
+                                    </label>
+                                </div>
+                            )}
 
                             {/* Setor Origem */}
                             <div>

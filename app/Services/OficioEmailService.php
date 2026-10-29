@@ -49,6 +49,11 @@ class OficioEmailService
             'status'             => in_array($oficio->status, ['enviado', null], true) ? 'entregue' : $oficio->status,
         ])->save();
 
+        // Opção de SMS com o envio oficial (TR 4.47.2): link do mesmo rastreio do e-mail
+        if ($oficio->avisar_sms && $oficio->destinatario_celular) {
+            \App\Support\Sms::enfileirar($oficio->destinatario_celular, "Ofício {$oficio->numero} enviado ao seu e-mail. Leia: " . url("/oficios/rastrear/{$oficio->rastreio_token}"), 'oficio', $oficio->id);
+        }
+
         return true;
     }
 
@@ -74,6 +79,22 @@ class OficioEmailService
             'email_aberto_em' => now(),
             'entregue_em'     => $oficio->entregue_em ?? now(),
         ])->save();
+
+        if ($this->remetenteQuer($oficio, 'abertura')) {
+            Notificacao::create([
+                'usuario_id' => $oficio->remetente_id, 'tipo' => 'email_aberto', 'titulo' => 'E-mail do ofício aberto',
+                'mensagem' => "O e-mail do ofício {$oficio->numero} foi aberto por {$oficio->destinatario_nome}.",
+                'referencia_tipo' => 'oficio', 'referencia_id' => $oficio->id, 'lida' => false,
+            ]);
+        }
+    }
+
+    /** O remetente quer saber deste evento dos e-mails de ofício? (Meu perfil › Preferências, TR 4.11.7–10) */
+    private function remetenteQuer(Oficio $oficio, string $evento): bool
+    {
+        $user = $oficio->remetente_id ? \App\Models\User::find($oficio->remetente_id) : null;
+
+        return $user && in_array('oficio', \App\Support\PreferenciasUsuario::de($user)['rastreio'][$evento] ?? [], true);
     }
 
     /** Link do e-mail acessado: é a leitura do ofício. Avisa o remetente na primeira vez. */
@@ -88,6 +109,9 @@ class OficioEmailService
             'status'      => in_array($oficio->status, ['enviado', 'entregue'], true) ? 'lido' : $oficio->status,
         ])->save();
 
+        if (! $this->remetenteQuer($oficio, 'clique')) {
+            return;
+        }
         Notificacao::create([
             'usuario_id'      => $oficio->remetente_id,
             'tipo'            => 'oficio_lido',
@@ -102,6 +126,9 @@ class OficioEmailService
     private function registrarFalha(Oficio $oficio, string $motivo): bool
     {
         $oficio->forceFill(['email_status' => 'falhou', 'email_falha_motivo' => $motivo])->save();
+        if (! $this->remetenteQuer($oficio, 'falha')) {
+            return false;   // a falha fica na tela do ofício; o aviso foi desligado pelo remetente
+        }
 
         Notificacao::create([
             'usuario_id'      => $oficio->remetente_id,

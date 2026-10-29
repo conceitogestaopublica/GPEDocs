@@ -180,11 +180,9 @@ final class Marcadores
     private static function avisarExterno(object $c, string $tipo, int $id, Model $doc, User $autor, string $rotulo): void
     {
         $link = URL::temporarySignedRoute('documentos-redigidos.publico', now()->addDays(30), ['tipo' => $tipo, 'id' => $id]);
-        try {
-            Mail::to($c->email)->send(new MencaoExterna($c->nome, $autor->name, $rotulo, (string) $doc->assunto, $link, $doc->ug_id));
-        } catch (\Throwable $e) {
-            Log::warning('E-mail de menção a contato falhou', ['contato' => $c->id, 'erro' => $e->getMessage()]);
-        }
+        // Rastreado (TR 4.11.12): quem mencionou sabe se chegou, se abriu e se acessou o link
+        RastreioEmail::enviar(new MencaoExterna($c->nome, $autor->name, $rotulo, (string) $doc->assunto, $link, $doc->ug_id),
+            $c->email, 'mencao', "Menção no {$rotulo}", $tipo, $id, $autor->id);
     }
 
     private static function documentoExiste(string $tipo, int $id): bool

@@ -11,12 +11,13 @@
             <p style="margin-top:0;">Olá, {{ $nome }}.</p>
             <p>{{ $autor }} citou você no <strong>{{ $documento }}</strong>@if ($assunto) — {{ $assunto }}@endif.</p>
             <p style="margin:24px 0;">
-                <a href="{{ $link }}" style="background:#0891b2; color:#fff; text-decoration:none; padding:10px 18px; border-radius:8px; font-weight:bold;">Ver o documento</a>
+                <a href="{{ $linkRastreado ?? $link }}" style="background:#0891b2; color:#fff; text-decoration:none; padding:10px 18px; border-radius:8px; font-weight:bold;">Ver o documento</a>
             </p>
             <p style="font-size:12px; color:#6b7280; border-top:1px solid #e5e7eb; padding-top:12px; margin-bottom:0;">
                 O link vale por 30 dias. Se você não esperava esta mensagem, pode ignorá-la.
             </p>
         </div>
     </div>
+@if (! empty($pixel))<img src="{{ $pixel }}" width="1" height="1" alt="" style="display:block;border:0">@endif
 </body>
 </html>

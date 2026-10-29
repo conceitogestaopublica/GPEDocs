@@ -47,7 +47,7 @@ final class Acessos
             ->leftJoin('ug_organograma as o', 'o.id', '=', 'u.unidade_id')
             ->where('a.tipo', $tipo)->where('a.item_id', $itemId)
             ->orderByDesc('a.ultimo_em')
-            ->get(['a.usuario_id', 'u.name', 'o.nome as setor', 'a.externo_nome', 'a.primeiro_em', 'a.ultimo_em', 'a.vezes'])
+            ->get(['a.usuario_id', 'u.name', 'o.nome as setor', 'a.externo_nome', 'a.primeiro_em', 'a.ultimo_em', 'a.vezes', 'a.user_agent'])
             ->map(fn ($a) => [
                 'nome'        => $a->name ?? $a->externo_nome,
                 'setor'       => $a->setor,
@@ -55,6 +55,8 @@ final class Acessos
                 'primeiro_em' => \Illuminate\Support\Carbon::parse($a->primeiro_em)->toIso8601String(),
                 'ultimo_em'   => \Illuminate\Support\Carbon::parse($a->ultimo_em)->toIso8601String(),
                 'vezes'       => (int) $a->vezes,
+                // Computador ou celular e o aparelho (TR 4.11.14)
+                'dispositivo' => $a->user_agent ? Dispositivo::descrever($a->user_agent) : null,
             ])->all();
     }
 }

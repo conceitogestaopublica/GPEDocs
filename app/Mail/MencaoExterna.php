@@ -13,6 +13,7 @@ use Illuminate\Queue\SerializesModels;
 class MencaoExterna extends Mailable
 {
     use Queueable, SerializesModels;
+    use Concerns\ComRastreio;
 
     public function __construct(
         public string $nome,
@@ -28,8 +29,10 @@ class MencaoExterna extends Mailable
     {
         $orgao = ($this->ugId ? Ug::withoutGlobalScopes()->find($this->ugId)?->nome : null) ?? config('app.name');
 
+        $r = $this->aplicarRastreio($this->link);   // TR 4.11.12
+
         return $this->subject("[{$orgao}] Você foi citado no {$this->documento}")
             ->view('emails.mencao_externa')
-            ->with(['orgao' => $orgao]);
+            ->with(['orgao' => $orgao, 'linkRastreado' => $r['link'], 'pixel' => $r['pixel']]);
     }
 }

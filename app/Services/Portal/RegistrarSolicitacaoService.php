@@ -76,11 +76,14 @@ class RegistrarSolicitacaoService
         // desfaz a solicitação já registrada.
         if (! $anonima && $solicitacao->email_contato && ! \App\Support\DescadastroEmail::descadastrado($solicitacao->email_contato)) {
             try {
-                Mail::to($solicitacao->email_contato)
-                    ->send(new NotificacaoSolicitacaoCidadao($solicitacao, $servico, $ug, 'criada'));
+                \App\Support\RastreioEmail::enviar(new NotificacaoSolicitacaoCidadao($solicitacao, $servico, $ug, 'criada'),
+                    $solicitacao->email_contato, 'cidadao', "Solicitação {$solicitacao->codigo}", 'solicitacao', $solicitacao->id, null);
             } catch (Throwable $e) {
                 Log::warning('Aviso de solicitação não enviado', ['solicitacao_id' => $solicitacao->id, 'erro' => $e->getMessage()]);
             }
+        }
+        if (! $anonima) {
+            \App\Support\SmsCidadao::solicitacao($solicitacao, 'criada');   // TR 4.11.1
         }
 
         return $solicitacao;

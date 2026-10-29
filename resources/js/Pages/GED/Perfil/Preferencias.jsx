@@ -19,9 +19,13 @@ function Opcao({ nome, valor, atual, onChange, titulo, descricao }) {
     );
 }
 
-export default function Preferencias({ preferencias, abrangencias = {}, emails, celular = null }) {
+export default function Preferencias({ preferencias, abrangencias = {}, emails, celular = null, rastreio = { modulos: {}, eventos: {} } }) {
     const { data, setData, post, processing, isDirty } = useForm(preferencias);
     const canal = (c, v) => setData('canais', { ...data.canais, [c]: v });
+    const marcaRastreio = (ev, mod) => {
+        const atual = data.rastreio?.[ev] || [];
+        setData('rastreio', { ...data.rastreio, [ev]: atual.includes(mod) ? atual.filter((m) => m !== mod) : [...atual, mod] });
+    };
 
     return (
         <AdminLayout>
@@ -84,6 +88,32 @@ export default function Preferencias({ preferencias, abrangencias = {}, emails, 
                             <input type="checkbox" checked={!! data.email_assinatura} onChange={(e) => setData('email_assinatura', e.target.checked)} className="rounded border-gray-300 text-cyan-600" />
                             E-mail quando pedirem a minha assinatura
                         </label>
+                    </div>
+                </div>
+
+                <div className="ds-card p-5">
+                    <p className="text-sm font-semibold text-gray-800"><i className="fas fa-envelope-circle-check mr-2 text-cyan-600" />E-mails que eu envio para fora</p>
+                    <p className="text-xs text-gray-500 mt-1 mb-3">Avise-me quando um e-mail destes módulos for entregue, aberto, tiver o link acessado ou falhar.</p>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                            <thead><tr className="text-xs text-gray-500 text-left">
+                                <th className="py-1 pr-3 font-medium">Módulo</th>
+                                {Object.values(rastreio.eventos).map((r) => <th key={r} className="py-1 px-2 font-medium text-center">{r}</th>)}
+                            </tr></thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {Object.entries(rastreio.modulos).map(([mod, rot]) => (
+                                    <tr key={mod}>
+                                        <td className="py-2 pr-3 text-gray-800">{rot}</td>
+                                        {Object.keys(rastreio.eventos).map((ev) => (
+                                            <td key={ev} className="text-center">
+                                                <input type="checkbox" aria-label={`${rot}: ${rastreio.eventos[ev]}`} checked={(data.rastreio?.[ev] || []).includes(mod)}
+                                                    onChange={() => marcaRastreio(ev, mod)} className="rounded border-gray-300 text-cyan-600" />
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 

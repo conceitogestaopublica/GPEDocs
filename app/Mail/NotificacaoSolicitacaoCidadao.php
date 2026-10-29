@@ -14,7 +14,7 @@ use Illuminate\Queue\SerializesModels;
 class NotificacaoSolicitacaoCidadao extends Mailable
 {
     use Queueable, SerializesModels;
-    use Concerns\ComDescadastro;
+    use Concerns\ComDescadastro, Concerns\ComRastreio;
 
     public function __construct(
         public Solicitacao $solicitacao,
@@ -46,7 +46,9 @@ class NotificacaoSolicitacaoCidadao extends Mailable
                 'evento'         => $this->evento,
                 'mensagemExtra'  => $this->mensagemExtra,
                 'statusLabel'    => Solicitacao::STATUS[$this->solicitacao->status] ?? $this->solicitacao->status,
-                'urlPortal'      => 'http://'.$this->ug->portal_slug.'.'.parse_url(config('app.url'), PHP_URL_HOST),
+                'urlPortal'      => $urlPortal = 'http://'.$this->ug->portal_slug.'.'.parse_url(config('app.url'), PHP_URL_HOST),
+                // Link da solicitação rastreado (TR 4.11.12)
+                ...(fn ($r) => ['linkSolicitacao' => $r['link'], 'pixel' => $r['pixel']])($this->aplicarRastreio($urlPortal . '/minhas-solicitacoes/' . $this->solicitacao->id)),
                 'temPdfAssinado' => $this->pdfAssinado !== null,
             ]);
 

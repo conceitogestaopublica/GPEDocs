@@ -52,6 +52,11 @@ class Notificacao extends Model
             try {
                 $dominio = app()->runningInConsole() ? null : request()->getSchemeAndHttpHost();
                 AvisarServidorPorEmail::dispatch($n->id, $dominio)->afterCommit();
+                // SMS conforme a abrangência que o servidor escolheu para o canal (TR 4.11.4)
+                $u = $n->usuario;
+                if ($u && $u->telefone && ! $u->suspenso_em && \App\Support\Notificacoes::quer($u, $n, 'sms')) {
+                    \App\Support\Sms::enfileirar($u->telefone, "{$n->titulo}: {$n->mensagem}", 'notificacao', $n->id, $u->id);
+                }
             } catch (Throwable $e) {
                 // Sem prefeitura ativa (comando de console) ou fila fora: o aviso interno basta
                 Log::info('Aviso por e-mail não enfileirado', ['notificacao' => $n->id, 'motivo' => $e->getMessage()]);

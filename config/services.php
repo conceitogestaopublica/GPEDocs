@@ -62,4 +62,7 @@ return [
         'escopos'       => 'openid email profile',
     ],
 
+    // Retorno de entrega/falha do provedor de e-mail (TR 4.11.12–13): POST /webhooks/email/{segredo}
+    'email_webhook' => ['segredo' => env('EMAIL_WEBHOOK_SECRET')],
+
 ];
