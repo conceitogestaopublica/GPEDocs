@@ -367,6 +367,9 @@ function ItemRow({ item, onAssinar, onArquivar }) {
                         {! item.lido && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold uppercase">Novo</span>
                         )}
+                        {item.copia && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold uppercase" title="Cópia para ciência">Cópia</span>
+                        )}
                         {statusBadge && (
                             <span className={`text-[9px] px-1.5 py-0.5 rounded ${statusBadge.bg} ${statusBadge.text} font-bold uppercase`}>
                                 {statusBadge.label}

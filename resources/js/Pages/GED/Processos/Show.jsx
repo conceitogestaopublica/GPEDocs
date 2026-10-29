@@ -4,7 +4,7 @@
  * Detalhes completos, timeline de tramitacao, despacho e comentarios.
  */
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
@@ -66,7 +66,8 @@ const tabList = [
     { key: 'historico', label: 'Histórico', icon: 'fas fa-history' },
 ];
 
-export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null }) {
+export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
+    etapa_acao = null, pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
     // Meu perfil › Preferências: abrir anexo no navegador ou baixar
@@ -79,7 +80,8 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     const requerente = proc.requerente || {};
     const tipoProcesso = proc.tipo_processo || {};
     const templatesDespacho = tipoProcesso.templates_despacho || [];
-    const etapaAtual = proc.etapa_atual || tramitacoes
+    // Etapa em que ESTE usuário age (o processo pode estar em vários setores ao mesmo tempo)
+    const etapaAtual = etapa_acao || proc.etapa_atual || tramitacoes
         .filter(t => t.status === 'pendente' || t.status === 'recebido')
         .reduce((ult, t) => (!ult || t.id > ult.id ? t : ult), null);
     const userList = usuarios || [];
@@ -163,6 +165,12 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
         files: [],
     });
     const [despacharFiles, setDespacharFiles] = useState([]);
+    // Multissetorial (TR 4.9.4) e cópia (TR 4.9.14)
+    const [outrosSetores, setOutrosSetores] = useState([]);
+    const [copiasSetores, setCopiasSetores] = useState([]);
+    const [parecerSetor, setParecerSetor] = useState('');
+    const [estagio, setEstagio] = useState('');
+    useEffect(() => setEstagio(etapaAtual?.estagio || ''), [etapaAtual?.id, etapaAtual?.estagio]);
 
     // Combobox de setor (busca + dropdown)
     const [setorSearch, setSetorSearch] = useState('');
@@ -220,18 +228,21 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
         e.preventDefault();
         if (!etapaAtual) return;
 
-        const formData = new FormData();
-        formData.append('destinatario_id', despacharForm.data.destinatario_id);
-        formData.append('setor_destino', despacharForm.data.setor_destino);
-        formData.append('despacho', despacharForm.data.despacho);
-        despacharFiles.forEach((file, i) => formData.append(`files[${i}]`, file));
-
+        // O useForm envia os dados dele (a opção `data` é ignorada): o que fica fora do
+        // form — anexos, outros setores, cópias — entra pelo transform.
+        despacharForm.transform((d) => ({
+            ...d,
+            files: despacharFiles,
+            outros_setores: outrosSetores,
+            copias: copiasSetores,
+        }));
         despacharForm.post(`/tramitacoes/${etapaAtual.id}/despachar`, {
-            data: formData,
             forceFormData: true,
             onSuccess: () => {
                 despacharForm.reset();
                 setDespacharFiles([]);
+                setOutrosSetores([]);
+                setCopiasSetores([]);
             },
         });
     };
@@ -286,6 +297,20 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                     ) : (
                         <span className="text-xs text-purple-600 italic">Outro signatário esta assinando.</span>
                     )}
+                </div>
+            )}
+
+            {/* Cópia para ciência (TR 4.9.14) */}
+            {copia_pendente && (
+                <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-start gap-2 text-sm text-sky-900">
+                        <i className="fas fa-copy mt-0.5" />
+                        <span>Cópia enviada a <b>{copia_pendente.setor_destino}</b> para ciência. O processo segue com os setores que o tratam.</span>
+                    </div>
+                    <Button variant="primary" icon="fas fa-check"
+                        onClick={() => router.post(`/tramitacoes/${copia_pendente.id}/ciente`, {}, { preserveScroll: true })}>
+                        Ciente
+                    </Button>
                 </div>
             )}
 
@@ -451,19 +476,19 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                         {cuidados.responsavel ? `Aos cuidados de ${cuidados.responsavel.name.split(' ')[0]}` : 'Aos cuidados'}
                                     </Button>
                                 )}
-                                {pode_concluir && (
+                                {(pode_despachar || pode_concluir) && (
                                     <Button variant="primary" icon="fas fa-bolt"
                                         onClick={() => setActiveTab('tramitacao')}>
                                         Tramitar
                                     </Button>
                                 )}
-                                {pode_concluir && (
+                                {pode_cancelar && (
                                     <Button variant="danger" icon="fas fa-ban"
                                         onClick={() => setShowCancelarModal(true)}>
                                         Cancelar
                                     </Button>
                                 )}
-                                {! pode_concluir && (
+                                {! pode_despachar && ! pode_concluir && (
                                     <span className="text-xs text-gray-500 italic">
                                         <i className="fas fa-clock mr-1" />
                                         Aguardando ação do destino atual
@@ -586,6 +611,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                 {/* ── Tab: Tramitacao (Timeline + Acoes) ── */}
                 {activeTab === 'tramitacao' && (
                     <div className="space-y-4">
+                    {frentes && <SituacaoSetores frentes={frentes} statusProcesso={proc.status} />}
                     <Card title="Histórico de Tramitação">
                         {tramitacoes.length === 0 ? (
                             <div className="py-8 text-center text-gray-400">
@@ -629,6 +655,12 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                                 }`}>
                                                                     {tram.status}
                                                                 </span>
+                                                                {tram.modo === 'copia' && (
+                                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-sky-100 text-sky-700">cópia</span>
+                                                                )}
+                                                                {tram.estagio && isPending && (
+                                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-violet-100 text-violet-700">{tram.estagio}</span>
+                                                                )}
                                                             </div>
                                                             <p className="text-xs text-gray-500 flex items-center flex-wrap gap-1.5">
                                                                 <Avatar usuario={tram.remetente} nome={tram.remetente_nome} tamanho="sm" />
@@ -675,14 +707,36 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                     </Card>
 
                     {/* Painel de acao unificado */}
-                    {pode_concluir && ! ['concluido', 'cancelado', 'aguardando_assinatura'].includes(proc.status) && (
+                    {(pode_despachar || pode_concluir) && ! ['concluido', 'cancelado', 'aguardando_assinatura'].includes(proc.status) && (
                     <Card title="O que você deseja fazer?" className="overflow-visible">
+                        {/* Estágio da etapa no setor (TR 4.9.4) */}
+                        {pode_despachar && etapaAtual && (
+                            <div className="flex flex-wrap items-end gap-2 mb-4 pb-4 border-b border-gray-100">
+                                <div className="flex-1 min-w-[240px]">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Estágio no setor <span className="text-gray-400 text-xs">({etapaAtual.setor_destino})</span>
+                                    </label>
+                                    <input list="estagios-processo" value={estagio} onChange={(e) => setEstagio(e.target.value)}
+                                        maxLength={60} placeholder="Ex.: Em análise" className="ds-input" />
+                                    <datalist id="estagios-processo">{estagios.map(e => <option key={e} value={e} />)}</datalist>
+                                </div>
+                                <Button type="button" variant="secondary" disabled={(estagio || '') === (etapaAtual.estagio || '')}
+                                    onClick={() => router.post(`/tramitacoes/${etapaAtual.id}/estagio`, { estagio }, { preserveScroll: true })}>
+                                    Salvar estágio
+                                </Button>
+                            </div>
+                        )}
                         {/* Mode picker */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
                             {[
                                 { v: 'encaminhar', icone: 'fa-paper-plane', cor: 'blue',    titulo: 'Encaminhar',         desc: 'Mandar para outro setor/pessoa' },
+                                ...(pode_resolver ? [
+                                { v: 'resolver',   icone: 'fa-check-double', cor: 'emerald', titulo: 'Resolver a parte do setor', desc: 'O processo segue nos outros setores' },
+                                ] : []),
+                                ...(pode_cancelar ? [
                                 { v: 'decidir',    icone: 'fa-gavel',       cor: 'emerald', titulo: 'Decidir e Encerrar', desc: 'Deferir/Indeferir/Parcial' },
                                 { v: 'arquivar',   icone: 'fa-archive',     cor: 'gray',    titulo: 'Arquivar',           desc: 'Encerrar sem decisão formal' },
+                                ] : []),
                             ].map(op => {
                                 const ativo = acaoMode === op.v;
                                 const corMap = { blue: 'border-blue-500 bg-blue-50', emerald: 'border-emerald-500 bg-emerald-50', gray: 'border-gray-500 bg-gray-50' };
@@ -795,6 +849,18 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                         </div>
                                     </div>
 
+                                    {/* Outros setores em paralelo e cópias (TR 4.9.4, 4.9.14) */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <SetoresMulti titulo="Outros setores que também vão tratar"
+                                            ajuda="Cada um tramita e resolve a sua parte; o processo só é concluído quando todos resolverem."
+                                            unidades={unidadesTree} valor={outrosSetores} onChange={setOutrosSetores}
+                                            excluir={[despacharForm.data.setor_destino, ...copiasSetores]} />
+                                        <SetoresMulti titulo="Com cópia para"
+                                            ajuda="Só para ciência: o setor recebe na caixa e marca como ciente; o processo não espera por ele."
+                                            unidades={unidadesTree} valor={copiasSetores} onChange={setCopiasSetores}
+                                            excluir={[despacharForm.data.setor_destino, ...outrosSetores]} />
+                                    </div>
+
                                     {/* Templates de despacho */}
                                     {templatesDespacho.length > 0 && (
                                         <div>
@@ -881,8 +947,37 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             </form>
                         ))}
 
+                        {/* Multissetorial: só encerra depois que todos os setores resolveram (TR 4.9.5) */}
+                        {(acaoMode === 'decidir' || acaoMode === 'arquivar') && ! pode_concluir && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800 flex items-start gap-2">
+                                <i className="fas fa-hourglass-half mt-0.5" />
+                                <p>O processo só pode ser encerrado depois que todos os setores resolverem a parte deles. Falta: <strong>{aguardando_setores.join(', ')}</strong>.</p>
+                            </div>
+                        )}
+
+                        {/* Modo: Resolver a parte do setor (frente que não é a principal) */}
+                        {acaoMode === 'resolver' && pode_resolver && etapaAtual && (
+                            <div className="space-y-4">
+                                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 flex items-start gap-2">
+                                    <i className="fas fa-info-circle mt-0.5" />
+                                    <p>Encerra só a parte de <strong>{etapaAtual.setor_destino}</strong>. O processo continua com os outros setores e é concluído pelo fluxo principal quando todos tiverem resolvido.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">O que o setor fez <span className="text-red-500">*</span></label>
+                                    <textarea value={parecerSetor} onChange={(e) => setParecerSetor(e.target.value)} rows={4}
+                                        className="ds-input !h-auto" placeholder="Parecer, providências tomadas, resultado..." />
+                                </div>
+                                <Button type="button" variant="primary" icon="fas fa-check-double" disabled={! parecerSetor.trim()}
+                                    onClick={() => router.post(`/tramitacoes/${etapaAtual.id}/resolver`, { parecer: parecerSetor }, {
+                                        preserveScroll: true, onSuccess: () => setParecerSetor(''),
+                                    })}>
+                                    Resolver a parte do setor
+                                </Button>
+                            </div>
+                        )}
+
                         {/* Modo: Decidir e Encerrar */}
-                        {acaoMode === 'decidir' && (
+                        {acaoMode === 'decidir' && pode_concluir && (
                             <div className="space-y-4">
                                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 flex items-start gap-2">
                                     <i className="fas fa-info-circle mt-0.5" />
@@ -987,7 +1082,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                         )}
 
                         {/* Modo: Arquivar */}
-                        {acaoMode === 'arquivar' && (
+                        {acaoMode === 'arquivar' && pode_concluir && (
                             <div className="space-y-4">
                                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-start gap-2">
                                     <i className="fas fa-exclamation-triangle mt-0.5" />
@@ -1223,11 +1318,97 @@ function getFileIcon(mime) {
     return 'fas fa-file text-gray-400';
 }
 
+/**
+ * Situação geral do processo multissetorial (TR 4.9.4, 4.9.5): cada setor que trata a sua
+ * parte, em que estágio está, se já resolveu; e as cópias com ou sem ciência.
+ */
+function SituacaoSetores({ frentes, statusProcesso }) {
+    const setores = frentes.setores || [];
+    const resolvidos = setores.filter(s => s.frente !== 1 && s.situacao === 'resolvido').length;
+    const outros = setores.filter(s => s.frente !== 1).length;
+    const final = ['concluido', 'cancelado'].includes(statusProcesso);
+    const geral = final ? (statusProcesso === 'concluido' ? 'Concluído' : 'Cancelado')
+        : outros > 0 && resolvidos === outros ? 'Todos os setores resolveram — falta concluir'
+        : resolvidos > 0 ? 'Parcialmente resolvido' : 'Em andamento';
+    const rotulo = { em_andamento: 'Em andamento', resolvido: 'Resolvido', concluido: 'Concluído', cancelado: 'Cancelado', despachado: 'Despachado', devolvido: 'Devolvido' };
+    const cor = { em_andamento: 'bg-blue-100 text-blue-700', resolvido: 'bg-green-100 text-green-700', concluido: 'bg-green-100 text-green-700', cancelado: 'bg-gray-100 text-gray-600' };
+
+    return (
+        <Card title="Situação por setor">
+            <p className="text-sm text-gray-700 mb-3">
+                <b>Situação geral:</b> {geral}
+                {outros > 0 && <span className="text-gray-500"> · {resolvidos} de {outros} setor(es) em paralelo resolveram</span>}
+            </p>
+            <div className="divide-y divide-gray-100">
+                {setores.map(s => (
+                    <div key={s.frente} className="py-2 flex items-start justify-between gap-3 flex-wrap">
+                        <div>
+                            <p className="text-sm font-semibold text-gray-800">
+                                {s.setor}
+                                {s.frente === 1 && <span className="ml-2 text-[10px] font-medium text-cyan-700 bg-cyan-50 border border-cyan-200 rounded-full px-2 py-0.5">principal</span>}
+                            </p>
+                            {s.estagio && <p className="text-xs text-gray-500"><i className="fas fa-flag mr-1" />{s.estagio}</p>}
+                            {s.parecer && <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{s.parecer}</p>}
+                        </div>
+                        <span className={`text-[11px] font-medium rounded-full px-2 py-0.5 ${cor[s.situacao] || 'bg-gray-100 text-gray-600'}`}>
+                            {rotulo[s.situacao] || s.situacao}{s.resolvido_em && ` em ${formatDate(s.resolvido_em)}`}
+                        </span>
+                    </div>
+                ))}
+            </div>
+            {frentes.copias?.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                    <p className="text-xs font-semibold text-gray-500 mb-1"><i className="fas fa-copy mr-1" />Cópias para ciência</p>
+                    <div className="flex flex-wrap gap-1.5">
+                        {frentes.copias.map((c, i) => (
+                            <span key={i} className={`text-xs rounded-full px-2.5 py-1 border ${c.ciente ? 'bg-green-50 border-green-200 text-green-800' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+                                {c.setor} — {c.ciente ? `ciente em ${formatDate(c.ciente_em)}` : 'aguardando ciência'}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </Card>
+    );
+}
+
+/** Vários setores do organograma: escolhe num select e mostra como etiquetas removíveis. */
+function SetoresMulti({ titulo, ajuda, unidades, valor, onChange, excluir = [] }) {
+    const fora = new Set([...valor, ...excluir].filter(Boolean).map(Number));
+    const nome = (id) => unidades.find(u => Number(u.id) === Number(id))?.nome || `#${id}`;
+    return (
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{titulo} <span className="text-gray-400 text-xs">(opcional)</span></label>
+            <select value="" className="ds-input"
+                onChange={(e) => e.target.value && onChange([...valor, Number(e.target.value)])}>
+                <option value="">Adicionar setor…</option>
+                {unidades.filter(u => ! fora.has(Number(u.id))).map(u => (
+                    <option key={u.id} value={u.id}>{' '.repeat((u.nivel - 1) * 3)}{u.nome}</option>
+                ))}
+            </select>
+            {valor.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                    {valor.map(id => (
+                        <span key={id} className="inline-flex items-center gap-1.5 text-xs bg-blue-50 border border-blue-200 text-blue-800 rounded-full px-2.5 py-1">
+                            {nome(id)}
+                            <button type="button" onClick={() => onChange(valor.filter(x => x !== id))} className="text-blue-500 hover:text-red-600" title="Remover">
+                                <i className="fas fa-times text-[10px]" />
+                            </button>
+                        </span>
+                    ))}
+                </div>
+            )}
+            <p className="mt-1 text-[10px] text-gray-400">{ajuda}</p>
+        </div>
+    );
+}
+
 const ACOES_HISTORICO = {
     abertura: 'Abertura', recebimento: 'Recebimento', despacho: 'Despacho', devolucao: 'Devolucao',
     comentario: 'Comentário', anexo: 'Anexo', conclusao: 'Conclusão', cancelamento: 'Cancelamento',
     assinatura_decisao: 'Decisão assinada', arquivado_no_ged: 'Arquivado no repositório',
-    aos_cuidados: 'Aos cuidados',
+    aos_cuidados: 'Aos cuidados', resolucao_setor: 'Setor resolveu a parte dele', estagio: 'Estágio',
+    ciencia_copia: 'Ciência da cópia',
 };
 
 function formatDate(dateStr) {

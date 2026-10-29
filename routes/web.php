@@ -533,6 +533,9 @@ Route::middleware('auth')->group(function () {
         Route::post('tramitacoes/{id}/despachar', [TramitacaoController::class, 'despachar'])->name('tramitacoes.despachar');
         Route::post('tramitacoes/{id}/devolver', [TramitacaoController::class, 'devolver'])->name('tramitacoes.devolver');
         Route::post('tramitacoes/{id}/cuidados', [TramitacaoController::class, 'aosCuidados'])->name('tramitacoes.cuidados');
+        Route::post('tramitacoes/{id}/resolver', [TramitacaoController::class, 'resolver'])->name('tramitacoes.resolver');
+        Route::post('tramitacoes/{id}/estagio', [TramitacaoController::class, 'estagio'])->name('tramitacoes.estagio');
+        Route::post('tramitacoes/{id}/ciente', [TramitacaoController::class, 'ciente'])->name('tramitacoes.ciente');
         Route::post('tramitacoes/{id}/comentar', [TramitacaoController::class, 'comentar'])->name('tramitacoes.comentar');
         Route::post('tramitacoes/{id}/anexar', [TramitacaoController::class, 'anexar'])->name('tramitacoes.anexar');
     });

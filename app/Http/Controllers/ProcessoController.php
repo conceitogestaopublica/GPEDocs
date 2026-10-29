@@ -363,7 +363,54 @@ class ProcessoController extends Controller
             'pastas'               => $pastas,
             'solicitacao_portal'   => $solicitacaoPortal,
             'cuidados'             => $this->cuidados($acoes),
+            // Multissetorial (TR 4.9.4, 4.9.5, 4.9.14)
+            'etapa_acao'           => $acoes['etapa'],
+            'pode_cancelar'        => $acoes['cancelar'],
+            'pode_resolver'        => $acoes['resolver'],
+            'aguardando_setores'   => $acoes['aguardando'],
+            'copia_pendente'       => \App\Services\AcaoNoProcesso::copiaDoUsuario($processo, $user),
+            'frentes'              => $this->frentes($processo),
+            'estagios'             => Tramitacao::ESTAGIOS,
         ]);
+    }
+
+    /**
+     * Situação de cada setor que trata o processo: a última etapa de cada frente (setor,
+     * estágio, se já resolveu) e as cópias. Só interessa quando há mais de uma frente ou cópia.
+     *
+     * @return array{setores: list<array>, copias: list<array>}|null
+     */
+    private function frentes(Processo $processo): ?array
+    {
+        $tramites = $processo->tramitacoes->where('modo', 'tramite');
+        $copias = $processo->tramitacoes->where('modo', 'copia');
+        if ($tramites->pluck('frente')->unique()->count() < 2 && $copias->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'setores' => $tramites->groupBy('frente')->sortKeys()->map(function ($etapas, $frente) {
+                $ultima = $etapas->sortByDesc('id')->first();
+
+                return [
+                    'frente'       => (int) $frente,
+                    'setor'        => $ultima->setor_destino,
+                    'situacao'     => match (true) {
+                        in_array($ultima->status, ['pendente', 'recebido'], true) => 'em_andamento',
+                        $ultima->status === 'resolvido' => 'resolvido',
+                        default => $ultima->status,
+                    },
+                    'estagio'      => $ultima->estagio,
+                    'resolvido_em' => $ultima->resolvido_em?->toIso8601String(),
+                    'parecer'      => $ultima->status === 'resolvido' ? $ultima->parecer : null,
+                ];
+            })->values()->all(),
+            'copias' => $copias->sortBy('id')->map(fn ($c) => [
+                'setor'     => $c->setor_destino,
+                'ciente'    => $c->status === 'ciente',
+                'ciente_em' => $c->recebido_em?->toIso8601String(),
+            ])->values()->all(),
+        ];
     }
 
     /** "Aos cuidados" da etapa do setor: quem está com ela e para quem pode passar. */
@@ -394,9 +441,13 @@ class ProcessoController extends Controller
             DB::beginTransaction();
 
             $processo = Processo::with(['tipoProcesso', 'abertoPor', 'tramitacoes.remetente'])->findOrFail($id);
-            if (! \App\Services\AcaoNoProcesso::avaliar($processo, Auth::user())['concluir']) {
+            $acoes = \App\Services\AcaoNoProcesso::avaliar($processo, Auth::user());
+            if (! $acoes['concluir']) {
                 DB::rollBack();
-                abort(403, 'Só quem está na etapa ativa (ou o autor, antes do primeiro despacho) encerra o processo.');
+                // Multissetorial: só conclui quando todos os setores resolveram a parte deles (TR 4.9.5)
+                abort(403, $acoes['cancelar'] && $acoes['aguardando']
+                    ? 'Ainda falta resolver a parte de: ' . implode(', ', $acoes['aguardando']) . '.'
+                    : 'Só quem está na etapa ativa (ou o autor, antes do primeiro despacho) encerra o processo.');
             }
             $decisao = $request->input('decisao');
             $pularAssinatura = (bool) $request->input('pular_assinatura', false);
@@ -759,13 +810,17 @@ class ProcessoController extends Controller
             DB::beginTransaction();
 
             $processo = Processo::findOrFail($id);
-            if (! \App\Services\AcaoNoProcesso::avaliar($processo, Auth::user())['concluir']) {
+            if (! \App\Services\AcaoNoProcesso::avaliar($processo, Auth::user())['cancelar']) {
                 DB::rollBack();
                 abort(403, 'Só quem está na etapa ativa (ou o autor, antes do primeiro despacho) cancela o processo.');
             }
             $processo->update([
                 'status' => 'cancelado',
             ]);
+            // Encerra todas as frentes e cópias ainda abertas
+            Tramitacao::where('processo_id', $processo->id)
+                ->whereIn('status', ['pendente', 'recebido'])
+                ->update(['status' => 'cancelado']);
 
             ProcessoHistorico::create([
                 'processo_id' => $processo->id,

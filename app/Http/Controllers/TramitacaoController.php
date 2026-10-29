@@ -79,6 +79,12 @@ class TramitacaoController extends Controller
             'destinatario_id' => ['nullable', 'integer', 'exists:users,id'],
             'despacho'        => ['required', 'string'],
             'setor_destino'   => ['required', 'integer', 'exists:ug_organograma,id'],
+            // Outros setores que tramitam a parte deles em paralelo (TR 4.9.4)
+            'outros_setores'   => ['nullable', 'array', 'max:20'],
+            'outros_setores.*' => ['integer', 'distinct', 'exists:ug_organograma,id'],
+            // Setores que só recebem cópia, para ciência (TR 4.9.14)
+            'copias'           => ['nullable', 'array', 'max:20'],
+            'copias.*'         => ['integer', 'distinct', 'exists:ug_organograma,id'],
             'files'           => ['nullable', 'array'],
             'files.*'         => ['file', 'max:51200'],
         ]);
@@ -105,9 +111,9 @@ class TramitacaoController extends Controller
                 'despacho'      => $request->input('despacho'),
             ]);
 
-            // Determinar proxima etapa
+            // Determinar proxima etapa (o fluxo do tipo de processo é o da frente principal)
             $proximaEtapa = null;
-            if ($tramitacaoAtual->tipo_etapa_id) {
+            if ($tramitacaoAtual->tipo_etapa_id && $tramitacaoAtual->frente === 1) {
                 // A etapa atual pode ter sido retirada do tipo depois (fica inativa): ainda
                 // vale a ordem dela para achar a próxima entre as vigentes.
                 $etapaAtual = \App\Models\Processo\TipoEtapa::find($tramitacaoAtual->tipo_etapa_id);
@@ -133,9 +139,17 @@ class TramitacaoController extends Controller
                 'status'             => 'pendente',
                 'sla_horas'          => $proximaEtapa?->sla_horas ?? $processo->tipoProcesso->sla_padrao_horas,
                 'prazo'              => now()->addHours($proximaEtapa?->sla_horas ?? $processo->tipoProcesso->sla_padrao_horas),
+                'frente'             => $tramitacaoAtual->frente,
             ]);
 
-            $processo->update(['etapa_atual_id' => $novaTramitacao->id]);
+            if ($tramitacaoAtual->frente === 1) {
+                $processo->update(['etapa_atual_id' => $novaTramitacao->id]);
+            }
+
+            // Outros setores (frentes novas) e cópias: mesma origem e despacho
+            $paralelas = $this->abrirParalelas($processo, $tramitacaoAtual, $novaTramitacao,
+                array_diff(array_map('intval', $request->input('outros_setores', [])), [$setorDestinoId]),
+                array_map('intval', $request->input('copias', [])));
 
             // Armazenar anexos
             if ($request->hasFile('files')) {
@@ -166,6 +180,8 @@ class TramitacaoController extends Controller
                     'setor_destino'   => $setorDestinoNome,
                     'destino_unidade_id' => $setorDestinoId,
                     'despacho'        => $request->input('despacho'),
+                    'outros_setores'  => $paralelas['frentes'],
+                    'copias'          => $paralelas['copias'],
                 ],
                 'ip'         => $request->ip(),
                 'user_agent' => $request->userAgent(),
@@ -178,16 +194,11 @@ class TramitacaoController extends Controller
             } elseif ($setorDestinoId) {
                 $usuariosNotificar = \App\Support\Setores::servidores($setorDestinoId);
             }
-            foreach (array_unique($usuariosNotificar) as $uid) {
-                Notificacao::create([
-                    'usuario_id'     => (int) $uid,
-                    'tipo'           => 'processo',
-                    'titulo'         => 'Processo despachado para voce',
-                    'mensagem'       => "Processo {$processo->numero_protocolo} - {$processo->assunto} foi despachado para você.",
-                    'referencia_tipo'=> 'processo',
-                    'referencia_id'  => $processo->id,
-                    'lida'           => false,
-                ]);
+            $this->avisar($usuariosNotificar, $processo, 'Processo despachado para voce', 'foi despachado para você.');
+            foreach ($paralelas['avisar'] as [$ids, $copia]) {
+                $this->avisar($ids, $processo,
+                    $copia ? 'Cópia de processo para ciência' : 'Processo despachado para o seu setor',
+                    $copia ? 'foi enviado em cópia ao seu setor, para ciência.' : 'chegou ao seu setor para tratar a parte dele.');
             }
 
             DB::commit();
@@ -232,9 +243,12 @@ class TramitacaoController extends Controller
                 'status'          => 'pendente',
                 'sla_horas'       => $tramitacaoAtual->sla_horas,
                 'prazo'           => now()->addHours($tramitacaoAtual->sla_horas ?? 48),
+                'frente'          => $tramitacaoAtual->frente,
             ]);
 
-            $processo->update(['etapa_atual_id' => $novaTramitacao->id]);
+            if ($tramitacaoAtual->frente === 1) {
+                $processo->update(['etapa_atual_id' => $novaTramitacao->id]);
+            }
 
             ProcessoHistorico::create([
                 'processo_id' => $processo->id,
@@ -268,6 +282,153 @@ class TramitacaoController extends Controller
 
             return redirect()->back()->with('error', 'Erro ao devolver processo: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Abre as frentes de outros setores e as cópias de um despacho.
+     *
+     * @param  list<int>  $setores  frentes novas (cada uma tramita a sua parte)
+     * @param  list<int>  $copias   só ciência
+     * @return array{frentes: list<string>, copias: list<string>, avisar: list<array{0: list<int>, 1: bool}>}
+     */
+    private function abrirParalelas(\App\Models\Processo\Processo $processo, Tramitacao $origem, Tramitacao $nova, array $setores, array $copias): array
+    {
+        $resultado = ['frentes' => [], 'copias' => [], 'avisar' => []];
+        $proximaFrente = (int) Tramitacao::where('processo_id', $processo->id)->max('frente') + 1;
+        $unidades = \App\Models\UgOrganograma::whereIn('id', [...$setores, ...$copias])->pluck('nome', 'id');
+        $sla = $processo->tipoProcesso->sla_padrao_horas;
+
+        foreach ([[$setores, false], [$copias, true]] as [$ids, $copia]) {
+            foreach (array_unique($ids) as $unidadeId) {
+                Tramitacao::create([
+                    'processo_id'        => $processo->id,
+                    'ordem'              => $nova->ordem,
+                    'setor_origem'       => $nova->setor_origem,
+                    'setor_destino'      => $unidades[$unidadeId] ?? '-',
+                    'destino_unidade_id' => $unidadeId,
+                    'remetente_id'       => Auth::id(),
+                    'status'             => 'pendente',
+                    'despacho'           => $origem->despacho,
+                    'sla_horas'          => $copia ? null : $sla,
+                    'prazo'              => $copia ? null : now()->addHours($sla),
+                    'frente'             => $copia ? $origem->frente : $proximaFrente++,
+                    'modo'               => $copia ? 'copia' : 'tramite',
+                ]);
+                $resultado[$copia ? 'copias' : 'frentes'][] = $unidades[$unidadeId] ?? (string) $unidadeId;
+                $resultado['avisar'][] = [\App\Support\Setores::servidores($unidadeId), $copia];
+            }
+        }
+
+        return $resultado;
+    }
+
+    /** @param  list<int>  $usuarios */
+    private function avisar(array $usuarios, \App\Models\Processo\Processo $processo, string $titulo, string $complemento): void
+    {
+        foreach (array_unique($usuarios) as $uid) {
+            Notificacao::create([
+                'usuario_id'      => (int) $uid,
+                'tipo'            => 'processo',
+                'titulo'          => $titulo,
+                'mensagem'        => "Processo {$processo->numero_protocolo} - {$processo->assunto} {$complemento}",
+                'referencia_tipo' => 'processo',
+                'referencia_id'   => $processo->id,
+                'lida'            => false,
+            ]);
+        }
+    }
+
+    /**
+     * O setor de uma frente que não é a principal resolve a parte dele (TR 4.9.4). Quando o
+     * último resolve, quem está na frente principal é avisado de que já pode concluir.
+     */
+    public function resolver(Request $request, $id)
+    {
+        $request->validate(['parecer' => ['required', 'string', 'max:5000']]);
+
+        $tramitacao = Tramitacao::findOrFail($id);
+        \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacao, Auth::user());
+        if ($tramitacao->frente === 1) {
+            return redirect()->back()->with('error', 'O fluxo principal é encerrado em "Concluir", não aqui.');
+        }
+        $processo = $tramitacao->processo;
+
+        DB::transaction(function () use ($request, $tramitacao, $processo) {
+            $tramitacao->update([
+                'status'        => 'resolvido',
+                'parecer'       => $request->input('parecer'),
+                'recebido_por'  => $tramitacao->recebido_por ?? Auth::id(),
+                'recebido_em'   => $tramitacao->recebido_em ?? now(),
+                'resolvido_em'  => now(),
+                'resolvido_por' => Auth::id(),
+            ]);
+
+            ProcessoHistorico::create([
+                'processo_id' => $processo->id,
+                'usuario_id'  => Auth::id(),
+                'acao'        => 'resolucao_setor',
+                'detalhes'    => ['tramitacao_id' => $tramitacao->id, 'setor' => $tramitacao->setor_destino, 'parecer' => $request->input('parecer')],
+                'ip'          => $request->ip(),
+                'user_agent'  => $request->userAgent(),
+            ]);
+
+            $faltam = \App\Services\AcaoNoProcesso::etapasAtivas($processo)->filter(fn ($t) => $t->frente !== 1);
+            $principal = \App\Services\AcaoNoProcesso::etapaAtual($processo);
+            if ($faltam->isEmpty() && $principal && $principal->frente === 1) {
+                $this->avisar(
+                    $principal->destinatario_id ? [$principal->destinatario_id] : \App\Support\Setores::servidores((int) $principal->destino_unidade_id),
+                    $processo, 'Todos os setores resolveram', 'teve a parte de todos os setores resolvida e já pode ser concluído.');
+            }
+        });
+
+        return redirect()->back()->with('success', "Parte do setor {$tramitacao->setor_destino} resolvida.");
+    }
+
+    /** Estágio da etapa no setor (em análise, aguardando documentos…) — TR 4.9.4. */
+    public function estagio(Request $request, $id)
+    {
+        $request->validate(['estagio' => ['nullable', 'string', 'max:60']]);
+
+        $tramitacao = Tramitacao::findOrFail($id);
+        \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacao, Auth::user());
+        $estagio = trim((string) $request->input('estagio')) ?: null;
+        $tramitacao->update(['estagio' => $estagio]);
+
+        ProcessoHistorico::create([
+            'processo_id' => $tramitacao->processo_id,
+            'usuario_id'  => Auth::id(),
+            'acao'        => 'estagio',
+            'detalhes'    => ['tramitacao_id' => $tramitacao->id, 'setor' => $tramitacao->setor_destino, 'estagio' => $estagio],
+            'ip'          => $request->ip(),
+            'user_agent'  => $request->userAgent(),
+        ]);
+
+        return redirect()->back()->with('success', $estagio ? "Estágio: {$estagio}." : 'Estágio retirado.');
+    }
+
+    /** Ciência da cópia (TR 4.9.14): sai da caixa do setor; o processo não esperava por ela. */
+    public function ciente(Request $request, $id)
+    {
+        $copia = Tramitacao::findOrFail($id);
+        if (! $copia->processo) {
+            abort(404);
+        }
+        if ($copia->modo !== 'copia' || $copia->status !== 'pendente') {
+            return redirect()->back()->with('error', 'Esta cópia já teve ciência.');
+        }
+        abort_unless(\App\Services\AcaoNoProcesso::ativoNaEtapa($copia, Auth::user()), 403, 'A cópia não foi enviada para você nem para um setor seu.');
+
+        $copia->update(['status' => 'ciente', 'recebido_por' => Auth::id(), 'recebido_em' => now(), 'lida_em' => $copia->lida_em ?? now()]);
+        ProcessoHistorico::create([
+            'processo_id' => $copia->processo_id,
+            'usuario_id'  => Auth::id(),
+            'acao'        => 'ciencia_copia',
+            'detalhes'    => ['tramitacao_id' => $copia->id, 'setor' => $copia->setor_destino],
+            'ip'          => $request->ip(),
+            'user_agent'  => $request->userAgent(),
+        ]);
+
+        return redirect()->back()->with('success', 'Ciência registrada.');
     }
 
     /**

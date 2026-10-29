@@ -13,6 +13,9 @@ class Tramitacao extends Model
 {
     protected $table = 'proc_tramitacoes';
 
+    /** Sugestões de estágio que o setor marca na parte dele (TR 4.9.4); aceita outro texto. */
+    public const ESTAGIOS = ['Em análise', 'Aguardando documentos', 'Em execução', 'Aguardando terceiros', 'Em diligência'];
+
     protected $fillable = [
         'processo_id',
         'tipo_etapa_id',
@@ -31,6 +34,11 @@ class Tramitacao extends Model
         'recebido_em',
         'despachado_em',
         'lida_em',
+        'frente',
+        'modo',
+        'estagio',
+        'resolvido_em',
+        'resolvido_por',
     ];
 
     protected function casts(): array
@@ -40,6 +48,8 @@ class Tramitacao extends Model
             'recebido_em'   => 'datetime',
             'despachado_em' => 'datetime',
             'lida_em'       => 'datetime',
+            'resolvido_em'  => 'datetime',
+            'frente'        => 'integer',
         ];
     }
 
