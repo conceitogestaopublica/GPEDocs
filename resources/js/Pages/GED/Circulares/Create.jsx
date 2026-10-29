@@ -3,13 +3,14 @@
  *
  * Formulario de criacao de circular interna.
  */
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import EmNomeDe from '../../../Components/EmNomeDe';
 import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 
-export default function CircularesCreate({ usuarios }) {
+export default function CircularesCreate({ usuarios, autorizacoes = [] }) {
     const userList = usuarios || [];
     const [searchUser, setSearchUser] = useState('');
     const [setorInput, setSetorInput] = useState('');
@@ -21,6 +22,8 @@ export default function CircularesCreate({ usuarios }) {
         destino_setores: [],
         conteudo: '',
         setor_origem: '',
+        em_nome_de: '',
+        contrassenha: '',
         data_arquivamento_auto: '',
         files: [],
     });
@@ -60,6 +63,10 @@ export default function CircularesCreate({ usuarios }) {
         formData.append('conteudo', data.conteudo);
         formData.append('destino_tipo', data.destino_tipo);
         formData.append('setor_origem', data.setor_origem);
+        if (data.em_nome_de) {
+            formData.append('em_nome_de', data.em_nome_de);
+            formData.append('contrassenha', data.contrassenha);
+        }
         formData.append('data_arquivamento_auto', data.data_arquivamento_auto);
 
         if (data.destino_tipo === 'usuarios') {
@@ -97,6 +104,7 @@ export default function CircularesCreate({ usuarios }) {
 
             <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <form onSubmit={submit} className="space-y-6">
+                            <EmNomeDe autorizacoes={autorizacoes} data={data} setData={setData} errors={usePage().props.errors} />
                     {/* Assunto */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">

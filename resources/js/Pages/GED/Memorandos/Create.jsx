@@ -3,13 +3,14 @@
  *
  * Formulario de criacao de memorando interno.
  */
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import EmNomeDe from '../../../Components/EmNomeDe';
 import { useMemo, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 
-export default function MemorandosCreate({ usuarios, unidades = [] }) {
+export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes = [] }) {
     const userList = usuarios || [];
     const unidadeList = unidades || [];
     const [searchUser, setSearchUser] = useState('');
@@ -22,6 +23,8 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
         conteudo: '',
         confidencial: false,
         setor_origem: '',
+        em_nome_de: '',
+        contrassenha: '',
         data_arquivamento_auto: '',
         files: [],
     });
@@ -59,6 +62,10 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
         formData.append('conteudo', data.conteudo);
         formData.append('confidencial', data.confidencial ? '1' : '0');
         formData.append('setor_origem', data.setor_origem);
+        if (data.em_nome_de) {
+            formData.append('em_nome_de', data.em_nome_de);
+            formData.append('contrassenha', data.contrassenha);
+        }
         formData.append('data_arquivamento_auto', data.data_arquivamento_auto);
         formData.append('tipo_destino', data.tipo_destino);
 
@@ -122,6 +129,7 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
 
             <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <form onSubmit={submit} className="space-y-6">
+                            <EmNomeDe autorizacoes={autorizacoes} data={data} setData={setData} errors={usePage().props.errors} />
                     {/* Assunto */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">

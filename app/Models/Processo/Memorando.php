@@ -24,6 +24,8 @@ class Memorando extends Model
         'assunto',
         'conteudo',
         'remetente_id',
+        'digitador_id',
+        'contrassenha_id',
         'setor_origem',
         'confidencial',
         'status',
@@ -58,6 +60,12 @@ class Memorando extends Model
     public function remetente(): BelongsTo
     {
         return $this->belongsTo(User::class, 'remetente_id');
+    }
+
+    /** Quem digitou, quando o documento saiu em nome do remetente por contrassenha (TR 4.18). */
+    public function digitador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'digitador_id');
     }
 
     public function destinatarios(): HasMany

@@ -9,6 +9,7 @@ const ABAS = [
     { href: '/perfil/seguranca', icone: 'fa-shield-alt', rotulo: 'Segurança' },
     { href: '/perfil/ausencias', icone: 'fa-umbrella-beach', rotulo: 'Ausências' },
     { href: '/perfil/preferencias', icone: 'fa-sliders-h', rotulo: 'Preferências' },
+    { href: '/perfil/contrassenhas', icone: 'fa-key', rotulo: 'Contrassenhas' },
     { href: '/perfil/historico', icone: 'fa-history', rotulo: 'Histórico' },
     { href: '/perfil/equipe', icone: 'fa-users', rotulo: 'Minha equipe', soResponsavel: true },
     { href: '/perfil/administradores', icone: 'fa-user-shield', rotulo: 'Administradores' },

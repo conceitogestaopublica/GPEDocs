@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Support\EmNomeDe;
 
 class MemorandoController extends Controller
 {
@@ -26,7 +27,7 @@ class MemorandoController extends Controller
         $tipo = $request->input('tipo', 'recebidos');
 
         if ($tipo === 'enviados') {
-            $query = Memorando::where('remetente_id', Auth::id());
+            $query = Memorando::where(fn ($q) => $q->where('remetente_id', Auth::id())->orWhere('digitador_id', Auth::id()));
         } else {
             $query = Memorando::whereHas('destinatarios', function ($q) {
                 $q->where('usuario_id', Auth::id());
@@ -67,6 +68,7 @@ class MemorandoController extends Controller
             ->get(['id', 'nome', 'codigo', 'nivel', 'parent_id']);
 
         return Inertia::render('GED/Memorandos/Create', [
+            'autorizacoes' => EmNomeDe::autorizacoes(),
             'usuarios' => $usuarios,
             'unidades' => $unidades,
         ]);
@@ -88,8 +90,12 @@ class MemorandoController extends Controller
             'files.*'               => ['file', 'max:51200'],
         ]);
 
+        // Em nome de outro servidor, por contrassenha (TR 4.18)
+        $contrassenha = \App\Support\EmNomeDe::conferir($request);
+
         try {
             DB::beginTransaction();
+            $origem = \App\Support\EmNomeDe::consumir($contrassenha);
 
             $year = date('Y');
 
@@ -103,13 +109,16 @@ class MemorandoController extends Controller
                 'numero'                => $numero,
                 'assunto'               => $request->input('assunto'),
                 'conteudo'              => $request->input('conteudo'),
-                'remetente_id'          => Auth::id(),
+                'remetente_id'          => $origem['remetente_id'],
+                'digitador_id'          => $origem['digitador_id'],
+                'contrassenha_id'       => $origem['contrassenha_id'],
                 'setor_origem'          => $request->input('setor_origem'),
                 'confidencial'          => $request->boolean('confidencial'),
                 'status'                => 'enviado',
                 'enviado_em'            => now(),
                 'data_arquivamento_auto'=> $request->input('data_arquivamento_auto'),
             ]);
+            \App\Support\EmNomeDe::avisarAutorizador($origem, 'memorando', $memorando->id, "Memorando {$numero} — {$memorando->assunto}");
 
             $tipoDestino = $request->input('tipo_destino');
             $usuariosNotificar = [];
@@ -218,7 +227,7 @@ class MemorandoController extends Controller
     public function show($id): Response
     {
         $memorando = Memorando::with([
-            'remetente',
+            'remetente', 'digitador:id,name',
             'destinatarios.usuario',
             'destinatarios.unidade',
             'anexos.enviadoPor',

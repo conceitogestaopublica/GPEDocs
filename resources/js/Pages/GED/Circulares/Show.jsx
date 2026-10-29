@@ -10,6 +10,7 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import EmitidoPorContrassenha from '../../../Components/EmitidoPorContrassenha';
 
 export default function CircularesShow({ circular }) {
     const confirmar = useConfirm();
@@ -31,6 +32,7 @@ export default function CircularesShow({ circular }) {
     return (
         <AdminLayout>
             <Head title={`Circular ${circ.numero || ''}`} />
+            <EmitidoPorContrassenha documento={circ} />
 
             {/* Cabecalho */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">

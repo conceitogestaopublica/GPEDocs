@@ -14,12 +14,13 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Support\EmNomeDe;
 
 class OficioController extends Controller
 {
     public function index(Request $request): Response
     {
-        $query = Oficio::where('remetente_id', Auth::id());
+        $query = Oficio::where(fn ($q) => $q->where('remetente_id', Auth::id())->orWhere('digitador_id', Auth::id()));
 
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
@@ -70,6 +71,7 @@ class OficioController extends Controller
         }
 
         return Inertia::render('GED/Oficios/Create', [
+            'autorizacoes' => EmNomeDe::autorizacoes(),
             'modelos' => $modelos,
             'setores' => $setores,
         ]);
@@ -150,8 +152,12 @@ class OficioController extends Controller
             return redirect()->back()->withErrors(['destinatario_email' => 'Informe o e-mail do destinatário para o envio eletrônico.'])->withInput();
         }
 
+        // Em nome de outro servidor, por contrassenha (TR 4.18)
+        $contrassenha = \App\Support\EmNomeDe::conferir($request);
+
         try {
             DB::beginTransaction();
+            $origem = \App\Support\EmNomeDe::consumir($contrassenha);
 
             $year = date('Y');
 
@@ -169,7 +175,9 @@ class OficioController extends Controller
                 'numero'             => $numero,
                 'assunto'            => $request->input('assunto'),
                 'conteudo'           => $request->input('conteudo'),
-                'remetente_id'       => Auth::id(),
+                'remetente_id'       => $origem['remetente_id'],
+                'digitador_id'       => $origem['digitador_id'],
+                'contrassenha_id'    => $origem['contrassenha_id'],
                 'setor_origem'       => $request->input('setor_origem'),
                 'destinatario_nome'  => $request->input('destinatario_nome'),
                 'destinatario_email' => $request->input('destinatario_email') ?? '',
@@ -205,6 +213,7 @@ class OficioController extends Controller
                 'referencia_id'   => $oficio->id,
                 'lida'            => false,
             ]);
+            \App\Support\EmNomeDe::avisarAutorizador($origem, 'oficio', $oficio->id, "Ofício {$numero} — {$oficio->assunto}");
 
             DB::commit();
         } catch (\Exception $e) {
@@ -230,7 +239,7 @@ class OficioController extends Controller
     public function reenviarEmail(Request $request, $id)
     {
         $oficio = Oficio::findOrFail($id);
-        if ($oficio->remetente_id !== Auth::id()) {
+        if (! $oficio->eDoUsuario(Auth::id())) {
             abort(403, 'Você não tem permissão para reenviar este ofício.');
         }
 
@@ -251,7 +260,7 @@ class OficioController extends Controller
     public function downloadAnexo($id, $anexoId)
     {
         $oficio = Oficio::findOrFail($id);
-        if ($oficio->remetente_id !== Auth::id()) {
+        if (! $oficio->eDoUsuario(Auth::id())) {
             abort(403);
         }
         $anexo = \App\Models\Processo\OficioAnexo::where('oficio_id', $oficio->id)->findOrFail($anexoId);
@@ -262,12 +271,12 @@ class OficioController extends Controller
     public function show($id): Response
     {
         $oficio = Oficio::with([
-            'remetente',
+            'remetente', 'digitador:id,name',
             'anexos.enviadoPor',
             'respostas.usuario',
         ])->findOrFail($id);
 
-        if ($oficio->remetente_id !== Auth::id()) {
+        if (! $oficio->eDoUsuario(Auth::id())) {
             abort(403, 'Você não tem permissão para visualizar este ofício.');
         }
 
@@ -285,7 +294,7 @@ class OficioController extends Controller
 
         $oficio = Oficio::findOrFail($id);
 
-        if ($oficio->remetente_id !== Auth::id()) {
+        if (! $oficio->eDoUsuario(Auth::id())) {
             abort(403, 'Você não tem permissão para responder a este ofício.');
         }
 
@@ -309,7 +318,7 @@ class OficioController extends Controller
     {
         $oficio = Oficio::findOrFail($id);
 
-        if ($oficio->remetente_id !== Auth::id()) {
+        if (! $oficio->eDoUsuario(Auth::id())) {
             abort(403, 'Você não tem permissão para arquivar este ofício.');
         }
 
@@ -402,7 +411,7 @@ class OficioController extends Controller
             'respostas.usuario',
         ])->findOrFail($id);
 
-        if ($oficio->remetente_id !== Auth::id()) {
+        if (! $oficio->eDoUsuario(Auth::id())) {
             abort(403, 'Você não tem permissão para baixar este ofício.');
         }
 

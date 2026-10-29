@@ -11,6 +11,7 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import EmitidoPorContrassenha from '../../../Components/EmitidoPorContrassenha';
 
 const STATUS_MAP = {
     rascunho:   { label: 'Rascunho',   color: 'bg-gray-100 text-gray-600',   icon: 'fas fa-edit' },
@@ -80,6 +81,7 @@ export default function OficiosShow({ oficio, conteudo_html = '' }) {
     return (
         <AdminLayout>
             <Head title={`Ofício ${of.numero || ''}`} />
+            <EmitidoPorContrassenha documento={of} />
 
             {/* Cabecalho */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">

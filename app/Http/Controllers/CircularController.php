@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Support\EmNomeDe;
 
 class CircularController extends Controller
 {
@@ -23,7 +24,7 @@ class CircularController extends Controller
         $tipo = $request->input('tipo', 'recebidas');
 
         if ($tipo === 'enviadas') {
-            $query = Circular::where('remetente_id', Auth::id());
+            $query = Circular::where(fn ($q) => $q->where('remetente_id', Auth::id())->orWhere('digitador_id', Auth::id()));
         } else {
             $query = Circular::whereHas('destinatarios', function ($q) {
                 $q->where('usuario_id', Auth::id());
@@ -57,6 +58,7 @@ class CircularController extends Controller
             ->get(['id', 'name', 'email']);
 
         return Inertia::render('GED/Circulares/Create', [
+            'autorizacoes' => EmNomeDe::autorizacoes(),
             'usuarios' => $usuarios,
         ]);
     }
@@ -77,8 +79,12 @@ class CircularController extends Controller
             'files.*'               => ['file', 'max:51200'],
         ]);
 
+        // Em nome de outro servidor, por contrassenha (TR 4.18)
+        $contrassenha = \App\Support\EmNomeDe::conferir($request);
+
         try {
             DB::beginTransaction();
+            $origem = \App\Support\EmNomeDe::consumir($contrassenha);
 
             $year = date('Y');
 
@@ -92,7 +98,9 @@ class CircularController extends Controller
                 'numero'                => $numero,
                 'assunto'               => $request->input('assunto'),
                 'conteudo'              => $request->input('conteudo'),
-                'remetente_id'          => Auth::id(),
+                'remetente_id'          => $origem['remetente_id'],
+                'digitador_id'          => $origem['digitador_id'],
+                'contrassenha_id'       => $origem['contrassenha_id'],
                 'setor_origem'          => $request->input('setor_origem'),
                 'destino_tipo'          => $request->input('destino_tipo'),
                 'destino_setores'       => $request->input('destino_setores'),
@@ -100,6 +108,7 @@ class CircularController extends Controller
                 'enviado_em'            => now(),
                 'data_arquivamento_auto'=> $request->input('data_arquivamento_auto'),
             ]);
+            \App\Support\EmNomeDe::avisarAutorizador($origem, 'circular', $circular->id, "Circular {$numero} — {$circular->assunto}");
 
             // Determine recipients based on destino_tipo
             $destinoTipo = $request->input('destino_tipo');
@@ -175,7 +184,7 @@ class CircularController extends Controller
     public function show($id): Response
     {
         $circular = Circular::with([
-            'remetente',
+            'remetente', 'digitador:id,name',
             'destinatarios.usuario',
             'anexos.enviadoPor',
         ])->findOrFail($id);

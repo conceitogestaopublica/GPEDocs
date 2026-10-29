@@ -558,6 +558,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/administradores', 'administradores')->name('administradores');
     });
     Route::get('usuarios/{id}/foto', [\App\Http\Controllers\Perfil\PerfilController::class, 'foto'])->whereNumber('id')->name('usuarios.foto');
+    Route::get('perfil/contrassenhas', [\App\Http\Controllers\Perfil\ContrassenhasController::class, 'index'])->name('perfil.contrassenhas');
+    Route::post('perfil/contrassenhas', [\App\Http\Controllers\Perfil\ContrassenhasController::class, 'store'])->middleware('throttle:20,1')->name('perfil.contrassenhas.gerar');
+    Route::post('perfil/contrassenhas/{id}/cancelar', [\App\Http\Controllers\Perfil\ContrassenhasController::class, 'cancelar'])->whereNumber('id')->name('perfil.contrassenhas.cancelar');
     Route::get('perfil/equipe', [\App\Http\Controllers\Perfil\EquipeController::class, 'index'])->name('perfil.equipe');
     Route::post('perfil/equipe/{id}/reativar', [\App\Http\Controllers\Perfil\EquipeController::class, 'reativar'])->whereNumber('id')->name('perfil.equipe.reativar');
     Route::get('perfil/preferencias', [\App\Http\Controllers\Perfil\PreferenciasController::class, 'index'])->name('perfil.preferencias');

@@ -12,6 +12,7 @@ import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import { useConfirm } from '../../../Components/ConfirmProvider';
 import Avatar from '../../../Components/Avatar';
+import EmitidoPorContrassenha from '../../../Components/EmitidoPorContrassenha';
 
 export default function MemorandosShow({ memorando, pode_receber, pode_tramitar, meu_status, unidades = [], usuarios = [] }) {
     const confirmar = useConfirm();
@@ -107,6 +108,7 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
     return (
         <AdminLayout>
             <Head title={`Memorando ${memo.numero || ''}`} />
+            <EmitidoPorContrassenha documento={memo} />
 
             {statusBanner}
 

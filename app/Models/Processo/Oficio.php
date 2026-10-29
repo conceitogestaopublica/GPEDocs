@@ -24,6 +24,8 @@ class Oficio extends Model
         'assunto',
         'conteudo',
         'remetente_id',
+        'digitador_id',
+        'contrassenha_id',
         'setor_origem',
         'destinatario_nome',
         'destinatario_email',
@@ -70,6 +72,18 @@ class Oficio extends Model
     public function remetente(): BelongsTo
     {
         return $this->belongsTo(User::class, 'remetente_id');
+    }
+
+    /** Remetente ou quem digitou em nome dele (contrassenha) — os dois acompanham o ofício. */
+    public function eDoUsuario(?int $userId): bool
+    {
+        return $userId !== null && ($this->remetente_id === $userId || $this->digitador_id === $userId);
+    }
+
+    /** Quem digitou, quando o documento saiu em nome do remetente por contrassenha (TR 4.18). */
+    public function digitador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'digitador_id');
     }
 
     public function anexos(): HasMany

@@ -21,13 +21,14 @@ final class PreferenciasUsuario
         'memorando'  => ['rotulo' => 'Memorandos (recebidos, respostas e tramitação)', 'tipos' => ['memorando_recebido', 'memorando_resposta', 'memorando_tramitado']],
         'circular'   => ['rotulo' => 'Circulares recebidas', 'tipos' => ['circular_recebida']],
         'oficio'     => ['rotulo' => 'Ofícios (enviados, lidos e falhas de e-mail)', 'tipos' => ['oficio_enviado', 'oficio_lido', 'oficio_email_falhou']],
+        'contrassenha' => ['rotulo' => 'Documentos emitidos em meu nome (contrassenha)', 'tipos' => ['contrassenha_usada']],
     ];
 
-    /** Padrão de quem nunca mexeu: só o que pede ação dele. */
+    /** Padrão de quem nunca mexeu: o que pede ação dele e o que sai em nome dele. */
     public const PADRAO = [
         'editor' => 'avancado',
         'anexos' => 'visualizar',
-        'avisos' => ['assinatura', 'processo'],
+        'avisos' => ['assinatura', 'processo', 'contrassenha'],
     ];
 
     /** @return array{editor: string, anexos: string, avisos: array<int, string>} */

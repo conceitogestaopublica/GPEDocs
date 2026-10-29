@@ -64,6 +64,12 @@
                     @endif
                 </div>
             </div>
+            @if($oficio->digitador_id && $oficio->digitador)
+            <div class="info-row">
+                <div class="info-label">Digitado por:</div>
+                <div class="info-value">{{ $oficio->digitador->name }} — em nome do remetente, com contrassenha</div>
+            </div>
+            @endif
             <div class="info-row">
                 <div class="info-label">Para (Destinatário):</div>
                 <div class="info-value">

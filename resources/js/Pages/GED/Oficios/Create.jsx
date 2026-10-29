@@ -3,7 +3,8 @@
  *
  * Formulario de criacao de oficio para destinatario externo.
  */
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import EmNomeDe from '../../../Components/EmNomeDe';
 import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
@@ -11,7 +12,7 @@ import Button from '../../../Components/Button';
 import RichEditor from '../../../Components/RichEditor';
 import { useConfirm } from '../../../Components/ConfirmProvider';
 
-export default function OficiosCreate({ modelos = [], setores = [] }) {
+export default function OficiosCreate({ modelos = [], setores = [], autorizacoes = [] }) {
     const confirmar = useConfirm();
     // Monta nome hierarquico: "Orgao > Unidade > Setor"
     const buildPath = (s, all) => {
@@ -39,6 +40,8 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
         destinatario_cargo: '',
         destinatario_orgao: '',
         setor_origem: '',
+        em_nome_de: '',
+        contrassenha: '',
         conteudo: '',
         files: [],
     });
@@ -56,6 +59,10 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
         formData.append('destinatario_cargo', data.destinatario_cargo);
         formData.append('destinatario_orgao', data.destinatario_orgao);
         formData.append('setor_origem', data.setor_origem);
+        if (data.em_nome_de) {
+            formData.append('em_nome_de', data.em_nome_de);
+            formData.append('contrassenha', data.contrassenha);
+        }
 
         if (data.files.length > 0) {
             Array.from(data.files).forEach((file, i) => {
@@ -85,6 +92,7 @@ export default function OficiosCreate({ modelos = [], setores = [] }) {
                 <div className="lg:col-span-2">
                     <div className="bg-white rounded-xl border border-gray-200 p-6">
                         <form onSubmit={submit} className="space-y-6">
+                            <EmNomeDe autorizacoes={autorizacoes} data={data} setData={setData} errors={usePage().props.errors} />
                             {/* Modo de envio */}
                             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                                 <label className="block text-sm font-medium text-navy-900 mb-2">
