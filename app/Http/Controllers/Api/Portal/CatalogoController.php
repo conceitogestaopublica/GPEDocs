@@ -162,7 +162,7 @@ class CatalogoController extends PortalApiController
     }
 
     /** Campos do assunto para o portal montar o formulário (mesmas regras do GED). */
-    private static function formulario(?TipoProcesso $tipo): array
+    public static function formulario(?TipoProcesso $tipo): array
     {
         return collect($tipo?->schema_formulario ?? [])
             ->filter(fn ($c) => trim((string) ($c['campo'] ?? '')) !== '')
@@ -180,7 +180,7 @@ class CatalogoController extends PortalApiController
             ])->values()->all();
     }
 
-    private static function documentos(?TipoProcesso $tipo): array
+    public static function documentos(?TipoProcesso $tipo): array
     {
         return collect($tipo?->anexos_exigidos ?? [])->values()->map(fn ($d, $i) => [
             'indice'      => $i,

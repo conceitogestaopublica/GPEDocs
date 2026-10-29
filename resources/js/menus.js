@@ -75,6 +75,7 @@ export const MENU_GEPSP = [
             { title: 'Novo Processo',    icon: 'fas fa-plus-circle',    href: '/processos/create',    color: 'text-green-600 bg-green-100', permissao: 'processo.criar' },
             { title: 'Todos Processos',  icon: 'fas fa-folder-open',    href: '/processos',           color: 'text-indigo-600 bg-indigo-100', permissao: 'processo.visualizar' },
             { title: 'PAD',              icon: 'fas fa-gavel',          href: '/flow/pad',            color: 'text-red-600 bg-red-100', permissao: 'processo.visualizar' },
+            { title: 'Processo seletivo (PSS)', icon: 'fas fa-user-graduate', href: '/flow/pss',          color: 'text-emerald-600 bg-emerald-100', permissao: 'pss.gerir' },
         ],
     },
     {

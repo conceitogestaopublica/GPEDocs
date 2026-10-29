@@ -186,6 +186,11 @@ Route::prefix('api/portal')
         Route::post('solicitacoes/{codigo}/mensagens', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'mensagem'])->where('codigo', '[^/]+')->middleware('throttle:30,1')->name('solicitacoes.mensagens');
         Route::get('solicitacoes/{codigo}/comprovante', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'comprovante'])->where('codigo', '[^/]+')->name('solicitacoes.comprovante');
         Route::get('processos', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'processos'])->name('processos.index');
+        // Processo seletivo simplificado (TR 4.41)
+        Route::get('pss', [\App\Http\Controllers\Api\Portal\PssController::class, 'index'])->name('pss.index');
+        Route::get('pss/inscricoes', [\App\Http\Controllers\Api\Portal\PssController::class, 'minhas'])->name('pss.minhas');
+        Route::get('pss/inscricoes/{numero}/ficha', [\App\Http\Controllers\Api\Portal\PssController::class, 'ficha'])->where('numero', '[A-Za-z0-9-]+')->name('pss.ficha');
+        Route::post('pss/{id}/inscricoes', [\App\Http\Controllers\Api\Portal\PssController::class, 'inscrever'])->whereNumber('id')->middleware('throttle:20,1')->name('pss.inscrever');
         // Ouvidoria anônima/sigilosa sem login (código + chave) e estatísticas do e-SIC (TR 4.33.27, 4.34)
         Route::get('acompanhar/{codigo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'acompanhar'])->where('codigo', '[^/]+')->middleware('throttle:30,1')->name('acompanhar');
         Route::get('esic/estatisticas', [\App\Http\Controllers\Api\Portal\EsicController::class, 'estatisticas'])->name('esic.estatisticas');
@@ -622,6 +627,16 @@ Route::middleware('auth')->group(function () {
         // Painéis da ouvidoria e do e-SIC (TR 4.33.25–26, 4.34)
         Route::get('ouvidoria', [\App\Http\Controllers\Flow\OuvidoriaController::class, 'ouvidoria'])->name('ouvidoria');
         Route::get('esic', [\App\Http\Controllers\Flow\OuvidoriaController::class, 'esic'])->name('esic');
+        // Processo seletivo simplificado (TR 4.41)
+        Route::middleware('can:pss.gerir')->controller(\App\Http\Controllers\Flow\PssController::class)->group(function () {
+            Route::get('pss', 'index')->name('pss');
+            Route::post('pss', 'salvar')->name('pss.store');
+            Route::put('pss/{id}', 'salvar')->whereNumber('id')->name('pss.update');
+            Route::get('pss/{id}', 'show')->whereNumber('id')->name('pss.show');
+            Route::get('pss/{id}/csv', 'csv')->whereNumber('id')->name('pss.csv');
+            Route::get('pss/{id}/anexos/{anexo}', 'anexo')->whereNumber(['id', 'anexo'])->name('pss.anexo');
+            Route::post('pss/{id}/inscricoes/{inscricao}/resposta', 'responder')->whereNumber(['id', 'inscricao'])->name('pss.responder');
+        });
         // PAD (TR 4.40)
         Route::controller(\App\Http\Controllers\Flow\PadController::class)->group(function () {
             Route::get('pad', 'index')->name('pad');
