@@ -150,6 +150,9 @@ Route::prefix('api/portal')
     ->name('api.portal.')
     ->group(function () {
         Route::get('catalogo', [\App\Http\Controllers\Api\Portal\CatalogoController::class, 'show'])->name('catalogo');
+        // Órgãos responsáveis e contador de acessos da Carta de Serviços (TR 4.30.4, 4.30.27)
+        Route::get('orgaos', [\App\Http\Controllers\Api\Portal\CatalogoController::class, 'orgaos'])->name('orgaos');
+        Route::post('servicos/{slug}/visualizacao', [\App\Http\Controllers\Api\Portal\CatalogoController::class, 'visualizacao'])->name('servicos.visualizacao');
         // Imagem de ajuda dos campos do formulário do assunto (o portal repassa ao navegador)
         Route::get('ajuda-imagem/{id}', [\App\Http\Controllers\Admin\TipoProcessoController::class, 'imagemAjuda'])->whereUuid('id')->name('ajuda-imagem');
 

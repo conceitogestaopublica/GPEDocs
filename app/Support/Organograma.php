@@ -77,6 +77,19 @@ final class Organograma
         return $porSetor;
     }
 
+    /** O setor e todos os de baixo dele (qualquer situação). @return list<int> */
+    public static function comDescendentes(int $id): array
+    {
+        $todos = [];
+        $fila = [$id];
+        while ($fila) {
+            $todos = array_merge($todos, $fila);
+            $fila = array_values(array_diff(UgOrganograma::whereIn('parent_id', $fila)->pluck('id')->map(fn ($v) => (int) $v)->all(), $todos));
+        }
+
+        return $todos;
+    }
+
     /** O que impede ou pesa na desativação do setor. */
     public static function impedimentos(UgOrganograma $no): array
     {

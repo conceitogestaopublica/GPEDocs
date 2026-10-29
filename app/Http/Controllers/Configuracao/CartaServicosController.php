@@ -71,6 +71,7 @@ class CartaServicosController extends Controller
                 'publico_alvo'  => $publicoAlvo,
             ],
             'publicos' => Servico::PUBLICOS,
+            'perfis'   => Servico::PERFIS,
             'areas'    => CategoriaServico::AREAS,
             'acoesFiscais' => Servico::ACOES_FISCAIS,
         ]);
@@ -196,6 +197,21 @@ class CartaServicosController extends Controller
             'icone'                  => ['nullable', 'string', 'max:60'],
             'publicado'              => ['nullable', 'boolean'],
             'ordem'                  => ['nullable', 'integer'],
+            // Lei 13.460 (TR 4.30)
+            'caracteristicas'            => ['nullable', 'string'],
+            'etapas'                     => ['nullable', 'array', 'max:30'],
+            'etapas.*.titulo'            => ['required', 'string', 'max:200'],
+            'etapas.*.descricao'         => ['nullable', 'string', 'max:2000'],
+            'perfis'                     => ['nullable', 'array'],
+            'perfis.*'                   => [Rule::in(array_keys(Servico::PERFIS))],
+            'prioridades'                => ['nullable', 'string'],
+            'tempo_espera'               => ['nullable', 'string', 'max:200'],
+            'prazo_dias'                 => ['nullable', 'integer', 'min:1', 'max:3650'],
+            'forma_prestacao'            => ['nullable', 'string'],
+            'locais_manifestacao'        => ['nullable', 'string'],
+            'mecanismos_comunicacao'     => ['nullable', 'string'],
+            'procedimento_manifestacoes' => ['nullable', 'string'],
+            'mecanismos_consulta'        => ['nullable', 'string'],
         ]);
     }
 

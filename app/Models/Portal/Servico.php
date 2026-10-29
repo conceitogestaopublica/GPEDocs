@@ -39,6 +39,18 @@ class Servico extends Model
         'setor_responsavel_id',
         'tipo_processo_id',
         'acao_fiscal',
+        // Lei 13.460 (TR 4.30)
+        'caracteristicas',
+        'etapas',
+        'perfis',
+        'prioridades',
+        'tempo_espera',
+        'prazo_dias',
+        'forma_prestacao',
+        'locais_manifestacao',
+        'mecanismos_comunicacao',
+        'procedimento_manifestacoes',
+        'mecanismos_consulta',
     ];
 
     protected function casts(): array
@@ -46,6 +58,8 @@ class Servico extends Model
         return [
             'documentos_necessarios' => 'array',
             'canais'                 => 'array',
+            'etapas'                 => 'array',
+            'perfis'                 => 'array',
             'palavras_chave'         => 'array',
             'publicado'              => 'boolean',
             'visualizacoes'          => 'integer',
@@ -63,6 +77,17 @@ class Servico extends Model
     {
         return $this->hasMany(Solicitacao::class, 'servico_id');
     }
+
+    /** Perfis de quem pode pedir o serviço (TR 4.30.5, 4.30.12) — vários por serviço. */
+    public const PERFIS = [
+        'cidadao'        => 'Cidadão',
+        'empresa'        => 'Empresa',
+        'servidor'       => 'Servidor público',
+        'estudante'      => 'Estudante',
+        'produtor_rural' => 'Produtor rural',
+        'entidade'       => 'Entidade / OSC',
+        'turista'        => 'Turista / visitante',
+    ];
 
     public const PUBLICOS = [
         'cidadao'  => 'Cidadão',

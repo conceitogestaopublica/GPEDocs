@@ -27,12 +27,25 @@ class CatalogoController extends PortalApiController
             ->orderBy('ordem')->orderBy('nome')
             ->get();
 
+        // Filtros da Carta (TR 4.30.1, 4.30.28): busca, órgão, perfil, categoria; ordem alfabética ou mais acessados (4.30.27)
+        $q = trim((string) $request->query('q'));
+        $orgao = $request->integer('orgao') ?: null;
         $servicos = Servico::query()->withoutGlobalScope('ug')
             ->where('ug_id', $ug->id)
             ->where('publicado', true)
             ->whereIn('categoria_id', $categorias->pluck('id'))
+            ->when($q !== '', fn ($w) => $w->where(fn ($x) => $x->whereRaw('lower(titulo) like ?', ['%' . mb_strtolower($q) . '%'])
+                ->orWhereRaw("lower(coalesce(descricao_curta, '')) like ?", ['%' . mb_strtolower($q) . '%'])
+                ->orWhereRaw('lower(cast(palavras_chave as text)) like ?', ['%' . mb_strtolower($q) . '%'])))
+            ->when($request->filled('categoria'), fn ($w) => $w->whereIn('categoria_id', $categorias->where('slug', $request->query('categoria'))->pluck('id')))
+            ->when($request->filled('perfil'), fn ($w) => $w->where(fn ($x) => $x->whereJsonContains('perfis', (string) $request->query('perfil'))
+                ->orWhere(fn ($y) => $y->whereNull('perfis')->where('publico_alvo', $request->query('perfil')))))
+            ->when($orgao, fn ($w) => $w->whereIn('setor_responsavel_id', \App\Support\Organograma::comDescendentes($orgao)))
+            ->when($request->query('ordem') === 'alfabetica', fn ($w) => $w->orderBy('titulo'))
+            ->when($request->query('ordem') === 'acessados', fn ($w) => $w->orderByDesc('visualizacoes')->orderBy('titulo'))
             ->orderBy('ordem')->orderBy('titulo')
             ->get();
+        $orgaos = self::orgaosDos($servicos->pluck('setor_responsavel_id')->filter()->unique()->all());
 
         $slugCategoria = $categorias->pluck('slug', 'id');
         $tipos = TipoProcesso::whereIn('id', $servicos->pluck('tipo_processo_id')->filter()->unique())->get()->keyBy('id');
@@ -67,6 +80,22 @@ class CatalogoController extends PortalApiController
                 'prazo_entrega'          => $s->prazo_entrega,
                 'custo'                  => $s->custo,
                 'orgao_responsavel'      => $s->orgao_responsavel,
+                // Órgão do organograma com sigla (TR 4.30.3–4.30.4)
+                'orgao'                  => $orgaos[$s->setor_responsavel_id] ?? null,
+                'canais'                 => $s->canais ?? [],
+                'perfis'                 => $s->perfis ?: [$s->publico_alvo],
+                'visualizacoes'          => (int) $s->visualizacoes,
+                // Lei 13.460 (TR 4.30.14–4.30.26)
+                'caracteristicas'        => $s->caracteristicas,
+                'etapas'                 => $s->etapas ?? [],
+                'prazo_dias'             => $s->prazo_dias,
+                'tempo_espera'           => $s->tempo_espera,
+                'prioridades'            => $s->prioridades,
+                'forma_prestacao'        => $s->forma_prestacao,
+                'locais_manifestacao'    => $s->locais_manifestacao,
+                'mecanismos_comunicacao' => $s->mecanismos_comunicacao,
+                'procedimento_manifestacoes' => $s->procedimento_manifestacoes,
+                'mecanismos_consulta'    => $s->mecanismos_consulta,
                 'legislacao'             => $s->legislacao,
                 'palavras_chave'         => $s->palavras_chave ?? [],
                 'icone'                  => $s->icone,
@@ -83,6 +112,49 @@ class CatalogoController extends PortalApiController
                 'avaliacao'              => (bool) ($tipos[$s->tipo_processo_id]?->avaliacao ?? false),
             ])->values(),
         ]);
+    }
+
+    /**
+     * Setor responsável → {setor, sigla, orgao, orgao_sigla, orgao_id}: o órgão é o nível 1 acima
+     * dele no organograma (TR 4.30.3).
+     *
+     * @return array<int, array>
+     */
+    private static function orgaosDos(array $setores): array
+    {
+        $saida = [];
+        foreach (\App\Models\UgOrganograma::whereIn('id', $setores)->get(['id', 'nome', 'sigla', 'parent_id', 'nivel']) as $s) {
+            $topo = $s;
+            for ($i = 0; $topo->parent_id && $i < 10; $i++) {
+                $topo = \App\Models\UgOrganograma::find($topo->parent_id, ['id', 'nome', 'sigla', 'parent_id']) ?? $topo;
+            }
+            $saida[$s->id] = ['setor' => $s->nome, 'sigla' => $s->sigla, 'orgao_id' => $topo->id, 'orgao' => $topo->nome, 'orgao_sigla' => $topo->sigla];
+        }
+
+        return $saida;
+    }
+
+    /** Órgãos responsáveis com serviço publicado, para o filtro do portal (TR 4.30.4). */
+    public function orgaos(Request $request): JsonResponse
+    {
+        $ug = $this->ug($request);
+        $setores = Servico::query()->withoutGlobalScope('ug')->where('ug_id', $ug->id)->where('publicado', true)
+            ->whereNotNull('setor_responsavel_id')->pluck('setor_responsavel_id')->unique()->all();
+        $porOrgao = collect(self::orgaosDos($setores))->groupBy('orgao_id');
+
+        return response()->json($porOrgao->map(fn ($l, $id) => ['id' => (int) $id, 'nome' => $l->first()['orgao'], 'sigla' => $l->first()['orgao_sigla'],
+            'servicos' => Servico::query()->withoutGlobalScope('ug')->where('ug_id', $ug->id)->where('publicado', true)
+                ->whereIn('setor_responsavel_id', \App\Support\Organograma::comDescendentes((int) $id))->count()])
+            ->sortBy('nome')->values());
+    }
+
+    /** O portal avisa que o serviço foi aberto: alimenta "mais acessados" (TR 4.30.27). */
+    public function visualizacao(Request $request, string $slug): JsonResponse
+    {
+        $ug = $this->ug($request);
+        Servico::query()->withoutGlobalScope('ug')->where('ug_id', $ug->id)->where('slug', $slug)->where('publicado', true)->increment('visualizacoes');
+
+        return response()->json(['ok' => true]);
     }
 
     /** Campos do assunto para o portal montar o formulário (mesmas regras do GED). */
