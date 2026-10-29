@@ -78,7 +78,7 @@ const TIPO_CONFIG = {
     processo:  { label: 'Processo',  icone: 'fa-folder-open',  cor: 'indigo', link: 'processos' },
 };
 
-export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidade = false, pastas = [], meus_setores = [] }) {
+export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidade = false, pastas = [], meus_setores = [], contagens = {} }) {
     const cfg = VISTA_CONFIG[vista];
     const lista = items?.data || [];
     const links = items?.links || null;
@@ -117,7 +117,7 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
         return out;
     }, [pastas]);
 
-    const aplicar = (e) => {
+    const aplicar = (e, aba = filtros.aba) => {
         e?.preventDefault();
         router.get(window.location.pathname,
             {
@@ -125,9 +125,14 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                 nao_lidos: naoLidos ? 1 : undefined,
                 data_de: dataDe || undefined, data_ate: dataAte || undefined,
                 setor: setor || undefined,
+                aba: vista === 'setor' && aba !== 'abertos' ? aba : undefined,
             },
             { preserveState: true, replace: true });
     };
+
+    // Não lidos por mim, por módulo (TR 4.10.5)
+    const porTipo = vista === 'setor' ? contagens.setor_por_tipo : vista === 'pessoal' ? contagens.pessoal_por_tipo : null;
+    const ROTULO_TIPO = { processo: ['processo', 'processos'], memorando: ['memorando', 'memorandos'], oficio: ['ofício', 'ofícios'] };
 
     const limpar = () => {
         setBusca(''); setTipo(''); setNaoLidos(false); setDataDe(''); setDataAte(''); setSetor('');
@@ -163,6 +168,36 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                         <p className="text-[11px] text-amber-700">Peça ao admin para vincular seu usuário a uma unidade. Sem isso a Inbox do Setor fica vazia.</p>
                     </div>
                 </div>
+            )}
+
+            {/* Caixa do setor em abas por situação (TR 4.9.9) */}
+            {vista === 'setor' && ! aviso_sem_unidade && (
+                <div className="flex flex-wrap items-center gap-1 mb-3 border-b border-gray-200">
+                    {[
+                        ['abertos', 'Em aberto', null],
+                        ['nao_lidos', 'Não lidos por mim', contagens.setor_nao_lidos],
+                        ['concluidos', 'Concluídos', null],
+                    ].map(([v, rotulo, n]) => {
+                        const ativa = (filtros.aba || 'abertos') === v;
+                        return (
+                            <button key={v} type="button" onClick={() => aplicar(null, v)}
+                                className={`px-4 py-2 text-sm -mb-px border-b-2 transition-colors ${ativa ? 'border-cyan-600 text-cyan-700 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+                                {rotulo}
+                                {n > 0 && <span className="ml-1.5 text-[10px] font-bold bg-blue-100 text-blue-700 rounded-full px-1.5 py-0.5">{n}</span>}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
+            {porTipo && Object.keys(porTipo).length > 0 && (
+                <p className="text-xs text-gray-600 mb-3">
+                    <i className="fas fa-envelope mr-1 text-blue-500" />
+                    Não lidos por você:{' '}
+                    {Object.entries(porTipo).map(([t, n], i) => (
+                        <span key={t}>{i > 0 && ' · '}<b>{n}</b> {(ROTULO_TIPO[t] || [t, t])[n === 1 ? 0 : 1]}</span>
+                    ))}
+                </p>
             )}
 
             {/* Filtros */}
@@ -351,7 +386,7 @@ function ItemRow({ item, onAssinar, onArquivar }) {
     }[item.status] || null;
 
     return (
-        <div className={`px-4 py-3 hover:bg-gray-50 transition-colors ${! item.lido ? 'border-l-4 border-blue-500' : ''}`}>
+        <div className={`px-4 py-3 hover:bg-gray-50 transition-colors ${! item.lido_por_mim ? 'border-l-4 border-blue-500' : ''}`}>
             <div className="flex items-start gap-3">
                 <div className={`w-9 h-9 ${cores.bg} rounded-lg flex items-center justify-center shrink-0`}>
                     <i className={`fas ${tipo.icone} ${cores.text} text-sm`} />
@@ -364,8 +399,11 @@ function ItemRow({ item, onAssinar, onArquivar }) {
                         {item.numero && (
                             <span className="text-[10px] font-mono text-gray-500">{item.numero}</span>
                         )}
-                        {! item.lido && (
+                        {! item.lido_por_mim && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold uppercase">Novo</span>
+                        )}
+                        {! item.lido_por_mim && item.lido && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 font-bold uppercase" title="Alguém do setor já abriu ou recebeu">Lido no setor</span>
                         )}
                         {item.copia && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold uppercase" title="Cópia para ciência">Cópia</span>
@@ -386,7 +424,7 @@ function ItemRow({ item, onAssinar, onArquivar }) {
                             </span>
                         )}
                     </div>
-                    <p className={`text-sm mt-0.5 truncate group-hover:text-blue-600 ${item.lido ? 'text-gray-700' : 'text-gray-900 font-semibold'}`}>
+                    <p className={`text-sm mt-0.5 truncate group-hover:text-blue-600 ${item.lido_por_mim ? 'text-gray-700' : 'text-gray-900 font-semibold'}`}>
                         {item.assunto}
                     </p>
                     <p className="text-[11px] text-gray-500 mt-0.5">

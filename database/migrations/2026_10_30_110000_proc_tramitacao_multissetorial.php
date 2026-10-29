@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\Schema;
  *  - estagio / resolvido_*: o setor marca em que pé está e resolve a parte dele.
  *
  * proc_inbox passa a ter uma linha por ETAPA ATIVA do processo (cada setor vê a
- * sua) — antes era só a última tramitação. Sem etapa ativa, segue a última.
+ * sua) — antes era só a última tramitação. Sem etapa ativa (concluído, cancelado),
+ * a última de cada frente: todo setor que tratou o processo o vê em Concluídos.
  * Coluna nova `copia` no fim (as outras origens: false).
  */
 return new class extends Migration
@@ -36,7 +37,8 @@ return new class extends Migration
             WHERE p.deleted_at IS NULL
               AND (
                     t.status IN ('pendente', 'recebido')
-                 OR (t.id = (SELECT MAX(t2.id) FROM proc_tramitacoes t2 WHERE t2.processo_id = p.id AND t2.modo = 'tramite')
+                 OR (t.id = (SELECT MAX(t2.id) FROM proc_tramitacoes t2
+                             WHERE t2.processo_id = p.id AND t2.modo = 'tramite' AND t2.frente = t.frente)
                      AND NOT EXISTS (SELECT 1 FROM proc_tramitacoes t3
                                      WHERE t3.processo_id = p.id AND t3.modo = 'tramite' AND t3.status IN ('pendente', 'recebido')))
               )

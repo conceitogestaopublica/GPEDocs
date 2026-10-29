@@ -59,38 +59,63 @@ class InboxController extends Controller
     public function setor(Request $request): Response
     {
         $user = Auth::user();
-        $setores = Setores::doUsuario($user);
-        $acessoGeral = (bool) $user->acesso_geral_ug;
-
         // Trocar de setor (TR 4.9.3): quem atende vários vê um de cada vez, ou todos.
-        $escolhido = $request->integer('setor') ?: null;
-        if ($escolhido && ($acessoGeral || in_array($escolhido, $setores, true))) {
-            return $this->render($request, 'setor',
-                fn ($q) => $q->where('destino_unidade_id', $escolhido)
-                             ->whereNull('destino_usuario_id')
-                             ->whereNotIn('status', self::ESTADOS_FINAIS)
-            );
-        }
-
-        if ($acessoGeral) {
-            return $this->render($request, 'setor',
-                fn ($q) => $q->whereNotNull('destino_unidade_id')
-                             ->whereNull('destino_usuario_id')
-                             ->whereNotIn('status', self::ESTADOS_FINAIS)
-                             ->where('id', 'not like', 'MT-%')
-            );
-        }
-
-        if (! $setores) {
+        $destino = $this->destinoSetor($user, $request->integer('setor') ?: null);
+        if (! $destino) {
             return $this->render($request, 'setor', fn ($q) => $q->whereRaw('1 = 0'),
                 avisoSemUnidade: true);
         }
 
-        return $this->render($request, 'setor',
-            fn ($q) => $q->whereIn('destino_unidade_id', $setores)
-                         ->whereNull('destino_usuario_id')
-                         ->whereNotIn('status', self::ESTADOS_FINAIS)
-        );
+        // Abas por situação (TR 4.9.9): em aberto, não lidos por mim, concluídos
+        $aba = in_array($request->input('aba'), self::ABAS_SETOR, true) ? $request->input('aba') : 'abertos';
+
+        return $this->render($request, 'setor', function ($q) use ($destino, $aba, $user) {
+            $destino($q);
+            $q->whereNull('destino_usuario_id');
+            $aba === 'concluidos'
+                ? $q->whereIn('status', self::ESTADOS_FINAIS)
+                : $q->whereNotIn('status', self::ESTADOS_FINAIS);
+            if ($aba === 'nao_lidos') {
+                $this->naoLidoPor($q, (int) $user->id);
+            }
+        });
+    }
+
+    private const ABAS_SETOR = ['abertos', 'nao_lidos', 'concluidos'];
+
+    /** Itens endereçados aos setores do usuário (ou ao escolhido); null se ele não tem setor. */
+    private function destinoSetor(\App\Models\User $user, ?int $escolhido): ?\Closure
+    {
+        $setores = Setores::doUsuario($user);
+        $acessoGeral = (bool) $user->acesso_geral_ug;
+
+        return match (true) {
+            $escolhido && ($acessoGeral || in_array($escolhido, $setores, true))
+                => fn ($q) => $q->where('destino_unidade_id', $escolhido),
+            $acessoGeral
+                => fn ($q) => $q->whereNotNull('destino_unidade_id')->where('id', 'not like', 'MT-%'),
+            $setores !== []
+                => fn ($q) => $q->whereIn('destino_unidade_id', $setores),
+            default => null,
+        };
+    }
+
+    /**
+     * Lido POR ESTE USUÁRIO (TR 4.14.1): abriu o documento depois que o item chegou
+     * (proc_acessos). Item pessoal já marcado como lido antes do registro de acessos
+     * também conta, para o histórico não voltar todo como novo.
+     */
+    private function sqlLidoPor(): string
+    {
+        return '(EXISTS (SELECT 1 FROM proc_acessos a WHERE a.tipo = proc_inbox.tipo AND a.item_id = proc_inbox.item_id'
+            . ' AND a.usuario_id = ? AND a.ultimo_em >= proc_inbox.criado_em)'
+            // COALESCE: sem destinatário (caixa do setor) a comparação daria NULL e o NOT sumiria com a linha
+            . ' OR (proc_inbox.lido AND COALESCE(proc_inbox.destino_usuario_id, 0) = ?))';
+    }
+
+    private function naoLidoPor($q, int $userId): void
+    {
+        $q->whereRaw('NOT ' . $this->sqlLidoPor(), [$userId, $userId]);
     }
 
     /**
@@ -201,7 +226,10 @@ class InboxController extends Controller
         $dataDe = $request->input('data_de');
         $dataAte = $request->input('data_ate');
 
-        $query = DB::table('proc_inbox');
+        $userId = (int) Auth::id();
+        $query = DB::table('proc_inbox')
+            ->select('proc_inbox.*')
+            ->selectRaw($this->sqlLidoPor() . ' AS lido_por_mim', [$userId, $userId]);
 
         $escopoFn($query);
 
@@ -216,7 +244,7 @@ class InboxController extends Controller
             $query->where('tipo', $tipoFiltro);
         }
         if ($somenteNaoLidos) {
-            $query->where('lido', false);
+            $this->naoLidoPor($query, $userId);
         }
         if ($dataDe) {
             $query->where('criado_em', '>=', $dataDe . ' 00:00:00');
@@ -385,6 +413,7 @@ class InboxController extends Controller
                 'data_de'    => $dataDe,
                 'data_ate'   => $dataAte,
                 'setor'      => $request->integer('setor') ?: null,
+                'aba'        => in_array($request->input('aba'), self::ABAS_SETOR, true) ? $request->input('aba') : 'abertos',
             ],
             'contagens' => $contagens,
             'pastas'    => $pastas,
@@ -404,8 +433,6 @@ class InboxController extends Controller
     {
         $userId = (int) Auth::id();
         $user = Auth::user();
-        $setores = Setores::doUsuario($user);
-        $acessoGeral = (bool) $user->acesso_geral_ug;
 
         $base = DB::table('proc_inbox');
         $ugId = session('ug_id');
@@ -413,24 +440,24 @@ class InboxController extends Controller
             $base->where('ug_id', $ugId);
         }
 
-        $pessoal = (clone $base)
-            ->where('destino_usuario_id', $userId)
-            ->whereNotIn('status', self::ESTADOS_FINAIS)
-            ->where('lido', false)
-            ->count();
+        // Não lidos POR MIM, separados por módulo (TR 4.10.5, 4.14.1)
+        $porTipo = function (\Closure $escopo) use ($base, $userId): array {
+            $q = (clone $base)->whereNotIn('status', self::ESTADOS_FINAIS);
+            $escopo($q);
+            $this->naoLidoPor($q, $userId);
 
-        if ($acessoGeral) {
-            $setor = (clone $base)->whereNotNull('destino_unidade_id')->whereNull('destino_usuario_id')
-                ->whereNotIn('status', self::ESTADOS_FINAIS)
-                ->where('id', 'not like', 'MT-%')
-                ->where('lido', false)->count();
-        } elseif ($setores) {
-            $setor = (clone $base)->whereIn('destino_unidade_id', $setores)->whereNull('destino_usuario_id')
-                ->whereNotIn('status', self::ESTADOS_FINAIS)
-                ->where('lido', false)->count();
-        } else {
-            $setor = 0;
-        }
+            return $q->groupBy('tipo')->selectRaw('tipo, count(*) AS n')->pluck('n', 'tipo')
+                ->map(fn ($n) => (int) $n)->all();
+        };
+
+        $pessoalPorTipo = $porTipo(fn ($q) => $q->where('destino_usuario_id', $userId));
+        $destino = $this->destinoSetor($user, null);
+        $setorPorTipo = $destino ? $porTipo(function ($q) use ($destino) {
+            $destino($q);
+            $q->whereNull('destino_usuario_id');
+        }) : [];
+        $pessoal = array_sum($pessoalPorTipo);
+        $setor = array_sum($setorPorTipo);
 
         // Aguardando assinatura: processos com Assinatura pendente para mim
         $assinatura = DB::table('ged_assinaturas as a')
@@ -444,6 +471,8 @@ class InboxController extends Controller
         return [
             'pessoal_nao_lidos'    => $pessoal,
             'setor_nao_lidos'      => $setor,
+            'pessoal_por_tipo'     => $pessoalPorTipo,
+            'setor_por_tipo'       => $setorPorTipo,
             'aguardando_assinatura'=> $assinatura,
         ];
     }

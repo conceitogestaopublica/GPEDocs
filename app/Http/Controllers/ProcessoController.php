@@ -271,6 +271,11 @@ class ProcessoController extends Controller
         // Mesma regra que o servidor confere em cada ação (App\Services\AcaoNoProcesso).
         $acoes = \App\Services\AcaoNoProcesso::avaliar($processo, $user, $request->integer('etapa') ?: null);
         \App\Support\Acessos::registrar('processo', $processo->id, $user);
+        // Lido no setor: a primeira pessoa do destino que abre marca as etapas abertas para ela
+        $processo->tramitacoes
+            ->filter(fn ($t) => $t->lida_em === null && in_array($t->status, ['pendente', 'recebido'], true)
+                && \App\Services\AcaoNoProcesso::ativoNaEtapa($t, $user) && ! $user->super_admin)
+            ->each(fn ($t) => $t->forceFill(['lida_em' => now()])->saveQuietly());
         $podeReceber = $acoes['receber'];
         $podeDespachar = $acoes['despachar'];
         $podeConcluir = $acoes['concluir'];
