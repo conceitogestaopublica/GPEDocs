@@ -356,7 +356,27 @@ class InboxController extends Controller
                 ->get()->keyBy('id')
             : collect();
 
-        $items->setCollection($items->getCollection()->map(function ($it) use ($users, $unidades, $assinaturasPorProcesso, $documentosPorProcesso, $memosInfo, $oficiosInfo) {
+        // Prazo de cada processo na caixa (TR 4.13.4, 4.13.5): o da etapa desta linha e o
+        // próximo prazo manual em aberto que o usuário enxerga — vale o que vence antes
+        $linhasProcesso = collect($items->items())->where('tipo', 'processo');
+        $prazoEtapa = DB::table('proc_tramitacoes')
+            ->whereIn('id', $linhasProcesso->map(fn ($i) => (int) explode('-', $i->id)[2])->all())
+            ->whereIn('status', ['pendente', 'recebido'])->pluck('prazo', 'id');
+        $prazoManual = \App\Models\Processo\Prazo::visiveisPara(Auth::user())
+            ->whereIn('processo_id', $linhasProcesso->pluck('item_id')->all())->whereNull('concluido_em')
+            ->groupBy('processo_id')->selectRaw('processo_id, min(vence_em) as vence_em')->pluck('vence_em', 'processo_id');
+
+        $items->setCollection($items->getCollection()->map(function ($it) use ($users, $unidades, $assinaturasPorProcesso, $documentosPorProcesso, $memosInfo, $oficiosInfo, $prazoEtapa, $prazoManual) {
+            if ($it->tipo === 'processo') {
+                $vence = collect([$prazoEtapa[(int) explode('-', $it->id)[2]] ?? null, $prazoManual[$it->item_id] ?? null])
+                    ->filter()->map(fn ($d) => \Illuminate\Support\Carbon::parse($d, 'UTC'))->sort()->first();
+                $it->prazo = $vence?->toIso8601String();
+                $it->prazo_situacao = ! $vence || in_array($it->status, self::ESTADOS_FINAIS, true) ? null : match (true) {
+                    $vence->isPast() => 'vencido',
+                    $vence->lte(now()->addHours(\App\Models\Processo\Prazo::HORAS_VENCENDO)) => 'vencendo',
+                    default => 'com_folga',
+                };
+            }
             $it->remetente_nome = $users[$it->remetente_id]->name ?? null;
             $it->destino_usuario_nome = $it->destino_usuario_id ? ($users[$it->destino_usuario_id]->name ?? null) : null;
             $it->destino_unidade_nome = $it->destino_unidade_id ? ($unidades[$it->destino_unidade_id]->nome ?? null) : null;

@@ -506,6 +506,7 @@ Route::middleware('auth')->group(function () {
         // Entrada (preciso agir)
         Route::get('inbox-pessoal',         [\App\Http\Controllers\Flow\InboxController::class, 'pessoal'])->name('inbox-pessoal');
         Route::get('inbox-setor',           [\App\Http\Controllers\Flow\InboxController::class, 'setor'])->name('inbox-setor');
+        Route::get('prazos',                [\App\Http\Controllers\Flow\CalendarioPrazosController::class, 'index'])->name('prazos');
         Route::get('aguardando-assinatura', [\App\Http\Controllers\Flow\InboxController::class, 'aguardandoAssinatura'])->name('aguardando-assinatura');
 
         // Em andamento

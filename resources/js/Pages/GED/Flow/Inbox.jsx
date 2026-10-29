@@ -11,6 +11,7 @@ import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
 import AssinarModal from '../../../Components/AssinarModal';
+import { SITUACAO_PRAZO } from '../../../Components/PrazosDoProcesso';
 
 const VISTA_CONFIG = {
     pessoal: {
@@ -407,6 +408,13 @@ function ItemRow({ item, onAssinar, onArquivar }) {
                         )}
                         {item.copia && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold uppercase" title="Cópia para ciência">Cópia</span>
+                        )}
+                        {/* Prazo (TR 4.13.4, 4.13.5) */}
+                        {item.prazo_situacao && (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase ${SITUACAO_PRAZO[item.prazo_situacao].cor}`}
+                                title={`Prazo: ${new Date(item.prazo).toLocaleString('pt-BR')}`}>
+                                <i className="fas fa-clock mr-0.5" />{SITUACAO_PRAZO[item.prazo_situacao].rotulo} · {new Date(item.prazo).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                            </span>
                         )}
                         {statusBadge && (
                             <span className={`text-[9px] px-1.5 py-0.5 rounded ${statusBadge.bg} ${statusBadge.text} font-bold uppercase`}>
