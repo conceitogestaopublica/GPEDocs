@@ -48,6 +48,7 @@ export const MENU_GEPSP = [
             { title: 'Em Tramitação', icon: 'fas fa-share',        href: '/flow/em-tramitacao', color: 'text-orange-600 bg-orange-100' },
             { title: 'Concluídos',    icon: 'fas fa-check-double', href: '/flow/concluidos',    color: 'text-green-600 bg-green-100' },
             { title: 'Calendário de prazos', icon: 'fas fa-calendar-days', href: '/flow/prazos', color: 'text-amber-600 bg-amber-100' },
+            { title: 'Etiquetas do setor', icon: 'fas fa-tags', href: '/flow/etiquetas', color: 'text-violet-600 bg-violet-100' },
         ],
     },
     {

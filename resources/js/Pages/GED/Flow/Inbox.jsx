@@ -79,7 +79,7 @@ const TIPO_CONFIG = {
     processo:  { label: 'Processo',  icone: 'fa-folder-open',  cor: 'indigo', link: 'processos' },
 };
 
-export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidade = false, pastas = [], meus_setores = [], contagens = {} }) {
+export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidade = false, pastas = [], meus_setores = [], contagens = {}, minhas_etiquetas = [] }) {
     const cfg = VISTA_CONFIG[vista];
     const lista = items?.data || [];
     const links = items?.links || null;
@@ -118,7 +118,7 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
         return out;
     }, [pastas]);
 
-    const aplicar = (e, aba = filtros.aba) => {
+    const aplicar = (e, aba = filtros.aba, extra = {}) => {
         e?.preventDefault();
         router.get(window.location.pathname,
             {
@@ -127,9 +127,21 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                 data_de: dataDe || undefined, data_ate: dataAte || undefined,
                 setor: setor || undefined,
                 aba: vista === 'setor' && aba !== 'abertos' ? aba : undefined,
+                etiqueta: filtros.etiqueta || undefined,
+                ...extra,
             },
             { preserveState: true, replace: true });
     };
+
+    // Etiquetas do setor (TR 4.19): seleção em lote e gaveta
+    const chaveItem = (i) => `${i.tipo}:${i.item_id}`;
+    const [selecionados, setSelecionados] = useState([]);
+    const [etiquetaLote, setEtiquetaLote] = useState('');
+    const etiquetar = (acao) => router.post('/flow/etiquetar', {
+        etiqueta_id: etiquetaLote, acao,
+        itens: selecionados.map(k => { const [t, id] = k.split(':'); return { tipo: t, item_id: Number(id) }; }),
+    }, { preserveScroll: true, onSuccess: () => setSelecionados([]) });
+    const gaveta = minhas_etiquetas.find(e => e.id === filtros.etiqueta);
 
     // Não lidos por mim, por módulo (TR 4.10.5)
     const porTipo = vista === 'setor' ? contagens.setor_por_tipo : vista === 'pessoal' ? contagens.pessoal_por_tipo : null;
@@ -201,6 +213,25 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                 </p>
             )}
 
+            {/* Gavetas: etiquetas do setor (TR 4.19.2, 4.19.9) */}
+            {minhas_etiquetas.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                    <span className="text-xs text-gray-500 mr-1"><i className="fas fa-tags mr-1" />Etiquetas:</span>
+                    <button type="button" onClick={() => aplicar(null, filtros.aba, { etiqueta: undefined })}
+                        className={`text-xs rounded-full px-2.5 py-1 border ${! filtros.etiqueta ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200'}`}>Todas</button>
+                    {minhas_etiquetas.map(e => (
+                        <button key={e.id} type="button" onClick={() => aplicar(null, filtros.aba, { etiqueta: e.id })}
+                            title={`${e.setor}${e.parent_id ? ' — dentro de ' + (minhas_etiquetas.find(x => x.id === e.parent_id)?.nome || '') : ''}`}
+                            style={{ color: e.cor_texto, backgroundColor: e.cor_fundo }}
+                            className={`text-xs rounded-full px-2.5 py-1 ${filtros.etiqueta === e.id ? 'ring-2 ring-offset-1 ring-cyan-600' : ''}`}>
+                            {e.parent_id ? '↳ ' : ''}{e.nome}
+                        </button>
+                    ))}
+                    <a href="/flow/etiquetas" className="text-xs text-cyan-700 hover:underline ml-1">Gerenciar</a>
+                    {gaveta && <span className="text-xs text-gray-500 ml-2">Mostrando a gaveta <b>{gaveta.nome}</b> (e as de dentro dela)</span>}
+                </div>
+            )}
+
             {/* Filtros */}
             <div className="bg-white rounded-xl border border-gray-200 p-3 mb-3">
                 <form onSubmit={aplicar} className="flex flex-wrap items-end gap-2">
@@ -263,8 +294,33 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100">
+                        {/* Etiquetar em lote (TR 4.19.7) */}
+                        {minhas_etiquetas.length > 0 && (
+                            <div className="px-4 py-2 bg-gray-50 flex flex-wrap items-center gap-2 text-sm">
+                                <label className="flex items-center gap-2 text-gray-600 cursor-pointer">
+                                    <input type="checkbox" className="rounded border-gray-300 text-blue-600"
+                                        checked={selecionados.length === lista.length}
+                                        onChange={(e) => setSelecionados(e.target.checked ? lista.map(chaveItem) : [])} />
+                                    {selecionados.length ? `${selecionados.length} selecionado(s)` : 'Selecionar todos'}
+                                </label>
+                                {selecionados.length > 0 && (
+                                    <>
+                                        <select value={etiquetaLote} onChange={(e) => setEtiquetaLote(e.target.value)} className="ds-input !h-8 !py-0 w-56">
+                                            <option value="">Etiqueta…</option>
+                                            {minhas_etiquetas.map(e => <option key={e.id} value={e.id}>{e.nome} ({e.setor})</option>)}
+                                        </select>
+                                        <Button variant="secondary" disabled={! etiquetaLote} onClick={() => etiquetar('aplicar')}>Aplicar</Button>
+                                        <Button variant="secondary" disabled={! etiquetaLote} onClick={() => etiquetar('remover')}>Retirar</Button>
+                                    </>
+                                )}
+                            </div>
+                        )}
                         {lista.map(item => (
                             <ItemRow key={item.id} item={item}
+                                selecionavel={minhas_etiquetas.length > 0}
+                                selecionado={selecionados.includes(chaveItem(item))}
+                                onSelecionar={(v) => setSelecionados(s => v ? [...s, chaveItem(item)] : s.filter(x => x !== chaveItem(item)))}
+                                onEtiqueta={(id) => aplicar(null, filtros.aba, { etiqueta: id })}
                                 onAssinar={() => setAssinarItem({
                                     id: item.assinatura_id,
                                     documento: { nome: `Decisão - ${item.numero}` },
@@ -359,7 +415,7 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
     );
 }
 
-function ItemRow({ item, onAssinar, onArquivar }) {
+function ItemRow({ item, onAssinar, onArquivar, selecionavel = false, selecionado = false, onSelecionar, onEtiqueta }) {
     const tipo = TIPO_CONFIG[item.tipo] || TIPO_CONFIG.processo;
     const cores = {
         amber:  { bg: 'bg-amber-100',  text: 'text-amber-700',  border: 'border-amber-200' },
@@ -389,11 +445,23 @@ function ItemRow({ item, onAssinar, onArquivar }) {
     return (
         <div className={`px-4 py-3 hover:bg-gray-50 transition-colors ${! item.lido_por_mim ? 'border-l-4 border-blue-500' : ''}`}>
             <div className="flex items-start gap-3">
+                {selecionavel && ['processo', 'memorando', 'oficio'].includes(item.tipo) && (
+                    <input type="checkbox" checked={selecionado} onChange={(e) => onSelecionar?.(e.target.checked)}
+                        className="mt-2.5 rounded border-gray-300 text-blue-600" title="Selecionar para etiquetar" />
+                )}
                 <div className={`w-9 h-9 ${cores.bg} rounded-lg flex items-center justify-center shrink-0`}>
                     <i className={`fas ${tipo.icone} ${cores.text} text-sm`} />
                 </div>
                 <Link href={url} className="flex-1 min-w-0 group">
                     <div className="flex items-center gap-2 flex-wrap">
+                        {(item.etiquetas || []).map(e => (
+                            <span key={e.id} role="button" title={`Etiqueta do setor ${e.setor} — clique para ver a gaveta`}
+                                onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); onEtiqueta?.(e.id); }}
+                                style={{ color: e.cor_texto, backgroundColor: e.cor_fundo }}
+                                className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold cursor-pointer">
+                                {e.nome}
+                            </span>
+                        ))}
                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${cores.bg} ${cores.text} font-bold uppercase tracking-wide`}>
                             {tipo.label}
                         </span>

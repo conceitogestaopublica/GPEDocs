@@ -246,6 +246,16 @@ class InboxController extends Controller
         if ($somenteNaoLidos) {
             $this->naoLidoPor($query, $userId);
         }
+        // Gaveta virtual: itens com a etiqueta (ou uma filha dela) — TR 4.19.2, 4.19.8, 4.19.9
+        $etiquetaFiltro = $request->integer('etiqueta') ?: null;
+        if ($etiquetaFiltro && \App\Support\Etiquetas::doUsuario(Auth::user())->contains('id', $etiquetaFiltro)) {
+            $ids = \App\Support\Etiquetas::comFilhas($etiquetaFiltro);
+            $query->whereExists(fn ($q) => $q->selectRaw('1')->from('proc_etiquetados as pe')
+                ->whereColumn('pe.tipo', 'proc_inbox.tipo')->whereColumn('pe.item_id', 'proc_inbox.item_id')
+                ->whereIn('pe.etiqueta_id', $ids));
+        } else {
+            $etiquetaFiltro = null;
+        }
         if ($dataDe) {
             $query->where('criado_em', '>=', $dataDe . ' 00:00:00');
         }
@@ -365,8 +375,12 @@ class InboxController extends Controller
         $prazoManual = \App\Models\Processo\Prazo::visiveisPara(Auth::user())
             ->whereIn('processo_id', $linhasProcesso->pluck('item_id')->all())->whereNull('concluido_em')
             ->groupBy('processo_id')->selectRaw('processo_id, min(vence_em) as vence_em')->pluck('vence_em', 'processo_id');
+        // Etiquetas do setor de cada item (TR 4.19)
+        $etiquetasDosItens = \App\Support\Etiquetas::dosItens(Auth::user(),
+            collect($items->items())->map(fn ($i) => [$i->tipo, (int) $i->item_id])->unique()->values()->all());
 
-        $items->setCollection($items->getCollection()->map(function ($it) use ($users, $unidades, $assinaturasPorProcesso, $documentosPorProcesso, $memosInfo, $oficiosInfo, $prazoEtapa, $prazoManual) {
+        $items->setCollection($items->getCollection()->map(function ($it) use ($users, $unidades, $assinaturasPorProcesso, $documentosPorProcesso, $memosInfo, $oficiosInfo, $prazoEtapa, $prazoManual, $etiquetasDosItens) {
+            $it->etiquetas = $etiquetasDosItens["{$it->tipo}-{$it->item_id}"] ?? [];
             if ($it->tipo === 'processo') {
                 $vence = collect([$prazoEtapa[(int) explode('-', $it->id)[2]] ?? null, $prazoManual[$it->item_id] ?? null])
                     ->filter()->map(fn ($d) => \Illuminate\Support\Carbon::parse($d, 'UTC'))->sort()->first();
@@ -434,11 +448,13 @@ class InboxController extends Controller
                 'data_ate'   => $dataAte,
                 'setor'      => $request->integer('setor') ?: null,
                 'aba'        => in_array($request->input('aba'), self::ABAS_SETOR, true) ? $request->input('aba') : 'abertos',
+                'etiqueta'   => $etiquetaFiltro,
             ],
             'contagens' => $contagens,
             'pastas'    => $pastas,
             'aviso_sem_unidade' => $avisoSemUnidade,
             // Caixa do setor de quem atende mais de um: escolher qual (ou todos).
+            'minhas_etiquetas' => \App\Support\Etiquetas::doUsuario(Auth::user())->values(),
             'meus_setores' => $vista === 'setor'
                 ? \App\Models\UgOrganograma::whereIn('id', Setores::doUsuario(Auth::user()))
                     ->orderBy('nome')->get(['id', 'nome'])

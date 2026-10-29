@@ -73,7 +73,7 @@ const tabList = [
 ];
 
 export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
-    acessos = [], prazos = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
+    acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
     // Meu perfil › Preferências: abrir anexo no navegador ou baixar
@@ -498,6 +498,26 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                 </button>
                             )}
                         </p>
+                        {/* Etiquetas do setor (TR 4.19.4) */}
+                        {minhas_etiquetas.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 mt-2 ml-8">
+                                {etiquetas_processo.map(e => (
+                                    <span key={e.id} style={{ color: e.cor_texto, backgroundColor: e.cor_fundo }} title={`Etiqueta do setor ${e.setor}`}
+                                        className="inline-flex items-center gap-1 text-[11px] rounded-full px-2 py-0.5 font-semibold">
+                                        {e.nome}
+                                        <button type="button" title="Retirar" className="opacity-70 hover:opacity-100"
+                                            onClick={() => router.post('/flow/etiquetar', { etiqueta_id: e.id, acao: 'remover', itens: [{ tipo: 'processo', item_id: proc.id }] }, { preserveScroll: true })}>
+                                            <i className="fas fa-times text-[9px]" />
+                                        </button>
+                                    </span>
+                                ))}
+                                <select value="" className="text-xs border border-dashed border-gray-300 rounded-full px-2 py-0.5 text-gray-500 bg-white"
+                                    onChange={(ev) => ev.target.value && router.post('/flow/etiquetar', { etiqueta_id: ev.target.value, acao: 'aplicar', itens: [{ tipo: 'processo', item_id: proc.id }] }, { preserveScroll: true })}>
+                                    <option value="">+ etiqueta</option>
+                                    {minhas_etiquetas.filter(e => ! etiquetas_processo.some(x => x.id === e.id)).map(e => <option key={e.id} value={e.id}>{e.nome} ({e.setor})</option>)}
+                                </select>
+                            </div>
+                        )}
                         <div className="flex items-center gap-4 mt-2 ml-8 text-xs text-gray-400">
                             <span><i className="fas fa-folder mr-1" />{tipoProcesso.nome || '-'}</span>
                             <span><i className="fas fa-building mr-1" />{proc.setor_origem || '-'}</span>

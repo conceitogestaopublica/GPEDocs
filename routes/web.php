@@ -512,6 +512,14 @@ Route::middleware('auth')->group(function () {
         Route::get('inbox-pessoal',         [\App\Http\Controllers\Flow\InboxController::class, 'pessoal'])->name('inbox-pessoal');
         Route::get('inbox-setor',           [\App\Http\Controllers\Flow\InboxController::class, 'setor'])->name('inbox-setor');
         Route::get('prazos',                [\App\Http\Controllers\Flow\CalendarioPrazosController::class, 'index'])->name('prazos');
+        // Etiquetas do setor (TR 4.19)
+        Route::controller(\App\Http\Controllers\Flow\EtiquetaController::class)->group(function () {
+            Route::get('etiquetas', 'index')->name('etiquetas');
+            Route::post('etiquetas', 'store')->name('etiquetas.store');
+            Route::put('etiquetas/{id}', 'update')->whereNumber('id')->name('etiquetas.update');
+            Route::delete('etiquetas/{id}', 'destroy')->whereNumber('id')->name('etiquetas.destroy');
+            Route::post('etiquetar', 'aplicar')->name('etiquetar');
+        });
         Route::get('aguardando-assinatura', [\App\Http\Controllers\Flow\InboxController::class, 'aguardandoAssinatura'])->name('aguardando-assinatura');
 
         // Em andamento

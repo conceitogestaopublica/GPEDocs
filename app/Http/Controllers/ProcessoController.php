@@ -408,6 +408,9 @@ class ProcessoController extends Controller
             'frentes'              => $this->frentes($processo),
             'estagios'             => Tramitacao::ESTAGIOS,
             'acessos'              => \App\Support\Acessos::de('processo', $processo->id),
+            // Etiquetas do setor (TR 4.19.4): as do processo e as que o usuário pode aplicar
+            'etiquetas_processo'   => \App\Support\Etiquetas::dosItens($user, [['processo', $processo->id]])["processo-{$processo->id}"] ?? [],
+            'minhas_etiquetas'     => \App\Support\Etiquetas::doUsuario($user)->values(),
             // Árvores geradas (TR 4.38.37, 4.38.38): a mais recente primeiro
             'arvores'              => \App\Models\Processo\Arvore::where('processo_id', $processo->id)->with('solicitante:id,name')
                 ->orderByDesc('id')->limit(30)->get()
