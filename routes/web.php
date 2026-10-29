@@ -545,6 +545,11 @@ Route::middleware('auth')->group(function () {
     Route::resource('circulares', CircularController::class)->only(['index', 'create', 'store', 'show'])
         ->middlewareFor(['create', 'store'], 'can:comunicacao.enviar');
     Route::post('circulares/{id}/arquivar', [CircularController::class, 'arquivar'])->name('circulares.arquivar');
+    // Respostas, arquivar/silenciar para si e encaminhar a setores novos (TR 4.46.6, 4.46.9, 4.46.10)
+    Route::post('circulares/{id}/responder', [CircularController::class, 'responder'])->whereNumber('id')->name('circulares.responder');
+    Route::post('circulares/{id}/arquivar-para-mim', [CircularController::class, 'arquivarParaMim'])->whereNumber('id')->name('circulares.arquivar-para-mim');
+    Route::post('circulares/{id}/silenciar', [CircularController::class, 'silenciar'])->whereNumber('id')->name('circulares.silenciar');
+    Route::post('circulares/{id}/encaminhar', [CircularController::class, 'encaminhar'])->whereNumber('id')->name('circulares.encaminhar');
     Route::post('circulares/{id}/arquivar-no-ged', [CircularController::class, 'arquivarNoGed'])->name('circulares.arquivar-no-ged');
     Route::get('circulares/{id}/pdf', [CircularController::class, 'downloadPdf'])->name('circulares.pdf');
     Route::get('circulares/{id}/anexos/{anexo}/download', [CircularController::class, 'downloadAnexo'])->name('circulares.anexos.download');

@@ -35,6 +35,9 @@ class Circular extends Model
         'setor_origem',
         'destino_tipo',
         'destino_setores',
+        'destino_unidades',
+        'urgente',
+        'respostas',
         'status',
         'enviado_em',
         'arquivado_em',
@@ -47,6 +50,8 @@ class Circular extends Model
     {
         return [
             'destino_setores'       => 'array',
+            'destino_unidades'      => 'array',
+            'urgente'               => 'boolean',
             'enviado_em'            => 'datetime',
             'arquivado_em'          => 'datetime',
             'data_arquivamento_auto'=> 'date',
@@ -83,6 +88,12 @@ class Circular extends Model
     public function anexos(): HasMany
     {
         return $this->hasMany(CircularAnexo::class);
+    }
+
+    /** Respostas (TR 4.46.6): abertas, todos veem; restritas, só o remetente e quem respondeu. */
+    public function respostasLista(): HasMany
+    {
+        return $this->hasMany(CircularResposta::class)->orderBy('created_at');
     }
 
     /** @return array<string, string> */
