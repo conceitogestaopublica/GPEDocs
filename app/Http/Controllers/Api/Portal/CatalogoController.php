@@ -113,7 +113,7 @@ class CatalogoController extends PortalApiController
                 'localizacao'            => $tipos[$s->tipo_processo_id]?->localizacao ?? 'nao',
                 'avaliacao'              => (bool) ($tipos[$s->tipo_processo_id]?->avaliacao ?? false),
                 // ouvidoria | esic | ... — o portal mostra tipo e identificação da manifestação (TR 4.33.8, 4.33.27)
-                'modalidade'             => $tipos[$s->tipo_processo_id]?->modalidade,
+                'modalidade'             => $tipos[$s->tipo_processo_id]?->modalidade ?? null,
             ])->values(),
         ]);
     }
