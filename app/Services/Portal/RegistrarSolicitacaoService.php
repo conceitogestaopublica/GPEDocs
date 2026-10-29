@@ -44,6 +44,10 @@ class RegistrarSolicitacaoService
                 'anonima'          => $anonima,
                 'status'           => 'aberta',
                 'descricao'        => $dados['descricao'],
+                // Ouvidoria (TR 4.33.8, 4.33.27); a chave deixa acompanhar sem login
+                'manifestacao_tipo' => $dados['manifestacao_tipo'] ?? null,
+                'identificacao'    => $anonima ? 'anonima' : ($dados['identificacao'] ?? null),
+                'chave_acesso'     => strtoupper(\Illuminate\Support\Str::random(8)),
                 'telefone_contato' => $anonima ? null : (($dados['telefone_contato'] ?? null) ?: $cidadao?->telefone),
                 'email_contato'    => $anonima ? null : (($dados['email_contato'] ?? null) ?: $cidadao?->email),
                 'dados_formulario' => $dados['dados_formulario'] ?? null,

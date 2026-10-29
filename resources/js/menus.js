@@ -83,6 +83,8 @@ export const MENU_GEPSP = [
             { title: 'Novo Protocolo',      icon: 'fas fa-file-signature', href: '/processos/create?origem=balcao', color: 'text-emerald-600 bg-emerald-100', permissao: 'processo.criar' },
             { title: 'Consultar Protocolo', icon: 'fas fa-search',         href: '/flow/atendimento/consultar', color: 'text-sky-600 bg-sky-100', permissao: 'processo.visualizar' },
             { title: 'Mapa das demandas',   icon: 'fas fa-map-location-dot', href: '/flow/mapa',               color: 'text-emerald-600 bg-emerald-100', permissao: 'processo.visualizar' },
+            { title: 'Ouvidoria',           icon: 'fas fa-bullhorn',       href: '/flow/ouvidoria',             color: 'text-violet-600 bg-violet-100', permissao: 'ouvidoria.gerir' },
+            { title: 'e-SIC (LAI)',         icon: 'fas fa-circle-info',    href: '/flow/esic',                  color: 'text-cyan-600 bg-cyan-100', permissao: 'esic.gerir' },
             { title: 'Contatos',            icon: 'fas fa-address-book',  href: '/flow/contatos',              color: 'text-violet-600 bg-violet-100', permissao: 'contato.gerenciar' },
             { title: 'Configurar contatos', icon: 'fas fa-sliders',        href: '/flow/contatos/configuracao', color: 'text-slate-600 bg-slate-100', permissao: 'admin.contatos' },
         ],

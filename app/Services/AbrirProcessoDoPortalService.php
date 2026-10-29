@@ -79,6 +79,10 @@ class AbrirProcessoDoPortalService
                 'status'            => 'aberto',
                 'prioridade'        => 'normal',
                 'aberto_por'        => $abertoPor,
+                // Ouvidoria: canal, tipo e identificação vêm do portal (TR 4.33.3, 4.33.8, 4.33.27)
+                'canal'             => 'portal',
+                'manifestacao_tipo' => $tipo->modalidade === 'ouvidoria' ? $solicitacao->manifestacao_tipo : null,
+                'identificacao'     => $tipo->modalidade === 'ouvidoria' ? ($solicitacao->identificacao ?: ($solicitacao->anonima ? 'anonima' : 'aberta')) : 'aberta',
             ]);
 
             $tramitacao = Tramitacao::create([

@@ -54,14 +54,40 @@ class SolicitacaoController extends PortalApiController
 
     public function show(Request $request, string $codigo): JsonResponse
     {
-        $solicitacao = $this->doCidadao($request, $codigo);
+        return response()->json(['solicitacao' => $this->detalhe($this->doCidadao($request, $codigo))]);
+    }
+
+    /**
+     * Acompanhamento sem login (TR 4.33.27): manifestação anônima ou sigilosa, pelo código e pela
+     * chave dada na abertura. Não mostra quem abriu.
+     */
+    public function acompanhar(Request $request, string $codigo): JsonResponse
+    {
+        $ug = $this->ug($request);
+        $chave = strtoupper(trim((string) $request->query('chave', '')));
+        $solicitacao = $chave === '' ? null : Solicitacao::query()->withoutGlobalScope('ug')
+            ->where('ug_id', $ug->id)->where('codigo', $codigo)->where('chave_acesso', $chave)
+            ->with(['servico:id,titulo,slug,setor_responsavel_id', 'eventos', 'envolvidos'])->first();
+        if (! $solicitacao) {
+            return response()->json(['erro' => 'Código ou chave não conferem.'], 404);
+        }
+        $dados = $this->detalhe($solicitacao);
+        unset($dados['titular'], $dados['procurador'], $dados['envolvidos']);
+        $dados['processo'] = $dados['processo'] ? array_diff_key($dados['processo'], ['avaliacao' => 1, 'localizacao' => 1]) : null;
+        $dados['eventos'] = collect($dados['eventos'])->map(fn ($e) => $e['autor_tipo'] === 'cidadao' ? ['autor_nome' => 'Manifestante'] + $e : $e)->all();
+
+        return response()->json(['solicitacao' => $dados]);
+    }
+
+    private function detalhe(Solicitacao $solicitacao): array
+    {
         $processo = $solicitacao->processo_id
-            ? Processo::query()->withoutGlobalScope('ug')->with('tipoProcesso:id,avaliacao')
-                ->find($solicitacao->processo_id, ['id', 'numero_protocolo', 'status', 'tipo_processo_id', 'latitude', 'longitude', 'local_endereco', 'reaberturas'])
+            ? Processo::query()->withoutGlobalScope('ug')->with('tipoProcesso:id,avaliacao,modalidade')
+                ->find($solicitacao->processo_id, ['id', 'numero_protocolo', 'status', 'tipo_processo_id', 'latitude', 'longitude', 'local_endereco', 'reaberturas',
+                    'prazo_legal_em', 'prorrogado_em', 'prorrogacao_motivo', 'decisao_final', 'decisao_final_em', 'concluido_em'])
             : null;
 
-        return response()->json([
-            'solicitacao' => $this->resumo($solicitacao) + [
+        return $this->resumo($solicitacao) + [
                 'descricao' => $solicitacao->descricao,
                 'resposta'  => $solicitacao->resposta,
                 'envolvidos' => $solicitacao->envolvidos->map(fn ($p) => ['nome' => $p->nome, 'papel' => $p->papel])->values(),
@@ -72,6 +98,10 @@ class SolicitacaoController extends PortalApiController
                 'processo'  => $processo ? [
                     'numero_protocolo' => $processo->numero_protocolo,
                     'status'           => $processo->status,
+                    // Prazo legal da ouvidoria / LAI e a decisão final (TR 4.33.23, 4.34)
+                    'prazo_legal'      => \App\Support\Ouvidoria::situacaoPrazo($processo),
+                    'prorrogacao'      => $processo->prorrogado_em ? ['em' => $processo->prorrogado_em->toIso8601String(), 'motivo' => $processo->prorrogacao_motivo] : null,
+                    'decisao_final'    => $processo->decisao_final ? ['texto' => $processo->decisao_final, 'em' => $processo->decisao_final_em?->toIso8601String()] : null,
                     'localizacao'      => $processo->latitude !== null || $processo->local_endereco
                         ? ['latitude' => $processo->latitude, 'longitude' => $processo->longitude, 'endereco' => $processo->local_endereco] : null,
                     // Avaliação por estrelas depois da conclusão (TR 4.32.25–27): pode = falta avaliar esta rodada
@@ -91,15 +121,16 @@ class SolicitacaoController extends PortalApiController
                     'status_novo' => $e->status_novo,
                     'mensagem'    => $e->mensagem,
                     'em'          => $e->created_at?->toIso8601String(),
-                ])->values(),
-            ],
-        ]);
+                ])->values()->all(),
+            ];
     }
 
     public function store(Request $request, RegistrarSolicitacaoService $registrar, AnexosSolicitacaoService $anexos): JsonResponse
     {
         $ug = $this->ug($request);
-        $cidadao = $this->cidadao($request);
+        // Manifestação anônima pode vir sem login (TR 4.33.27): o cidadão acompanha pelo código e pela chave
+        $anonima = $request->input('identificacao') === 'anonima';
+        $cidadao = $anonima && ! $request->filled('cidadao_id') ? null : $this->cidadao($request);
         $dados = $request->validate([
             'servico'          => ['required', 'string', 'max:200'],
             'descricao'        => ['required', 'string', 'max:5000'],
@@ -121,13 +152,16 @@ class SolicitacaoController extends PortalApiController
             'envolvidos.*.cpf'   => ['required', 'string', 'max:14', function ($a, $v, $falha) { if (! \App\Services\ConviteAssinaturaService::cpfValido(preg_replace('/\D/', '', (string) $v))) { $falha('CPF de pessoa envolvida inválido.'); } }],
             'envolvidos.*.email' => ['nullable', 'email', 'max:255'],
             'envolvidos.*.papel' => ['nullable', 'string', 'max:60'],
+            // Ouvidoria (TR 4.33.8, 4.33.27)
+            'manifestacao_tipo'  => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\Ouvidoria::MANIFESTACOES))],
+            'identificacao'      => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\Ouvidoria::IDENTIFICACOES))],
         ]);
 
         // Por procuração: cidadao_id é o titular (outorgante) e quem protocola é o procurador.
         $procurador = null;
         if (! empty($dados['procurador_cidadao_id'])) {
             $procurador = Cidadao::where('id', $dados['procurador_cidadao_id'])->where('ativo', true)->first();
-            if (! $procurador || $procurador->id === $cidadao->id) {
+            if ($anonima || ! $procurador || $procurador->id === $cidadao?->id) {
                 return response()->json(['erro' => 'Procurador inválido.'], 422);
             }
         }
@@ -146,8 +180,11 @@ class SolicitacaoController extends PortalApiController
             return response()->json(['erro' => 'Este serviço é feito direto no portal, sem solicitação.'], 422);
         }
 
+        if ($anonima && ! $servico->permite_anonimo) {
+            return response()->json(['erro' => 'Este serviço não aceita manifestação anônima.'], 422);
+        }
         // Área do Servidor: só para servidor provado (entrou pelo usuário vindo do RH).
-        if ($servico->categoria?->area === 'servidor' && ! CidadaoPortalService::paraApi($cidadao)['servidor']) {
+        if ($servico->categoria?->area === 'servidor' && (! $cidadao || ! CidadaoPortalService::paraApi($cidadao)['servidor'])) {
             return response()->json(['erro' => 'Serviço exclusivo para servidores municipais.'], 403);
         }
 
@@ -174,7 +211,7 @@ class SolicitacaoController extends PortalApiController
             return response()->json(['erro' => $e->getMessage()], 422);
         }
 
-        $solicitacao = $registrar->registrar($ug, $servico, $cidadao, $dados, procurador: $procurador);
+        $solicitacao = $registrar->registrar($ug, $servico, $cidadao, $dados, anonima: $anonima, procurador: $procurador);
         if ($solicitacao->processo_id && ($local['latitude'] !== null || $local['local_endereco'] !== null)) {
             Processo::query()->withoutGlobalScope('ug')->whereKey($solicitacao->processo_id)->update($local);
         }
@@ -189,6 +226,8 @@ class SolicitacaoController extends PortalApiController
         // Comprovante logo após abrir: código, setor que vai atender e número do processo (TR 4.32.11)
         return response()->json(['solicitacao' => $this->resumo($solicitacao->load(['servico:id,titulo,slug,setor_responsavel_id', 'cidadao:id,nome', 'procurador:id,nome'])) + [
             'comprovante_url' => url("/api/portal/solicitacoes/{$solicitacao->codigo}/comprovante"),
+            // Anônima ou sigilosa: com a chave, acompanha sem login em GET acompanhar/{codigo}?chave=
+            'chave_acesso'    => in_array($solicitacao->identificacao, ['anonima', 'sigilosa'], true) ? $solicitacao->chave_acesso : null,
         ]], 201);
     }
 
@@ -394,6 +433,9 @@ class SolicitacaoController extends PortalApiController
             'setor_destino'  => self::setorDestino($s),
             'titular'        => $s->cidadao ? ['id' => $s->cidadao->id, 'nome' => $s->cidadao->nome] : null,
             'procurador'     => $s->procurador ? ['id' => $s->procurador->id, 'nome' => $s->procurador->nome] : null,
+            'manifestacao_tipo' => $s->manifestacao_tipo,
+            'manifestacao'   => \App\Support\Ouvidoria::MANIFESTACOES[$s->manifestacao_tipo] ?? null,
+            'identificacao'  => $s->identificacao,
         ];
     }
 }
