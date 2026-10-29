@@ -140,7 +140,8 @@ Route::prefix('api/portal')
         // Imagem de ajuda dos campos do formulário do assunto (o portal repassa ao navegador)
         Route::get('ajuda-imagem/{id}', [\App\Http\Controllers\Admin\TipoProcessoController::class, 'imagemAjuda'])->whereUuid('id')->name('ajuda-imagem');
 
-        Route::post('cidadaos/identificar', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'identificar'])->name('cidadaos.identificar');
+        Route::get('contatos/campos', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'camposComplementares'])->name('contatos.campos');
+        Route::post('cidadaos/identificar',[\App\Http\Controllers\Api\Portal\CidadaoController::class, 'identificar'])->name('cidadaos.identificar');
         Route::post('cidadaos', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'cadastrar'])->name('cidadaos.cadastrar');
         Route::post('cidadaos/confirmar-email', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'confirmarEmail'])->name('cidadaos.confirmar-email');
         Route::post('cidadaos/reenviar-codigo', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'reenviarCodigo'])->name('cidadaos.reenviar-codigo');
@@ -535,6 +536,34 @@ Route::middleware('auth')->group(function () {
             Route::put('etiquetas/{id}', 'update')->whereNumber('id')->name('etiquetas.update');
             Route::delete('etiquetas/{id}', 'destroy')->whereNumber('id')->name('etiquetas.destroy');
             Route::post('etiquetar', 'aplicar')->name('etiquetar');
+        });
+        // Contatos (TR 4.21)
+        Route::middleware('can:contato.gerenciar')->controller(\App\Http\Controllers\Contatos\ContatoController::class)->group(function () {
+            Route::get('contatos', 'index')->name('contatos');
+            Route::get('contatos/novo', 'create')->name('contatos.create');
+            Route::get('contatos/buscar', 'buscar')->name('contatos.buscar');
+            Route::get('contatos/exportar', 'exportar')->name('contatos.exportar');
+            Route::post('contatos/conferir', 'conferir')->name('contatos.conferir');
+            Route::post('contatos/importar', 'importar')->name('contatos.importar');
+            Route::post('contatos/unificar', 'unificar')->name('contatos.unificar');
+            Route::post('contatos', 'store')->name('contatos.store');
+            Route::get('contatos/{id}', 'show')->whereNumber('id')->name('contatos.show');
+            Route::put('contatos/{id}', 'update')->whereNumber('id')->name('contatos.update');
+            Route::delete('contatos/{id}', 'destroy')->whereNumber('id')->name('contatos.destroy');
+            Route::post('contatos/{id}/procuracoes', 'procuracao')->whereNumber('id')->name('contatos.procuracao');
+            Route::post('contatos/procuracoes/{id}/revogar', 'revogarProcuracao')->whereNumber('id')->name('contatos.procuracao.revogar');
+            Route::get('contatos/procuracoes/{id}/documento', 'documentoProcuracao')->whereNumber('id')->name('contatos.procuracao.documento');
+            Route::post('contatos/listas', 'salvarLista')->name('contatos.listas.store');
+            Route::put('contatos/listas/{id}', 'salvarLista')->whereNumber('id')->name('contatos.listas.update');
+            Route::delete('contatos/listas/{id}', 'excluirLista')->whereNumber('id')->name('contatos.listas.destroy');
+            Route::post('contatos/listas/{id}/itens', 'itensLista')->whereNumber('id')->name('contatos.listas.itens');
+        });
+        Route::middleware('can:admin.contatos')->controller(\App\Http\Controllers\Contatos\ConfiguracaoController::class)->group(function () {
+            Route::get('contatos/configuracao', 'index')->name('contatos.configuracao');
+            Route::post('contatos/campos', 'salvarCampo')->name('contatos.campos.store');
+            Route::put('contatos/campos/{id}', 'salvarCampo')->whereNumber('id')->name('contatos.campos.update');
+            Route::post('contatos/campos/{id}/alternar', 'alternarCampo')->whereNumber('id')->name('contatos.campos.alternar');
+            Route::post('contatos/regras', 'regras')->name('contatos.regras');
         });
         Route::get('aguardando-assinatura', [\App\Http\Controllers\Flow\InboxController::class, 'aguardandoAssinatura'])->name('aguardando-assinatura');
 

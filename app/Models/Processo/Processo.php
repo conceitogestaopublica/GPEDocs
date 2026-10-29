@@ -17,6 +17,24 @@ class Processo extends Model
 
     public const MODULO_CLASSIFICACAO = 'processo';
 
+    protected static function booted(): void
+    {
+        // Requerente com CPF/CNPJ entra na base de contatos (TR 4.21)
+        static::created(function (Processo $p) {
+            if ($p->contato_id || ! $p->requerente_cpf) {
+                return;
+            }
+            try {
+                if ($id = \App\Support\Contatos::doRequerente($p->requerente_cpf, $p->requerente_nome, $p->requerente_email, $p->requerente_telefone)) {
+                    $p->contato_id = $id;
+                    $p->saveQuietly();
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Requerente não entrou nos contatos', ['processo' => $p->id, 'erro' => $e->getMessage()]);
+            }
+        });
+    }
+
     protected $table = 'proc_processos';
 
     protected $fillable = [

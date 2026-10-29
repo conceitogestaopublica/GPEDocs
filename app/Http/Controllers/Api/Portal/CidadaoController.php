@@ -62,11 +62,19 @@ class CidadaoController extends PortalApiController
             'senha'     => ['required', 'string', 'min:8', 'max:200'],
         ] + self::REGRAS_COMPLEMENTO);
 
+        // Campos complementares do autocadastro (configurados nos contatos, TR 4.21.8)
+        $tipo = strlen(CidadaoPortalService::digitos($dados['documento'])) === 14 ? 'pj' : 'pf';
+        [$complementares, $erros] = \App\Support\Contatos::complementares($tipo, (array) $request->input('campos', []), 'autocadastro');
+        if ($erros) {
+            return response()->json(['erro' => 'Confira os campos complementares.', 'campos' => $erros], 422);
+        }
+
         try {
             ['cidadao' => $cidadao, 'codigo' => $codigo] = $this->cidadaos->cadastrar($dados);
         } catch (CidadaoPortalException $e) {
             return response()->json(['erro' => $e->getMessage()], $e->status);
         }
+        \App\Support\Contatos::guardarDoPortal($cidadao, $complementares);
 
         return response()->json($this->comCodigoDev([
             'cidadao'         => CidadaoPortalService::paraApi($cidadao),
@@ -195,10 +203,22 @@ class CidadaoController extends PortalApiController
             return response()->json(['erro' => 'O CPF/CNPJ do cadastro não pode ser alterado.'], 422);
         }
 
+        $complementares = null;
+        if ($request->has('campos')) {
+            $tipo = strlen(CidadaoPortalService::digitos($cidadao->cpf)) === 14 ? 'pj' : 'pf';
+            [$complementares, $erros] = \App\Support\Contatos::complementares($tipo, (array) $request->input('campos', []), 'autocadastro');
+            if ($erros) {
+                return response()->json(['erro' => 'Confira os campos complementares.', 'campos' => $erros], 422);
+            }
+        }
+
         try {
             ['cidadao' => $cidadao, 'codigo' => $codigo] = $this->cidadaos->atualizar($cidadao, $dados);
         } catch (CidadaoPortalException $e) {
             return response()->json(['erro' => $e->getMessage()], $e->status);
+        }
+        if ($complementares !== null) {
+            \App\Support\Contatos::guardarDoPortal($cidadao, $complementares);
         }
 
         $resposta = ['cidadao' => CidadaoPortalService::paraApi($cidadao->refresh())];
@@ -210,6 +230,17 @@ class CidadaoController extends PortalApiController
         }
 
         return response()->json($resposta);
+    }
+
+    /** Campos complementares que o autocadastro pede (TR 4.21.5–9); tipo pf ou pj. */
+    public function camposComplementares(Request $request): JsonResponse
+    {
+        $tipo = in_array($request->input('tipo'), ['pf', 'pj'], true) ? $request->input('tipo') : null;
+
+        return response()->json(['campos' => array_map(fn ($c) => [
+            'id' => $c->id, 'nome' => $c->nome, 'explicacao' => $c->explicacao, 'formato' => $c->formato,
+            'opcoes' => $c->opcoes, 'obrigatorio' => (bool) $c->obrigatorio, 'perfis' => $c->perfis,
+        ], \App\Support\Contatos::campos($tipo, 'autocadastro'))]);
     }
 
     public function confirmarEmailNovo(Request $request, int $id): JsonResponse

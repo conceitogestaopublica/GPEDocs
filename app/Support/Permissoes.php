@@ -40,6 +40,7 @@ final class Permissoes
         // Portal do Cidadão
         'portal.atendimento'   => 'Atender solicitações do portal do cidadão',
         'portal.carta_servicos' => 'Manter a carta de serviços',
+        'contato.gerenciar'    => 'Consultar e manter contatos (cadastro, listas, procurações, unificação e CSV)',
 
         // Administração
         'admin.configuracoes'       => 'Acessar o módulo de configurações',
@@ -48,7 +49,8 @@ final class Permissoes
         'admin.ugs'                 => 'Gerenciar unidades gestoras, organograma e banners do portal',
         'admin.sistemas_integrados' => 'Gerenciar sistemas integrados (credenciais de API e webhooks)',
         'admin.tipos_documentais'   => 'Gerenciar tipos documentais',
-        'admin.classificacao'       => 'Manter o plano de classificação e reclassificar documentos e processos',
+        'admin.contatos'            => 'Configurar contatos (campos complementares e regras de preenchimento)',
+        'admin.classificacao'       =>'Manter o plano de classificação e reclassificar documentos e processos',
         'admin.tipos_processo'      => 'Gerenciar tipos de processo e modelos de ofício',
     ];
 

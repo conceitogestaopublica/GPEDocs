@@ -67,4 +67,19 @@ class Cidadao extends Authenticatable
     {
         return $this->hasMany(Solicitacao::class, 'cidadao_id');
     }
+
+    protected static function booted(): void
+    {
+        // O cadastro do portal é também o contato da pessoa na base única (TR 4.21)
+        static::saved(function (Cidadao $c) {
+            if (! $c->wasRecentlyCreated && ! $c->wasChanged(['nome', 'email', 'telefone', 'cpf', 'endereco'])) {
+                return;
+            }
+            try {
+                \App\Support\Contatos::doCidadao($c);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Cidadão não entrou nos contatos', ['cidadao' => $c->id, 'erro' => $e->getMessage()]);
+            }
+        });
+    }
 }

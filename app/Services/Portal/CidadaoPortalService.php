@@ -420,6 +420,8 @@ class CidadaoPortalService
             'servidor'        => $c->user_id !== null && $c->usuario?->legado_funcionario_id !== null,
             'nomes_anteriores' => $c->nomes_anteriores ?? [],
             'endereco'        => $c->endereco,
+            // Complementares do contato (os que o autocadastro pede e os preenchidos pela prefeitura)
+            'campos'          => json_decode((string) \Illuminate\Support\Facades\DB::table('contatos')->where('cidadao_id', $c->id)->value('campos'), true) ?: (object) [],
         ];
     }
 }
