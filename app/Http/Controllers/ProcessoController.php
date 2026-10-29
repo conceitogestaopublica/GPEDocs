@@ -450,7 +450,7 @@ class ProcessoController extends Controller
         try {
             DB::beginTransaction();
 
-            $processo = Processo::with(['tipoProcesso', 'abertoPor', 'tramitacoes.remetente'])->findOrFail($id);
+            $processo = Processo::with(['tipoProcesso', 'abertoPor', 'tramitacoes.remetente'])->lockForUpdate()->findOrFail($id);
             $acoes = \App\Services\AcaoNoProcesso::avaliar($processo, Auth::user());
             if (! $acoes['concluir']) {
                 DB::rollBack();
@@ -819,7 +819,7 @@ class ProcessoController extends Controller
         try {
             DB::beginTransaction();
 
-            $processo = Processo::findOrFail($id);
+            $processo = Processo::lockForUpdate()->findOrFail($id);
             if (! \App\Services\AcaoNoProcesso::avaliar($processo, Auth::user())['cancelar']) {
                 DB::rollBack();
                 abort(403, 'Só quem está na etapa ativa (ou o autor, antes do primeiro despacho) cancela o processo.');

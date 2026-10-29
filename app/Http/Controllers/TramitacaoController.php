@@ -36,7 +36,7 @@ class TramitacaoController extends Controller
         try {
             DB::beginTransaction();
 
-            $tramitacao = Tramitacao::findOrFail($id);
+            $tramitacao = Tramitacao::lockForUpdate()->findOrFail($id);
             \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacao, Auth::user());
             if ($tramitacao->status !== 'pendente') {
                 abort(409, 'Esta etapa já foi recebida.');
@@ -97,7 +97,7 @@ class TramitacaoController extends Controller
         try {
             DB::beginTransaction();
 
-            $tramitacaoAtual = Tramitacao::with('processo.tipoProcesso.etapas')->findOrFail($id);
+            $tramitacaoAtual = Tramitacao::with('processo.tipoProcesso.etapas')->lockForUpdate()->findOrFail($id);
             \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacaoAtual, Auth::user());
             $processo = $tramitacaoAtual->processo;
 
@@ -220,7 +220,7 @@ class TramitacaoController extends Controller
         try {
             DB::beginTransaction();
 
-            $tramitacaoAtual = Tramitacao::findOrFail($id);
+            $tramitacaoAtual = Tramitacao::lockForUpdate()->findOrFail($id);
             \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacaoAtual, Auth::user());
             $processo = $tramitacaoAtual->processo;
 
@@ -354,6 +354,9 @@ class TramitacaoController extends Controller
         $processo = $tramitacao->processo;
 
         DB::transaction(function () use ($request, $tramitacao, $processo) {
+            // Dois cliques ou duas pessoas ao mesmo tempo (TR 4.9.11): só a primeira passa
+            $tramitacao = Tramitacao::lockForUpdate()->findOrFail($tramitacao->id);
+            \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacao, Auth::user());
             $tramitacao->update([
                 'status'        => 'resolvido',
                 'parecer'       => $request->input('parecer'),
@@ -418,7 +421,12 @@ class TramitacaoController extends Controller
         }
         abort_unless(\App\Services\AcaoNoProcesso::ativoNaEtapa($copia, Auth::user()), 403, 'A cópia não foi enviada para você nem para um setor seu.');
 
-        $copia->update(['status' => 'ciente', 'recebido_por' => Auth::id(), 'recebido_em' => now(), 'lida_em' => $copia->lida_em ?? now()]);
+        // Atualização condicional: dois cliques ao mesmo tempo registram uma ciência só
+        $marcou = Tramitacao::whereKey($copia->id)->where('status', 'pendente')
+            ->update(['status' => 'ciente', 'recebido_por' => Auth::id(), 'recebido_em' => now(), 'lida_em' => $copia->lida_em ?? now()]);
+        if (! $marcou) {
+            return redirect()->back()->with('error', 'Esta cópia já teve ciência.');
+        }
         ProcessoHistorico::create([
             'processo_id' => $copia->processo_id,
             'usuario_id'  => Auth::id(),
@@ -455,6 +463,8 @@ class TramitacaoController extends Controller
         }
 
         DB::transaction(function () use ($request, $tramitacao, $novo) {
+            $tramitacao = Tramitacao::lockForUpdate()->findOrFail($tramitacao->id);
+            \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacao, Auth::user());
             $anterior = $tramitacao->destinatario_id;
             $tramitacao->update(['destinatario_id' => $novo?->id]);
             $processo = $tramitacao->processo;
