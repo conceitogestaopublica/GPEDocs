@@ -26,6 +26,8 @@ class EditorController extends Controller
             $fontes = [
                 ['memorando', 'proc_memorandos', 'numero'], ['circular', 'proc_circulares', 'numero'],
                 ['oficio', 'proc_oficios', 'numero'], ['processo', 'proc_processos', 'numero_protocolo'],
+                // Parecer embarcável em outro documento pela referência (TR 4.39.1)
+                ['parecer', 'proc_pareceres', 'numero'],
             ];
             $itens = [];
             foreach ($fontes as [$t, $tabela, $col]) {

@@ -261,7 +261,7 @@ Route::get('verificar/codigo/{codigo}', [VerificacaoController::class, 'porCodig
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
 // QR dos PDFs de memorando, ofício e circular
 Route::get('{tipo}/verificar/{token}', [\App\Http\Controllers\VerificacaoComunicacaoController::class, 'verificar'])
-    ->whereIn('tipo', ['memorandos', 'oficios', 'circulares'])
+    ->whereIn('tipo', ['memorandos', 'oficios', 'circulares', 'pareceres'])
     ->name('comunicacoes.verificar');
 
 // Validacao publica de assinatura ICP-Brasil em PDF (sem auth)
@@ -543,6 +543,17 @@ Route::middleware('auth')->group(function () {
 
     // Memorandos
     // Comunicações: ver/responder depende de ser participante (403 no controller); emitir exige permissão
+    // Pareceres (TR 4.39)
+    Route::controller(\App\Http\Controllers\ParecerController::class)->group(function () {
+        Route::get('pareceres', 'index')->name('pareceres.index');
+        Route::get('pareceres/create', 'create')->name('pareceres.create');
+        Route::post('pareceres', 'store')->name('pareceres.store');
+        Route::post('pareceres/setores', 'setores')->name('pareceres.setores');
+        Route::get('pareceres/{id}', 'show')->whereNumber('id')->name('pareceres.show');
+        Route::get('pareceres/{id}/pdf', 'pdf')->whereNumber('id')->name('pareceres.pdf');
+        Route::get('pareceres/{id}/anexos/{anexo}', 'anexo')->whereNumber(['id', 'anexo'])->name('pareceres.anexo');
+        Route::post('pareceres/{id}/assinar', 'assinar')->whereNumber('id')->name('pareceres.assinar');
+    });
     Route::resource('memorandos', MemorandoController::class)->only(['index', 'create', 'store', 'show'])
         ->middlewareFor(['create', 'store'], 'can:comunicacao.enviar');
     Route::post('memorandos/{id}/responder', [MemorandoController::class, 'responder'])->name('memorandos.responder');

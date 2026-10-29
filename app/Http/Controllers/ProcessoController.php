@@ -430,6 +430,9 @@ class ProcessoController extends Controller
             'recebimentos_fisicos' => \App\Http\Controllers\RecebimentoFisicoController::doProcesso($processo->id),
             'ouvidoria'       => self::dadosOuvidoria($processo),
             'menu_url'        => self::menuDoProcesso($request, $processo),
+            // Pareceres do processo e se o usuário pode emitir (TR 4.39)
+            'pareceres'       => \App\Http\Controllers\ParecerController::doProcesso($processo->id),
+            'pode_emitir_parecer' => \App\Support\Pareceres::podeEmitir(Auth::user()),
             'legislativo'     => $processo->vereador_id || $processo->proposicao_tipo ? [
                 'vereador' => $processo->vereador?->only(['nome', 'partido']), 'proposicao' => \App\Support\Legislativo::PROPOSICOES[$processo->proposicao_tipo] ?? null,
                 'numero' => $processo->proposicao_numero, 'prazo' => \App\Support\Ouvidoria::situacaoPrazo($processo)] : null,

@@ -79,7 +79,7 @@ const tabList = [
     { key: 'arvore', label: 'Árvore', icon: 'fas fa-sitemap' },
 ];
 
-export default function Show({ legislativo = null, solicitante = null, ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
+export default function Show({ pareceres = [], pode_emitir_parecer = false, legislativo = null, solicitante = null, ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
     acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [], classificacao = null, mapa_avaliacao = null }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
@@ -613,6 +613,26 @@ export default function Show({ legislativo = null, solicitante = null, ouvidoria
                                     {{ em_dia: 'No prazo', vencendo: 'Vence em breve', vencido: 'Vencida', no_prazo: 'Respondida no prazo', fora_do_prazo: 'Respondida fora do prazo' }[legislativo.prazo.situacao]}
                                 </span>
                             </p>
+                        )}
+                    </Card>
+                )}
+                {/* Pareceres emitidos no processo (TR 4.39) */}
+                {activeTab === 'detalhes' && (pareceres.length > 0 || pode_emitir_parecer) && (
+                    <Card title={`Pareceres (${pareceres.length})`} className="mb-6">
+                        {pareceres.length === 0 ? <p className="text-sm text-gray-400">Nenhum parecer emitido.</p> : (
+                            <ul className="divide-y divide-gray-100">
+                                {pareceres.map(pa => (
+                                    <li key={pa.id} className="py-2 flex flex-wrap items-center gap-2 text-sm">
+                                        <Link href={`/pareceres/${pa.id}`} className="text-cyan-700 font-medium hover:underline">{pa.numero}</Link>
+                                        <span className="text-gray-700">{pa.assunto}</span>
+                                        <span className="text-[11px] rounded-full bg-gray-100 text-gray-700 px-2 py-0.5">{pa.conclusao_rotulo}</span>
+                                        <span className="text-xs text-gray-500 ml-auto">{pa.parecerista} · {new Date(pa.emitido_em).toLocaleDateString('pt-BR')}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                        {pode_emitir_parecer && (
+                            <div className="mt-3"><Link href={`/pareceres/create?processo_id=${proc.id}`}><Button size="sm" variant="secondary" icon="fas fa-scale-balanced">Emitir parecer neste processo</Button></Link></div>
                         )}
                     </Card>
                 )}

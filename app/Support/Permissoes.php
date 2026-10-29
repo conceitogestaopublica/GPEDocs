@@ -41,6 +41,7 @@ final class Permissoes
         'portal.atendimento'   => 'Atender solicitações do portal do cidadão',
         'portal.carta_servicos' => 'Manter a carta de serviços',
         'contato.gerenciar'    => 'Consultar e manter contatos (cadastro, listas, procurações, unificação e CSV)',
+        'parecer.emitir'       => 'Emitir pareceres (numerados, com conclusão e anexos)',
         'legislativo.gerir'    => 'Protocolo legislativo: painel, relatórios e cadastro de vereadores',
         'rh.requerimentos'     => 'Gestão de Pessoas: ver todos os requerimentos pessoais de servidores',
         'ouvidoria.gerir'      => 'Ouvidoria: painel, dados de manifestante sigiloso, resolver em todos os setores e decisão final',

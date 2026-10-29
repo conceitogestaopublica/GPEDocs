@@ -70,7 +70,7 @@ final class Verificacoes
                 'assinaturas' => Assinatura::where('documento_id', $doc->id)->where('status', 'assinado')->count()];
         }
         // 3. Memorando, circular ou ofício pelo código do QR
-        foreach (['memorando' => Memorando::class, 'circular' => Circular::class, 'oficio' => Oficio::class] as $tipo => $classe) {
+        foreach (['memorando' => Memorando::class, 'circular' => Circular::class, 'oficio' => Oficio::class, 'parecer' => \App\Models\Processo\Parecer::class] as $tipo => $classe) {
             $c = $classe::withoutGlobalScopes()->where('qr_code_token', $codigo)->first();
             if ($c) {
                 $confidencial = (bool) ($c->confidencial ?? false);

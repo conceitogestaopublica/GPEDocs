@@ -21,6 +21,7 @@ class VerificacaoComunicacaoController extends Controller
         'memorandos' => [Memorando::class, 'Memorando'],
         'oficios'    => [Oficio::class, 'Ofício'],
         'circulares' => [Circular::class, 'Circular'],
+        'pareceres'  => [\App\Models\Processo\Parecer::class, 'Parecer'],
     ];
 
     public function verificar(string $tipo, string $token): Response
@@ -30,7 +31,7 @@ class VerificacaoComunicacaoController extends Controller
         // Pública: quem lê o QR pode estar logado em outra UG.
         $registro = $classe::withoutGlobalScope('ug')->with(['remetente:id,name', 'ug:id,nome'])
             ->where('qr_code_token', $token)->first();
-        \App\Support\Verificacoes::registrar(request(), $token, 'web', (bool) $registro, rtrim($tipo, 's') === 'circulare' ? 'circular' : rtrim($tipo, 's'), $registro?->id);   // TR 4.23.14
+        \App\Support\Verificacoes::registrar(request(), $token, 'web', (bool) $registro, ['circulares' => 'circular', 'pareceres' => 'parecer'][$tipo] ?? rtrim($tipo, 's'), $registro?->id);   // TR 4.23.14
 
         if (! $registro) {
             return Inertia::render('GED/VerificarComunicacao', ['valido' => false, 'tipo' => $rotulo]);

@@ -30,6 +30,7 @@ final class DocumentoRedigido
         'memorando' => [Memorando::class, 'pdf.memorando', '/memorandos', 'Memorando', ['remetente', 'destinatarios.usuario', 'destinatarios.unidade', 'respostas.usuario']],
         'circular'  => [Circular::class, 'pdf.circular', '/circulares', 'Circular', ['remetente', 'destinatarios.usuario']],
         'oficio'    => [Oficio::class, 'pdf.oficio', '/oficios', 'Ofício', ['remetente', 'respostas.usuario']],
+        'parecer'   => [\App\Models\Processo\Parecer::class, 'pdf.parecer', '/pareceres', 'Parecer', ['remetente', 'processo', 'memorando', 'anexos']],
     ];
 
     public static function buscar(string $tipo, int $id): ?Model
