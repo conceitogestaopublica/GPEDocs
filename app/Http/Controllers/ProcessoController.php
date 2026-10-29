@@ -410,6 +410,7 @@ class ProcessoController extends Controller
             'variaveis_despacho'   => \App\Support\Variaveis::paraEditor(\App\Models\Processo\Processo::ROTULOS_VARIAVEIS_DESPACHO),
             'recebimentos_fisicos' => \App\Http\Controllers\RecebimentoFisicoController::doProcesso($processo->id),
             'ouvidoria'       => self::dadosOuvidoria($processo),
+            'menu_url'        => self::menuDoProcesso($request, $processo),
             'marcadores'      => ['citado_em' => \App\Support\Marcadores::citadoEm('processo', $processo->id), 'pessoas' => \App\Support\Marcadores::doDocumento('processo', $processo->id)],
             'classificacao'        => \App\Support\Classificacao::doItem('processo', $processo->id),
             'mapa_avaliacao'       => \App\Http\Controllers\Flow\MapaAvaliacaoController::paraTela($processo),
@@ -1007,6 +1008,36 @@ class ProcessoController extends Controller
     }
 
     /** Cartão de ouvidoria/e-SIC na tela do processo (TR 4.33, 4.34). */
+    /**
+     * Item do menu em que o processo fica aceso: ouvidoria e e-SIC nos painéis próprios, o que veio
+     * do portal em Solicitações; os demais ficam onde o usuário estava ao abrir (Atendimento ou
+     * Processos), lembrado na sessão para valer nas abas e recargas da tela.
+     */
+    private static function menuDoProcesso(Request $request, Processo $p): ?string
+    {
+        $mod = $p->tipoProcesso?->modalidade;
+        if ($mod) {
+            return $mod === 'esic' ? '/flow/esic' : '/flow/ouvidoria';
+        }
+        if ($p->canal === 'portal' || $p->setor_origem === 'Portal do Cidadao') {
+            return '/flow/portal/solicitacoes';
+        }
+        $chave = "menu_processo.{$p->id}";
+        $veio = (string) parse_url((string) $request->headers->get('referer'), PHP_URL_PATH) . '?' . (string) parse_url((string) $request->headers->get('referer'), PHP_URL_QUERY);
+        $atendimento = match (true) {
+            str_starts_with($veio, '/flow/atendimento/') => '/flow/atendimento/consultar',
+            str_starts_with($veio, '/processos/create?origem=balcao') => '/processos/create?origem=balcao',
+            str_starts_with($veio, '/flow/mapa') => '/flow/mapa',
+            str_starts_with($veio, '/processos'), str_starts_with($veio, '/flow/') => false,
+            default => null,
+        };
+        if ($atendimento !== null) {
+            session([$chave => $atendimento ?: null]);
+        }
+
+        return session($chave);
+    }
+
     private static function dadosOuvidoria(Processo $p): ?array
     {
         $mod = \App\Support\Ouvidoria::modalidade($p->loadMissing('tipoProcesso'));

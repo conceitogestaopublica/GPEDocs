@@ -65,7 +65,9 @@ function ativo(href, url) {
 }
 
 export default function Sidebar({ modulo, collapsed, isMobile, sidebarOpen, onClose }) {
-    const { url, props } = usePage();
+    const { url: urlReal, props } = usePage();
+    // A tela pode dizer em que item do menu ela fica (ex.: processo de ouvidoria → Atendimento › Ouvidoria)
+    const url = props.menu_url || urlReal;
     const permissoes = props.auth?.user?.permissoes;
     const cfg = MODULO_CONFIG[modulo];
     const grupos = agruparMenu(filtrarMenu(cfg.menu, permissoes));
