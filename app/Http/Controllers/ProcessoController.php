@@ -407,6 +407,13 @@ class ProcessoController extends Controller
             'frentes'              => $this->frentes($processo),
             'estagios'             => Tramitacao::ESTAGIOS,
             'acessos'              => \App\Support\Acessos::de('processo', $processo->id),
+            // Prazos lançados à mão que este usuário enxerga (TR 4.13)
+            'prazos'               => \App\Models\Processo\Prazo::visiveisPara($user)->where('processo_id', $processo->id)
+                ->with(['unidade:id,nome', 'criador:id,name', 'concluidor:id,name'])->orderByRaw('concluido_em is not null')->orderBy('vence_em')->get()
+                ->map(fn ($p) => $p->only(['id', 'titulo', 'descricao', 'escopo', 'unidade_id', 'alerta_dias', 'alerta_email'])
+                    + ['vence_em' => $p->vence_em->toIso8601String(), 'concluido_em' => $p->concluido_em?->toIso8601String(),
+                        'situacao' => $p->situacao(), 'setor' => $p->unidade?->nome, 'criador' => $p->criador?->name,
+                        'concluidor' => $p->concluidor?->name]),
             // Alterar / recategorizar o assunto (TR 4.32.24, 4.33.15)
             'pode_alterar_assunto' => ! in_array($processo->status, ['concluido', 'cancelado'], true)
                 && ($user->super_admin || ($acoes['despachar'] && ($acoes['etapa']?->frente ?? 1) === 1)),

@@ -23,7 +23,8 @@ class AvisarServidorPorEmail extends TenantAwareJob
     public int $tries = 2;
 
     /** @param  string|null  $dominio  endereço da prefeitura no disparo (o link do e-mail volta para ela) */
-    public function __construct(public int $notificacaoId, public ?string $dominio = null)
+    /** @param  bool  $forcar  manda mesmo sem a preferência (o alerta do prazo pediu e-mail — TR 4.32.17) */
+    public function __construct(public int $notificacaoId, public ?string $dominio = null, public bool $forcar = false)
     {
         parent::__construct();
     }
@@ -32,7 +33,8 @@ class AvisarServidorPorEmail extends TenantAwareJob
     {
         $n = Notificacao::with('usuario')->find($this->notificacaoId);
         $user = $n?->usuario;
-        if (! $user || $user->suspenso_em || $user->tipo !== 'interno' || ! PreferenciasUsuario::querEmail($user, (string) $n->tipo)) {
+        if (! $user || $user->suspenso_em || $user->tipo !== 'interno'
+            || (! $this->forcar && ! PreferenciasUsuario::querEmail($user, (string) $n->tipo))) {
             return;
         }
 

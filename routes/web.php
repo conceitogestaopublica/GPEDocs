@@ -539,6 +539,11 @@ Route::middleware('auth')->group(function () {
         Route::post('processos/{id}/concluir', [ProcessoController::class, 'concluir'])->name('processos.concluir');
         Route::post('processos/{id}/cancelar', [ProcessoController::class, 'cancelar'])->name('processos.cancelar');
         Route::post('processos/{id}/assunto', [ProcessoController::class, 'alterarAssunto'])->name('processos.assunto');
+        // Prazos e atividades lançados à mão (TR 4.13, 4.32.16)
+        Route::post('processos/{id}/prazos', [\App\Http\Controllers\PrazoController::class, 'store'])->whereNumber('id')->name('processos.prazos.store');
+        Route::put('prazos/{id}', [\App\Http\Controllers\PrazoController::class, 'update'])->whereNumber('id')->name('prazos.update');
+        Route::post('prazos/{id}/concluir', [\App\Http\Controllers\PrazoController::class, 'concluir'])->whereNumber('id')->name('prazos.concluir');
+        Route::delete('prazos/{id}', [\App\Http\Controllers\PrazoController::class, 'destroy'])->whereNumber('id')->name('prazos.destroy');
         Route::post('processos/{id}/arquivar-no-ged', [ProcessoController::class, 'arquivarNoGed'])->name('processos.arquivar-no-ged');
         Route::post('processos/anexos/{anexo}/enviar-assinatura', [ProcessoController::class, 'enviarAnexoParaAssinatura'])
             ->name('processos.anexos.enviar-assinatura');

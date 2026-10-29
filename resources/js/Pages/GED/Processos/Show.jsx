@@ -14,6 +14,7 @@ import Tabs from '../../../Components/Tabs';
 import Avatar from '../../../Components/Avatar';
 import QuemAcessou from '../../../Components/QuemAcessou';
 import SetoresMulti from '../../../Components/SetoresMulti';
+import PrazosDoProcesso from '../../../Components/PrazosDoProcesso';
 import AssinarModal from '../../../Components/AssinarModal';
 import { useConfirm, useAvisar } from '../../../Components/ConfirmProvider';
 
@@ -69,7 +70,7 @@ const tabList = [
 ];
 
 export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
-    acessos = [], fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
+    acessos = [], prazos = [], fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
     // Meu perfil › Preferências: abrir anexo no navegador ou baixar
@@ -675,6 +676,8 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                 {activeTab === 'tramitacao' && (
                     <div className="space-y-4">
                     {fluxo && <FluxoDoAssunto fluxo={fluxo} />}
+                    <PrazosDoProcesso processoId={proc.id} prazos={prazos} unidades={unidadesTree}
+                        podeIncluir={! ['concluido', 'cancelado'].includes(proc.status)} />
                     {frentes && <SituacaoSetores frentes={frentes} statusProcesso={proc.status} />}
                     <Card title="Histórico de Tramitação">
                         {tramitacoes.length === 0 ? (
@@ -1651,6 +1654,7 @@ const ACOES_HISTORICO = {
     assinatura_decisao: 'Decisão assinada', arquivado_no_ged: 'Arquivado no repositório',
     aos_cuidados: 'Aos cuidados', resolucao_setor: 'Setor resolveu a parte dele', estagio: 'Estágio',
     ciencia_copia: 'Ciência da cópia', decisao: 'Decisão', alteracao_assunto: 'Assunto alterado',
+    prazo_criado: 'Prazo incluído', prazo_alterado: 'Prazo alterado', prazo_realizado: 'Prazo realizado', prazo_excluido: 'Prazo excluído',
 };
 
 function formatDate(dateStr) {
