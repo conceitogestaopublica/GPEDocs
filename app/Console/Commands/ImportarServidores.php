@@ -217,16 +217,27 @@ class ImportarServidores extends Command
         });
     }
 
-    /** Perfil "Servidor": sem nenhuma permissão — não enxerga os módulos internos do GPEDocs. */
+    /** Permissões do perfil "Servidor": os processos do setor (abrir, ver e tramitar). */
+    private const PERMISSOES_SERVIDOR = ['processo.visualizar', 'processo.criar', 'processo.tramitar'];
+
+    /** Perfil "Servidor": área do servidor no Portal e processos do setor; nada de administração. */
     private function perfilServidor(): int
     {
-        return (int) (DB::table('ged_roles')->where('nome', self::PERFIL_SERVIDOR)->value('id')
-            ?? DB::table('ged_roles')->insertGetId([
-                'nome'       => self::PERFIL_SERVIDOR,
-                'descricao'  => 'Servidor municipal: usa a área do servidor no Portal do Cidadão, sem acesso aos módulos internos',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]));
+        $id = DB::table('ged_roles')->where('nome', self::PERFIL_SERVIDOR)->value('id');
+        if ($id) {
+            return (int) $id;
+        }
+        $id = DB::table('ged_roles')->insertGetId([
+            'nome'       => self::PERFIL_SERVIDOR,
+            'descricao'  => 'Servidor municipal: área do servidor no Portal e processos do setor (abrir, ver e tramitar)',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        foreach (DB::table('ged_permissions')->whereIn('nome', self::PERMISSOES_SERVIDOR)->pluck('id') as $perm) {
+            DB::table('ged_role_permissions')->insertOrIgnore(['role_id' => $id, 'permission_id' => $perm]);
+        }
+
+        return (int) $id;
     }
 
     /**
