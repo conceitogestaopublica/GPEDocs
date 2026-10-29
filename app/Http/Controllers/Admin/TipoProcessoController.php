@@ -23,7 +23,13 @@ class TipoProcessoController extends Controller
             ->get();
 
         return Inertia::render('GED/Admin/TiposProcesso/Index', [
-            'tipos' => $tipos,
+            'tipos'    => $tipos,
+            // Setores das etapas: o tipo de processo vale para todas as UGs do município
+            'unidades' => \App\Models\UgOrganograma::query()
+                ->join('ugs', 'ugs.id', '=', 'ug_organograma.ug_id')
+                ->where('ug_organograma.ativo', true)
+                ->orderBy('ugs.codigo')->orderBy('ug_organograma.nivel')->orderBy('ug_organograma.nome')
+                ->get(['ug_organograma.id', 'ug_organograma.nome', 'ug_organograma.nivel', 'ug_organograma.parent_id', 'ugs.codigo as ug']),
         ]);
     }
 
@@ -41,6 +47,8 @@ class TipoProcessoController extends Controller
             'etapas.*.nome'           => ['required', 'string'],
             'etapas.*.tipo'           => ['required', 'string'],
             'etapas.*.setor_destino'  => ['nullable', 'string'],
+            'etapas.*.unidades'       => ['nullable', 'array'],
+            'etapas.*.unidades.*'     => ['integer', 'exists:ug_organograma,id'],
             'etapas.*.sla_horas'      => ['nullable', 'integer'],
             'etapas.*.template_texto' => ['nullable', 'string'],
             'etapas.*.obrigatorio'    => ['nullable', 'boolean'],
@@ -69,9 +77,10 @@ class TipoProcessoController extends Controller
                         'nome'             => $etapa['nome'],
                         'tipo'             => $etapa['tipo'],
                         'setor_destino'    => $etapa['setor_destino'] ?? null,
+                        'unidades'         => array_values(array_map('intval', $etapa['unidades'] ?? [])) ?: null,
                         'sla_horas'        => $etapa['sla_horas'] ?? null,
                         'template_texto'   => $etapa['template_texto'] ?? null,
-                        'obrigatorio'      => $etapa['obrigatorio'] ?? false,
+                        'obrigatorio'      => $etapa['obrigatorio'] ?? true,  // sem pular etapas (TR 4.38.19)
                         'ordem'            => $etapa['ordem'] ?? $index + 1,
                     ]);
                 }
@@ -102,6 +111,8 @@ class TipoProcessoController extends Controller
             'etapas.*.nome'           => ['required', 'string'],
             'etapas.*.tipo'           => ['required', 'string'],
             'etapas.*.setor_destino'  => ['nullable', 'string'],
+            'etapas.*.unidades'       => ['nullable', 'array'],
+            'etapas.*.unidades.*'     => ['integer', 'exists:ug_organograma,id'],
             'etapas.*.sla_horas'      => ['nullable', 'integer'],
             'etapas.*.template_texto' => ['nullable', 'string'],
             'etapas.*.obrigatorio'    => ['nullable', 'boolean'],
@@ -132,9 +143,10 @@ class TipoProcessoController extends Controller
                     'nome'           => $etapa['nome'],
                     'tipo'           => $etapa['tipo'],
                     'setor_destino'  => $etapa['setor_destino'] ?? null,
+                    'unidades'       => array_values(array_map('intval', $etapa['unidades'] ?? [])) ?: null,
                     'sla_horas'      => $etapa['sla_horas'] ?? null,
                     'template_texto' => $etapa['template_texto'] ?? null,
-                    'obrigatorio'    => $etapa['obrigatorio'] ?? false,
+                    'obrigatorio'    => $etapa['obrigatorio'] ?? true,  // sem pular etapas (TR 4.38.19)
                     'ordem'          => $etapa['ordem'] ?? $index + 1,
                     'ativo'          => true,
                 ];

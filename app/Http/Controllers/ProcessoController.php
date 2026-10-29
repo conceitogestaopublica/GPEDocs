@@ -133,8 +133,20 @@ class ProcessoController extends Controller
             $protocolo = $tipo->sigla . '-' . $year . '/' . str_pad((string) $nextNum, 6, '0', STR_PAD_LEFT);
 
             $primeiraEtapa = TipoEtapa::where('tipo_processo_id', $tipoId)
+                ->where('ativo', true)
                 ->orderBy('ordem')
                 ->first();
+
+            // Setor inicial pelo assunto (TR 4.38.2): 1ª etapa obrigatória com setores só vai para um deles
+            $setoresIniciais = \App\Services\FluxoDoProcesso::setoresDaEtapa($primeiraEtapa, session('ug_id') ? (int) session('ug_id') : null);
+            if ($primeiraEtapa?->obrigatorio && $setoresIniciais
+                && ! in_array((int) $request->input('setor_destino_inicial'), $setoresIniciais, true)) {
+                DB::rollBack();
+                $nomes = \App\Models\UgOrganograma::whereIn('id', $setoresIniciais)->orderBy('nome')->pluck('nome')->implode(', ');
+
+                return redirect()->back()->withInput()
+                    ->withErrors(['setor_destino_inicial' => "Este assunto começa em: {$nomes}."]);
+            }
 
             $processo = Processo::create([
                 'numero_protocolo'  => $protocolo,
@@ -381,6 +393,8 @@ class ProcessoController extends Controller
             'frentes'              => $this->frentes($processo),
             'estagios'             => Tramitacao::ESTAGIOS,
             'acessos'              => \App\Support\Acessos::de('processo', $processo->id),
+            'fluxo'                => \App\Services\FluxoDoProcesso::paraTela($processo,
+                \App\Services\AcaoNoProcesso::etapaAtual($processo)?->tipo_etapa_id),
         ]);
     }
 
@@ -460,6 +474,13 @@ class ProcessoController extends Controller
                     : 'Só quem está na etapa ativa (ou o autor, antes do primeiro despacho) encerra o processo.');
             }
             $decisao = $request->input('decisao');
+            // Sem pular etapas (TR 4.38.19): decisão formal só depois das obrigatórias.
+            // Arquivar (desistência, perda de objeto) continua valendo a qualquer momento.
+            $pendentes = \App\Services\FluxoDoProcesso::obrigatoriasPendentes($processo);
+            if ($decisao !== 'arquivado' && $pendentes->isNotEmpty()) {
+                DB::rollBack();
+                abort(403, 'Ainda faltam as etapas obrigatórias: ' . $pendentes->pluck('nome')->implode(', ') . '.');
+            }
             $pularAssinatura = (bool) $request->input('pular_assinatura', false);
             // So permite pular assinatura se processo for do Portal Cidadao (resposta informal)
             if ($pularAssinatura && $processo->setor_origem !== 'Portal do Cidadao') {

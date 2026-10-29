@@ -24,12 +24,14 @@ class TipoEtapa extends Model
         'template_texto',
         'obrigatorio',
         'ativo',
+        'unidades',
     ];
 
     protected function casts(): array
     {
         return [
             'obrigatorio' => 'boolean',
+            'unidades'    => 'array',
         ];
     }
 

@@ -85,6 +85,8 @@ class TramitacaoController extends Controller
             // Setores que só recebem cópia, para ciência (TR 4.9.14)
             'copias'           => ['nullable', 'array', 'max:20'],
             'copias.*'         => ['integer', 'distinct', 'exists:ug_organograma,id'],
+            // Etapa do fluxo para onde vai: id de uma das permitidas, ou 'manter' (fica na atual)
+            'etapa_destino'    => ['nullable', 'string', 'max:20'],
             'files'           => ['nullable', 'array'],
             'files.*'         => ['file', 'max:51200'],
         ]);
@@ -111,19 +113,18 @@ class TramitacaoController extends Controller
                 'despacho'      => $request->input('despacho'),
             ]);
 
-            // Determinar proxima etapa (o fluxo do tipo de processo é o da frente principal)
+            // Etapa de destino: o fluxo do tipo de processo é o da frente principal, sem pular
+            // etapa obrigatória e só para os setores dela (TR 4.38.19, 4.38.20)
             $proximaEtapa = null;
-            if ($tramitacaoAtual->tipo_etapa_id && $tramitacaoAtual->frente === 1) {
-                // A etapa atual pode ter sido retirada do tipo depois (fica inativa): ainda
-                // vale a ordem dela para achar a próxima entre as vigentes.
-                $etapaAtual = \App\Models\Processo\TipoEtapa::find($tramitacaoAtual->tipo_etapa_id);
+            if ($tramitacaoAtual->frente === 1) {
+                $fluxo = \App\Services\FluxoDoProcesso::conferirDespacho(
+                    $processo, $tramitacaoAtual->tipo_etapa_id, $request->input('etapa_destino'), $setorDestinoId);
+                if ($fluxo['erro']) {
+                    DB::rollBack();
 
-                if ($etapaAtual) {
-                    $proximaEtapa = $processo->tipoProcesso->etapas
-                        ->where('ordem', '>', $etapaAtual->ordem)
-                        ->sortBy('ordem')
-                        ->first();
+                    return redirect()->back()->withErrors(['setor_destino' => $fluxo['erro']])->with('error', $fluxo['erro']);
                 }
+                $proximaEtapa = $fluxo['etapa'];
             }
 
             // Criar nova tramitacao

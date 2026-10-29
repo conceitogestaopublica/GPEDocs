@@ -49,22 +49,39 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
         visit(null);
         return out;
     }, [unidades]);
+    const tipoSelecionado = tipos.find(t => String(t.id) === String(data.tipo_processo_id));
+    const schemaCampos = tipoSelecionado?.schema_formulario || [];
+
+    // Setor inicial pelo assunto (TR 4.38.2): a 1ª etapa obrigatória com setores limita a escolha
+    const setoresIniciaisDe = (tipo) => {
+        const primeira = [...(tipo?.etapas || [])].sort((a, b) => a.ordem - b.ordem)[0];
+        if (! primeira?.obrigatorio) return null;
+        const ids = (primeira.unidades || []).map(Number).filter(id => unidadesTree.some(u => Number(u.id) === id));
+        return ids.length ? ids : null;
+    };
+    const setoresIniciais = setoresIniciaisDe(tipoSelecionado);
+
     const unidadesFiltradas = useMemo(() => {
-        if (! setorSearch.trim()) return unidadesTree;
+        const base = setoresIniciais ? unidadesTree.filter(u => setoresIniciais.includes(Number(u.id))) : unidadesTree;
+        if (! setorSearch.trim()) return base;
         const t = setorSearch.toLowerCase();
-        return unidadesTree.filter(u => u.nome.toLowerCase().includes(t));
-    }, [unidadesTree, setorSearch]);
+        return base.filter(u => u.nome.toLowerCase().includes(t));
+    }, [unidadesTree, setorSearch, setoresIniciais?.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
     const setorSelecionado = unidadesTree.find(u => String(u.id) === String(data.setor_destino_inicial));
     const usuariosFiltrados = useMemo(() => {
         if (! data.setor_destino_inicial) return usuarios;
         return usuarios.filter(u => Number(u.unidade_id) === Number(data.setor_destino_inicial));
     }, [usuarios, data.setor_destino_inicial]);
 
-    const tipoSelecionado = tipos.find(t => String(t.id) === String(data.tipo_processo_id));
-    const schemaCampos = tipoSelecionado?.schema_formulario || [];
-
     const handleTipoChange = (tipoId) => {
-        setData(prev => ({ ...prev, tipo_processo_id: tipoId, dados_formulario: {} }));
+        const iniciais = setoresIniciaisDe(tipos.find(t => String(t.id) === String(tipoId)));
+        setData(prev => ({
+            ...prev, tipo_processo_id: tipoId, dados_formulario: {},
+            // Um setor só: já vem escolhido. Vários: limpa se o escolhido não serve.
+            setor_destino_inicial: iniciais?.length === 1 ? iniciais[0]
+                : (iniciais && ! iniciais.includes(Number(prev.setor_destino_inicial)) ? '' : prev.setor_destino_inicial),
+            destinatario_inicial: '',
+        }));
     };
 
     const setDadoFormulario = (campo, valor) => {
@@ -304,6 +321,11 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                                                 })}
                                             </div>
                                         </>
+                                    )}
+                                    {setoresIniciais && (
+                                        <p className="mt-1 text-[10px] text-gray-500">
+                                            <i className="fas fa-route mr-1" />Este assunto começa em: {unidadesTree.filter(u => setoresIniciais.includes(Number(u.id))).map(u => u.nome).join(', ')}.
+                                        </p>
                                     )}
                                     {errors.setor_destino_inicial && (
                                         <p className="mt-1 text-xs text-red-600">{errors.setor_destino_inicial}</p>

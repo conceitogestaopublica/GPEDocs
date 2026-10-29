@@ -13,6 +13,7 @@ import Modal from '../../../Components/Modal';
 import Tabs from '../../../Components/Tabs';
 import Avatar from '../../../Components/Avatar';
 import QuemAcessou from '../../../Components/QuemAcessou';
+import SetoresMulti from '../../../Components/SetoresMulti';
 import AssinarModal from '../../../Components/AssinarModal';
 import { useConfirm, useAvisar } from '../../../Components/ConfirmProvider';
 
@@ -68,7 +69,7 @@ const tabList = [
 ];
 
 export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
-    acessos = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
+    acessos = [], fluxo = null, etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
     // Meu perfil › Preferências: abrir anexo no navegador ou baixar
@@ -173,14 +174,31 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     const [estagio, setEstagio] = useState('');
     useEffect(() => setEstagio(etapaAtual?.estagio || ''), [etapaAtual?.id, etapaAtual?.estagio]);
 
+    // Fluxo do assunto (TR 4.38.19–22): na frente principal o despacho vai para a próxima
+    // etapa (ou uma adiante sem pular obrigatória) e só para os setores dela; ou fica na atual.
+    const noFluxo = !! fluxo && (etapaAtual?.frente ?? 1) === 1;
+    const [etapaDestino, setEtapaDestino] = useState(() => (fluxo?.permitidas?.[0] ? String(fluxo.permitidas[0]) : 'manter'));
+    const etapaEscolhida = noFluxo && etapaDestino !== 'manter' ? fluxo.etapas.find(e => String(e.id) === etapaDestino) : null;
+    const setoresDaEtapa = etapaEscolhida?.setores || [];
+    const setoresPermitidos = etapaEscolhida?.obrigatorio && setoresDaEtapa.length ? setoresDaEtapa.map(s => Number(s.id)) : null;
+    const etapaAtualFluxo = fluxo?.etapas.find(e => e.id === fluxo.atual_id) || null;
+    const [todosDaEtapa, setTodosDaEtapa] = useState(false);
+    useEffect(() => {
+        // Etapa com um setor só: já vem escolhido; trocou de etapa: limpa o que não serve
+        if (setoresPermitidos?.length === 1) despacharForm.setData('setor_destino', setoresPermitidos[0]);
+        else if (setoresPermitidos && ! setoresPermitidos.includes(Number(despacharForm.data.setor_destino))) despacharForm.setData('setor_destino', '');
+        setTodosDaEtapa(false);
+    }, [etapaDestino]); // eslint-disable-line react-hooks/exhaustive-deps
+
     // Combobox de setor (busca + dropdown)
     const [setorSearch, setSetorSearch] = useState('');
     const [setorOpen, setSetorOpen] = useState(false);
     const unidadesFiltradas = useMemo(() => {
-        if (! setorSearch.trim()) return unidadesTree;
+        const base = setoresPermitidos ? unidadesTree.filter(u => setoresPermitidos.includes(Number(u.id))) : unidadesTree;
+        if (! setorSearch.trim()) return base;
         const t = setorSearch.toLowerCase();
-        return unidadesTree.filter(u => u.nome.toLowerCase().includes(t) || (u.codigo || '').toLowerCase().includes(t));
-    }, [unidadesTree, setorSearch]);
+        return base.filter(u => u.nome.toLowerCase().includes(t) || (u.codigo || '').toLowerCase().includes(t));
+    }, [unidadesTree, setorSearch, setoresPermitidos?.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
     const setorSelecionado = unidadesTree.find(u => String(u.id) === String(despacharForm.data.setor_destino));
 
     // Form: Comentario
@@ -231,11 +249,14 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
 
         // O useForm envia os dados dele (a opção `data` é ignorada): o que fica fora do
         // form — anexos, outros setores, cópias — entra pelo transform.
+        // Etapa com vários setores e "enviar a todos": os outros viram frentes paralelas (TR 4.38.20)
+        const daEtapa = todosDaEtapa ? setoresDaEtapa.map(s => Number(s.id)).filter(id => id !== Number(despacharForm.data.setor_destino)) : [];
         despacharForm.transform((d) => ({
             ...d,
             files: despacharFiles,
-            outros_setores: outrosSetores,
+            outros_setores: [...new Set([...outrosSetores, ...daEtapa])],
             copias: copiasSetores,
+            etapa_destino: noFluxo ? etapaDestino : undefined,
         }));
         despacharForm.post(`/tramitacoes/${etapaAtual.id}/despachar`, {
             forceFormData: true,
@@ -612,6 +633,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                 {/* ── Tab: Tramitacao (Timeline + Acoes) ── */}
                 {activeTab === 'tramitacao' && (
                     <div className="space-y-4">
+                    {fluxo && <FluxoDoAssunto fluxo={fluxo} />}
                     {frentes && <SituacaoSetores frentes={frentes} statusProcesso={proc.status} />}
                     <Card title="Histórico de Tramitação">
                         {tramitacoes.length === 0 ? (
@@ -677,6 +699,11 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                                     <i className={`fas fa-circle text-[6px] mr-1 ${sla.dotColor}`} />
                                                                     {sla.label}
                                                                 </span>
+                                                            )}
+                                                            {isPending && tram.sla_horas && (
+                                                                <p className="text-[11px] text-gray-500 mt-0.5" title="Tempo na etapa contra o prazo ideal dela">
+                                                                    {tempoNaEtapa(tram.created_at, tram.sla_horas)}
+                                                                </p>
                                                             )}
                                                         </div>
                                                     </div>
@@ -796,6 +823,42 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                         <i className="fas fa-info-circle mt-0.5" />
                                         <p>Despache para um <strong>setor</strong> (qualquer pessoa do setor pode receber) e, opcionalmente, indique uma <strong>pessoa específica</strong> daquele setor.</p>
                                     </div>
+                                    {noFluxo && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Etapa do fluxo</label>
+                                                <select value={etapaDestino} onChange={(e) => setEtapaDestino(e.target.value)} className="ds-input">
+                                                    {fluxo.etapas.filter(e => fluxo.permitidas.includes(e.id)).map(e => (
+                                                        <option key={e.id} value={String(e.id)}>
+                                                            {e.ordem}. {e.nome}{e.obrigatorio ? '' : ' (opcional)'}
+                                                        </option>
+                                                    ))}
+                                                    <option value="manter">Continuar na etapa atual{etapaAtualFluxo ? ` (${etapaAtualFluxo.nome})` : ''}</option>
+                                                </select>
+                                                <p className="mt-1 text-[10px] text-gray-400">
+                                                    {etapaDestino === 'manter'
+                                                        ? 'Movimento interno: o processo não avança no fluxo e pode ir para qualquer setor.'
+                                                        : setoresPermitidos ? `Esta etapa é feita por: ${setoresDaEtapa.map(s => s.nome).join(', ')}.`
+                                                        : 'Etapa livre: escolha qualquer setor.'}
+                                                </p>
+                                            </div>
+                                            {etapaAtualFluxo?.modelo && (
+                                                <div className="flex items-end">
+                                                    <button type="button" onClick={() => despacharForm.setData('despacho', etapaAtualFluxo.modelo)}
+                                                        className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100">
+                                                        <i className="fas fa-file-alt mr-1" />Usar o modelo de texto da etapa "{etapaAtualFluxo.nome}"
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {setoresDaEtapa.length > 1 && (
+                                        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                            <input type="checkbox" checked={todosDaEtapa} onChange={(e) => setTodosDaEtapa(e.target.checked)}
+                                                className="rounded border-gray-300 text-blue-600" />
+                                            Enviar a todos os setores da etapa ({setoresDaEtapa.length}) — cada um trata a sua parte em paralelo
+                                        </label>
+                                    )}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="relative">
                                             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1002,8 +1065,16 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             </div>
                         )}
 
+                        {/* Sem pular etapas (TR 4.38.19): decisão formal só depois das obrigatórias */}
+                        {acaoMode === 'decidir' && pode_concluir && fluxo?.pendentes?.length > 0 && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800 flex items-start gap-2">
+                                <i className="fas fa-route mt-0.5" />
+                                <p>Para decidir, o processo precisa passar pelas etapas obrigatórias que faltam: <strong>{fluxo.pendentes.join(', ')}</strong>. Arquivar (sem decisão) continua disponível.</p>
+                            </div>
+                        )}
+
                         {/* Modo: Decidir e Encerrar */}
-                        {acaoMode === 'decidir' && pode_concluir && (
+                        {acaoMode === 'decidir' && pode_concluir && ! (fluxo?.pendentes?.length > 0) && (
                             <div className="space-y-4">
                                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 flex items-start gap-2">
                                     <i className="fas fa-info-circle mt-0.5" />
@@ -1347,6 +1418,45 @@ function getFileIcon(mime) {
     return 'fas fa-file text-gray-400';
 }
 
+/** "Decorrido 1d 6h de 2d (63%)" — tempo na etapa contra o prazo ideal (TR 4.38.23). */
+function tempoNaEtapa(desde, slaHoras) {
+    const horas = Math.max(0, (Date.now() - new Date(desde).getTime()) / 36e5);
+    const fmt = (h) => {
+        const d = Math.floor(h / 24), r = Math.round(h % 24);
+        return d ? `${d}d${r ? ` ${r}h` : ''}` : `${Math.round(h)}h`;
+    };
+    return `Decorrido ${fmt(horas)} de ${fmt(slaHoras)} (${Math.round((horas / slaHoras) * 100)}%)`;
+}
+
+/** Etapas do assunto (TR 4.38.19–23): feitas, atual e a fazer, com setores e prazo ideal. */
+function FluxoDoAssunto({ fluxo }) {
+    const cor = { feita: 'bg-green-500 text-white', atual: 'bg-blue-600 text-white', a_fazer: 'bg-gray-200 text-gray-600', pulada: 'bg-gray-100 text-gray-400 line-through' };
+    return (
+        <Card title="Fluxo do assunto">
+            <ol className="space-y-2">
+                {fluxo.etapas.map(e => (
+                    <li key={e.id} className="flex items-start gap-3">
+                        <span className={`w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${cor[e.situacao]}`}>
+                            {e.situacao === 'feita' ? <i className="fas fa-check text-[10px]" /> : e.ordem}
+                        </span>
+                        <div className="min-w-0">
+                            <p className={`text-sm ${e.situacao === 'atual' ? 'font-semibold text-blue-800' : 'text-gray-800'}`}>
+                                {e.nome}
+                                {! e.obrigatorio && <span className="ml-2 text-[10px] text-gray-500">(opcional{e.situacao === 'pulada' ? ' — não utilizada' : ''})</span>}
+                                {e.situacao === 'atual' && <span className="ml-2 text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">etapa atual</span>}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                                {e.setores.length ? e.setores.map(s => s.nome).join(', ') : 'Qualquer setor'}
+                                {e.sla_horas && <> · prazo ideal {e.sla_horas >= 24 && e.sla_horas % 24 === 0 ? `${e.sla_horas / 24} dia(s)` : `${e.sla_horas}h`}</>}
+                            </p>
+                        </div>
+                    </li>
+                ))}
+            </ol>
+        </Card>
+    );
+}
+
 /**
  * Situação geral do processo multissetorial (TR 4.9.4, 4.9.5): cada setor que trata a sua
  * parte, em que estágio está, se já resolveu; e as cópias com ou sem ciência.
@@ -1398,37 +1508,6 @@ function SituacaoSetores({ frentes, statusProcesso }) {
                 </div>
             )}
         </Card>
-    );
-}
-
-/** Vários setores do organograma: escolhe num select e mostra como etiquetas removíveis. */
-function SetoresMulti({ titulo, ajuda, unidades, valor, onChange, excluir = [] }) {
-    const fora = new Set([...valor, ...excluir].filter(Boolean).map(Number));
-    const nome = (id) => unidades.find(u => Number(u.id) === Number(id))?.nome || `#${id}`;
-    return (
-        <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{titulo} <span className="text-gray-400 text-xs">(opcional)</span></label>
-            <select value="" className="ds-input"
-                onChange={(e) => e.target.value && onChange([...valor, Number(e.target.value)])}>
-                <option value="">Adicionar setor…</option>
-                {unidades.filter(u => ! fora.has(Number(u.id))).map(u => (
-                    <option key={u.id} value={u.id}>{' '.repeat((u.nivel - 1) * 3)}{u.nome}</option>
-                ))}
-            </select>
-            {valor.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                    {valor.map(id => (
-                        <span key={id} className="inline-flex items-center gap-1.5 text-xs bg-blue-50 border border-blue-200 text-blue-800 rounded-full px-2.5 py-1">
-                            {nome(id)}
-                            <button type="button" onClick={() => onChange(valor.filter(x => x !== id))} className="text-blue-500 hover:text-red-600" title="Remover">
-                                <i className="fas fa-times text-[10px]" />
-                            </button>
-                        </span>
-                    ))}
-                </div>
-            )}
-            <p className="mt-1 text-[10px] text-gray-400">{ajuda}</p>
-        </div>
     );
 }
 

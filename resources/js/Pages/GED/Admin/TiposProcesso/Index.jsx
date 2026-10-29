@@ -11,6 +11,7 @@ import Button from '../../../../Components/Button';
 import Card from '../../../../Components/Card';
 import Modal from '../../../../Components/Modal';
 import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
+import SetoresMulti from '../../../../Components/SetoresMulti';
 
 const categoriaOptions = [
     { value: 'administrativo', label: 'Administrativo' },
@@ -40,10 +41,10 @@ const tiposEtapa = [
 ];
 
 const emptyField = { campo: '', tipo: 'text', label: '', obrigatorio: false, opcoes: '' };
-const emptyEtapa = { nome: '', tipo: 'analise', setor_destino: '', sla_horas: '', template_texto: '' };
+const emptyEtapa = { nome: '', tipo: 'analise', setor_destino: '', unidades: [], obrigatorio: true, sla_horas: '', template_texto: '' };
 const emptyTemplate = { nome: '', conteudo: '' };
 
-export default function Index({ tipos }) {
+export default function Index({ tipos, unidades = [] }) {
     // Listagem rola só por dentro — a página nunca (padrão gpe2).
     const scrollRef = useFillViewportHeight();
     const lista = tipos?.data || tipos || [];
@@ -81,7 +82,7 @@ export default function Index({ tipos }) {
             sla_padrao_horas: tipo.sla_padrao_horas || '',
             ativo: tipo.ativo !== false,
             schema_formulario: tipo.schema_formulario || [],
-            etapas: tipo.etapas || [],
+            etapas: (tipo.etapas || []).map(e => ({ ...e, unidades: e.unidades || [], obrigatorio: e.obrigatorio ?? true })),
             templates_despacho: tipo.templates_despacho || [],
         });
         setEditingId(tipo.id);
@@ -566,16 +567,6 @@ export default function Index({ tipos }) {
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[11px] font-medium text-gray-500 mb-1">Setor Destino</label>
-                                                    <input
-                                                        type="text"
-                                                        value={etapa.setor_destino}
-                                                        onChange={(e) => updateEtapa(idx, 'setor_destino', e.target.value)}
-                                                        className="ds-input text-xs"
-                                                        placeholder="Setor responsável"
-                                                    />
-                                                </div>
-                                                <div>
                                                     <label className="block text-[11px] font-medium text-gray-500 mb-1">SLA (horas)</label>
                                                     <input
                                                         type="number"
@@ -586,6 +577,20 @@ export default function Index({ tipos }) {
                                                         min="1"
                                                     />
                                                 </div>
+                                                <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer pt-5">
+                                                    <input type="checkbox" checked={etapa.obrigatorio !== false}
+                                                        onChange={(e) => updateEtapa(idx, 'obrigatorio', e.target.checked)}
+                                                        className="rounded border-gray-300 text-blue-600" />
+                                                    Obrigatória (não pode ser pulada)
+                                                </label>
+                                            </div>
+                                            <div className="mt-3">
+                                                <SetoresMulti pequeno titulo="Setores responsáveis pela etapa"
+                                                    ajuda={etapa.setor_destino && ! (etapa.unidades || []).length
+                                                        ? `Antes era um texto: "${etapa.setor_destino}". Escolha os setores no organograma. Vazio = etapa livre (qualquer setor).`
+                                                        : 'Um ou vários setores. Vazio = etapa livre: quem despacha escolhe qualquer setor.'}
+                                                    unidades={unidades} valor={etapa.unidades || []}
+                                                    onChange={(v) => updateEtapa(idx, 'unidades', v)} />
                                             </div>
                                             <div className="mt-3">
                                                 <label className="block text-[11px] font-medium text-gray-500 mb-1">Template de Texto</label>
