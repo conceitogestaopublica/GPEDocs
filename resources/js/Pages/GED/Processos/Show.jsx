@@ -1437,7 +1437,7 @@ const ACOES_HISTORICO = {
     comentario: 'Comentário', anexo: 'Anexo', conclusao: 'Conclusão', cancelamento: 'Cancelamento',
     assinatura_decisao: 'Decisão assinada', arquivado_no_ged: 'Arquivado no repositório',
     aos_cuidados: 'Aos cuidados', resolucao_setor: 'Setor resolveu a parte dele', estagio: 'Estágio',
-    ciencia_copia: 'Ciência da cópia',
+    ciencia_copia: 'Ciência da cópia', decisao: 'Decisão',
 };
 
 function formatDate(dateStr) {

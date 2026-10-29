@@ -27,6 +27,8 @@ class ProcessoHistorico extends Model
     {
         return [
             'detalhes' => 'array',
+            // Sem o cast a data ia para a tela como texto UTC sem fuso e aparecia 3h adiantada.
+            'created_at' => 'datetime',
         ];
     }
 
