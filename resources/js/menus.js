@@ -60,6 +60,7 @@ export const MENU_GEPSP = [
             { title: 'Nova Circular',      icon: 'fas fa-bullhorn',         href: '/circulares/create',  color: 'text-rose-600 bg-rose-100', permissao: 'comunicacao.enviar' },
             { title: 'Novo Ofício',        icon: 'fas fa-file-alt',         href: '/oficios/create',     color: 'text-cyan-600 bg-cyan-100', permissao: 'comunicacao.enviar' },
             { title: 'Controle de Ofícios', icon: 'fas fa-book',            href: '/oficios/controle',   color: 'text-cyan-600 bg-cyan-100' },
+            { title: 'Organograma e telefones', icon: 'fas fa-sitemap',    href: '/organograma',        color: 'text-teal-600 bg-teal-100' },
         ],
     },
     {

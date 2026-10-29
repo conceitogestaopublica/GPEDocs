@@ -10,9 +10,11 @@ import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import DesativarSetorModal, { setoresAtivos } from '../../../Components/DesativarSetorModal';
 
 export default function Organograma({ ug, arvore }) {
     const [labelsModal, setLabelsModal] = useState(false);
+    const [desativando, setDesativando] = useState(null);
 
     // Do 4º nível para baixo: subsetores (sem limite de níveis — TR 4.9.1)
     const labels = new Proxy({ 1: ug.nivel_1_label, 2: ug.nivel_2_label, 3: ug.nivel_3_label }, { get: (l, n) => l[n] ?? 'Subsetor' });
@@ -77,17 +79,21 @@ export default function Organograma({ ug, arvore }) {
                             ug={ug}
                             labels={labels}
                             onAdicionarFilho={(parentId) => adicionar(parentId)}
+                            onDesativar={setDesativando}
                         />
                     ))}
                 </div>
             )}
 
             <LabelsModal show={labelsModal} ug={ug} onClose={() => setLabelsModal(false)} />
+            <DesativarSetorModal setor={desativando} onClose={() => setDesativando(null)}
+                url={desativando ? `/configuracoes/ugs/${ug.id}/organograma/nodes/${desativando.id}/toggle-ativo` : ''}
+                opcoes={setoresAtivos(arvore, (n) => n.filhos_recursivos || [])} servidores={desativando?.usuarios_count || null} />
         </AdminLayout>
     );
 }
 
-function No({ node, ug, labels, onAdicionarFilho, depth = 0 }) {
+function No({ node, ug, labels, onAdicionarFilho, onDesativar, depth = 0 }) {
     const confirmar = useConfirm();
     const [expandido, setExpandido] = useState(true);
     const filhos = node.filhos_recursivos || [];
@@ -97,8 +103,10 @@ function No({ node, ug, labels, onAdicionarFilho, depth = 0 }) {
         3: { bg: 'bg-cyan-50',   border: 'border-cyan-200',   icon: 'text-cyan-600' },
     }[Math.min(node.nivel, 3)] || {};
 
+    // Inativar abre a realocação dos servidores (TR 4.12.10); reativar é direto
     const toggleAtivo = () => {
-        router.post(`/configuracoes/ugs/${ug.id}/organograma/nodes/${node.id}/toggle-ativo`);
+        if (node.ativo) onDesativar(node);
+        else router.post(`/configuracoes/ugs/${ug.id}/organograma/nodes/${node.id}/toggle-ativo`, {}, { preserveScroll: true });
     };
 
     const excluir = async () => {
@@ -170,6 +178,7 @@ function No({ node, ug, labels, onAdicionarFilho, depth = 0 }) {
                     ug={ug}
                     labels={labels}
                     onAdicionarFilho={onAdicionarFilho}
+                    onDesativar={onDesativar}
                     depth={depth + 1}
                 />
             ))}

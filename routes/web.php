@@ -42,6 +42,8 @@ Route::get('anexos/compartilhado/{anexo}', [\App\Http\Controllers\AnexoProcessoC
     ->whereNumber('anexo')->middleware(['signed', 'throttle:30,1'])->name('anexos.compartilhado');
 Route::get('oficios/rastrear/{token}/pdf', [OficioController::class, 'pdfPublico'])->middleware('throttle:30,1')->name('oficios.rastrear.pdf');
 Route::get('oficios/rastrear/{token}/aberto', [OficioController::class, 'pixelAbertura'])->middleware('throttle:60,1')->name('oficios.rastrear.aberto');
+// Organograma público para incorporar no site da prefeitura (TR 4.12.8) — só com a chave da UG
+Route::get('organograma/publico/{token}', [\App\Http\Controllers\OrganogramaController::class, 'publico'])->middleware('throttle:60,1')->name('organograma.publico');
 
 /* ─── SSO consume — recebe token emitido pelo landlord (fluxo multi-tenant) ─── */
 // GET porque o landlord redireciona via 302 com ?t=<token>. O token é de uso
@@ -282,6 +284,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/', fn () => redirect('/modulos'));
     Route::get('/modulos', ModulosController::class)->name('modulos');
     Route::get('/dashboard', DashboardController::class)->name('dashboard')->middleware('can:documento.visualizar');
+
+    // Organograma (TR 4.12): todos os servidores veem; quem administra UGs desativa, reativa e publica
+    Route::get('organograma', [\App\Http\Controllers\OrganogramaController::class, 'index'])->name('organograma');
+    Route::middleware('can:admin.ugs')->group(function () {
+        Route::post('organograma/publicar', [\App\Http\Controllers\OrganogramaController::class, 'publicar'])->name('organograma.publicar');
+        Route::post('organograma/{id}/desativar', [\App\Http\Controllers\OrganogramaController::class, 'desativar'])->whereNumber('id')->name('organograma.desativar');
+        Route::post('organograma/{id}/reativar', [\App\Http\Controllers\OrganogramaController::class, 'reativar'])->whereNumber('id')->name('organograma.reativar');
+    });
 
     // Documentos — permissões do catálogo App\Support\Permissoes (Gate::before no AppServiceProvider)
     Route::resource('documentos', DocumentoController::class)->except(['create', 'edit'])
