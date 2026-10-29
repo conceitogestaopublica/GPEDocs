@@ -686,6 +686,18 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                         </div>
                                                     )}
 
+                                                    {/* Parte do setor resolvida (multissetorial) */}
+                                                    {tram.status === 'resolvido' && (
+                                                        <div className="mt-3 p-3 bg-green-50 border border-green-100 rounded-lg">
+                                                            <p className="text-xs font-semibold text-green-800 mb-1">
+                                                                <i className="fas fa-check-double mr-1" />
+                                                                Parte do setor resolvida por {tram.resolvedor?.name || '-'}
+                                                                {tram.resolvido_em && <> em {formatDate(tram.resolvido_em)}</>}
+                                                            </p>
+                                                            {tram.parecer && <p className="text-sm text-gray-700 whitespace-pre-wrap">{tram.parecer}</p>}
+                                                        </div>
+                                                    )}
+
                                                     <div className="flex items-center gap-4 mt-3 text-[11px] text-gray-400">
                                                         {tram.recebido_em && (
                                                             <span><i className="fas fa-inbox mr-1" />Recebido: {formatDate(tram.recebido_em)}</span>

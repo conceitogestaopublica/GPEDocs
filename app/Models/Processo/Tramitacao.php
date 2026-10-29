@@ -78,6 +78,12 @@ class Tramitacao extends Model
         return $this->belongsTo(User::class, 'destinatario_id');
     }
 
+    /** Quem resolveu a parte do setor (frente que não é a principal). */
+    public function resolvedor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'resolvido_por');
+    }
+
     public function recebedor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recebido_por');

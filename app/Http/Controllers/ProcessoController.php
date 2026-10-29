@@ -238,6 +238,7 @@ class ProcessoController extends Controller
             'tramitacoes.remetente',
             'tramitacoes.destinatario',
             'tramitacoes.recebedor',
+            'tramitacoes.resolvedor:id,name,foto_path',
             'anexos.enviadoPor',
             'comentarios.usuario',
             'historico.usuario',
