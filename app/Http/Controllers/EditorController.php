@@ -57,6 +57,35 @@ class EditorController extends Controller
         return response()->json($servidores->concat($contatos)->values());
     }
 
+    /**
+     * Prévia em PDF do que está na tela, sem gravar nada (TR 4.16.12). Mesmo PDF do envio,
+     * com "PRÉVIA" no lugar do número.
+     */
+    public function previa(Request $request)
+    {
+        $d = $request->validate([
+            'modulo' => ['required', \Illuminate\Validation\Rule::in(array_keys(DocumentoRedigido::TIPOS))],
+            'dados'  => ['required', 'string', 'max:20000000'],
+        ]);
+        $dados = json_decode($d['dados'], true) ?: [];
+        $user = $request->user();
+        $classe = DocumentoRedigido::TIPOS[$d['modulo']][0];
+        $doc = (new $classe())->forceFill(\Illuminate\Support\Arr::only($dados, [
+            'assunto', 'conteudo', 'setor_origem', 'confidencial', 'destino_tipo', 'destino_setores',
+            'destinatario_nome', 'destinatario_cargo', 'destinatario_orgao', 'destinatario_email',
+        ]))->forceFill([
+            'numero' => 'PRÉVIA', 'qr_code_token' => 'previa', 'ug_id' => session('ug_id'),
+            'remetente_id' => $user->id, 'created_at' => now(),
+        ]);
+        $doc->setRelation('remetente', $user)->setRelation('destinatarios', collect())
+            ->setRelation('respostas', collect())->setRelation('digitador', null);
+
+        return response(DocumentoRedigido::pdfBytes($d['modulo'], $doc), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="previa-' . $d['modulo'] . '.pdf"',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
     /** PDF do documento para o contato mencionado (link assinado do e-mail, 30 dias). */
     public function publico(string $tipo, int $id)
     {

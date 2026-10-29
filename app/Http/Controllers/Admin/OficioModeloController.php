@@ -17,7 +17,7 @@ class OficioModeloController extends Controller
     {
         $ugId = (int) ($request->session()->get('ug_id') ?? 0);
 
-        $modelos = OficioModelo::with('criador:id,name')
+        $modelos = OficioModelo::with(['criador:id,name', 'unidade:id,nome'])
             ->when($ugId, fn ($q) => $q->where(fn ($w) => $w->where('ug_id', $ugId)->orWhereNull('ug_id')))
             ->orderBy('nome')
             ->get();
@@ -25,6 +25,7 @@ class OficioModeloController extends Controller
         return Inertia::render('GED/Admin/OficiosModelos/Index', [
             'modelos'   => $modelos,
             'variaveis' => \App\Models\Processo\Oficio::variaveisParaEditor(),
+            'modulos'   => OficioModelo::MODULOS,
         ]);
     }
 
@@ -36,9 +37,11 @@ class OficioModeloController extends Controller
             'descricao' => ['nullable', 'string'],
             'conteudo'  => ['required', 'string'],
             'ativo'     => ['nullable', 'boolean'],
+            'modulo'    => ['required', \Illuminate\Validation\Rule::in(array_keys(OficioModelo::MODULOS))],
         ]);
 
         OficioModelo::create([
+            'modulo'     => $request->input('modulo'),
             'ug_id'      => $request->session()->get('ug_id'),
             'nome'       => $request->input('nome'),
             'categoria'  => $request->input('categoria'),
@@ -59,10 +62,11 @@ class OficioModeloController extends Controller
             'descricao' => ['nullable', 'string'],
             'conteudo'  => ['required', 'string'],
             'ativo'     => ['nullable', 'boolean'],
+            'modulo'    => ['required', \Illuminate\Validation\Rule::in(array_keys(OficioModelo::MODULOS))],
         ]);
 
         $modelo = OficioModelo::findOrFail($id);
-        $modelo->update($request->only(['nome', 'categoria', 'descricao', 'conteudo', 'ativo']));
+        $modelo->update($request->only(['nome', 'categoria', 'descricao', 'conteudo', 'ativo', 'modulo']));
 
         return redirect()->back()->with('success', 'Modelo atualizado.');
     }

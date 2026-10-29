@@ -11,6 +11,7 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import RichEditor from '../../../Components/RichEditor';
 import useRascunho from '../../../Hooks/useRascunho';
+import FerramentasDoTexto from '../../../Components/FerramentasDoTexto';
 import { AnexosRascunho, EstadoRascunho, comRascunho, dadosDoRascunho } from '../../../Components/RascunhoAutomatico';
 
 export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes = [], variaveis = [], rascunho = null }) {
@@ -280,9 +281,13 @@ export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes
 
                     {/* Conteudo */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Conteúdo <span className="text-red-500">*</span>
-                        </label>
+                        <div className="flex flex-wrap items-end justify-between gap-2 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">
+                                Conteúdo <span className="text-red-500">*</span>
+                            </label>
+                            <FerramentasDoTexto modulo="memorando" conteudo={data.conteudo} onAplicar={(html) => setData('conteudo', html)}
+                                dadosPrevia={() => dadosDoRascunho(data)} desabilitado={!! r.travadoPor} />
+                        </div>
                         <RichEditor somenteLeitura={!! r.travadoPor} html={data.conteudo} onChange={(v) => setData('conteudo', v)} minHeight={260}
                             variaveis={variaveis} marcadores={['mencao', 'referencia', 'assinatura']} erro={errors.conteudo}
                             placeholder="Digite o conteúdo do memorando…" />

@@ -96,7 +96,7 @@ export const MENU_GEPSP = [
         title: 'Cadastros', icon: 'fas fa-cogs', color: 'text-slate-600 bg-slate-100',
         children: [
             { title: 'Tipos de Processo',  icon: 'fas fa-cogs',            href: '/admin/tipos-processo',  color: 'text-teal-600 bg-teal-100', permissao: 'admin.tipos_processo' },
-            { title: 'Modelos de Ofício',  icon: 'fas fa-file-signature',  href: '/admin/oficios-modelos', color: 'text-cyan-600 bg-cyan-100', permissao: 'admin.tipos_processo' },
+            { title: 'Modelos de texto',   icon: 'fas fa-file-signature',  href: '/admin/oficios-modelos', color: 'text-cyan-600 bg-cyan-100', permissao: 'admin.tipos_processo' },
             { title: 'Plano de Classificação', icon: 'fas fa-sitemap',      href: '/admin/classificacao',   color: 'text-teal-600 bg-teal-100', permissao: 'admin.classificacao' },
         ],
     },

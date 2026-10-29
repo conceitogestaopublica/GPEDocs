@@ -5,17 +5,15 @@
  */
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import EmNomeDe from '../../../Components/EmNomeDe';
-import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import RichEditor from '../../../Components/RichEditor';
 import useRascunho from '../../../Hooks/useRascunho';
+import FerramentasDoTexto from '../../../Components/FerramentasDoTexto';
 import { AnexosRascunho, EstadoRascunho, comRascunho, dadosDoRascunho } from '../../../Components/RascunhoAutomatico';
-import { useConfirm } from '../../../Components/ConfirmProvider';
 
-export default function OficiosCreate({ modelos = [], setores = [], autorizacoes = [], variaveis = [], rascunho = null }) {
-    const confirmar = useConfirm();
+export default function OficiosCreate({ setores = [], autorizacoes = [], variaveis = [], rascunho = null }) {
     // Monta nome hierarquico: "Orgao > Unidade > Setor"
     const buildPath = (s, all) => {
         const parts = [s.nome];
@@ -32,7 +30,6 @@ export default function OficiosCreate({ modelos = [], setores = [], autorizacoes
         ...s,
         path: buildPath(s, setores || []),
     })).sort((a, b) => a.path.localeCompare(b.path, 'pt-BR'));
-    const [modeloId, setModeloId] = useState('');
     const { data, setData, post, processing, errors } = useForm(comRascunho(rascunho, {
         modo_envio: 'fisico', // 'fisico' = livro / 'eletronico' = envio por email
         data_envio: new Date().toISOString().slice(0, 10),
@@ -266,38 +263,8 @@ export default function OficiosCreate({ modelos = [], setores = [], autorizacoes
                                     <label className="block text-sm font-medium text-gray-700">
                                         Conteúdo <span className="text-red-500">*</span>
                                     </label>
-                                    {modelos.length > 0 && (
-                                        <div className="flex items-center gap-2">
-                                            <label className="text-sm font-medium text-navy-900">
-                                                Carregar modelo:
-                                            </label>
-                                            <select
-                                                value={modeloId}
-                                                onChange={async (e) => {
-                                                    const id = e.target.value;
-                                                    setModeloId(id);
-                                                    if (!id) return;
-                                                    const m = modelos.find(x => String(x.id) === String(id));
-                                                    if (!m) return;
-                                                    // Confirma sobrescrita se ja houver conteudo digitado
-                                                    if (data.conteudo && data.conteudo.replace(/<[^>]+>/g, '').trim().length > 10) {
-                                                        if (!await confirmar({ titulo: 'Substituir o conteúdo pelo modelo?', descricao: 'O texto já digitado no ofício será trocado pelo do modelo selecionado.', tom: 'atencao', rotuloConfirmar: 'Substituir' })) {
-                                                            setModeloId('');
-                                                            return;
-                                                        }
-                                                    }
-                                                    setData('conteudo', m.conteudo);
-                                                }}
-                                                className="text-xs px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 max-w-xs">
-                                                <option value="">-- selecionar modelo --</option>
-                                                {modelos.map(m => (
-                                                    <option key={m.id} value={m.id}>
-                                                        {m.categoria ? `[${m.categoria}] ` : ''}{m.nome}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
+                                    <FerramentasDoTexto modulo="oficio" conteudo={data.conteudo} onAplicar={(html) => setData('conteudo', html)}
+                                        dadosPrevia={() => dadosDoRascunho(data)} desabilitado={!! r.travadoPor} />
                                 </div>
                                 <RichEditor somenteLeitura={!! r.travadoPor}
                                     html={data.conteudo}

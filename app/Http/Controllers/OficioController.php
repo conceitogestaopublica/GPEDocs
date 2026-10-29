@@ -54,11 +54,6 @@ class OficioController extends Controller
     {
         $ugId = (int) ($request->session()->get('ug_id') ?? 0);
 
-        $modelos = \App\Models\Processo\OficioModelo::where('ativo', true)
-            ->when($ugId, fn ($q) => $q->where(fn ($w) => $w->where('ug_id', $ugId)->orWhereNull('ug_id')))
-            ->orderBy('nome')
-            ->get(['id', 'nome', 'categoria', 'descricao', 'conteudo']);
-
         // Organograma da UG ativa (orgaos -> unidades -> setores)
         $setores = collect();
         if ($ugId) {
@@ -74,7 +69,6 @@ class OficioController extends Controller
             'variaveis'    => Oficio::variaveisParaEditor(),
             'rascunho'     => \App\Support\Rascunhos::abrir(request()->integer('rascunho') ?: null, Auth::user(), 'oficio'),
             'autorizacoes' => EmNomeDe::autorizacoes(),
-            'modelos' => $modelos,
             'setores' => $setores,
         ]);
     }

@@ -11,6 +11,7 @@ import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import ClassificacaoDoItem from '../../../Components/ClassificacaoDoItem';
 import MarcadoresDoDocumento from '../../../Components/MarcadoresDoDocumento';
+import FerramentasDoTexto from '../../../Components/FerramentasDoTexto';
 import MapaAvaliacaoDoProcesso from '../../../Components/MapaAvaliacaoDoProcesso';
 import Modal from '../../../Components/Modal';
 import Tabs from '../../../Components/Tabs';
@@ -1010,9 +1011,12 @@ export default function Show({ marcadores = null, variaveis_despacho = [], proce
                                     )}
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Despacho <span className="text-red-500">*</span>
-                                        </label>
+                                        <div className="flex flex-wrap items-end justify-between gap-2 mb-1">
+                                            <label className="block text-sm font-medium text-gray-700">
+                                                Despacho <span className="text-red-500">*</span>
+                                            </label>
+                                            <FerramentasDoTexto modulo="despacho" conteudo={despacharForm.data.despacho} onAplicar={(html) => despacharForm.setData('despacho', html)} />
+                                        </div>
                                         <RichEditor html={despacharForm.data.despacho} onChange={(v) => despacharForm.setData('despacho', v)}
                                             minHeight={160} compacto variaveis={variaveis_despacho} marcadores={['mencao', 'referencia']} erro={despacharForm.errors.despacho}
                                             placeholder="Texto do despacho…" />

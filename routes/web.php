@@ -292,6 +292,11 @@ Route::middleware('auth')->group(function () {
 
     // Sugestões do editor: @ pessoas, ! quem assina, # documentos (TR 4.16.13–4.16.18)
     Route::get('editor/sugestoes', [\App\Http\Controllers\EditorController::class, 'sugestoes'])->middleware('throttle:120,1')->name('editor.sugestoes');
+    Route::post('editor/previa', [\App\Http\Controllers\EditorController::class, 'previa'])->middleware('throttle:30,1')->name('editor.previa');
+    // Modelos de texto do setor e da administração (TR 4.16.11)
+    Route::get('modelos-texto', [\App\Http\Controllers\ModeloTextoController::class, 'index'])->name('modelos-texto.index');
+    Route::post('modelos-texto', [\App\Http\Controllers\ModeloTextoController::class, 'store'])->middleware('throttle:30,1')->name('modelos-texto.store');
+    Route::delete('modelos-texto/{id}', [\App\Http\Controllers\ModeloTextoController::class, 'destroy'])->whereNumber('id')->name('modelos-texto.destroy');
 
     // Rascunho automático do editor (TR 4.16.6–4.16.8) — chamadas da tela de criação
     Route::controller(\App\Http\Controllers\RascunhoController::class)->prefix('rascunhos')->name('rascunhos.')->group(function () {
