@@ -47,6 +47,7 @@ class TipoProcessoController extends Controller
             'anexos_exigidos.*.obrigatorio' => ['nullable', 'boolean'],
             'anexos_exigidos.*.extensoes'   => ['nullable', 'string', 'max:100', 'regex:/^[a-z0-9, ]*$/i'],
             'sla_padrao_horas'        => ['required', 'integer'],
+            'prazo_dias_uteis'        => ['nullable', 'boolean'],
             'etapas'                  => ['nullable', 'array'],
             'etapas.*.nome'           => ['required', 'string'],
             'etapas.*.tipo'           => ['required', 'string'],
@@ -71,6 +72,7 @@ class TipoProcessoController extends Controller
                 'templates_despacho'=> $request->input('templates_despacho'),
                 'anexos_exigidos'   => $request->input('anexos_exigidos') ?: null,
                 'sla_padrao_horas'  => $request->input('sla_padrao_horas'),
+                'prazo_dias_uteis'  => $request->boolean('prazo_dias_uteis'),
                 'ativo'             => true,
                 'criado_por'        => Auth::id(),
             ]);
@@ -115,6 +117,7 @@ class TipoProcessoController extends Controller
             'anexos_exigidos.*.obrigatorio' => ['nullable', 'boolean'],
             'anexos_exigidos.*.extensoes'   => ['nullable', 'string', 'max:100', 'regex:/^[a-z0-9, ]*$/i'],
             'sla_padrao_horas'        => ['required', 'integer'],
+            'prazo_dias_uteis'        => ['nullable', 'boolean'],
             'etapas'                  => ['nullable', 'array'],
             'etapas.*.id'             => ['nullable', 'integer'],
             'etapas.*.nome'           => ['required', 'string'],
@@ -141,6 +144,7 @@ class TipoProcessoController extends Controller
                 'templates_despacho'=> $request->input('templates_despacho'),
                 'anexos_exigidos'   => $request->input('anexos_exigidos') ?: null,
                 'sla_padrao_horas'  => $request->input('sla_padrao_horas'),
+                'prazo_dias_uteis'  => $request->boolean('prazo_dias_uteis'),
             ]);
 
             // Sincroniza pelo id em vez de apagar e recriar: as tramitações guardam

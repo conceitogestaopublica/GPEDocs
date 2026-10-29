@@ -187,7 +187,7 @@ class ProcessoController extends Controller
                 'status'             => 'pendente',
                 'despachado_em'      => now(),
                 'sla_horas'          => $primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas,
-                'prazo'              => now()->addHours($primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas),
+                'prazo'              => \App\Support\Expediente::prazo($tipo, $primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas),
             ]);
 
             $processo->update(['etapa_atual_id' => $tramitacao->id]);

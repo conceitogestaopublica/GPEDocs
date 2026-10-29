@@ -345,6 +345,16 @@ Route::middleware('auth')->group(function () {
         Route::post('usuarios/{id}/foto/remover', [UsuarioController::class, 'removerFoto'])->middleware('can:admin.usuarios')->name('usuarios.foto.remover');
         Route::resource('perfis', RoleController::class)->parameters(['perfis' => 'role'])->except(['create', 'edit', 'show'])->middleware('can:admin.roles');
 
+        // Expediente e feriados — base do prazo em dias úteis (TR 4.13.9–4.13.11)
+        Route::prefix('expediente')->name('expediente.')->middleware('can:admin.configuracoes')
+            ->controller(\App\Http\Controllers\Configuracao\ExpedienteController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::put('/', 'salvar')->name('salvar');
+                Route::post('feriados', 'adicionarFeriado')->name('feriados.store');
+                Route::delete('feriados/{id}', 'removerFeriado')->whereNumber('id')->name('feriados.destroy');
+                Route::post('feriados/nacionais', 'importarNacionais')->name('feriados.nacionais');
+            });
+
         // Unidades Gestoras + organograma + banners do portal
         Route::middleware('can:admin.ugs')->group(function () {
         Route::resource('ugs', \App\Http\Controllers\Configuracao\UgController::class)->except(['show']);

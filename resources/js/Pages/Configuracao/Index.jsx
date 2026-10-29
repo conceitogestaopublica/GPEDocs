@@ -8,7 +8,7 @@ import PageHeader from '../../Components/PageHeader';
 const ATALHOS = [
     {
         titulo: 'Unidades Gestoras',
-        desc: 'Cadastro de UGs e gestão do organograma com 3 níveis nomeaveis',
+        desc: 'Cadastro de UGs e gestão do organograma, sem limite de níveis',
         icon: 'fas fa-building',
         href: '/configuracoes/ugs',
         cor: 'from-indigo-500 to-blue-600',
@@ -37,6 +37,14 @@ const ATALHOS = [
         href: '/configuracoes/carta-servicos',
         cor: 'from-blue-500 to-indigo-600',
         corLight: 'bg-blue-50 text-blue-600',
+    },
+    {
+        titulo: 'Expediente e feriados',
+        desc: 'Dias úteis, horário de funcionamento, feriados e pontos facultativos (prazos em dias úteis)',
+        icon: 'fas fa-calendar-days',
+        href: '/configuracoes/expediente',
+        cor: 'from-amber-500 to-orange-600',
+        corLight: 'bg-amber-50 text-amber-600',
     },
     // As Solicitações do Portal ficam no GPE Fluxos e Processos.
 ];

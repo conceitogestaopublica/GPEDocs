@@ -142,7 +142,7 @@ class TramitacaoController extends Controller
                 'destinatario_id'    => $request->input('destinatario_id'),
                 'status'             => 'pendente',
                 'sla_horas'          => $proximaEtapa?->sla_horas ?? $processo->tipoProcesso->sla_padrao_horas,
-                'prazo'              => now()->addHours($proximaEtapa?->sla_horas ?? $processo->tipoProcesso->sla_padrao_horas),
+                'prazo'              => \App\Support\Expediente::prazo($processo->tipoProcesso, $proximaEtapa?->sla_horas ?? $processo->tipoProcesso->sla_padrao_horas),
                 'frente'             => $tramitacaoAtual->frente,
             ]);
 
@@ -246,7 +246,7 @@ class TramitacaoController extends Controller
                 'destinatario_id' => $tramitacaoAtual->remetente_id,
                 'status'          => 'pendente',
                 'sla_horas'       => $tramitacaoAtual->sla_horas,
-                'prazo'           => now()->addHours($tramitacaoAtual->sla_horas ?? 48),
+                'prazo'           => \App\Support\Expediente::prazo($processo->tipoProcesso, $tramitacaoAtual->sla_horas ?? 48),
                 'frente'          => $tramitacaoAtual->frente,
             ]);
 
@@ -314,7 +314,7 @@ class TramitacaoController extends Controller
                     'status'             => 'pendente',
                     'despacho'           => $origem->despacho,
                     'sla_horas'          => $copia ? null : $sla,
-                    'prazo'              => $copia ? null : now()->addHours($sla),
+                    'prazo'              => $copia ? null : \App\Support\Expediente::prazo($processo->tipoProcesso, $sla),
                     'frente'             => $copia ? $origem->frente : $proximaFrente++,
                     'modo'               => $copia ? 'copia' : 'tramite',
                 ]);

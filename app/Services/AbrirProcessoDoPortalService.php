@@ -91,7 +91,7 @@ class AbrirProcessoDoPortalService
                 'status'             => 'pendente',
                 'despachado_em'      => now(),
                 'sla_horas'          => $primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas,
-                'prazo'              => now()->addHours($primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas ?? 72),
+                'prazo'              => \App\Support\Expediente::prazo($tipo, $primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas ?? 72),
             ]);
 
             $processo->update(['etapa_atual_id' => $tramitacao->id]);

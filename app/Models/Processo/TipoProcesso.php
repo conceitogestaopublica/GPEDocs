@@ -21,6 +21,7 @@ class TipoProcesso extends Model
         'schema_formulario',
         'templates_despacho',
         'anexos_exigidos',
+        'prazo_dias_uteis',
         'sla_padrao_horas',
         'ativo',
         'criado_por',
@@ -32,6 +33,7 @@ class TipoProcesso extends Model
             'schema_formulario' => 'array',
             'templates_despacho' => 'array',
             'anexos_exigidos'    => 'array',
+            'prazo_dias_uteis'   => 'boolean',
             'ativo' => 'boolean',
         ];
     }
