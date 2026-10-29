@@ -70,17 +70,30 @@ final class DocumentoRedigido
      */
     public static function pedirAssinatura(string $tipo, Model $doc, array $servidores, array $externos, User $autor): int
     {
-        $bytes = self::pdfBytes($tipo, $doc);
         $nome = self::rotulo($tipo) . ' ' . $doc->numero;
+
+        return self::pedirAssinaturaDoPdf(self::pdfBytes($tipo, $doc), $nome, (string) $doc->assunto, self::rotulo($tipo),
+            collect([$nome, $doc->assunto, Variaveis::textoPuro($doc->conteudoFinal())])->filter()->implode(' | '), $servidores, $externos, $autor);
+    }
+
+    /**
+     * Mesmo envio, com o PDF já pronto (ex.: o PDF/A do ato oficial).
+     *
+     * @param list<int> $servidores
+     * @param list<array{nome: string, cpf: string, email: ?string, telefone: ?string}> $externos
+     */
+    public static function pedirAssinaturaDoPdf(string $bytes, string $nome, string $descricao, string $tipoDocumental, string $textoBusca,
+        array $servidores, array $externos, User $autor): int
+    {
         $path = TenantStorage::pasta('documentos') . '/' . date('Y/m') . '/' . uniqid() . '-' . str_replace('/', '-', $nome) . '.pdf';
         Storage::disk('documentos')->put($path, $bytes);
 
         $documento = Documento::create([
-            'nome' => $nome, 'descricao' => $doc->assunto,
-            'tipo_documental_id' => TiposDocumentais::id(self::rotulo($tipo)),
+            'nome' => $nome, 'descricao' => $descricao,
+            'tipo_documental_id' => TiposDocumentais::id($tipoDocumental),
             'pasta_id' => null, 'versao_atual' => 1, 'tamanho' => strlen($bytes), 'mime_type' => 'application/pdf',
             'autor_id' => $autor->id, 'status' => 'rascunho',
-            'ocr_texto' => collect([$nome, $doc->assunto, Variaveis::textoPuro($doc->conteudoFinal())])->filter()->implode(' | '),
+            'ocr_texto' => $textoBusca,
         ]);
         Versao::create([
             'documento_id' => $documento->id, 'versao' => 1, 'arquivo_path' => $path, 'tamanho' => strlen($bytes),

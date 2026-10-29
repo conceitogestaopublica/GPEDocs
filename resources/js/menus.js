@@ -93,6 +93,15 @@ export const MENU_GEPSP = [
         ],
     },
     {
+        // Leis, decretos, portarias, editais… (TR 4.42)
+        title: 'Atos oficiais', icon: 'fas fa-stamp', color: 'text-blue-600 bg-blue-100',
+        children: [
+            { title: 'Todos os atos', icon: 'fas fa-stamp',     href: '/atos',        color: 'text-blue-600 bg-blue-100', permissao: 'processo.visualizar' },
+            { title: 'Novo ato',      icon: 'fas fa-plus',      href: '/atos/create', color: 'text-blue-600 bg-blue-100', permissao: 'ato.elaborar' },
+            { title: 'Tipos de ato',  icon: 'fas fa-sliders',   href: '/atos/tipos',  color: 'text-slate-600 bg-slate-100', permissao: 'ato.tipos' },
+        ],
+    },
+    {
         // Requerimentos e indicações de vereadores (TR 4.37)
         title: 'Legislativo', icon: 'fas fa-landmark', color: 'text-amber-600 bg-amber-100',
         children: [

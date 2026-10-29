@@ -37,6 +37,11 @@ RUN apk add --no-cache \
         tesseract-ocr \
         tesseract-ocr-data-por \
         poppler-utils \
+        # Atos oficiais (TR 4.42.3): o LibreOffice converte o .docx do ato em PDF/A-2b —
+        # App\Support\Atos::paraPdfA. Fontes Liberation/DejaVu para acentos e métricas do Word.
+        libreoffice-writer \
+        font-liberation \
+        font-dejavu \
         unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \

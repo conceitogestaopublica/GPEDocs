@@ -41,6 +41,8 @@ final class Permissoes
         'portal.atendimento'   => 'Atender solicitações do portal do cidadão',
         'portal.carta_servicos' => 'Manter a carta de serviços',
         'contato.gerenciar'    => 'Consultar e manter contatos (cadastro, listas, procurações, unificação e CSV)',
+        'ato.elaborar'         => 'Atos oficiais: elaborar, gerar PDF/A, enviar à assinatura e publicar',
+        'ato.tipos'            => 'Atos oficiais: tipos de ato, numeração, modelos .docx e quem assina',
         'pss.gerir'            => 'Processo seletivo simplificado: editais, inscrições, respostas e exportação',
         'pad.gerir'            => 'PAD: ver todos os processos disciplinares, comissão e tipos de infração',
         'parecer.emitir'       => 'Emitir pareceres (numerados, com conclusão e anexos)',

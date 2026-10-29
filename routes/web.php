@@ -186,6 +186,9 @@ Route::prefix('api/portal')
         Route::post('solicitacoes/{codigo}/mensagens', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'mensagem'])->where('codigo', '[^/]+')->middleware('throttle:30,1')->name('solicitacoes.mensagens');
         Route::get('solicitacoes/{codigo}/comprovante', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'comprovante'])->where('codigo', '[^/]+')->name('solicitacoes.comprovante');
         Route::get('processos', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'processos'])->name('processos.index');
+        // Atos oficiais publicados: consulta pública (TR 4.42.6)
+        Route::get('atos', [\App\Http\Controllers\Api\Portal\AtoController::class, 'index'])->name('atos.index');
+        Route::get('atos/{id}/pdf', [\App\Http\Controllers\Api\Portal\AtoController::class, 'pdf'])->whereNumber('id')->name('atos.pdf');
         // Processo seletivo simplificado (TR 4.41)
         Route::get('pss', [\App\Http\Controllers\Api\Portal\PssController::class, 'index'])->name('pss.index');
         Route::get('pss/inscricoes', [\App\Http\Controllers\Api\Portal\PssController::class, 'minhas'])->name('pss.minhas');
@@ -264,6 +267,9 @@ Route::prefix('assinar/{token}')->where(['token' => '[A-Za-z0-9]{20,64}'])->name
 Route::get('verificar/codigo/{codigo}', [VerificacaoController::class, 'porCodigo'])
     ->where('codigo', '[A-Za-z0-9-]{6,20}')->name('verificar.codigo');
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
+// QR do ato oficial (TR 4.42.8)
+Route::get('atos/verificar/{token}', [\App\Http\Controllers\AtoController::class, 'verificar'])->middleware('throttle:60,1')->name('atos.verificar');
+
 // QR dos PDFs de memorando, ofício e circular
 Route::get('{tipo}/verificar/{token}', [\App\Http\Controllers\VerificacaoComunicacaoController::class, 'verificar'])
     ->whereIn('tipo', ['memorandos', 'oficios', 'circulares', 'pareceres'])
@@ -548,6 +554,23 @@ Route::middleware('auth')->group(function () {
 
     // Memorandos
     // Comunicações: ver/responder depende de ser participante (403 no controller); emitir exige permissão
+    // Atos oficiais (TR 4.42)
+    Route::controller(\App\Http\Controllers\AtoController::class)->group(function () {
+        Route::get('atos', 'index')->name('atos.index');
+        Route::get('atos/tipos', 'tipos')->name('atos.tipos');
+        Route::post('atos/tipos', 'salvarTipo')->name('atos.tipos.store');
+        Route::post('atos/tipos/{id}', 'salvarTipo')->whereNumber('id')->name('atos.tipos.update');
+        Route::get('atos/create', 'create')->name('atos.create');
+        Route::post('atos', 'store')->name('atos.store');
+        Route::get('atos/{id}', 'show')->whereNumber('id')->name('atos.show');
+        Route::get('atos/{id}/edit', 'edit')->whereNumber('id')->name('atos.edit');
+        Route::put('atos/{id}', 'update')->whereNumber('id')->name('atos.update');
+        Route::post('atos/{id}/gerar', 'gerar')->whereNumber('id')->middleware('throttle:20,1')->name('atos.gerar');
+        Route::post('atos/{id}/assinar', 'assinar')->whereNumber('id')->name('atos.assinar');
+        Route::post('atos/{id}/publicar', 'publicar')->whereNumber('id')->name('atos.publicar');
+        Route::post('atos/{id}/revogar', 'revogar')->whereNumber('id')->name('atos.revogar');
+        Route::get('atos/{id}/pdf', 'pdf')->whereNumber('id')->name('atos.pdf');
+    });
     // Pareceres (TR 4.39)
     Route::controller(\App\Http\Controllers\ParecerController::class)->group(function () {
         Route::get('pareceres', 'index')->name('pareceres.index');

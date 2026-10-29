@@ -83,6 +83,15 @@ final class Verificacoes
             }
         }
 
+        // 4. Ato oficial pelo código do QR (TR 4.42.8)
+        $ato = \App\Models\Processo\Ato::withoutGlobalScopes()->with('tipo')->where('qr_code_token', $codigo)->first();
+        if ($ato) {
+            return ['valido' => true, 'tipo' => 'ato', '_id' => $ato->id, 'comunicacao' => array_filter([
+                'numero' => $ato->identificacao(), 'assunto' => $ato->ementa, 'emitido_em' => $ato->data_ato?->format('d/m/Y'),
+                'situacao' => \App\Models\Processo\Ato::STATUS[$ato->status] ?? $ato->status,
+            ])];
+        }
+
         return ['valido' => false];
     }
 
