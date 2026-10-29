@@ -372,6 +372,8 @@ class InboxController extends Controller
             collect($items->items())->map(fn ($i) => [$i->tipo, (int) $i->item_id])->unique()->values()->all());
 
         $items->setCollection($items->getCollection()->map(function ($it) use ($users, $unidades, $assinaturasPorProcesso, $documentosPorProcesso, $memosInfo, $oficiosInfo, $prazoEtapa, $prazoManual, $etiquetasDosItens) {
+            // A view devolve o horário cru (UTC); sem o fuso o navegador mostrava 18:01 em vez de 15:01
+            $it->criado_em = $it->criado_em ? \Illuminate\Support\Carbon::parse($it->criado_em, 'UTC')->toIso8601String() : null;
             $it->etiquetas = $etiquetasDosItens["{$it->tipo}-{$it->item_id}"] ?? [];
             if ($it->tipo === 'processo') {
                 $vence = collect([$prazoEtapa[(int) explode('-', $it->id)[2]] ?? null, $prazoManual[$it->item_id] ?? null])
