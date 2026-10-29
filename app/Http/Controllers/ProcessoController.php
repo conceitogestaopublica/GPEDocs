@@ -444,6 +444,8 @@ class ProcessoController extends Controller
             'pareceres'       => \App\Http\Controllers\ParecerController::doProcesso($processo->id),
             'pode_emitir_parecer' => \App\Support\Pareceres::podeEmitir(Auth::user()),
             'pad'             => \App\Http\Controllers\Flow\PadController::doProcesso($processo),
+            // Sistema tributário: imóvel, guias, alvará/habite-se, fiscalização (TR 4.48, 4.49)
+            'tributario'      => \App\Http\Controllers\ProcessoTributarioController::doProcesso($processo),
             'legislativo'     => $processo->vereador_id || $processo->proposicao_tipo ? [
                 'vereador' => $processo->vereador?->only(['nome', 'partido']), 'proposicao' => \App\Support\Legislativo::PROPOSICOES[$processo->proposicao_tipo] ?? null,
                 'numero' => $processo->proposicao_numero, 'prazo' => \App\Support\Ouvidoria::situacaoPrazo($processo)] : null,

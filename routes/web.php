@@ -100,6 +100,9 @@ Route::prefix('api/integracoes')
     ->group(function () {
         Route::post('documentos', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'store'])
             ->name('api.integracoes.documentos.store');
+        // Eventos do sistema tributário (guia paga, alvará emitido…) — qualquer fornecedor
+        Route::post('tributario/eventos', [\App\Http\Controllers\Api\IntegracaoTributariaController::class, 'eventos'])
+            ->middleware('throttle:120,1')->name('api.integracoes.tributario.eventos');
         // Rotas mais especificas vem ANTES da generica `documentos/{numero}` pra
         // evitar que a regex `.+` engula segmentos (ex.: `1-2026-2770-r2/pdf-assinado`).
         // Tambem restringimos `numero` a `[^/]+` (sem barras) — nosso formato e
@@ -479,6 +482,14 @@ Route::middleware('auth')->group(function () {
 
         // Sistemas integrados (API tokens para sistemas externos)
         Route::middleware('can:admin.sistemas_integrados')->group(function () {
+        // Sistema tributário integrado (GPE Tributário, outro fornecedor por REST ou nenhum)
+        Route::controller(\App\Http\Controllers\Configuracao\IntegracaoTributariaController::class)->middleware('can:admin.sistemas_integrados')->group(function () {
+            Route::get('integracao-tributaria', 'index')->name('integracao-tributaria.index');
+            Route::post('integracao-tributaria', 'salvar')->name('integracao-tributaria.store');
+            Route::put('integracao-tributaria/{id}', 'salvar')->whereNumber('id')->name('integracao-tributaria.update');
+            Route::post('integracao-tributaria/{id}/testar', 'testar')->whereNumber('id')->name('integracao-tributaria.testar');
+            Route::delete('integracao-tributaria/{id}', 'excluir')->whereNumber('id')->name('integracao-tributaria.destroy');
+        });
         Route::resource('sistemas-integrados', \App\Http\Controllers\Configuracao\SistemaIntegradoController::class)
             ->except(['create', 'edit', 'show']);
         Route::post('sistemas-integrados/{id}/regenerar-token', [\App\Http\Controllers\Configuracao\SistemaIntegradoController::class, 'regenerarToken'])
@@ -785,6 +796,16 @@ Route::middleware('auth')->group(function () {
         Route::post('processos/{id}/localizacao', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'localizacao'])->whereNumber('id')->name('processos.localizacao');
     // Recebimento de documento físico com comprovante (TR 4.32.28)
     Route::post('processos/{id}/recebimentos', [\App\Http\Controllers\RecebimentoFisicoController::class, 'store'])->whereNumber('id')->middleware('can:processo.tramitar')->name('processos.recebimentos.store');
+    // Sistema tributário no processo (TR 4.48.22, 4.48.42, 4.49)
+    Route::controller(\App\Http\Controllers\ProcessoTributarioController::class)->prefix('processos/{id}/tributario')->whereNumber('id')->name('processos.tributario.')->group(function () {
+        Route::post('imovel', 'imovel')->name('imovel');
+        Route::post('guias', 'guia')->name('guia');
+        Route::post('documentos', 'documento')->name('documento');
+        Route::post('fiscalizacao', 'fiscalizacao')->name('fiscalizacao');
+        Route::post('manual', 'manual')->name('manual');
+        Route::post('{vinculo}/atualizar', 'atualizar')->whereNumber('vinculo')->name('atualizar');
+        Route::delete('{vinculo}', 'remover')->whereNumber('vinculo')->name('remover');
+    });
     Route::get('processos/{id}/folha-rosto', [\App\Http\Controllers\ProcessoController::class, 'folhaDeRosto'])->whereNumber('id')->middleware('can:processo.visualizar')->name('processos.folha-rosto');
     Route::get('processos/{id}/recebimentos/{recebimento}/comprovante', [\App\Http\Controllers\RecebimentoFisicoController::class, 'comprovante'])->whereNumber(['id', 'recebimento'])->middleware('can:processo.visualizar')->name('processos.recebimentos.comprovante');
         Route::post('processos/{id}/avaliacao', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'avaliar'])->whereNumber('id')->name('processos.avaliacao');

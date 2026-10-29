@@ -41,6 +41,7 @@ final class Permissoes
         'portal.atendimento'   => 'Atender solicitações do portal do cidadão',
         'portal.carta_servicos' => 'Manter a carta de serviços',
         'contato.gerenciar'    => 'Consultar e manter contatos (cadastro, listas, procurações, unificação e CSV)',
+        'tributario.usar'      => 'Sistema tributário: consultar imóvel, emitir guia, pedir alvará/habite-se e fiscalização a partir do processo',
         'diario.gerir'         => 'Diário Oficial: estrutura (cadernos, seções), responsáveis e montagem das edições',
         'ato.elaborar'         => 'Atos oficiais: elaborar, gerar PDF/A, enviar à assinatura e publicar',
         'ato.tipos'            => 'Atos oficiais: tipos de ato, numeração, modelos .docx e quem assina',

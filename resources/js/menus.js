@@ -34,6 +34,7 @@ export const MENU_CONFIGURACOES = [
     { title: 'Textos do portal', icon: 'fas fa-file-shield', href: '/configuracoes/portal-textos', color: 'text-slate-600 bg-slate-100', permissao: 'portal.carta_servicos' },
     { section: 'label', label: 'Integrações' },
     { title: 'Sistemas Integrados', icon: 'fas fa-plug', href: '/configuracoes/sistemas-integrados', color: 'text-violet-600 bg-violet-100', permissao: 'admin.sistemas_integrados' },
+    { title: 'Sistema tributário', icon: 'fas fa-landmark-dome', href: '/configuracoes/integracao-tributaria', color: 'text-emerald-600 bg-emerald-100', permissao: 'admin.sistemas_integrados' },
 ];
 
 export const MENU_GEPSP = [

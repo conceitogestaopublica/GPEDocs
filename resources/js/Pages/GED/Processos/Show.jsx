@@ -14,6 +14,7 @@ import MarcadoresDoDocumento from '../../../Components/MarcadoresDoDocumento';
 import RecebimentosFisicos from '../../../Components/RecebimentosFisicos';
 import OuvidoriaDoProcesso from '../../../Components/OuvidoriaDoProcesso';
 import ComissaoPad from '../../../Components/ComissaoPad';
+import TributarioDoProcesso from '../../../Components/TributarioDoProcesso';
 import FerramentasDoTexto from '../../../Components/FerramentasDoTexto';
 import MapaAvaliacaoDoProcesso from '../../../Components/MapaAvaliacaoDoProcesso';
 import Modal from '../../../Components/Modal';
@@ -80,7 +81,7 @@ const tabList = [
     { key: 'arvore', label: 'Árvore', icon: 'fas fa-sitemap' },
 ];
 
-export default function Show({ pad = null, pareceres = [], pode_emitir_parecer = false, legislativo = null, solicitante = null, ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
+export default function Show({ tributario = null, pad = null, pareceres = [], pode_emitir_parecer = false, legislativo = null, solicitante = null, ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
     acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [], classificacao = null, mapa_avaliacao = null }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
@@ -617,6 +618,8 @@ export default function Show({ pad = null, pareceres = [], pode_emitir_parecer =
                         )}
                     </Card>
                 )}
+                {/* Sistema tributário: imóvel, guias, alvará/habite-se, fiscalização (TR 4.48, 4.49) */}
+                {activeTab === 'detalhes' && tributario && (tributario.pode || tributario.vinculos.length > 0) && <TributarioDoProcesso processoId={proc.id} dados={tributario} anexos={anexos} />}
                 {/* PAD: infração e comissão processante (TR 4.40) */}
                 {activeTab === 'detalhes' && pad && <ComissaoPad processoId={proc.id} pad={pad} usuarios={usuarios} />}
                 {/* Pareceres emitidos no processo (TR 4.39) */}
