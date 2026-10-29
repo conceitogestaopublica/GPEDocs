@@ -32,6 +32,11 @@ RUN apk add --no-cache \
         # qpdf: regrava PDFs com object streams (PDF 1.5+, ex.: exportados do Word),
         # que o parser gratuito do FPDI não lê — ver App\Support\PdfCompativel.
         qpdf \
+        # OCR de anexos escaneados e imagens para a busca (TR 4.15.4): Tesseract em
+        # português + pdftoppm (poppler) para rasterizar as páginas — App\Services\Ocr.
+        tesseract-ocr \
+        tesseract-ocr-data-por \
+        poppler-utils \
         unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
