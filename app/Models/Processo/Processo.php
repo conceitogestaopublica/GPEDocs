@@ -45,6 +45,7 @@ class Processo extends Model
         'ug_id',
         'patrimonio',
         'vereador_id',
+        'pad_infracao_id',
         'proposicao_tipo',
         'proposicao_numero',
         'solicitante_user_id',
@@ -95,6 +96,11 @@ class Processo extends Model
             'latitude' => 'float',
             'longitude' => 'float',
         ];
+    }
+
+    public function padInfracao(): BelongsTo
+    {
+        return $this->belongsTo(PadInfracao::class);
     }
 
     public function vereador(): BelongsTo

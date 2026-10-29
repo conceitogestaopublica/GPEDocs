@@ -74,6 +74,7 @@ export const MENU_GEPSP = [
             { title: 'Painel',           icon: 'fas fa-tachometer-alt', href: '/processos/dashboard', color: 'text-teal-600 bg-teal-100', permissao: 'processo.visualizar' },
             { title: 'Novo Processo',    icon: 'fas fa-plus-circle',    href: '/processos/create',    color: 'text-green-600 bg-green-100', permissao: 'processo.criar' },
             { title: 'Todos Processos',  icon: 'fas fa-folder-open',    href: '/processos',           color: 'text-indigo-600 bg-indigo-100', permissao: 'processo.visualizar' },
+            { title: 'PAD',              icon: 'fas fa-gavel',          href: '/flow/pad',            color: 'text-red-600 bg-red-100', permissao: 'processo.visualizar' },
         ],
     },
     {

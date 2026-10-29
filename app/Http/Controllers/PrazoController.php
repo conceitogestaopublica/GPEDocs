@@ -81,7 +81,9 @@ class PrazoController extends Controller
         $d = $request->validate([
             'titulo'       => ['required', 'string', 'max:150'],
             'descricao'    => ['nullable', 'string', 'max:2000'],
-            'vence_em'     => ['required', 'date'],
+            'vence_em'     => ['required_without:dias_uteis', 'nullable', 'date'],
+            // Ou conta N dias úteis a partir de agora, no fechamento do expediente (TR 4.40.10)
+            'dias_uteis'   => ['nullable', 'integer', 'between:1,365'],
             'escopo'       => ['required', 'in:todos,setor,pessoal'],
             'unidade_id'   => ['required_if:escopo,setor', 'nullable', 'integer', 'exists:ug_organograma,id'],
             'alerta_dias'  => ['nullable', 'integer', 'between:0,365'],
@@ -91,7 +93,9 @@ class PrazoController extends Controller
         return [
             'titulo'       => trim($d['titulo']),
             'descricao'    => $d['descricao'] ?? null,
-            'vence_em'     => Carbon::parse($d['vence_em'], \App\Support\Expediente::FUSO)->utc(),
+            'vence_em'     => ! empty($d['dias_uteis'])
+                ? Carbon::instance(\App\Support\Expediente::somarDiasUteis(now(), (int) $d['dias_uteis']))->utc()
+                : Carbon::parse($d['vence_em'], \App\Support\Expediente::FUSO)->utc(),
             'escopo'       => $d['escopo'],
             'unidade_id'   => $d['escopo'] === 'setor' ? (int) $d['unidade_id'] : null,
             'alerta_dias'  => isset($d['alerta_dias']) && $d['alerta_dias'] !== '' ? (int) $d['alerta_dias'] : null,

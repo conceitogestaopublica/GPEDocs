@@ -622,6 +622,15 @@ Route::middleware('auth')->group(function () {
         // Painéis da ouvidoria e do e-SIC (TR 4.33.25–26, 4.34)
         Route::get('ouvidoria', [\App\Http\Controllers\Flow\OuvidoriaController::class, 'ouvidoria'])->name('ouvidoria');
         Route::get('esic', [\App\Http\Controllers\Flow\OuvidoriaController::class, 'esic'])->name('esic');
+        // PAD (TR 4.40)
+        Route::controller(\App\Http\Controllers\Flow\PadController::class)->group(function () {
+            Route::get('pad', 'index')->name('pad');
+            Route::get('pad/infracoes', 'infracoes')->name('pad.infracoes');
+            Route::post('pad/infracoes', 'salvarInfracao')->name('pad.infracoes.store');
+            Route::put('pad/infracoes/{id}', 'salvarInfracao')->whereNumber('id')->name('pad.infracoes.update');
+            Route::post('pad/{id}/comissao', 'comissao')->whereNumber('id')->name('pad.comissao');
+            Route::delete('pad/{id}/comissao/{userId}', 'removerMembro')->whereNumber(['id', 'userId'])->name('pad.comissao.remover');
+        });
         // Protocolo legislativo (TR 4.37)
         Route::middleware('can:legislativo.gerir')->controller(\App\Http\Controllers\Flow\LegislativoController::class)->group(function () {
             Route::get('legislativo', 'index')->name('legislativo');

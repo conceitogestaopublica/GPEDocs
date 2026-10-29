@@ -41,6 +41,7 @@ final class Permissoes
         'portal.atendimento'   => 'Atender solicitações do portal do cidadão',
         'portal.carta_servicos' => 'Manter a carta de serviços',
         'contato.gerenciar'    => 'Consultar e manter contatos (cadastro, listas, procurações, unificação e CSV)',
+        'pad.gerir'            => 'PAD: ver todos os processos disciplinares, comissão e tipos de infração',
         'parecer.emitir'       => 'Emitir pareceres (numerados, com conclusão e anexos)',
         'legislativo.gerir'    => 'Protocolo legislativo: painel, relatórios e cadastro de vereadores',
         'rh.requerimentos'     => 'Gestão de Pessoas: ver todos os requerimentos pessoais de servidores',

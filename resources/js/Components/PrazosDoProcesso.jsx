@@ -30,14 +30,14 @@ const paraCampo = (iso) => {
 export default function PrazosDoProcesso({ processoId, prazos = [], unidades = [], podeIncluir = true }) {
     const confirmar = useConfirm();
     const [editando, setEditando] = useState(null);   // null | 'novo' | prazo
-    const form = useForm({ titulo: '', descricao: '', vence_em: '', escopo: 'todos', unidade_id: '', alerta_dias: '', alerta_email: false });
+    const form = useForm({ titulo: '', descricao: '', vence_em: '', dias_uteis: '', escopo: 'todos', unidade_id: '', alerta_dias: '', alerta_email: false });
 
     const abrir = (p) => {
         setEditando(p);
         form.clearErrors();
         form.setData(p === 'novo'
-            ? { titulo: '', descricao: '', vence_em: '', escopo: 'todos', unidade_id: '', alerta_dias: '1', alerta_email: false }
-            : { titulo: p.titulo, descricao: p.descricao || '', vence_em: paraCampo(p.vence_em), escopo: p.escopo,
+            ? { titulo: '', descricao: '', vence_em: '', dias_uteis: '', escopo: 'todos', unidade_id: '', alerta_dias: '1', alerta_email: false }
+            : { titulo: p.titulo, descricao: p.descricao || '', vence_em: paraCampo(p.vence_em), dias_uteis: '', escopo: p.escopo,
                 unidade_id: p.unidade_id ? String(p.unidade_id) : '', alerta_dias: p.alerta_dias ?? '', alerta_email: !! p.alerta_email });
     };
     const salvar = (e) => {
@@ -94,13 +94,20 @@ export default function PrazosDoProcesso({ processoId, prazos = [], unidades = [
                 <form onSubmit={salvar} className="space-y-3">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">O que precisa ser feito <span className="text-red-500">*</span></label>
-                        <input value={form.data.titulo} onChange={(e) => form.setData('titulo', e.target.value)} maxLength={150} className="ds-input" placeholder="Ex.: Responder ao requerente" />
+                        <input value={form.data.titulo} onChange={(e) => form.setData('titulo', e.target.value)} maxLength={150} className="ds-input" placeholder="Ex.: Responder ao requerente" list="titulos-prazo" />
+                            {/* Prazos usuais (PAD e processos em geral) — vários podem correr ao mesmo tempo (TR 4.40.10) */}
+                            <datalist id="titulos-prazo">
+                                {['Defesa prévia', 'Defesa escrita', 'Instrução', 'Relatório da comissão', 'Julgamento', 'Recurso', 'Responder ao requerente'].map(t => <option key={t} value={t} />)}
+                            </datalist>
                         {form.errors.titulo && <p className="mt-1 text-xs text-red-600">{form.errors.titulo}</p>}
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Vence em <span className="text-red-500">*</span></label>
-                            <input type="datetime-local" value={form.data.vence_em} onChange={(e) => form.setData('vence_em', e.target.value)} className="ds-input" />
+                            <input type="datetime-local" value={form.data.vence_em} disabled={!! form.data.dias_uteis} onChange={(e) => form.setData('vence_em', e.target.value)} className="ds-input disabled:opacity-50" />
+                            <div className="mt-1 flex items-center gap-2 text-xs text-gray-600">
+                                ou em <input type="number" min="1" max="365" value={form.data.dias_uteis} onChange={(e) => form.setData('dias_uteis', e.target.value)} className="ds-input !h-8 !w-20" /> dias úteis a partir de hoje
+                            </div>
                             {form.errors.vence_em && <p className="mt-1 text-xs text-red-600">{form.errors.vence_em}</p>}
                         </div>
                         <div>

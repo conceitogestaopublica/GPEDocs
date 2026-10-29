@@ -33,7 +33,7 @@ class EditorController extends Controller
             foreach ($fontes as [$t, $tabela, $col]) {
                 DB::table($tabela)->where('ug_id', session('ug_id'))->whereNull('deleted_at')
                     // Requerimento do servidor não aparece nas referências de quem não é de GP (TR 4.36.1)
-                    ->when($t === 'processo' && ! \App\Support\RequerimentoServidor::veTodos($request->user()), fn ($w) => $w->whereNotIn('tipo_processo_id', \App\Support\RequerimentoServidor::assuntos()))
+                    ->when($t === 'processo', fn ($w) => $w->whereNotIn('tipo_processo_id', \App\Support\RequerimentoServidor::assuntosOcultos($request->user())))
                     ->when($q !== '', fn ($w) => $w->where(fn ($x) => $x->whereRaw("lower({$col}) like ?", [$termo])->orWhereRaw('lower(assunto) like ?', [$termo])))
                     ->orderByDesc('id')->limit(4)->get(['id', $col . ' as numero', 'assunto'])
                     ->each(function ($r) use (&$itens, $t) {

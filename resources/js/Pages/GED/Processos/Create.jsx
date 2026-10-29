@@ -13,7 +13,7 @@ import EnderecoForm from '../../../Components/EnderecoForm';
 import LocalizacaoDemanda from '../../../Components/LocalizacaoDemanda';
 import RichEditor from '../../../Components/RichEditor';
 
-export default function Create({ tipos_processo, unidades = [], usuarios = [], cidade = '', ouvidoria = { manifestacoes: {}, identificacoes: {}, canais: {} }, legislativo = { proposicoes: {}, vereadores: [] } }) {
+export default function Create({ tipos_processo, unidades = [], usuarios = [], cidade = '', ouvidoria = { manifestacoes: {}, identificacoes: {}, canais: {} }, legislativo = { proposicoes: {}, vereadores: [] }, pad_infracoes = [] }) {
     const tipos = tipos_processo || [];
     const [local, setLocal] = useState({ latitude: null, longitude: null, endereco: '' });
     const [files, setFiles] = useState([]);
@@ -28,6 +28,7 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [], c
         // Chamado técnico (TR 4.35.4, 4.35.7)
         patrimonio: '',
         solicitante_user_id: '',
+        pad_infracao_id: '',
         // Protocolo legislativo (TR 4.37.1)
         vereador_id: '',
         proposicao_tipo: '',
@@ -126,6 +127,7 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [], c
         formData.append('assunto', data.assunto);
         // Descrição com formatação e tabelas (TR 4.35.10); o servidor guarda também o texto simples
         if (data.descricao_html) formData.append('descricao_html', data.descricao_html);
+        if (tipoSelecionado?.modalidade === 'pad' && data.pad_infracao_id) formData.append('pad_infracao_id', data.pad_infracao_id);
         if (tipoSelecionado?.modalidade === 'legislativo') {
             ['vereador_id', 'proposicao_tipo', 'proposicao_numero'].forEach((c) => { if (data[c]) formData.append(c, data[c]); });
         }
@@ -309,6 +311,24 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [], c
                                         </div>
                                     </div>
                                 </div>
+                            </Card>
+                        )}
+
+                        {/* PAD: o tipo de infração define o setor que recebe (TR 4.40.2) */}
+                        {tipoSelecionado?.modalidade === 'pad' && (
+                            <Card title="Processo administrativo disciplinar" subtitle="Sigiloso: só a comissão, quem conduz PADs e os setores por onde tramitar">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de infração <span className="text-red-500">*</span></label>
+                                <select value={data.pad_infracao_id} className="ds-input"
+                                    onChange={(e) => {
+                                        const inf = pad_infracoes.find(i => String(i.id) === e.target.value);
+                                        setData((d) => ({ ...d, pad_infracao_id: e.target.value, setor_destino_inicial: inf?.unidade_id ? String(inf.unidade_id) : d.setor_destino_inicial }));
+                                    }}>
+                                    <option value="">Selecione…</option>
+                                    {pad_infracoes.map(i => <option key={i.id} value={i.id}>{i.nome} ({{ leve: 'leve', media: 'média', grave: 'grave' }[i.gravidade]})</option>)}
+                                </select>
+                                {errors.pad_infracao_id && <p className="mt-1 text-xs text-red-600">{errors.pad_infracao_id}</p>}
+                                {(() => { const inf = pad_infracoes.find(i => String(i.id) === String(data.pad_infracao_id)); return inf?.base_legal ? <p className="mt-1 text-[11px] text-gray-500">Base legal: {inf.base_legal}</p> : null; })()}
+                                <p className="mt-1 text-[11px] text-gray-500">O setor de destino é preenchido pelo tipo de infração; os campos exigidos pela lei municipal ficam no formulário do assunto.</p>
                             </Card>
                         )}
 
