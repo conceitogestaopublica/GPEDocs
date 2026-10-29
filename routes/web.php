@@ -142,7 +142,13 @@ Route::prefix('api/portal')
         Route::post('cidadaos/autenticar', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'autenticar'])->name('cidadaos.autenticar');
         Route::post('cidadaos/senha/codigo', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'codigoSenha'])->name('cidadaos.senha.codigo');
         Route::post('cidadaos/senha/redefinir', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'redefinirSenha'])->name('cidadaos.senha.redefinir');
+        Route::post('cidadaos/identificar-externo', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'identificarExterno'])->name('cidadaos.identificar-externo');
+        Route::post('cidadaos/certificado/desafio', [\App\Http\Controllers\Api\Portal\CertificadoCidadaoController::class, 'desafio'])->name('cidadaos.certificado.desafio');
+        Route::post('cidadaos/certificado/autenticar', [\App\Http\Controllers\Api\Portal\CertificadoCidadaoController::class, 'autenticar'])->name('cidadaos.certificado.autenticar');
         Route::get('cidadaos/{id}', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'show'])->whereNumber('id')->name('cidadaos.show');
+        Route::put('cidadaos/{id}', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'atualizar'])->whereNumber('id')->name('cidadaos.atualizar');
+        Route::post('cidadaos/{id}/confirmar-email-novo', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'confirmarEmailNovo'])->whereNumber('id')->name('cidadaos.confirmar-email-novo');
+        Route::get('cidadaos/{id}/caixa', [\App\Http\Controllers\Api\Portal\CaixaController::class, 'index'])->whereNumber('id')->name('cidadaos.caixa');
 
         Route::get('solicitacoes', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'index'])->name('solicitacoes.index');
         Route::post('solicitacoes', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'store'])->name('solicitacoes.store');

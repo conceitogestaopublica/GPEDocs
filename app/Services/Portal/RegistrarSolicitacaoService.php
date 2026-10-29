@@ -30,15 +30,17 @@ class RegistrarSolicitacaoService
 
     /**
      * @param  array{descricao:string,telefone_contato?:?string,email_contato?:?string}  $dados
+     * @param  ?Cidadao  $procurador  quem protocola em nome de $cidadao (procuração)
      */
-    public function registrar(Ug $ug, Servico $servico, ?Cidadao $cidadao, array $dados, bool $anonima = false): Solicitacao
+    public function registrar(Ug $ug, Servico $servico, ?Cidadao $cidadao, array $dados, bool $anonima = false, ?Cidadao $procurador = null): Solicitacao
     {
-        $solicitacao = DB::transaction(function () use ($ug, $servico, $cidadao, $dados, $anonima) {
+        $solicitacao = DB::transaction(function () use ($ug, $servico, $cidadao, $dados, $anonima, $procurador) {
             $sol = Solicitacao::query()->withoutGlobalScope('ug')->create([
                 'codigo'           => Solicitacao::gerarCodigo($ug->id),
                 'ug_id'            => $ug->id,
                 'servico_id'       => $servico->id,
                 'cidadao_id'       => $anonima ? null : $cidadao?->id,
+                'procurador_cidadao_id' => $anonima ? null : $procurador?->id,
                 'anonima'          => $anonima,
                 'status'           => 'aberta',
                 'descricao'        => $dados['descricao'],
@@ -50,12 +52,14 @@ class RegistrarSolicitacaoService
                 'solicitacao_id'   => $sol->id,
                 'tipo'             => 'criada',
                 'autor_tipo'       => 'cidadao',
-                'autor_nome'       => $anonima ? 'Anonimo' : ($cidadao?->nome ?? 'Cidadao'),
-                'autor_cidadao_id' => $anonima ? null : $cidadao?->id,
+                'autor_nome'       => $anonima ? 'Anonimo' : (($procurador ?? $cidadao)?->nome ?? 'Cidadao'),
+                'autor_cidadao_id' => $anonima ? null : ($procurador ?? $cidadao)?->id,
                 'status_novo'      => 'aberta',
-                'mensagem'         => $anonima
-                    ? 'Solicitacao registrada anonimamente.'
-                    : 'Solicitacao registrada pelo cidadao.',
+                'mensagem'         => match (true) {
+                    $anonima            => 'Solicitacao registrada anonimamente.',
+                    $procurador !== null => "Solicitação registrada por {$procurador->nome}, procurador(a) de {$cidadao?->nome}.",
+                    default             => 'Solicitacao registrada pelo cidadao.',
+                },
             ]);
 
             // Cria Processo no GPE Flow se servico tem setor + tipo configurados

@@ -34,8 +34,8 @@ class SolicitacaoController extends PortalApiController
 
         $lista = Solicitacao::query()->withoutGlobalScope('ug')
             ->where('ug_id', $ug->id)
-            ->where('cidadao_id', $cidadao->id)
-            ->with('servico:id,titulo,slug')
+            ->where(fn ($q) => $q->where('cidadao_id', $cidadao->id)->orWhere('procurador_cidadao_id', $cidadao->id))
+            ->with(['servico:id,titulo,slug', 'cidadao:id,nome', 'procurador:id,nome'])
             ->orderByDesc('id')
             ->limit(200)
             ->get();
@@ -96,7 +96,17 @@ class SolicitacaoController extends PortalApiController
             'anexos'            => ['nullable', 'array', 'max:' . AnexosSolicitacaoService::MAX_ARQUIVOS],
             'anexos.*.nome'     => ['required', 'string', 'max:200'],
             'anexos.*.conteudo' => ['required', 'string'],
+            'procurador_cidadao_id' => ['nullable', 'integer'],
         ]);
+
+        // Por procuração: cidadao_id é o titular (outorgante) e quem protocola é o procurador.
+        $procurador = null;
+        if (! empty($dados['procurador_cidadao_id'])) {
+            $procurador = Cidadao::where('id', $dados['procurador_cidadao_id'])->where('ativo', true)->first();
+            if (! $procurador || $procurador->id === $cidadao->id) {
+                return response()->json(['erro' => 'Procurador inválido.'], 422);
+            }
+        }
 
         $servico = Servico::query()->withoutGlobalScope('ug')
             ->with('categoria:id,area')
@@ -123,12 +133,12 @@ class SolicitacaoController extends PortalApiController
             return response()->json(['erro' => $e->getMessage()], 422);
         }
 
-        $solicitacao = $registrar->registrar($ug, $servico, $cidadao, $dados);
+        $solicitacao = $registrar->registrar($ug, $servico, $cidadao, $dados, procurador: $procurador);
         if ($prontos) {
-            $anexos->gravar($solicitacao, $cidadao, $prontos);
+            $anexos->gravar($solicitacao, $procurador ?? $cidadao, $prontos);
         }
 
-        return response()->json(['solicitacao' => $this->resumo($solicitacao->load('servico:id,titulo,slug'))], 201);
+        return response()->json(['solicitacao' => $this->resumo($solicitacao->load(['servico:id,titulo,slug', 'cidadao:id,nome', 'procurador:id,nome']))], 201);
     }
 
     public function cancelar(Request $request, string $codigo): JsonResponse
@@ -137,7 +147,7 @@ class SolicitacaoController extends PortalApiController
         if (in_array($solicitacao->status, Solicitacao::STATUS_FINAIS, true)) {
             return response()->json(['erro' => 'Solicitação já finalizada não pode ser cancelada.'], 422);
         }
-        $cidadao = $solicitacao->cidadao;
+        $cidadao = $this->cidadao($request);   // titular ou procurador: quem pediu o cancelamento
 
         DB::transaction(function () use ($solicitacao, $cidadao) {
             $statusAnterior = $solicitacao->status;
@@ -173,9 +183,9 @@ class SolicitacaoController extends PortalApiController
 
         return Solicitacao::query()->withoutGlobalScope('ug')
             ->where('ug_id', $ug->id)
-            ->where('cidadao_id', $cidadao->id)
+            ->where(fn ($q) => $q->where('cidadao_id', $cidadao->id)->orWhere('procurador_cidadao_id', $cidadao->id))
             ->where('codigo', $codigo)
-            ->with(['servico:id,titulo,slug', 'eventos'])
+            ->with(['servico:id,titulo,slug', 'eventos', 'cidadao:id,nome', 'procurador:id,nome'])
             ->firstOrFail();
     }
 
@@ -189,6 +199,8 @@ class SolicitacaoController extends PortalApiController
             'aberta_em'      => $s->created_at?->toIso8601String(),
             'respondida_em'  => $s->respondida_em?->toIso8601String(),
             'tem_processo'   => $s->processo_id !== null,
+            'titular'        => $s->cidadao ? ['id' => $s->cidadao->id, 'nome' => $s->cidadao->nome] : null,
+            'procurador'     => $s->procurador ? ['id' => $s->procurador->id, 'nome' => $s->procurador->nome] : null,
         ];
     }
 }

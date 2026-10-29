@@ -21,6 +21,7 @@ class Solicitacao extends Model
         'ug_id',
         'servico_id',
         'cidadao_id',
+        'procurador_cidadao_id',
         'anonima',
         'status',
         'descricao',
@@ -58,6 +59,12 @@ class Solicitacao extends Model
     public function cidadao(): BelongsTo
     {
         return $this->belongsTo(Cidadao::class, 'cidadao_id');
+    }
+
+    /** Quem protocolou em nome do titular (cidadao_id), por procuração. */
+    public function procurador(): BelongsTo
+    {
+        return $this->belongsTo(Cidadao::class, 'procurador_cidadao_id');
     }
 
     public function atendente(): BelongsTo

@@ -27,6 +27,8 @@ class Cidadao extends Authenticatable
         'token_verificacao',
         'token_verificacao_expira_em',
         'ativo',
+        'nomes_anteriores',
+        'endereco',
     ];
 
     protected $hidden = [
@@ -41,6 +43,9 @@ class Cidadao extends Authenticatable
             'email_verificado_em'         => 'datetime',
             'token_verificacao_expira_em' => 'datetime',
             'ativo'                       => 'boolean',
+            'nomes_anteriores'            => 'array',
+            'endereco'                    => 'array',
+            'email_novo_expira_em'        => 'datetime',
         ];
     }
 
