@@ -13,8 +13,9 @@ import { COR_STATUS } from './Index';
 
 const EXT = { nome: '', cpf: '', email: '', telefone: '' };
 
-export default function Show({ ato: a, pode = {}, signatarios_padrao = [], usuarios = [] }) {
+export default function Show({ ato: a, pode = {}, signatarios_padrao = [], usuarios = [], diario = { estrutura: [], edicoes: [] } }) {
     const [modal, setModal] = useState(false);
+    const [envio, setEnvio] = useState(null);   // Diário Oficial: { estrutura_id, edicao_id }
     const [servidores, setServidores] = useState(signatarios_padrao.map(s => s.id));
     const [externos, setExternos] = useState([]);
     const [gerando, setGerando] = useState(false);
@@ -31,6 +32,7 @@ export default function Show({ ato: a, pode = {}, signatarios_padrao = [], usuar
                 {a.tem_pdf && <a href={`/atos/${a.id}/pdf`} target="_blank" rel="noreferrer"><Button variant="secondary" icon="fas fa-eye">Ver PDF</Button></a>}
                 {pode.assinar && <Button icon="fas fa-signature" onClick={() => setModal(true)}>Enviar para assinatura</Button>}
                 {pode.publicar && <Button icon="fas fa-bullhorn" onClick={() => router.post(`/atos/${a.id}/publicar`, {}, { preserveScroll: true })}>Publicar</Button>}
+                {pode.diario && <Button variant="secondary" icon="fas fa-newspaper" onClick={() => setEnvio({ estrutura_id: '', edicao_id: '' })}>Enviar ao Diário Oficial</Button>}
                 {pode.revogar && <Button variant="danger" icon="fas fa-ban" onClick={() => router.post(`/atos/${a.id}/revogar`, {}, { preserveScroll: true })}>Revogar</Button>}
             </PageHeader>
 
@@ -53,6 +55,12 @@ export default function Show({ ato: a, pode = {}, signatarios_padrao = [], usuar
                             <div><dt className="text-xs text-gray-500">Verificação (QR)</dt><dd className="break-all text-xs"><a href={a.verificar_url} target="_blank" rel="noreferrer" className="text-cyan-700 hover:underline">{a.verificar_url}</a></dd></div>
                         </dl>
                     </Card>
+                    {a.diario && (
+                        <Card title="Diário Oficial">
+                            <p className="text-sm">{a.diario.secao || 'Sem seção'}</p>
+                            <p className="text-xs text-gray-500 mt-1">{a.diario.edicao ? <Link href={`/diario/edicoes/${a.diario.edicao.id}`} className="text-cyan-700 hover:underline">{a.diario.edicao.titulo}</Link> : 'Aguardando edição'}</p>
+                        </Card>
+                    )}
                     {a.assinatura && (
                         <Card title="Assinaturas">
                             <ul className="text-sm space-y-1">
@@ -66,6 +74,19 @@ export default function Show({ ato: a, pode = {}, signatarios_padrao = [], usuar
                     )}
                 </div>
             </div>
+
+            <Modal show={!! envio} onClose={() => setEnvio(null)} title="Enviar ao Diário Oficial">
+                {envio && (
+                    <div className="space-y-3">
+                        <label className="block text-sm text-gray-700">Caderno / seção<select value={envio.estrutura_id} onChange={(e) => setEnvio({ ...envio, estrutura_id: e.target.value })} className="ds-input mt-1">
+                            <option value="">Sem seção</option>{diario.estrutura.map(n => <option key={n.id} value={n.id}>{n.caminho}</option>)}</select></label>
+                        <label className="block text-sm text-gray-700">Edição<select value={envio.edicao_id} onChange={(e) => setEnvio({ ...envio, edicao_id: e.target.value })} className="ds-input mt-1">
+                            <option value="">Sem edição definida (entra na próxima ordinária)</option>{diario.edicoes.map(e => <option key={e.id} value={e.id}>{e.titulo}</option>)}</select></label>
+                        <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setEnvio(null)}>Cancelar</Button>
+                            <Button icon="fas fa-paper-plane" onClick={() => router.post('/diario/materias', { ato_id: a.id, ...envio }, { preserveScroll: true, onSuccess: () => setEnvio(null) })}>Enviar</Button></div>
+                    </div>
+                )}
+            </Modal>
 
             <Modal show={modal} onClose={() => setModal(false)} title="Enviar para assinatura" maxWidth="2xl">
                 <div className="space-y-4">

@@ -186,6 +186,13 @@ Route::prefix('api/portal')
         Route::post('solicitacoes/{codigo}/mensagens', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'mensagem'])->where('codigo', '[^/]+')->middleware('throttle:30,1')->name('solicitacoes.mensagens');
         Route::get('solicitacoes/{codigo}/comprovante', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'comprovante'])->where('codigo', '[^/]+')->name('solicitacoes.comprovante');
         Route::get('processos', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'processos'])->name('processos.index');
+        // Diário Oficial: área pública (TR 4.43.32–4.43.46)
+        Route::get('diario/calendario', [\App\Http\Controllers\Api\Portal\DiarioController::class, 'calendario'])->name('diario.calendario');
+        Route::get('diario/dia', [\App\Http\Controllers\Api\Portal\DiarioController::class, 'dia'])->name('diario.dia');
+        Route::get('diario/busca', [\App\Http\Controllers\Api\Portal\DiarioController::class, 'busca'])->middleware('throttle:60,1')->name('diario.busca');
+        Route::get('diario/edicoes/{id}', [\App\Http\Controllers\Api\Portal\DiarioController::class, 'edicao'])->whereNumber('id')->name('diario.edicao');
+        Route::get('diario/edicoes/{id}/pdf', [\App\Http\Controllers\Api\Portal\DiarioController::class, 'pdf'])->whereNumber('id')->name('diario.edicao.pdf');
+        Route::get('diario/atos/{materia}/pdf', [\App\Http\Controllers\Api\Portal\DiarioController::class, 'atoPdf'])->whereNumber('materia')->name('diario.ato.pdf');
         // Atos oficiais publicados: consulta pública (TR 4.42.6)
         Route::get('atos', [\App\Http\Controllers\Api\Portal\AtoController::class, 'index'])->name('atos.index');
         Route::get('atos/{id}/pdf', [\App\Http\Controllers\Api\Portal\AtoController::class, 'pdf'])->whereNumber('id')->name('atos.pdf');
@@ -267,6 +274,9 @@ Route::prefix('assinar/{token}')->where(['token' => '[A-Za-z0-9]{20,64}'])->name
 Route::get('verificar/codigo/{codigo}', [VerificacaoController::class, 'porCodigo'])
     ->where('codigo', '[A-Za-z0-9-]{6,20}')->name('verificar.codigo');
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
+// Verificação pública da edição do Diário Oficial (TR 4.43.41)
+Route::get('diario/verificar/{token}', [\App\Http\Controllers\DiarioController::class, 'verificar'])->middleware('throttle:60,1')->name('diario.verificar');
+
 // QR do ato oficial (TR 4.42.8)
 Route::get('atos/verificar/{token}', [\App\Http\Controllers\AtoController::class, 'verificar'])->middleware('throttle:60,1')->name('atos.verificar');
 
@@ -554,6 +564,25 @@ Route::middleware('auth')->group(function () {
 
     // Memorandos
     // Comunicações: ver/responder depende de ser participante (403 no controller); emitir exige permissão
+    // Diário Oficial (TR 4.43)
+    Route::controller(\App\Http\Controllers\DiarioController::class)->prefix('diario')->name('diario.')->group(function () {
+        Route::get('/', 'painel')->name('painel');
+        Route::get('configuracao', 'configuracao')->name('configuracao');
+        Route::post('estrutura', 'salvarEstrutura')->name('estrutura.store');
+        Route::put('estrutura/{id}', 'salvarEstrutura')->whereNumber('id')->name('estrutura.update');
+        Route::delete('estrutura/{id}', 'excluirEstrutura')->whereNumber('id')->name('estrutura.destroy');
+        Route::post('responsaveis', 'salvarResponsavel')->name('responsaveis.store');
+        Route::put('responsaveis/{id}', 'salvarResponsavel')->whereNumber('id')->name('responsaveis.update');
+        Route::post('materias', 'enviar')->name('materias.store');
+        Route::put('materias/{id}', 'atualizarMateria')->whereNumber('id')->name('materias.update');
+        Route::delete('materias/{id}', 'retirarMateria')->whereNumber('id')->name('materias.destroy');
+        Route::post('edicoes', 'criarEdicao')->name('edicoes.store');
+        Route::get('edicoes/{id}', 'edicao')->whereNumber('id')->name('edicoes.show');
+        Route::put('edicoes/{id}', 'atualizarEdicao')->whereNumber('id')->name('edicoes.update');
+        Route::delete('edicoes/{id}', 'excluirEdicao')->whereNumber('id')->name('edicoes.destroy');
+        Route::post('edicoes/{id}/publicar', 'publicar')->whereNumber('id')->middleware('throttle:10,1')->name('edicoes.publicar');
+        Route::get('edicoes/{id}/pdf', 'pdf')->whereNumber('id')->name('edicoes.pdf');
+    });
     // Atos oficiais (TR 4.42)
     Route::controller(\App\Http\Controllers\AtoController::class)->group(function () {
         Route::get('atos', 'index')->name('atos.index');

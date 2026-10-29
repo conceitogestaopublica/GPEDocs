@@ -11,4 +11,6 @@ Artisan::command('inspire', function () {
 // Em produção precisa do cron do Laravel: * * * * * php artisan schedule:run
 Illuminate\Support\Facades\Schedule::command('processos:alertar-prazos')->dailyAt('07:00')->timezone('America/Sao_Paulo');
 // Memorandos e circulares com data de arquivamento automático (TR 4.46.12)
+// Diário Oficial: edição ordinária do dia com os atos pendentes (TR 4.43.8)
+Illuminate\Support\Facades\Schedule::command('diario:montar-ordinaria')->dailyAt('06:00')->timezone('America/Sao_Paulo');
 Illuminate\Support\Facades\Schedule::command('comunicacao:arquivar-agendados')->dailyAt('00:15')->timezone('America/Sao_Paulo');

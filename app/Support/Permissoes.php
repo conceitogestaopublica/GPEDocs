@@ -41,6 +41,7 @@ final class Permissoes
         'portal.atendimento'   => 'Atender solicitações do portal do cidadão',
         'portal.carta_servicos' => 'Manter a carta de serviços',
         'contato.gerenciar'    => 'Consultar e manter contatos (cadastro, listas, procurações, unificação e CSV)',
+        'diario.gerir'         => 'Diário Oficial: estrutura (cadernos, seções), responsáveis e montagem das edições',
         'ato.elaborar'         => 'Atos oficiais: elaborar, gerar PDF/A, enviar à assinatura e publicar',
         'ato.tipos'            => 'Atos oficiais: tipos de ato, numeração, modelos .docx e quem assina',
         'pss.gerir'            => 'Processo seletivo simplificado: editais, inscrições, respostas e exportação',

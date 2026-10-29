@@ -99,6 +99,8 @@ export const MENU_GEPSP = [
             { title: 'Todos os atos', icon: 'fas fa-stamp',     href: '/atos',        color: 'text-blue-600 bg-blue-100', permissao: 'processo.visualizar' },
             { title: 'Novo ato',      icon: 'fas fa-plus',      href: '/atos/create', color: 'text-blue-600 bg-blue-100', permissao: 'ato.elaborar' },
             { title: 'Tipos de ato',  icon: 'fas fa-sliders',   href: '/atos/tipos',  color: 'text-slate-600 bg-slate-100', permissao: 'ato.tipos' },
+            { title: 'Diário Oficial', icon: 'fas fa-newspaper', href: '/diario',     color: 'text-indigo-600 bg-indigo-100', permissao: 'diario.gerir' },
+            { title: 'Cadernos e responsáveis', icon: 'fas fa-sitemap', href: '/diario/configuracao', color: 'text-slate-600 bg-slate-100', permissao: 'diario.gerir' },
         ],
     },
     {

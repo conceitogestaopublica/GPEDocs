@@ -135,6 +135,7 @@ class AtoController extends Controller
             ->get(['a.status', 'a.assinado_em', 'u.name', 'a.nome_signatario', 'a.email_signatario'])
             ->map(fn ($a) => ['nome' => $a->name ?? $a->nome_signatario ?? $a->email_signatario, 'status' => $a->status, 'em' => $a->assinado_em]) : collect();
         $podeElaborar = Atos::podeElaborar(Auth::user(), $ato->tipo);
+        $materia = \App\Models\Diario\Materia::with('edicao')->where('ato_id', $ato->id)->first();
 
         return Inertia::render('GED/Atos/Show', [
             'ato' => self::resumo($ato) + [
@@ -142,6 +143,8 @@ class AtoController extends Controller
                 'tem_pdf' => (bool) $ato->pdf_path, 'documento_id' => $ato->documento_id, 'verificar_url' => Atos::urlVerificacao($ato),
                 'processo' => $ato->processo ? ['id' => $ato->processo->id, 'numero' => $ato->processo->numero_protocolo] : null,
                 'assinatura' => $sol ? ['status' => $sol->status, 'assinaturas' => $assinaturas] : null,
+                'diario' => $materia ? ['edicao' => $materia->edicao ? ['id' => $materia->edicao->id, 'titulo' => $materia->edicao->titulo(), 'status' => $materia->edicao->status] : null,
+                    'secao' => \App\Support\DiarioOficial::caminhos()[$materia->estrutura_id] ?? null] : null,
             ],
             'pode' => [
                 'editar' => $podeElaborar && $ato->status === 'rascunho',
@@ -149,9 +152,15 @@ class AtoController extends Controller
                 'assinar' => $podeElaborar && $ato->status === 'rascunho' && $ato->pdf_path,
                 'publicar' => $podeElaborar && $ato->status === 'assinatura' && $sol?->status === 'concluida',
                 'revogar' => $podeElaborar && $ato->status === 'publicado',
+                // Diário Oficial: ato assinado por todos e ainda não enviado (TR 4.43.6, 4.43.7)
+                'diario' => ($podeElaborar || \App\Support\DiarioOficial::podeGerir(Auth::user())) && ! $materia && \App\Support\DiarioOficial::atoAssinado($ato),
             ],
             'signatarios_padrao' => User::whereIn('id', $ato->tipo?->signatarios ?? [])->orderBy('name')->get(['id', 'name']),
             'usuarios' => User::where('tipo', 'interno')->whereNull('suspenso_em')->orderBy('name')->get(['id', 'name']),
+            'diario' => [
+                'estrutura' => \App\Models\Diario\Estrutura::where('ativo', true)->get()->map(fn ($n) => ['id' => $n->id, 'caminho' => \App\Support\DiarioOficial::caminhos()[$n->id] ?? $n->nome])->sortBy('caminho')->values(),
+                'edicoes' => \App\Models\Diario\Edicao::where('status', 'pendente')->orderBy('data')->get()->map(fn ($e) => ['id' => $e->id, 'titulo' => $e->titulo()]),
+            ],
         ]);
     }
 
