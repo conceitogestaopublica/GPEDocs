@@ -20,7 +20,7 @@ final class HistoricoUsuario
     /** @return array<string, string|null> rótulo => valor legível */
     public static function retrato(User $u): array
     {
-        $u->loadMissing(['unidade:id,nome', 'ugs:ugs.id,codigo', 'roles:id,nome']);
+        $u->loadMissing(['unidade:id,nome', 'setoresSecundarios:ug_organograma.id,nome', 'ugs:ugs.id,codigo', 'roles:id,nome']);
 
         return [
             'Nome'              => $u->name,
@@ -34,6 +34,7 @@ final class HistoricoUsuario
             'Nascimento'        => $u->data_nascimento?->format('d/m/Y'),
             'Tipo'              => $u->tipo === 'externo' ? 'Externo' : 'Interno',
             'Setor'             => $u->unidade?->nome,
+            'Setores secundários' => $u->setoresSecundarios->pluck('nome')->sort()->implode(', ') ?: null,
             'UGs'               => $u->ugs->pluck('codigo')->sort()->implode(', ') ?: null,
             'Perfis'            => $u->roles->pluck('nome')->sort()->implode(', ') ?: null,
             'Super admin'       => $u->super_admin ? 'Sim' : 'Não',

@@ -9,6 +9,7 @@ use App\Models\UgOrganograma;
 use App\Models\User;
 use App\Services\Auth\EntradaService;
 use App\Support\HistoricoUsuario;
+use App\Support\Setores;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -23,7 +24,7 @@ class EquipeController extends Controller
 {
     public function index()
     {
-        $setores = self::setoresSob(Auth::id());
+        $setores = Setores::sob(Auth::id());
         abort_if(empty($setores), 403);
 
         $servidores = User::query()->whereIn('unidade_id', $setores)->where('tipo', 'interno')
@@ -46,7 +47,7 @@ class EquipeController extends Controller
     public function reativar(int $id)
     {
         $u = User::findOrFail($id);
-        abort_unless(in_array($u->unidade_id, self::setoresSob(Auth::id()), true), 403);
+        abort_unless(in_array($u->unidade_id, Setores::sob(Auth::id()), true), 403);
         abort_unless($u->suspenso_em && self::porInatividade($u), 403, 'Só o administrador reativa esta suspensão.');
 
         // Conta o reinício do prazo a partir de agora, senão bloquearia de novo na entrada
@@ -62,23 +63,6 @@ class EquipeController extends Controller
     public static function ehResponsavel(?int $userId): bool
     {
         return $userId !== null && UgOrganograma::where('responsavel_id', $userId)->exists();
-    }
-
-    /**
-     * Setores pelos quais o usuário responde e todos abaixo deles.
-     *
-     * @return array<int, int>
-     */
-    public static function setoresSob(?int $userId): array
-    {
-        $fila = UgOrganograma::where('responsavel_id', $userId)->pluck('id')->all();
-        $todos = [];
-        while ($fila) {
-            $todos = array_merge($todos, $fila);
-            $fila = array_values(array_diff(UgOrganograma::whereIn('parent_id', $fila)->pluck('id')->all(), $todos));
-        }
-
-        return array_values(array_unique(array_map('intval', $todos)));
     }
 
     private static function porInatividade(User $u): bool

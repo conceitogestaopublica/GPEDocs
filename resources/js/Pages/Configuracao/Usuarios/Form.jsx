@@ -27,7 +27,8 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
         acesso_geral_ug: !! usuario?.acesso_geral_ug,
         ug_ids:          usuario?.ug_ids || [],
         unidade_id:      usuario?.unidade_id || '',
-        roles:           usuario?.roles || [],
+        setores_secundarios: usuario?.setores_secundarios || [],
+        roles:          usuario?.roles || [],
     });
 
     // UG "principal" para o dropdown de unidade = primeira do array
@@ -335,6 +336,37 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                                 Esta UG ainda não possui organograma cadastrado.
                             </p>
                         )}
+                    </CadastroSecao>
+                )}
+
+                {/* Setores secundários: também atende a caixa deles (TR 4.9.2) */}
+                {data.tipo === 'interno' && ugPrincipalId && unidadesDaUg.length > 0 && (
+                    <CadastroSecao
+                        icone="fa-layer-group"
+                        titulo="Setores secundários"
+                        descricao="Outros setores em que o servidor também atende: ele vê a caixa desses setores e pode receber e despachar o que chega neles."
+                    >
+                        {data.setores_secundarios.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mb-2">
+                                {data.setores_secundarios.map(id => (
+                                    <span key={id} className="inline-flex items-center gap-1.5 text-xs bg-cyan-50 border border-cyan-200 text-cyan-800 rounded-full px-2.5 py-1">
+                                        {unidades.find(u => u.id === id)?.nome || `#${id}`}
+                                        <button type="button" title="Remover"
+                                            onClick={() => setData('setores_secundarios', data.setores_secundarios.filter(x => x !== id))}
+                                            className="text-cyan-600 hover:text-red-600">
+                                            <i className="fas fa-times text-[10px]" />
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                        <UnidadeCombo
+                            value=""
+                            onChange={(id) => id && Number(id) !== Number(data.unidade_id) && ! data.setores_secundarios.includes(Number(id))
+                                && setData('setores_secundarios', [...data.setores_secundarios, Number(id)])}
+                            unidades={unidadesDaUg}
+                            ugPrincipal={ugPrincipal}
+                        />
                     </CadastroSecao>
                 )}
 

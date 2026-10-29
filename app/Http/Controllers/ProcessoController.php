@@ -208,7 +208,7 @@ class ProcessoController extends Controller
             if ($request->filled('destinatario_inicial')) {
                 $usuariosNotificar[] = (int) $request->input('destinatario_inicial');
             } elseif ($unidadeDestino) {
-                $usuariosNotificar = User::where('unidade_id', $unidadeDestino->id)->pluck('id')->all();
+                $usuariosNotificar = \App\Support\Setores::servidores((int) $unidadeDestino->id);
             }
             foreach (array_unique($usuariosNotificar) as $uid) {
                 Notificacao::create([

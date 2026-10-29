@@ -30,7 +30,8 @@ const TIPOS_ORGAO = [
 export default function OrganogramaForm({ ug, parent, nivel, node, usuarios = [] }) {
     const isEdit = !! node;
 
-    const labels = { 1: ug.nivel_1_label, 2: ug.nivel_2_label, 3: ug.nivel_3_label };
+    // Do 4º nível para baixo: subsetores (sem limite de níveis — TR 4.9.1)
+    const labels = new Proxy({ 1: ug.nivel_1_label, 2: ug.nivel_2_label, 3: ug.nivel_3_label }, { get: (l, n) => l[n] ?? 'Subsetor' });
     const labelAtual = labels[nivel];
 
     const { data, setData, post, put, processing, errors } = useForm({
@@ -99,7 +100,7 @@ export default function OrganogramaForm({ ug, parent, nivel, node, usuarios = []
           vazio: ! data.dt_inicio },
         { icone: 'fa-user-tie',    label: 'Responsável', valor: responsavel?.name, vazio: ! responsavel },
         { icone: 'fa-map-marker-alt', label: 'Endereço',  valor: enderecoStr },
-        ...(nivel === 3 ? [{ icone: 'fa-envelope-open-text', label: 'Protocolo Externo', valor: data.protocolo_externo ? 'Sim' : 'Não' }] : []),
+        ...(nivel >= 3 ? [{ icone: 'fa-envelope-open-text', label: 'Protocolo Externo', valor: data.protocolo_externo ? 'Sim' : 'Não' }] : []),
     ];
 
     return (
@@ -218,7 +219,7 @@ export default function OrganogramaForm({ ug, parent, nivel, node, usuarios = []
                 </CadastroSecao>
 
                 {/* Protocolo externo (so nivel 3) */}
-                {nivel === 3 && (
+                {nivel >= 3 && (
                     <CadastroSecao
                         icone="fa-envelope-open-text"
                         titulo="Protocolo Externo"

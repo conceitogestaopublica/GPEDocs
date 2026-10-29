@@ -78,7 +78,7 @@ const TIPO_CONFIG = {
     processo:  { label: 'Processo',  icone: 'fa-folder-open',  cor: 'indigo', link: 'processos' },
 };
 
-export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidade = false, pastas = [] }) {
+export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidade = false, pastas = [], meus_setores = [] }) {
     const cfg = VISTA_CONFIG[vista];
     const lista = items?.data || [];
     const links = items?.links || null;
@@ -89,6 +89,7 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
     const [naoLidos, setNaoLidos] = useState(!! filtros.nao_lidos);
     const [dataDe, setDataDe]     = useState(filtros.data_de || '');
     const [dataAte, setDataAte]   = useState(filtros.data_ate || '');
+    const [setor, setSetor]       = useState(filtros.setor ? String(filtros.setor) : '');
 
     // Modais inline
     const [assinarItem, setAssinarItem] = useState(null);
@@ -123,12 +124,13 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                 busca: busca || undefined, tipo: tipo || undefined,
                 nao_lidos: naoLidos ? 1 : undefined,
                 data_de: dataDe || undefined, data_ate: dataAte || undefined,
+                setor: setor || undefined,
             },
             { preserveState: true, replace: true });
     };
 
     const limpar = () => {
-        setBusca(''); setTipo(''); setNaoLidos(false); setDataDe(''); setDataAte('');
+        setBusca(''); setTipo(''); setNaoLidos(false); setDataDe(''); setDataAte(''); setSetor('');
         router.get(window.location.pathname, {}, { preserveState: true, replace: true });
     };
 
@@ -181,6 +183,15 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                             <option value="processo">Processos</option>
                         </select>
                     </div>
+                    {meus_setores.length > 1 && (
+                        <div>
+                            <label className="block text-sm font-medium text-navy-900 mb-1">Setor</label>
+                            <select value={setor} onChange={(e) => setSetor(e.target.value)} className="ds-input w-56">
+                                <option value="">Todos os meus setores</option>
+                                {meus_setores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                            </select>
+                        </div>
+                    )}
                     <div>
                         <label className="block text-sm font-medium text-navy-900 mb-1">De</label>
                         <input type="date" value={dataDe} onChange={(e) => setDataDe(e.target.value)} className="ds-input w-40" />
@@ -197,7 +208,7 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                         </label>
                     )}
                     <Button type="submit" icon="fas fa-filter">Filtrar</Button>
-                    {(busca || tipo || naoLidos || dataDe || dataAte) && (
+                    {(busca || tipo || naoLidos || dataDe || dataAte || setor) && (
                         <button type="button" onClick={limpar} className="text-xs text-gray-500 hover:text-gray-800 px-2 pb-2">
                             <i className="fas fa-times mr-1" />Limpar
                         </button>

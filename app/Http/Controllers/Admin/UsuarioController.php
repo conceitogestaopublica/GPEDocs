@@ -108,6 +108,7 @@ class UsuarioController extends Controller
                 'acesso_geral_ug' => (bool) $usuario->acesso_geral_ug,
                 'ug_id'           => $usuario->ug_id,        // UG primaria/legada
                 'unidade_id'      => $usuario->unidade_id,
+                'setores_secundarios' => $usuario->setoresSecundarios()->pluck('ug_organograma.id')->all(),
                 'ug_ids'          => $usuario->ugs->pluck('id')->all(),  // UGs vinculadas (multi)
                 'roles'           => $usuario->roles->pluck('id')->all(),
             ],
@@ -169,6 +170,7 @@ class UsuarioController extends Controller
 
             // Sincroniza pivot multi-UG
             $this->sincronizarUgs($user, $ugIds);
+            $this->sincronizarSetores($user, $validated);
 
             // Sync roles
             if (! empty($validated['roles'])) {
@@ -241,6 +243,7 @@ class UsuarioController extends Controller
             $user->update($data);
 
             $this->sincronizarUgs($user, $ugIds);
+            $this->sincronizarSetores($user, $validated);
 
             DB::table('ged_user_roles')->where('user_id', $user->id)->delete();
             if (! empty($validated['roles'])) {
@@ -282,6 +285,8 @@ class UsuarioController extends Controller
             'ug_ids'      => ['nullable', 'array'],
             'ug_ids.*'    => ['integer', 'exists:ugs,id'],
             'unidade_id'  => ['nullable', 'integer', 'exists:ug_organograma,id'],
+            'setores_secundarios'   => ['nullable', 'array', 'max:20'],
+            'setores_secundarios.*' => ['integer', 'exists:ug_organograma,id'],
             'roles'       => ['nullable', 'array'],
             'roles.*'     => ['integer', 'exists:ged_roles,id'],
         ]);
@@ -291,6 +296,13 @@ class UsuarioController extends Controller
     {
         $ids = (array) $request->input('ug_ids', []);
         return array_values(array_unique(array_map('intval', $ids)));
+    }
+
+    /** Setores secundários (TR 4.9.2): sem o principal; externo não tem setor. */
+    private function sincronizarSetores(User $user, array $validated): void
+    {
+        $ids = $user->tipo === 'externo' ? [] : array_map('intval', $validated['setores_secundarios'] ?? []);
+        $user->setoresSecundarios()->sync(array_values(array_diff(array_unique($ids), [(int) $user->unidade_id])));
     }
 
     private function sincronizarUgs(User $user, array $ugIds): void

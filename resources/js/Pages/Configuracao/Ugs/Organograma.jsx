@@ -14,7 +14,8 @@ import { useConfirm } from '../../../Components/ConfirmProvider';
 export default function Organograma({ ug, arvore }) {
     const [labelsModal, setLabelsModal] = useState(false);
 
-    const labels = { 1: ug.nivel_1_label, 2: ug.nivel_2_label, 3: ug.nivel_3_label };
+    // Do 4º nível para baixo: subsetores (sem limite de níveis — TR 4.9.1)
+    const labels = new Proxy({ 1: ug.nivel_1_label, 2: ug.nivel_2_label, 3: ug.nivel_3_label }, { get: (l, n) => l[n] ?? 'Subsetor' });
 
     const adicionar = (parentId = null) => {
         const url = parentId
@@ -90,12 +91,11 @@ function No({ node, ug, labels, onAdicionarFilho, depth = 0 }) {
     const confirmar = useConfirm();
     const [expandido, setExpandido] = useState(true);
     const filhos = node.filhos_recursivos || [];
-    const podeAdicionarFilho = node.nivel < 3;
     const corPorNivel = {
         1: { bg: 'bg-indigo-50', border: 'border-indigo-200', icon: 'text-indigo-600' },
         2: { bg: 'bg-blue-50',   border: 'border-blue-200',   icon: 'text-blue-600' },
         3: { bg: 'bg-cyan-50',   border: 'border-cyan-200',   icon: 'text-cyan-600' },
-    }[node.nivel] || {};
+    }[Math.min(node.nivel, 3)] || {};
 
     const toggleAtivo = () => {
         router.post(`/configuracoes/ugs/${ug.id}/organograma/nodes/${node.id}/toggle-ativo`);
@@ -139,13 +139,11 @@ function No({ node, ug, labels, onAdicionarFilho, depth = 0 }) {
                     </div>
 
                     <div className="flex items-center gap-1">
-                        {podeAdicionarFilho && (
-                            <button onClick={() => onAdicionarFilho(node.id)}
-                                className="text-[10px] px-2 py-1 rounded text-green-700 hover:bg-green-100"
-                                title={`Adicionar ${labels[node.nivel + 1]}`}>
-                                <i className="fas fa-plus" />
-                            </button>
-                        )}
+                        <button onClick={() => onAdicionarFilho(node.id)}
+                            className="text-[10px] px-2 py-1 rounded text-green-700 hover:bg-green-100"
+                            title={`Adicionar ${labels[node.nivel + 1]}`}>
+                            <i className="fas fa-plus" />
+                        </button>
                         <Link href={`/configuracoes/ugs/${ug.id}/organograma/nodes/${node.id}/edit`}
                             className="text-[10px] px-2 py-1 rounded text-blue-700 hover:bg-blue-100" title="Editar">
                             <i className="fas fa-edit" />

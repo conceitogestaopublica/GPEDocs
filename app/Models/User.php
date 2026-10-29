@@ -122,6 +122,12 @@ class User extends Authenticatable
         return $this->belongsTo(UgOrganograma::class, 'unidade_id');
     }
 
+    /** Setores em que também atende, além do principal (unidade_id) — TR 4.9.2. */
+    public function setoresSecundarios(): BelongsToMany
+    {
+        return $this->belongsToMany(UgOrganograma::class, 'user_setores', 'user_id', 'unidade_id')->withTimestamps();
+    }
+
     /**
      * Vinculo multi-tenant: UGs em que o usuario tem acesso.
      */

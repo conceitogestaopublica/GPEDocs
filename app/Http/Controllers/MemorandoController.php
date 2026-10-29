@@ -11,6 +11,7 @@ use App\Models\Processo\MemorandoDestinatario;
 use App\Models\Processo\MemorandoResposta;
 use App\Models\Processo\MemorandoTramitacao;
 use App\Models\User;
+use App\Support\Setores;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -141,7 +142,7 @@ class MemorandoController extends Controller
                     'unidade_id'   => $unidadeId,
                     'lido'         => false,
                 ]);
-                $usuariosNotificar = User::where('unidade_id', $unidadeId)->pluck('id')->all();
+                $usuariosNotificar = Setores::servidores((int) $unidadeId);
             } else { // usuario
                 foreach ((array) $request->input('destinatarios') as $usuarioId) {
                     MemorandoDestinatario::create([
@@ -197,17 +198,16 @@ class MemorandoController extends Controller
     private function podeVer(Memorando $memorando, \App\Models\User $user): bool
     {
         $memorando->loadMissing(['destinatarios', 'tramitacoes']);
-        $unidadeId = $user->unidade_id;
         $acessoGeral = (bool) $user->acesso_geral_ug;
 
         return $memorando->remetente_id === $user->id
             || $memorando->destinatarios->contains(fn ($d) =>
                 $d->usuario_id === $user->id
-                || ($unidadeId && $d->unidade_id === $unidadeId)
+                || Setores::atende($user, $d->unidade_id)
                 || ($acessoGeral && $d->unidade_id !== null))
             || $memorando->tramitacoes->contains(fn ($t) =>
                 $t->destino_usuario_id === $user->id
-                || ($unidadeId && $t->destino_unidade_id === $unidadeId)
+                || Setores::atende($user, $t->destino_unidade_id)
                 || ($acessoGeral && $t->destino_unidade_id !== null))
             || $memorando->tramitacoes->contains('origem_usuario_id', $user->id);
     }
@@ -240,7 +240,6 @@ class MemorandoController extends Controller
 
         $user = Auth::user();
         $userId = $user->id;
-        $unidadeId = $user->unidade_id;
         $acessoGeral = (bool) $user->acesso_geral_ug;
 
         if (! $this->podeVer($memorando, $user)) {
@@ -253,7 +252,7 @@ class MemorandoController extends Controller
             ->sortByDesc('id')
             ->first(fn ($t) =>
                 $t->destino_usuario_id === $userId
-                || ($unidadeId && $t->destino_unidade_id === $unidadeId)
+                || Setores::atende($user, $t->destino_unidade_id)
                 || ($acessoGeral && $t->destino_unidade_id !== null)
             );
 
@@ -261,7 +260,7 @@ class MemorandoController extends Controller
         $destinatarioAtivo = $memorando->tramitacoes->isEmpty()
             ? $memorando->destinatarios->first(fn ($d) =>
                 $d->usuario_id === $userId
-                || ($unidadeId && $d->unidade_id === $unidadeId)
+                || Setores::atende($user, $d->unidade_id)
                 || ($acessoGeral && $d->unidade_id !== null)
             )
             : null;
@@ -360,9 +359,7 @@ class MemorandoController extends Controller
             ->where('em_uso', true)
             ->where(function ($q) use ($user) {
                 $q->where('destino_usuario_id', $user->id);
-                if ($user->unidade_id) {
-                    $q->orWhere('destino_unidade_id', $user->unidade_id);
-                }
+                $q->orWhereIn('destino_unidade_id', Setores::doUsuario($user));
                 if ($user->acesso_geral_ug) {
                     $q->orWhereNotNull('destino_unidade_id');
                 }
@@ -380,9 +377,7 @@ class MemorandoController extends Controller
                 ->where('lido', false)
                 ->where(function ($q) use ($user) {
                     $q->where('usuario_id', $user->id);
-                    if ($user->unidade_id) {
-                        $q->orWhere('unidade_id', $user->unidade_id);
-                    }
+                    $q->orWhereIn('unidade_id', Setores::doUsuario($user));
                     if ($user->acesso_geral_ug) {
                         $q->orWhereNotNull('unidade_id');
                     }
@@ -419,9 +414,7 @@ class MemorandoController extends Controller
                 ->where('em_uso', true)
                 ->where(function ($q) use ($user) {
                     $q->where('destino_usuario_id', $user->id);
-                    if ($user->unidade_id) {
-                        $q->orWhere('destino_unidade_id', $user->unidade_id);
-                    }
+                    $q->orWhereIn('destino_unidade_id', Setores::doUsuario($user));
                     if ($user->acesso_geral_ug) {
                         $q->orWhereNotNull('destino_unidade_id');
                     }
@@ -482,7 +475,7 @@ class MemorandoController extends Controller
             if ($destinoUsuarioId) {
                 $usuariosNotificar[] = $destinoUsuarioId;
             } elseif ($destinoUnidadeId) {
-                $usuariosNotificar = User::where('unidade_id', $destinoUnidadeId)->pluck('id')->all();
+                $usuariosNotificar = Setores::servidores((int) $destinoUnidadeId);
             }
             foreach (array_unique($usuariosNotificar) as $uid) {
                 Notificacao::create([

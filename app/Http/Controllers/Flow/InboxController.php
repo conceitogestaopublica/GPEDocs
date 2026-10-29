@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Flow;
 
 use App\Http\Controllers\Controller;
+use App\Support\Setores;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -58,8 +59,18 @@ class InboxController extends Controller
     public function setor(Request $request): Response
     {
         $user = Auth::user();
-        $unidadeId = $user->unidade_id;
+        $setores = Setores::doUsuario($user);
         $acessoGeral = (bool) $user->acesso_geral_ug;
+
+        // Trocar de setor (TR 4.9.3): quem atende vários vê um de cada vez, ou todos.
+        $escolhido = $request->integer('setor') ?: null;
+        if ($escolhido && ($acessoGeral || in_array($escolhido, $setores, true))) {
+            return $this->render($request, 'setor',
+                fn ($q) => $q->where('destino_unidade_id', $escolhido)
+                             ->whereNull('destino_usuario_id')
+                             ->whereNotIn('status', self::ESTADOS_FINAIS)
+            );
+        }
 
         if ($acessoGeral) {
             return $this->render($request, 'setor',
@@ -70,13 +81,13 @@ class InboxController extends Controller
             );
         }
 
-        if (! $unidadeId) {
+        if (! $setores) {
             return $this->render($request, 'setor', fn ($q) => $q->whereRaw('1 = 0'),
                 avisoSemUnidade: true);
         }
 
         return $this->render($request, 'setor',
-            fn ($q) => $q->where('destino_unidade_id', $unidadeId)
+            fn ($q) => $q->whereIn('destino_unidade_id', $setores)
                          ->whereNull('destino_usuario_id')
                          ->whereNotIn('status', self::ESTADOS_FINAIS)
         );
@@ -110,20 +121,20 @@ class InboxController extends Controller
     {
         $user = Auth::user();
         $userId = (int) $user->id;
-        $unidadeId = $user->unidade_id;
+        $setores = Setores::doUsuario($user);
         $acessoGeral = (bool) $user->acesso_geral_ug;
 
         return $this->render($request, 'em_tramitacao',
             fn ($q) => $q->whereNotIn('status', self::ESTADOS_FINAIS)
                          ->where('status', '!=', 'aguardando_assinatura')
                          ->where('status', '!=', 'rascunho')
-                         ->where(function ($q) use ($userId, $unidadeId, $acessoGeral) {
+                         ->where(function ($q) use ($userId, $setores, $acessoGeral) {
                              $q->where('remetente_id', $userId)
                                ->orWhere('destino_usuario_id', $userId);
                              if ($acessoGeral) {
                                  $q->orWhereNotNull('destino_unidade_id');
-                             } elseif ($unidadeId) {
-                                 $q->orWhere('destino_unidade_id', $unidadeId);
+                             } elseif ($setores) {
+                                 $q->orWhereIn('destino_unidade_id', $setores);
                              }
                          })
         );
@@ -137,18 +148,18 @@ class InboxController extends Controller
     {
         $user = Auth::user();
         $userId = (int) $user->id;
-        $unidadeId = $user->unidade_id;
+        $setores = Setores::doUsuario($user);
         $acessoGeral = (bool) $user->acesso_geral_ug;
 
         return $this->render($request, 'concluidos',
             fn ($q) => $q->whereIn('status', self::ESTADOS_FINAIS)
-                         ->where(function ($q) use ($userId, $unidadeId, $acessoGeral) {
+                         ->where(function ($q) use ($userId, $setores, $acessoGeral) {
                              $q->where('remetente_id', $userId)
                                ->orWhere('destino_usuario_id', $userId);
                              if ($acessoGeral) {
                                  $q->orWhereNotNull('destino_unidade_id');
-                             } elseif ($unidadeId) {
-                                 $q->orWhere('destino_unidade_id', $unidadeId);
+                             } elseif ($setores) {
+                                 $q->orWhereIn('destino_unidade_id', $setores);
                              }
                          })
         );
@@ -373,10 +384,16 @@ class InboxController extends Controller
                 'nao_lidos'  => $somenteNaoLidos,
                 'data_de'    => $dataDe,
                 'data_ate'   => $dataAte,
+                'setor'      => $request->integer('setor') ?: null,
             ],
             'contagens' => $contagens,
             'pastas'    => $pastas,
             'aviso_sem_unidade' => $avisoSemUnidade,
+            // Caixa do setor de quem atende mais de um: escolher qual (ou todos).
+            'meus_setores' => $vista === 'setor'
+                ? \App\Models\UgOrganograma::whereIn('id', Setores::doUsuario(Auth::user()))
+                    ->orderBy('nome')->get(['id', 'nome'])
+                : [],
         ]);
     }
 
@@ -387,7 +404,7 @@ class InboxController extends Controller
     {
         $userId = (int) Auth::id();
         $user = Auth::user();
-        $unidadeId = $user->unidade_id;
+        $setores = Setores::doUsuario($user);
         $acessoGeral = (bool) $user->acesso_geral_ug;
 
         $base = DB::table('proc_inbox');
@@ -407,8 +424,8 @@ class InboxController extends Controller
                 ->whereNotIn('status', self::ESTADOS_FINAIS)
                 ->where('id', 'not like', 'MT-%')
                 ->where('lido', false)->count();
-        } elseif ($unidadeId) {
-            $setor = (clone $base)->where('destino_unidade_id', $unidadeId)->whereNull('destino_usuario_id')
+        } elseif ($setores) {
+            $setor = (clone $base)->whereIn('destino_unidade_id', $setores)->whereNull('destino_usuario_id')
                 ->whereNotIn('status', self::ESTADOS_FINAIS)
                 ->where('lido', false)->count();
         } else {

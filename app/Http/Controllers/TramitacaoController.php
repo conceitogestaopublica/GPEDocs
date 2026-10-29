@@ -176,7 +176,7 @@ class TramitacaoController extends Controller
             if ($request->filled('destinatario_id')) {
                 $usuariosNotificar[] = (int) $request->input('destinatario_id');
             } elseif ($setorDestinoId) {
-                $usuariosNotificar = \App\Models\User::where('unidade_id', $setorDestinoId)->pluck('id')->all();
+                $usuariosNotificar = \App\Support\Setores::servidores($setorDestinoId);
             }
             foreach (array_unique($usuariosNotificar) as $uid) {
                 Notificacao::create([

@@ -14,7 +14,8 @@ use App\Models\User;
  * devolvia, concluía ou cancelava qualquer processo chamando a rota direto).
  *
  *   etapa ativa     a tramitação mais recente pendente ou recebida
- *   ativo na etapa  destinatário pessoal, servidor da unidade de destino, ou quem tem
+ *   ativo na etapa  destinatário pessoal, servidor que atende o setor de destino (principal,
+ *                   secundário ou abaixo de quem é responsável — App\Support\Setores), ou quem tem
  *                   acesso geral à UG quando o destino é uma unidade
  *   concluir        ativo na etapa, ou o autor enquanto o processo não saiu da 1ª etapa
  */
@@ -38,7 +39,7 @@ final class AcaoNoProcesso
         }
 
         return $etapa->destinatario_id === $user->id
-            || ($user->unidade_id && $etapa->destino_unidade_id === $user->unidade_id)
+            || \App\Support\Setores::atende($user, $etapa->destino_unidade_id)
             || ($user->acesso_geral_ug && $etapa->destino_unidade_id !== null);
     }
 

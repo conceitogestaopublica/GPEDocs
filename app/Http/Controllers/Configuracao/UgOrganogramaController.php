@@ -44,11 +44,8 @@ class UgOrganogramaController extends Controller
     {
         $parentId = $request->integer('parent_id') ?: null;
         $parent = $parentId ? UgOrganograma::where('ug_id', $ug->id)->findOrFail($parentId) : null;
+        // Sem limite de níveis (TR 4.9.1): do 4º para baixo são subsetores do setor.
         $nivel = $parent ? ($parent->nivel + 1) : 1;
-
-        if ($nivel > 3) {
-            abort(422, 'Não é possível adicionar abaixo do nível 3.');
-        }
 
         return Inertia::render('Configuracao/Ugs/OrganogramaForm', [
             'ug'             => $ug->only(['id','codigo','nome','nivel_1_label','nivel_2_label','nivel_3_label']),
@@ -127,9 +124,6 @@ class UgOrganogramaController extends Controller
         $nivel = 1;
         if (! empty($validated['parent_id'])) {
             $parent = UgOrganograma::where('ug_id', $ug->id)->findOrFail($validated['parent_id']);
-            if ($parent->nivel >= 3) {
-                return back()->with('error', 'Não é possível adicionar mais um nível abaixo do nível 3.');
-            }
             $nivel = $parent->nivel + 1;
         }
 
@@ -216,7 +210,7 @@ class UgOrganogramaController extends Controller
             'codigo_tce'        => $validated['codigo_tce'] ?? null,
             'suprimir_tce'      => (bool) ($validated['suprimir_tce'] ?? false),
             'responsavel_id'    => $validated['responsavel_id'] ?? null,
-            'protocolo_externo' => $nivel === 3 ? (bool) ($validated['protocolo_externo'] ?? false) : false,
+            'protocolo_externo' => $nivel >= 3 ?(bool) ($validated['protocolo_externo'] ?? false) : false,
             'endereco_proprio'  => $proprio,
             'logradouro_id'     => $logradouroId,
             'numero'            => $proprio ? ($validated['numero']      ?? null) : null,
