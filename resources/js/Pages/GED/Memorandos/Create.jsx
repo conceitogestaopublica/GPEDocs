@@ -18,6 +18,7 @@ export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes
     const userList = usuarios || [];
     const unidadeList = unidades || [];
     const [searchUser, setSearchUser] = useState('');
+    const [buscaSetor, setBuscaSetor] = useState('');
 
     const { data, setData, processing, errors } = useForm(comRascunho(rascunho, {
         assunto: '',
@@ -67,7 +68,7 @@ export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes
         const formData = new FormData();
         formData.append('assunto', data.assunto);
         formData.append('conteudo', data.conteudo);
-        formData.append('confidencial', data.confidencial ? '1' : '0');
+        formData.append('confidencial', data.confidencial && data.tipo_destino === 'usuario' ? '1' : '0');
         formData.append('setor_origem', data.setor_origem);
         if (data.em_nome_de) {
             formData.append('em_nome_de', data.em_nome_de);
@@ -199,14 +200,16 @@ export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes
                         {data.tipo_destino === 'setor' && (
                             <div>
                                 <label className="block text-xs font-medium text-gray-600 mb-1">Setor de destino</label>
+                                {/* Busca por nome ou sigla no organograma (TR 4.45.8) */}
+                                <input type="search" value={buscaSetor} onChange={(e) => setBuscaSetor(e.target.value)} placeholder="Buscar setor por nome ou sigla…" className="ds-input mb-2" />
                                 <select value={data.unidade_id}
                                     onChange={(e) => setData('unidade_id', e.target.value)}
                                     className="ds-input">
                                     <option value="">— Selecione o setor —</option>
-                                    {unidadesOrdenadas.map(u => {
-                                        const indent = '— '.repeat(Math.max(0, u.nivel - 1));
+                                    {unidadesOrdenadas.filter(u => ! buscaSetor || ` `.toLowerCase().includes(buscaSetor.toLowerCase()) || String(u.id) === String(data.unidade_id)).map(u => {
+                                        const indent = buscaSetor ? '' : '— '.repeat(Math.max(0, u.nivel - 1));
                                         return (
-                                            <option key={u.id} value={u.id}>{indent}[N{u.nivel}] {u.nome}</option>
+                                            <option key={u.id} value={u.id}>{indent}[N{u.nivel}] {u.nome}{u.sigla ? ` (${u.sigla})` : ''}</option>
                                         );
                                     })}
                                 </select>
@@ -324,20 +327,21 @@ export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes
 
                     {/* Confidencial */}
                     <div>
-                        <label className="flex items-center gap-2 cursor-pointer">
+                        <label className={`flex items-center gap-2 ${data.tipo_destino === 'usuario' ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>
                             <input
                                 type="checkbox"
-                                checked={data.confidencial}
+                                disabled={data.tipo_destino !== 'usuario'}
+                                checked={data.confidencial && data.tipo_destino === 'usuario'}
                                 onChange={(e) => setData('confidencial', e.target.checked)}
                                 className="rounded border-gray-300 text-blue-600 w-4 h-4"
                             />
                             <span className="text-sm font-medium text-gray-700">
                                 <i className="fas fa-lock text-xs text-gray-400 mr-1" />
-                                Memorando Confidencial
+                                Memorando privado
                             </span>
                         </label>
                         <p className="text-xs text-gray-400 mt-1 ml-6">
-                            Memorandos confidenciais só podem ser visualizados pelos destinatários.
+                            Só você e as pessoas escolhidas veem (nem o setor delas). Disponível no envio para pessoas ("Setor + Usuário").
                         </p>
                     </div>
 

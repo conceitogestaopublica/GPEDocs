@@ -13,3 +13,4 @@
 .conteudo-html img { max-width: 100%; }
 .conteudo-html a { color: #0e7490; }
 .conteudo-html span[data-type="mencao"], .conteudo-html a[data-type="referencia"] { color: #075985; font-weight: bold; text-decoration: none; }
+.conteudo-html span[data-type="assinatura"] { color: #6b21a8; font-weight: bold; text-decoration: underline; }

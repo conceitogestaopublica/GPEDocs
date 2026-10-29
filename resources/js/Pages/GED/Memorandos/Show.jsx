@@ -1,7 +1,7 @@
 /**
  * Detalhe do Memorando — GED
  *
- * Visualizacao completa com respostas em thread.
+ * Visualização completa: despachos numerados (respostas e encaminhamentos) e quem está envolvido.
  */
 import { Head, router, useForm } from '@inertiajs/react';
 import { useMemo, useRef, useState } from 'react';
@@ -16,14 +16,13 @@ import QuemAcessou from '../../../Components/QuemAcessou';
 import { useConfirm } from '../../../Components/ConfirmProvider';
 import Avatar from '../../../Components/Avatar';
 import EmitidoPorContrassenha from '../../../Components/EmitidoPorContrassenha';
+import RichEditor from '../../../Components/RichEditor';
 
-export default function MemorandosShow({ marcadores = null, classificacao = null, acessos = [], memorando, conteudo_html = '', pode_receber, pode_tramitar, meu_status, unidades = [], usuarios = [] }) {
+export default function MemorandosShow({ marcadores = null, classificacao = null, acessos = [], memorando, conteudo_html = '', despachos = [], envolvidos = [], pode_receber, pode_tramitar, meu_status, unidades = [], usuarios = [] }) {
     const confirmar = useConfirm();
     const memo = memorando || {};
-    const respostas = memo.respostas || [];
     const destinatarios = memo.destinatarios || [];
     const anexos = memo.anexos || [];
-    const tramitacoes = memo.tramitacoes || [];
     const replyRef = useRef(null);
     const [tramitarOpen, setTramitarOpen] = useState(false);
 
@@ -87,7 +86,7 @@ export default function MemorandosShow({ marcadores = null, classificacao = null
 
     const scrollToReply = () => {
         replyRef.current?.scrollIntoView({ behavior: 'smooth' });
-        replyRef.current?.querySelector('textarea')?.focus();
+        replyRef.current?.querySelector('.ProseMirror')?.focus();
     };
 
     const statusBanner = (() => {
@@ -128,7 +127,7 @@ export default function MemorandosShow({ marcadores = null, classificacao = null
                             )}
                             {memo.confidencial && (
                                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">
-                                    <i className="fas fa-lock mr-0.5" />Confidencial
+                                    <i className="fas fa-lock mr-0.5" />Privado
                                 </span>
                             )}
                         </div>
@@ -171,6 +170,9 @@ export default function MemorandosShow({ marcadores = null, classificacao = null
                                 Arquivar
                             </Button>
                         )}
+                        <a href={`/memorandos/${memo.id}/folha-de-rosto`} target="_blank" rel="noopener noreferrer" className="ds-btn ds-btn-outline" title="Capa de uma página para o arquivo ou o processo físico">
+                            <i className="fas fa-file-lines mr-1" /> Folha de rosto
+                        </a>
                         <a href={`/memorandos/${memo.id}/pdf`} target="_blank" rel="noopener noreferrer"
                             className="ds-btn ds-btn-outline">
                             <i className="fas fa-file-pdf mr-1" /> PDF
@@ -211,55 +213,38 @@ export default function MemorandosShow({ marcadores = null, classificacao = null
                         </Card>
                     )}
 
-                    {/* Respostas */}
-                    <Card title={`Respostas (${respostas.length})`}>
-                        {respostas.length === 0 ? (
+                    {/* Despachos numerados: respostas e encaminhamentos em ordem (TR 4.45.5, 4.45.15) */}
+                    <Card title={`Despachos (${despachos.length})`}>
+                        {despachos.length === 0 ? (
                             <div className="py-8 text-center text-gray-400">
                                 <i className="fas fa-comments text-2xl mb-2 block" />
-                                <p className="text-sm">Nenhuma resposta ainda</p>
+                                <p className="text-sm">Nenhum despacho ainda</p>
                             </div>
                         ) : (
-                            <div className="space-y-4">
-                                {respostas.map(resp => (
-                                    <div key={resp.id} className="flex gap-3">
-                                        <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
-                                            <span className="text-xs font-bold text-blue-600">
-                                                {(resp.user?.name || 'U').charAt(0).toUpperCase()}
-                                            </span>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-sm font-semibold text-gray-800">{resp.user?.name || 'Usuário'}</span>
-                                                <span className="text-[10px] text-gray-400">
-                                                    {resp.created_at ? new Date(resp.created_at).toLocaleDateString('pt-BR', {
-                                                        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                                                    }) : ''}
-                                                </span>
-                                            </div>
-                                            <div className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-lg p-3">
-                                                {resp.conteudo}
-                                            </div>
-                                        </div>
-                                    </div>
+                            <ol className="relative border-l-2 border-gray-200 ml-2 space-y-4">
+                                {despachos.map((d) => (
+                                    <li key={d.n} className="ml-5">
+                                        <span className={`absolute -left-[11px] w-5 h-5 rounded-full text-[10px] font-bold text-white flex items-center justify-center ${d.tipo === 'Resposta' ? 'bg-cyan-600' : 'bg-violet-600'}`}>{d.n}</span>
+                                        <p className="text-xs text-gray-500">
+                                            <strong className="text-gray-800">Despacho nº {d.n} — {d.tipo}</strong>
+                                            {' · '}{d.autor || '-'}{d.de ? ` (${d.de})` : ''}{d.para ? <> <i className="fas fa-arrow-right text-[9px] mx-1" />{d.para}</> : null}
+                                            {' · '}{d.em ? new Date(d.em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                                        </p>
+                                        {d.html && <div className="texto-rico mt-1 bg-gray-50 rounded-lg p-3" dangerouslySetInnerHTML={{ __html: d.html }} />}
+                                    </li>
                                 ))}
-                            </div>
+                            </ol>
                         )}
 
                         {/* Formulario de resposta */}
                         <div ref={replyRef} className="mt-6 pt-4 border-t border-gray-100">
                             <form onSubmit={submitReply} className="space-y-3">
                                 <label className="block text-sm font-medium text-gray-700">Responder</label>
-                                <textarea
-                                    value={data.conteudo}
-                                    onChange={(e) => setData('conteudo', e.target.value)}
-                                    className="ds-input !h-auto"
-                                    rows={4}
-                                    placeholder="Digite sua resposta..."
-                                    required
-                                />
+                                <RichEditor html={data.conteudo} onChange={(v) => setData('conteudo', v)} minHeight={110} compacto
+                                    marcadores={['mencao', 'referencia']} placeholder="Digite sua resposta…" />
                                 <div className="flex justify-end">
                                     <Button type="submit" loading={processing} icon="fas fa-reply"
-                                        disabled={!data.conteudo.trim()}>
+                                        disabled={! data.conteudo}>
                                         Enviar Resposta
                                     </Button>
                                 </div>
@@ -288,49 +273,26 @@ export default function MemorandosShow({ marcadores = null, classificacao = null
                         </div>
                     </Card>
 
-                    {/* Cadeia de Tramitacao */}
-                    {tramitacoes.length > 0 && (
-                        <Card title={`Tramitação (${tramitacoes.length})`}>
-                            <div className="space-y-3">
-                                {tramitacoes.map((t, i) => {
-                                    const origem = t.origem_usuario?.name || '?';
-                                    const origemUnid = t.origem_unidade?.nome;
-                                    const dest = t.destino_usuario?.name || t.destino_unidade?.nome || '?';
+                    {/* Setores e pessoas envolvidos, com a situação de cada um (TR 4.45.13–14) */}
+                    {envolvidos.length > 0 && (
+                        <Card title={`Envolvidos (${envolvidos.length})`}>
+                            <ul className="divide-y divide-gray-100">
+                                {envolvidos.map((e, i) => {
+                                    const cor = { 'Recebido': 'bg-emerald-100 text-emerald-700', 'Com o setor': 'bg-emerald-100 text-emerald-700', 'Despachou adiante': 'bg-violet-100 text-violet-700' }[e.situacao] || 'bg-amber-100 text-amber-700';
                                     return (
-                                        <div key={t.id} className={`relative pl-6 pb-3 ${i < tramitacoes.length - 1 ? 'border-l-2 border-gray-200' : ''}`}>
-                                            <div className={`absolute -left-1.5 top-0 w-3 h-3 rounded-full border-2 border-white ${
-                                                t.em_uso ? 'bg-blue-500' : (t.finalizado ? 'bg-green-500' : 'bg-gray-300')
-                                            }`} />
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <Avatar usuario={t.origem_usuario} nome={origem} tamanho="sm" />
-                                                <span className="text-xs text-gray-700"><strong>{origem}</strong>
-                                                    {origemUnid && <span className="text-gray-400"> · {origemUnid}</span>}
-                                                </span>
-                                                <i className="fas fa-arrow-right text-gray-300 text-[10px]" />
-                                                {t.destino_usuario && <Avatar usuario={t.destino_usuario} tamanho="sm" />}
-                                                <span className="text-xs text-gray-700"><strong>{dest}</strong></span>
-                                                {t.em_uso && ! t.finalizado && (
-                                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-bold uppercase">Aguardando</span>
-                                                )}
-                                                {t.em_uso && t.finalizado && (
-                                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold uppercase">Recebido</span>
-                                                )}
-                                                {! t.em_uso && (
-                                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-bold uppercase">Tramitado</span>
-                                                )}
+                                        <li key={i} className="py-2 flex items-start gap-2">
+                                            <i className={`fas ${e.tipo === 'pessoa' ? 'fa-user' : 'fa-sitemap'} text-gray-400 text-xs mt-1`} />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm text-gray-800 truncate" title={e.nome}>{e.nome}</p>
+                                                {e.quando && <p className="text-[10px] text-gray-400">{new Date(e.quando).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>}
                                             </div>
-                                            {t.parecer && <p className="text-[11px] text-gray-500 mt-1 italic">"{t.parecer}"</p>}
-                                            <p className="text-[10px] text-gray-400 mt-1">
-                                                {t.despachado_em ? new Date(t.despachado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
-                                                {t.recebido_em && <span className="ml-2">recebido em {new Date(t.recebido_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>}
-                                            </p>
-                                        </div>
+                                            <span className={`text-[10px] rounded-full px-2 py-0.5 whitespace-nowrap ${cor}`}>{e.situacao}</span>
+                                        </li>
                                     );
                                 })}
-                            </div>
+                            </ul>
                         </Card>
                     )}
-
                     {/* Destinatarios */}
                     <Card title="Destinatários">
                         {destinatarios.length === 0 ? (
@@ -338,7 +300,8 @@ export default function MemorandosShow({ marcadores = null, classificacao = null
                         ) : (
                             <div className="space-y-2">
                                 {destinatarios.map((dest, i) => {
-                                    const user = dest.user || dest;
+                                    // Pessoa (usuario) ou setor (unidade); a relação se chama usuario, não user
+                                    const user = { name: dest.usuario?.name || dest.unidade?.nome || dest.setor_destino || 'Destinatário' };
                                     const lido = dest.lido || dest.pivot?.lido;
                                     const lidoEm = dest.lido_em || dest.pivot?.lido_em;
                                     return (

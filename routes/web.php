@@ -520,6 +520,7 @@ Route::middleware('auth')->group(function () {
     Route::post('memorandos/{id}/tramitar', [MemorandoController::class, 'tramitar'])->name('memorandos.tramitar');
     Route::post('memorandos/{id}/arquivar-no-ged', [MemorandoController::class, 'arquivarNoGed'])->name('memorandos.arquivar-no-ged');
     Route::get('memorandos/{id}/pdf', [MemorandoController::class, 'downloadPdf'])->name('memorandos.pdf');
+    Route::get('memorandos/{id}/folha-de-rosto', [MemorandoController::class, 'folhaDeRosto'])->whereNumber('id')->name('memorandos.folha-de-rosto');
     Route::get('memorandos/{id}/anexos/{anexo}/download', [MemorandoController::class, 'downloadAnexo'])->name('memorandos.anexos.download');
 
     // Oficios

@@ -56,7 +56,7 @@
                 <div class="info-label">Para (Destinatarios):</div>
                 <div class="info-value destinatarios-list">
                     @foreach($memorando->destinatarios as $i => $dest)
-                        <span>{{ $dest->user?->name ?? $dest->name ?? '-' }}{{ !$loop->last ? ', ' : '' }}</span>
+                        <span>{{ $dest->usuario?->name ?? $dest->unidade?->nome ?? $dest->setor_destino ?? '-' }}{{ !$loop->last ? ', ' : '' }}</span>
                     @endforeach
                 </div>
             </div>
@@ -83,22 +83,25 @@
         <div class="conteudo conteudo-html">{!! $memorando->conteudoFinal() !!}</div>
     </div>
 
-    {{-- Respostas --}}
-    @if($memorando->respostas && $memorando->respostas->count() > 0)
+    {{-- Despachos numerados: respostas e encaminhamentos em ordem (TR 4.45.5) --}}
+    @php
+        $despachos = \App\Support\Memorandos::despachos($memorando);
+    @endphp
+    @if(count($despachos))
     <div class="section">
-        <div class="section-title">Respostas ({{ $memorando->respostas->count() }})</div>
-        @foreach($memorando->respostas as $resposta)
+        <div class="section-title">Despachos ({{ count($despachos) }})</div>
+        @foreach($despachos as $d)
         <div class="resposta">
             <div class="resposta-header">
-                <strong>{{ $resposta->user?->name ?? 'Usuario' }}</strong>
-                — {{ $resposta->created_at?->copy()->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i:s') }}
+                <strong>Despacho nº {{ $d['n'] }} — {{ $d['tipo'] }}</strong>
+                · {{ $d['autor'] ?? '-' }}{{ $d['para'] ? ' para ' . $d['para'] : '' }}
+                — {{ $d['em'] ? \Carbon\Carbon::parse($d['em'])->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i') : '' }}
             </div>
-            <div class="resposta-body">{{ $resposta->conteudo }}</div>
+            @if($d['html'] !== '')<div class="resposta-body conteudo-html">{!! $d['html'] !!}</div>@endif
         </div>
         @endforeach
     </div>
     @endif
-
     {{-- Rastreio de Leitura --}}
     <div class="section">
         <div class="section-title">Rastreio de Leitura</div>
@@ -115,13 +118,13 @@
             <tbody>
                 @foreach($memorando->destinatarios as $i => $dest)
                 @php
-                    $lido = $dest->pivot->lido ?? false;
-                    $lidoEm = $dest->pivot->lido_em ?? null;
+                    $lido = (bool) $dest->lido;
+                    $lidoEm = $dest->lido_em;
                 @endphp
                 <tr>
                     <td>{{ $i + 1 }}</td>
-                    <td>{{ $dest->user?->name ?? $dest->name ?? '-' }}</td>
-                    <td>{{ $dest->user?->email ?? $dest->email ?? '-' }}</td>
+                    <td>{{ $dest->usuario?->name ?? $dest->unidade?->nome ?? $dest->setor_destino ?? '-' }}</td>
+                    <td>{{ $dest->usuario?->email ?? '-' }}</td>
                     <td class="{{ $lido ? 'status-lido' : 'status-nao-lido' }}">
                         {{ $lido ? 'Lido' : 'Nao lido' }}
                     </td>

@@ -33,7 +33,10 @@ class MemorandoController extends Controller
         } else {
             // Recebidos: para mim, para os setores que atendo (inclui "todos os setores") ou tramitados a eles
             $setores = Setores::doUsuario(Auth::user()) ?: [-1];
-            $query = Memorando::where(fn ($m) => $m
+            $query = Memorando::where(fn ($p) => $p->where('confidencial', false)->orWhere('remetente_id', Auth::id())
+                    ->orWhereHas('destinatarios', fn ($q) => $q->where('usuario_id', Auth::id()))
+                    ->orWhereHas('tramitacoes', fn ($q) => $q->where('destino_usuario_id', Auth::id())))
+                ->where(fn ($m) => $m
                 ->whereHas('destinatarios', fn ($q) => $q->where('usuario_id', Auth::id())->orWhereIn('unidade_id', $setores))
                 ->orWhereHas('tramitacoes', fn ($q) => $q->where('destino_usuario_id', Auth::id())->orWhereIn('destino_unidade_id', $setores)));
         }
@@ -69,7 +72,7 @@ class MemorandoController extends Controller
             ->where('ativo', true)
             ->orderBy('nivel')
             ->orderBy('nome')
-            ->get(['id', 'nome', 'codigo', 'nivel', 'parent_id']);
+            ->get(['id', 'nome', 'sigla', 'codigo', 'nivel', 'parent_id']);
 
         return Inertia::render('GED/Memorandos/Create', [
             'variaveis'    => Memorando::variaveisParaEditor(),
@@ -89,7 +92,11 @@ class MemorandoController extends Controller
             'unidade_id'            => ['nullable', 'integer', 'exists:ug_organograma,id', 'required_if:tipo_destino,setor'],
             'destinatarios'         => ['nullable', 'array', 'required_if:tipo_destino,usuario'],
             'destinatarios.*'       => ['integer', 'exists:users,id'],
-            'confidencial'          => ['nullable', 'boolean'],
+            'confidencial'          => ['nullable', 'boolean', function ($a, $v, $falha) use ($request) {
+                if ($v && $request->input('tipo_destino') !== 'usuario') {
+                    $falha('Memorando privado vai só para pessoas: escolha "Setor + Usuário".');
+                }
+            }],
             'setor_origem'          => ['nullable', 'string', 'max:150'],
             'data_arquivamento_auto'=> ['nullable', 'date'],
             'files'                 => ['nullable', 'array'],
@@ -215,6 +222,14 @@ class MemorandoController extends Controller
         $memorando->loadMissing(['destinatarios', 'tramitacoes']);
         $acessoGeral = (bool) $user->acesso_geral_ug;
 
+        // Privado (TR 4.45.6): só remetente, quem digitou e as pessoas a quem foi endereçado ou tramitado
+        if ($memorando->confidencial) {
+            return in_array($user->id, [$memorando->remetente_id, $memorando->digitador_id], true)
+                || $memorando->destinatarios->contains('usuario_id', $user->id)
+                || $memorando->tramitacoes->contains(fn ($t) => $t->destino_usuario_id === $user->id || $t->origem_usuario_id === $user->id)
+                || \App\Support\Marcadores::temAcesso('memorando', $memorando->id, $user->id);
+        }
+
         return $memorando->remetente_id === $user->id
             || $memorando->destinatarios->contains(fn ($d) =>
                 $d->usuario_id === $user->id
@@ -260,6 +275,8 @@ class MemorandoController extends Controller
         $acessoGeral = (bool) $user->acesso_geral_ug;
         // Usada no banner abaixo e nunca definida: toda tela de memorando dava erro 500.
         $isRemetente = $memorando->remetente_id === $userId;
+        // Também usada no banner e nunca definida (erro 500 para quem só tramitou adiante)
+        $isTramiteOrigem = $memorando->tramitacoes->contains('origem_usuario_id', $userId);
 
         if (! $this->podeVer($memorando, $user)) {
             abort(403, 'Você não tem permissão para visualizar este memorando.');
@@ -334,6 +351,8 @@ class MemorandoController extends Controller
             'memorando'       => $memorando,
             'conteudo_html'   => $memorando->conteudoFinal(),
             'marcadores'      => ['citado_em' => \App\Support\Marcadores::citadoEm('memorando', $memorando->id), 'pessoas' => \App\Support\Marcadores::doDocumento('memorando', $memorando->id)],
+            'despachos'       => \App\Support\Memorandos::despachos($memorando),
+            'envolvidos'      => \App\Support\Memorandos::envolvidos($memorando),
             'pode_receber'    => $podeReceber,
             'pode_tramitar'   => $podeTramitar,
             'meu_status'      => $meuStatus,
@@ -349,11 +368,13 @@ class MemorandoController extends Controller
         ]);
 
         $memorando = Memorando::findOrFail($id);
+        abort_unless($this->podeVer($memorando, Auth::user()), 403);
+        abort_if($memorando->status === 'arquivado', 422, 'Memorando arquivado.');
 
         MemorandoResposta::create([
             'memorando_id' => $memorando->id,
             'usuario_id'   => Auth::id(),
-            'conteudo'     => $request->input('conteudo'),
+            'conteudo'     => \App\Support\HtmlSeguro::limpar($request->input('conteudo')),
         ]);
 
         Notificacao::create([
@@ -430,6 +451,10 @@ class MemorandoController extends Controller
 
         $memorando = Memorando::findOrFail($id);
         $user = Auth::user();
+        abort_unless($this->podeVer($memorando, $user), 403);
+        if ($memorando->confidencial && $request->input('tipo_destino') !== 'usuario') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['tipo_destino' => 'Memorando privado só pode ser tramitado a uma pessoa.']);
+        }
 
         try {
             DB::beginTransaction();
@@ -525,6 +550,7 @@ class MemorandoController extends Controller
     public function arquivar($id)
     {
         $memorando = Memorando::findOrFail($id);
+        abort_unless($this->podeVer($memorando, Auth::user()), 403);
 
         $memorando->update([
             'status'       => 'arquivado',
@@ -619,8 +645,10 @@ class MemorandoController extends Controller
         $memorando = Memorando::with([
             'remetente',
             'destinatarios.usuario',
+            'destinatarios.unidade',
             'respostas.usuario',
         ])->findOrFail($id);
+        abort_unless($this->podeVer($memorando, Auth::user()), 403);
 
         $qrCodeUrl = url("/memorandos/verificar/{$memorando->qr_code_token}");
 
@@ -636,5 +664,18 @@ class MemorandoController extends Controller
         $filename = str_replace('/', '-', $filename);
 
         return $pdf->download($filename);
+    }
+
+    /** Folha de rosto (TR 4.45.7): capa de uma página para o processo físico ou o arquivo. */
+    public function folhaDeRosto($id)
+    {
+        $memorando = Memorando::with(['remetente', 'destinatarios.usuario', 'destinatarios.unidade', 'anexos', 'respostas', 'tramitacoes'])->findOrFail($id);
+        abort_unless($this->podeVer($memorando, Auth::user()), 403);
+
+        return Relatorio::pdf('pdf.memorando-folha-rosto', [
+            'memorando' => $memorando,
+            'despachos' => $memorando->respostas->count() + $memorando->tramitacoes->count(),
+            'ug'        => \App\Models\Ug::find($memorando->ug_id),
+        ])->stream('folha-de-rosto-' . str_replace('/', '-', $memorando->numero) . '.pdf');
     }
 }

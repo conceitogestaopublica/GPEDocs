@@ -27,7 +27,7 @@ final class DocumentoRedigido
 {
     /** tipo => [modelo, view do PDF, prefixo da URL, rótulo, relações do PDF] */
     public const TIPOS = [
-        'memorando' => [Memorando::class, 'pdf.memorando', '/memorandos', 'Memorando', ['remetente', 'destinatarios.usuario', 'respostas.usuario']],
+        'memorando' => [Memorando::class, 'pdf.memorando', '/memorandos', 'Memorando', ['remetente', 'destinatarios.usuario', 'destinatarios.unidade', 'respostas.usuario']],
         'circular'  => [Circular::class, 'pdf.circular', '/circulares', 'Circular', ['remetente', 'destinatarios.usuario']],
         'oficio'    => [Oficio::class, 'pdf.oficio', '/oficios', 'Ofício', ['remetente', 'respostas.usuario']],
     ];

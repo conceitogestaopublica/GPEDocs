@@ -18,6 +18,8 @@ final class Variaveis
     {
         // O marcador do editor (span com fundo de variável) sai: no documento fica só o valor
         $html = preg_replace('#<span\b[^>]*data-type="variavel"[^>]*>\s*(\{\{[^<]{1,44}\}\})\s*</span>#u', '$1', (string) $html);
+        // O ✍ do pedido de assinatura não existe na fonte do PDF (sai "?"); o destaque fica no estilo
+        $html = preg_replace('#(<span\b[^>]*data-type="assinatura"[^>]*>)\s*✍\s*#u', '$1', $html);
         $conteudo = preg_replace_callback('/\{\{\s*([^{}]{1,40}?)\s*\}\}/u', function (array $m) use ($valores) {
             $chave = Str::ascii(mb_strtolower($m[1]));
 
