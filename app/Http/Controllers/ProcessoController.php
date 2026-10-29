@@ -49,7 +49,8 @@ class ProcessoController extends Controller
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('numero_protocolo', 'ilike', "%{$search}%")
-                  ->orWhere('assunto', 'ilike', "%{$search}%");
+                  ->orWhere('assunto', 'ilike', "%{$search}%")
+                  ->orWhere('patrimonio', 'ilike', "%{$search}%");
             });
         }
 
@@ -114,6 +115,10 @@ class ProcessoController extends Controller
             'manifestacao_tipo'  => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\Ouvidoria::MANIFESTACOES))],
             'identificacao'      => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\Ouvidoria::IDENTIFICACOES))],
             'setor_origem'       => ['nullable', 'string', 'max:150'],
+            // Chamado técnico (TR 4.35.4, 4.35.7, 4.35.10)
+            'patrimonio'         => ['nullable', 'string', 'max:60'],
+            'solicitante_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'descricao_html'     => ['nullable', 'string', 'max:200000'],
             'setor_destino_inicial' => ['required', 'integer', 'exists:ug_organograma,id'],
             'destinatario_inicial'  => ['nullable', 'integer', 'exists:users,id'],
             'files'              => ['nullable', 'array'],
@@ -168,7 +173,7 @@ class ProcessoController extends Controller
                     ->withErrors(['setor_destino_inicial' => "Este assunto começa em: {$nomes}."]);
             }
 
-            $processo = Processo::create($local + [
+            $processo = Processo::create(array_merge($local + [
                 'numero_protocolo'  => $protocolo,
                 'tipo_processo_id'  => $tipoId,
                 'assunto'           => $request->input('assunto'),
@@ -186,7 +191,7 @@ class ProcessoController extends Controller
                 'setor_origem'      => $request->input('setor_origem'),
                 'status'            => 'aberto',
                 'aberto_por'        => Auth::id(),
-            ]);
+            ], self::dadosChamado($request)));
 
             // Primeira tramitacao ja vai despachada para o setor escolhido na abertura
             $unidadeDestino = \App\Models\UgOrganograma::find((int) $request->input('setor_destino_inicial'));
@@ -411,6 +416,7 @@ class ProcessoController extends Controller
             'recebimentos_fisicos' => \App\Http\Controllers\RecebimentoFisicoController::doProcesso($processo->id),
             'ouvidoria'       => self::dadosOuvidoria($processo),
             'menu_url'        => self::menuDoProcesso($request, $processo),
+            'solicitante'     => $processo->solicitante_user_id ? User::find($processo->solicitante_user_id, ['id', 'name']) : null,
             'marcadores'      => ['citado_em' => \App\Support\Marcadores::citadoEm('processo', $processo->id), 'pessoas' => \App\Support\Marcadores::doDocumento('processo', $processo->id)],
             'classificacao'        => \App\Support\Classificacao::doItem('processo', $processo->id),
             'mapa_avaliacao'       => \App\Http\Controllers\Flow\MapaAvaliacaoController::paraTela($processo),
@@ -1013,9 +1019,46 @@ class ProcessoController extends Controller
      * do portal em Solicitações; os demais ficam onde o usuário estava ao abrir (Atendimento ou
      * Processos), lembrado na sessão para valer nas abas e recargas da tela.
      */
+    /**
+     * Descrição formatada (texto simples fica em descricao para a busca), patrimônio e o servidor
+     * em nome de quem foi aberto, que vira o requerente quando ele não foi informado (TR 4.35).
+     */
+    private static function dadosChamado(Request $request): array
+    {
+        $dados = ['patrimonio' => trim((string) $request->input('patrimonio')) ?: null];
+        $html = \App\Support\HtmlSeguro::limpar($request->input('descricao_html'));
+        if (trim(strip_tags($html)) !== '' || str_contains($html, '<table')) {
+            $dados['descricao_html'] = $html;
+            $dados['descricao'] = trim(html_entity_decode(strip_tags(preg_replace(['/<\/(p|div|li|tr|h\d)>|<br\s*\/?>/i', '/<\/(td|th)>/i'], ["\n", ' '], $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        }
+        if ($sol = $request->integer('solicitante_user_id') ? User::find($request->integer('solicitante_user_id')) : null) {
+            $dados['solicitante_user_id'] = $sol->id;
+            $dados['requerente_nome'] = $request->input('requerente_nome') ?: $sol->name;
+            $dados['requerente_email'] = $request->input('requerente_email') ?: $sol->email;
+        }
+
+        return $dados;
+    }
+
+    /** Folha de rosto do processo (TR 4.35.8): capa de uma página para a pasta física ou o arquivo. */
+    public function folhaDeRosto(int $id)
+    {
+        $p = Processo::with(['tipoProcesso:id,nome,modalidade', 'abertoPor:id,name', 'anexos:id,processo_id,nome', 'etapaAtual'])->findOrFail($id);
+        if (! \App\Support\Ouvidoria::podeVerManifestante(Auth::user(), $p)) {
+            \App\Support\Ouvidoria::ocultarManifestante($p);
+        }
+        $solicitante = $p->solicitante_user_id ? User::find($p->solicitante_user_id, ['id', 'name']) : null;
+
+        return \App\Support\Relatorio::pdf('pdf.processo-folha-rosto', [
+            'p' => $p, 'solicitante' => $solicitante, 'ug' => \App\Models\Ug::find($p->ug_id),
+            'setor_atual' => $p->etapaAtual?->setor_destino,
+            'tramitacoes' => \App\Models\Processo\Tramitacao::where('processo_id', $p->id)->count(),
+        ])->stream('folha-de-rosto-' . str_replace('/', '-', $p->numero_protocolo) . '.pdf');
+    }
+
     private static function menuDoProcesso(Request $request, Processo $p): ?string
     {
-        $mod = $p->tipoProcesso?->modalidade;
+        $mod = \App\Support\Ouvidoria::modalidade($p);
         if ($mod) {
             return $mod === 'esic' ? '/flow/esic' : '/flow/ouvidoria';
         }

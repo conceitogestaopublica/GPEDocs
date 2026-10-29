@@ -690,6 +690,7 @@ Route::middleware('auth')->group(function () {
         Route::post('processos/{id}/localizacao', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'localizacao'])->whereNumber('id')->name('processos.localizacao');
     // Recebimento de documento físico com comprovante (TR 4.32.28)
     Route::post('processos/{id}/recebimentos', [\App\Http\Controllers\RecebimentoFisicoController::class, 'store'])->whereNumber('id')->middleware('can:processo.tramitar')->name('processos.recebimentos.store');
+    Route::get('processos/{id}/folha-rosto', [\App\Http\Controllers\ProcessoController::class, 'folhaDeRosto'])->whereNumber('id')->middleware('can:processo.visualizar')->name('processos.folha-rosto');
     Route::get('processos/{id}/recebimentos/{recebimento}/comprovante', [\App\Http\Controllers\RecebimentoFisicoController::class, 'comprovante'])->whereNumber(['id', 'recebimento'])->middleware('can:processo.visualizar')->name('processos.recebimentos.comprovante');
         Route::post('processos/{id}/avaliacao', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'avaliar'])->whereNumber('id')->name('processos.avaliacao');
         Route::post('processos/{id}/reabrir', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'reabrir'])->whereNumber('id')->name('processos.reabrir');

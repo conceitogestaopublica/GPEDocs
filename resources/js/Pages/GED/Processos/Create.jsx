@@ -11,6 +11,7 @@ import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import EnderecoForm from '../../../Components/EnderecoForm';
 import LocalizacaoDemanda from '../../../Components/LocalizacaoDemanda';
+import RichEditor from '../../../Components/RichEditor';
 
 export default function Create({ tipos_processo, unidades = [], usuarios = [], cidade = '', ouvidoria = { manifestacoes: {}, identificacoes: {}, canais: {} } }) {
     const tipos = tipos_processo || [];
@@ -22,7 +23,11 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [], c
         tipo_processo_id: '',
         assunto: '',
         descricao: '',
+        descricao_html: '',
         prioridade: 'normal',
+        // Chamado técnico (TR 4.35.4, 4.35.7)
+        patrimonio: '',
+        solicitante_user_id: '',
         dados_formulario: {},
         requerente_nome: '',
         requerente_cpf: '',
@@ -115,7 +120,12 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [], c
 
         formData.append('tipo_processo_id', data.tipo_processo_id);
         formData.append('assunto', data.assunto);
-        formData.append('descricao', data.descricao);
+        // Descrição com formatação e tabelas (TR 4.35.10); o servidor guarda também o texto simples
+        if (data.descricao_html) formData.append('descricao_html', data.descricao_html);
+        if (tipoSelecionado?.modalidade === 'chamado') {
+            if (data.patrimonio) formData.append('patrimonio', data.patrimonio);
+            if (data.solicitante_user_id) formData.append('solicitante_user_id', data.solicitante_user_id);
+        }
         formData.append('prioridade', data.prioridade);
 
         // Dados dinamicos do formulario
@@ -208,13 +218,8 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [], c
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-                                    <textarea
-                                        value={data.descricao}
-                                        onChange={(e) => setData('descricao', e.target.value)}
-                                        className="ds-input !h-auto"
-                                        rows={4}
-                                        placeholder="Detalhes adicionais sobre o processo..."
-                                    />
+                                    <RichEditor html={data.descricao_html} onChange={(v) => setData('descricao_html', v)} minHeight={160}
+                                        placeholder="Detalhes adicionais sobre o processo…" />
                                     {errors.descricao && <p className="mt-1 text-xs text-red-600">{errors.descricao}</p>}
                                 </div>
 
@@ -295,6 +300,27 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [], c
                                                 </label>
                                             ))}
                                         </div>
+                                    </div>
+                                </div>
+                            </Card>
+                        )}
+
+                        {/* Chamado técnico: bem do patrimônio e servidor em nome de quem se abre (TR 4.35.4, 4.35.7) */}
+                        {tipoSelecionado?.modalidade === 'chamado' && (
+                            <Card title="Chamado técnico" subtitle="Consertos e manutenções">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Número de patrimônio</label>
+                                        <input value={data.patrimonio} onChange={(e) => setData('patrimonio', e.target.value)} className="ds-input" placeholder="Ex.: 012345" maxLength={60} />
+                                        {errors.patrimonio && <p className="mt-1 text-xs text-red-600">{errors.patrimonio}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Abrir em nome de</label>
+                                        <select value={data.solicitante_user_id} onChange={(e) => setData('solicitante_user_id', e.target.value)} className="ds-input">
+                                            <option value="">Eu mesmo</option>
+                                            {usuarios.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                        </select>
+                                        <p className="mt-1 text-[11px] text-gray-500">O servidor escolhido vira o requerente e acompanha o chamado.</p>
                                     </div>
                                 </div>
                             </Card>

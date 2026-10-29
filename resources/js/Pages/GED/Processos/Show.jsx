@@ -79,7 +79,7 @@ const tabList = [
     { key: 'arvore', label: 'Árvore', icon: 'fas fa-sitemap' },
 ];
 
-export default function Show({ ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
+export default function Show({ solicitante = null, ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
     acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [], classificacao = null, mapa_avaliacao = null }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
@@ -532,6 +532,10 @@ export default function Show({ ouvidoria = null, recebimentos_fisicos = [], marc
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        <a href={`/processos/${proc.id}/folha-rosto`} target="_blank" rel="noreferrer" title="Folha de rosto para a pasta física ou o arquivo"
+                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50">
+                            <i className="fas fa-file-pdf" />Folha de rosto
+                        </a>
                         {proc.status !== 'concluido' && proc.status !== 'cancelado' && (
                             <>
                                 {pode_receber && etapaAtual && (
@@ -594,6 +598,20 @@ export default function Show({ ouvidoria = null, recebimentos_fisicos = [], marc
                                 </li>
                             ))}
                         </ul>
+                    </Card>
+                )}
+                {/* Descrição (com formatação e tabelas), patrimônio e em nome de quem foi aberto (TR 4.35) */}
+                {activeTab === 'detalhes' && (proc.descricao || proc.patrimonio || solicitante) && (
+                    <Card title="Descrição" className="mb-6">
+                        {(proc.patrimonio || solicitante) && (
+                            <div className="flex flex-wrap gap-2 mb-3 text-xs">
+                                {proc.patrimonio && <span className="rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5"><i className="fas fa-barcode mr-1" />Patrimônio {proc.patrimonio}</span>}
+                                {solicitante && <span className="rounded-full bg-gray-100 text-gray-700 px-2.5 py-0.5"><i className="fas fa-user-tag mr-1" />Aberto em nome de {solicitante.name}</span>}
+                            </div>
+                        )}
+                        {proc.descricao_html
+                            ? <div className="texto-rico" dangerouslySetInnerHTML={{ __html: proc.descricao_html }} />
+                            : proc.descricao && <p className="text-sm text-gray-800 whitespace-pre-wrap">{proc.descricao}</p>}
                     </Card>
                 )}
                 {activeTab === 'detalhes' && <MapaAvaliacaoDoProcesso processoId={processo.id} dados={mapa_avaliacao} className="mb-6" />}

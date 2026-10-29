@@ -31,9 +31,12 @@ final class Ouvidoria
     /** Prazo e prorrogação de cada lei: [dias, prorrogação, dias úteis?]. */
     private const PRAZOS = ['ouvidoria' => [30, 30, true], 'esic' => [20, 10, false]];
 
+    /** ouvidoria | esic; outras modalidades do assunto (chamado, legislativo...) não são desta classe. */
     public static function modalidade(?Processo $p): ?string
     {
-        return $p?->tipoProcesso?->modalidade;
+        $m = $p?->tipoProcesso?->modalidade;
+
+        return isset(self::PRAZOS[$m]) ? $m : null;
     }
 
     /** Prazo legal a partir da abertura (ou da data dada). */

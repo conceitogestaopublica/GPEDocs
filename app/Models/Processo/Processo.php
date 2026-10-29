@@ -42,6 +42,9 @@ class Processo extends Model
 
     protected $fillable = [
         'ug_id',
+        'patrimonio',
+        'solicitante_user_id',
+        'descricao_html',
         'numero_protocolo',
         'tipo_processo_id',
         'assunto',
