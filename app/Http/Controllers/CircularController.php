@@ -210,6 +210,7 @@ class CircularController extends Controller
         \App\Support\Acessos::registrar('circular', $circular->id, Auth::user());
 
         return Inertia::render('GED/Circulares/Show', [
+            'classificacao' => \App\Support\Classificacao::doItem('circular', $circular->id),
             'circular' => $circular,
             'acessos'  => \App\Support\Acessos::de('circular', $circular->id),
         ]);

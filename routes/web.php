@@ -428,6 +428,20 @@ Route::middleware('auth')->group(function () {
             Route::resource('tipos-documentais', TipoDocumentalController::class)->except(['create', 'edit', 'show']);
             Route::post('tipos-documentais/{id}/toggle-ativo', [TipoDocumentalController::class, 'toggleAtivo'])->name('tipos-documentais.toggle-ativo');
         });
+        // Plano de classificação (TR 4.27)
+        Route::middleware('can:admin.classificacao')->controller(\App\Http\Controllers\Admin\ClassificacaoController::class)->group(function () {
+            Route::get('classificacao', 'index')->name('classificacao');
+            Route::post('classificacao', 'store')->name('classificacao.store');
+            Route::put('classificacao/{id}', 'update')->whereNumber('id')->name('classificacao.update');
+            Route::delete('classificacao/{id}', 'destroy')->whereNumber('id')->name('classificacao.destroy');
+            Route::post('classificacao/{id}/alternar', 'alternar')->whereNumber('id')->name('classificacao.alternar');
+            Route::post('classificacao/padroes', 'padroes')->name('classificacao.padroes');
+            Route::post('classificacao/retroativa', 'retroativa')->name('classificacao.retroativa');
+            Route::post('classificacao/conferir', 'conferir')->name('classificacao.conferir');
+            Route::post('classificacao/importar', 'importar')->name('classificacao.importar');
+            Route::get('classificacao/exportar', 'exportar')->name('classificacao.exportar');
+            Route::post('classificacao/item/{modulo}/{id}', 'reclassificar')->whereNumber('id')->name('classificacao.reclassificar');
+        });
         Route::middleware('can:admin.tipos_processo')->group(function () {
             Route::resource('tipos-processo', TipoProcessoController::class)->except(['create', 'edit', 'show']);
             Route::post('tipos-processo/{id}/toggle-ativo', [TipoProcessoController::class, 'toggleAtivo'])->name('tipos-processo.toggle-ativo');

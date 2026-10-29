@@ -16,6 +16,7 @@ export const MENU_GED = [
     { title: 'Assinaturas', icon: 'fas fa-file-signature', href: '/assinaturas', color: 'text-emerald-600 bg-emerald-100' },
     { section: 'label', label: 'Administração' },
     { title: 'Tipos Documentais', icon: 'fas fa-file-signature', href: '/admin/tipos-documentais', color: 'text-violet-600 bg-violet-100', permissao: 'admin.tipos_documentais' },
+    { title: 'Plano de Classificação', icon: 'fas fa-sitemap', href: '/admin/classificacao', color: 'text-teal-600 bg-teal-100', permissao: 'admin.classificacao' },
 ];
 
 export const MENU_CONFIGURACOES = [
@@ -90,6 +91,7 @@ export const MENU_GEPSP = [
         children: [
             { title: 'Tipos de Processo',  icon: 'fas fa-cogs',            href: '/admin/tipos-processo',  color: 'text-teal-600 bg-teal-100', permissao: 'admin.tipos_processo' },
             { title: 'Modelos de Ofício',  icon: 'fas fa-file-signature',  href: '/admin/oficios-modelos', color: 'text-cyan-600 bg-cyan-100', permissao: 'admin.tipos_processo' },
+            { title: 'Plano de Classificação', icon: 'fas fa-sitemap',      href: '/admin/classificacao',   color: 'text-teal-600 bg-teal-100', permissao: 'admin.classificacao' },
         ],
     },
 ];

@@ -9,6 +9,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import ClassificacaoDoItem from '../../../Components/ClassificacaoDoItem';
 import StatusPill from '../../../Components/StatusPill';
 import ListaSignatarios from '../../../Components/ListaSignatarios';
 import { useConfirm } from '../../../Components/ConfirmProvider';
@@ -21,7 +22,7 @@ const TABS = [
     { key: 'auditoria', label: 'Auditoria', icon: 'fas fa-shield-alt' },
 ];
 
-export default function Show({ documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito, usuarios, versao_assinada, pode_nova_versao }) {
+export default function Show({ classificacao = null, documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito, usuarios, versao_assinada, pode_nova_versao }) {
     const confirmar = useConfirm();
     // ?aba=assinaturas abre direto na aba (ex.: anexo de processo enviado para assinatura).
     const [activeTab, setActiveTab] = useState(() => {
@@ -198,7 +199,7 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
 
                 <div className="p-6">
                     {activeTab === 'visualizar' && <TabVisualizar documento={doc} versaoAssinada={versao_assinada} />}
-                    {activeTab === 'metadados' && <TabMetadados metadados={metadados} documento={doc} />}
+                    {activeTab === 'metadados' && <><ClassificacaoDoItem classificacao={classificacao} className="mb-6" /><TabMetadados metadados={metadados} documento={doc} /></>}
                     {activeTab === 'assinaturas' && <TabAssinaturas documento={doc} usuarios={usuarios || []} />}
                     {activeTab === 'versoes' && <TabVersoes versoes={versoes} documentoId={doc.id} podeNovaVersao={pode_nova_versao} />}
                     {activeTab === 'auditoria' && <TabAuditoria logs={audit_logs} />}

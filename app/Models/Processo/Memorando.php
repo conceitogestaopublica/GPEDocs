@@ -14,7 +14,9 @@ use Illuminate\Support\Str;
 
 class Memorando extends Model
 {
-    use SoftDeletes, BelongsToUg;
+    use SoftDeletes, BelongsToUg, \App\Models\Concerns\Classificavel;
+
+    public const MODULO_CLASSIFICACAO = 'memorando';
 
     protected $table = 'proc_memorandos';
 

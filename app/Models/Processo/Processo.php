@@ -13,7 +13,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Processo extends Model
 {
-    use SoftDeletes, BelongsToUg;
+    use SoftDeletes, BelongsToUg, \App\Models\Concerns\Classificavel;
+
+    public const MODULO_CLASSIFICACAO = 'processo';
 
     protected $table = 'proc_processos';
 

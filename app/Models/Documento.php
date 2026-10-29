@@ -16,7 +16,9 @@ use Illuminate\Support\Str;
 
 class Documento extends Model
 {
-    use SoftDeletes, BelongsToUg, RespeitaSigilo;
+    use SoftDeletes, BelongsToUg, RespeitaSigilo, Concerns\Classificavel;
+
+    public const MODULO_CLASSIFICACAO = 'documento';
 
     protected $table = 'ged_documentos';
 

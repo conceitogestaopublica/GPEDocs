@@ -59,6 +59,7 @@ class BuscaController extends Controller
                 'setores'   => \App\Models\UgOrganograma::whereIn('id', Setores::doUsuario($user))->orderBy('nome')->get(['id', 'nome']),
                 'usuarios'  => User::where('tipo', 'interno')->whereNull('suspenso_em')->orderBy('name')->get(['id', 'name']),
                 'etiquetas' => Etiquetas::doUsuario($user)->values(),
+                'classificacoes' => \App\Support\Classificacao::opcoes(false),
                 'pode_todos' => (bool) ($user->acesso_geral_ug || $user->super_admin),
             ],
         ]);
@@ -82,6 +83,7 @@ class BuscaController extends Controller
             'interno'  => $r->integer('interno') ?: null,
             'externo'  => trim((string) $r->input('externo', '')),
             'etiqueta' => $r->integer('etiqueta') ?: null,
+            'classificacao' => $r->integer('classificacao') ?: null,
             'situacao' => in_array($r->input('situacao'), ['aberto', 'parcial', 'arquivado'], true) ? $r->input('situacao') : null,
         ];
     }
@@ -227,9 +229,12 @@ class BuscaController extends Controller
         ]);
     }
 
-    /** Número (com ou sem o ano: "123/2026"), ano e período (TR 4.15.6). */
+    /** Número (com ou sem o ano: "123/2026"), ano, período (TR 4.15.6) e classificação com as de baixo (TR 4.27.9). */
     private function comuns(Builder $q, array $f, string $colunaNumero): void
     {
+        if ($f['classificacao']) {
+            $q->whereIn($q->getModel()->qualifyColumn('classificacao_id'), \App\Support\Classificacao::comDescendentes($f['classificacao']));
+        }
         if ($f['numero'] !== '') {
             $q->where($colunaNumero, 'ilike', $this->like($f['numero']));
         }

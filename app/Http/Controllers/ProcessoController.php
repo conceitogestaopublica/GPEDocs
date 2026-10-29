@@ -386,6 +386,7 @@ class ProcessoController extends Controller
         }
 
         return Inertia::render('GED/Processos/Show', [
+            'classificacao'        => \App\Support\Classificacao::doItem('processo', $processo->id),
             'processo'             => $processo,
             'usuarios'             => $usuarios,
             'unidades'             => $unidades,
@@ -519,6 +520,11 @@ class ProcessoController extends Controller
             ]);
 
             $processo->update(['assunto' => trim($dados['assunto']), 'tipo_processo_id' => $tipoNovo->id]);
+
+            // O novo assunto traz a classificação dele (TR 4.27.6–8)
+            if ($mudouTipo && ($classe = \App\Support\Classificacao::paraNovo('processo', $tipoNovo->id))) {
+                \App\Support\Classificacao::reclassificar('processo', $processo->id, $classe, "Assunto recategorizado para \"{$tipoNovo->nome}\"", true);
+            }
 
             // Recategorizado: a etapa principal em andamento passa a ser a 1ª do novo assunto
             if ($mudouTipo) {

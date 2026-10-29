@@ -283,6 +283,7 @@ class OficioController extends Controller
         \App\Support\Acessos::registrar('oficio', $oficio->id, Auth::user());
 
         return Inertia::render('GED/Oficios/Show', [
+            'classificacao' => \App\Support\Classificacao::doItem('oficio', $oficio->id),
             'oficio'        => $oficio,
             'conteudo_html' => $oficio->conteudoFinal(),
             'acessos'       => \App\Support\Acessos::de('oficio', $oficio->id),

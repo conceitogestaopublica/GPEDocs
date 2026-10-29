@@ -9,11 +9,12 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import ClassificacaoDoItem from '../../../Components/ClassificacaoDoItem';
 import QuemAcessou from '../../../Components/QuemAcessou';
 import { useConfirm } from '../../../Components/ConfirmProvider';
 import EmitidoPorContrassenha from '../../../Components/EmitidoPorContrassenha';
 
-export default function CircularesShow({ acessos = [], circular }) {
+export default function CircularesShow({ classificacao = null, acessos = [], circular }) {
     const confirmar = useConfirm();
     const circ = circular || {};
     const destinatarios = circ.destinatarios || [];
@@ -207,6 +208,7 @@ export default function CircularesShow({ acessos = [], circular }) {
                     </Card>
                 </div>
             </div>
+            <ClassificacaoDoItem classificacao={classificacao} className="mt-6" />
             <QuemAcessou acessos={acessos} />
         </AdminLayout>
     );

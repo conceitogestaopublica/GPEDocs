@@ -9,6 +9,7 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import ClassificacaoDoItem from '../../../Components/ClassificacaoDoItem';
 import Modal from '../../../Components/Modal';
 import Tabs from '../../../Components/Tabs';
 import Avatar from '../../../Components/Avatar';
@@ -73,7 +74,7 @@ const tabList = [
 ];
 
 export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
-    acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
+    acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [], classificacao = null }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
     // Meu perfil › Preferências: abrir anexo no navegador ou baixar
@@ -589,6 +590,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                         </ul>
                     </Card>
                 )}
+                {activeTab === 'detalhes' && <ClassificacaoDoItem classificacao={classificacao} className="mb-6" />}
                 {activeTab === 'detalhes' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Dados do formulario */}
@@ -1641,6 +1643,7 @@ const ACOES_HISTORICO = {
     ciencia_copia: 'Ciência da cópia', decisao: 'Decisão', alteracao_assunto: 'Assunto alterado',
     prazo_criado: 'Prazo incluído', prazo_alterado: 'Prazo alterado', prazo_realizado: 'Prazo realizado', prazo_excluido: 'Prazo excluído',
     anexos_reordenados: 'Anexos reordenados', anexo_avaliado: 'Anexo avaliado', link_anexo: 'Link seguro de anexo', arvore_solicitada: 'Árvore do processo pedida',
+    reclassificacao: 'Reclassificado',
 };
 
 function formatDate(dateStr) {

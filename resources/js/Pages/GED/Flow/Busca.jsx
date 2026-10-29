@@ -1,6 +1,6 @@
 /**
  * Busca avançada (TR 4.15): processos, memorandos e ofícios, pelo conteúdo (inclusive o texto
- * dos anexos, com OCR), frase exata entre aspas, tipo + número + ano, período, assunto(s),
+ * dos anexos, com OCR), frase exata entre aspas, tipo + número + ano, período, assunto(s), classificação,
  * setor e escopo, usuário interno, interessado externo, etiqueta e situação geral.
  */
 import { useState } from 'react';
@@ -15,7 +15,7 @@ const SITUACOES = [['', 'Qualquer'], ['aberto', 'Em aberto'], ['parcial', 'Parci
 const ROTULO = { processo: 'Processo', memorando: 'Memorando', oficio: 'Ofício' };
 
 export default function Busca({ filtros, buscou, resultados = [], limitado = false, opcoes = {} }) {
-    const [f, setF] = useState({ ...filtros, ano: filtros.ano || '', setor: filtros.setor || '', interno: filtros.interno || '', etiqueta: filtros.etiqueta || '', situacao: filtros.situacao || '', de: filtros.de || '', ate: filtros.ate || '' });
+    const [f, setF] = useState({ ...filtros, ano: filtros.ano || '', setor: filtros.setor || '', interno: filtros.interno || '', etiqueta: filtros.etiqueta || '', classificacao: filtros.classificacao || '', situacao: filtros.situacao || '', de: filtros.de || '', ate: filtros.ate || '' });
     const set = (k, v) => setF(x => ({ ...x, [k]: v }));
     const buscar = (e) => {
         e?.preventDefault();
@@ -89,6 +89,15 @@ export default function Busca({ filtros, buscou, resultados = [], limitado = fal
                                 {(opcoes.etiquetas || []).map(e => <option key={e.id} value={e.id}>{e.nome} ({e.setor})</option>)}
                             </select>
                         </div>
+                        {(opcoes.classificacoes || []).length > 0 && (
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Classificação (inclui as de baixo)</label>
+                                <select value={f.classificacao} onChange={(e) => set('classificacao', e.target.value)} className="ds-input">
+                                    <option value="">—</option>
+                                    {opcoes.classificacoes.map(c => <option key={c.id} value={c.id}>{'  '.repeat(c.nivel - 1)}{c.rotulo}{c.ativo ? '' : ' (suspensa)'}</option>)}
+                                </select>
+                            </div>
+                        )}
                     </div>
                     {f.tipos.includes('processo') && (opcoes.assuntos || []).length > 0 && (
                         <div>

@@ -14,7 +14,9 @@ use Illuminate\Support\Str;
 
 class Oficio extends Model
 {
-    use SoftDeletes, BelongsToUg;
+    use SoftDeletes, BelongsToUg, \App\Models\Concerns\Classificavel;
+
+    public const MODULO_CLASSIFICACAO = 'oficio';
 
     protected $table = 'proc_oficios';
 

@@ -121,6 +121,7 @@ class DocumentoController extends Controller
         $versaoAtualNumero = (int) $documento->versoes->max('versao');
 
         return Inertia::render('GED/Documentos/Show', [
+            'classificacao'    => \App\Support\Classificacao::doItem('documento', $documento->id),
             'documento'        => $documento->setAttribute('tipo_nome', $documento->tipoDocumental?->nome)
                                             ->setAttribute('autor_nome', $documento->autor?->name),
             'versoes'          => $documento->versoes->sortByDesc('versao')->values()->map(fn ($v) => [

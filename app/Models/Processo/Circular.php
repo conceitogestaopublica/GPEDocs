@@ -14,7 +14,9 @@ use Illuminate\Support\Str;
 
 class Circular extends Model
 {
-    use SoftDeletes, BelongsToUg;
+    use SoftDeletes, BelongsToUg, \App\Models\Concerns\Classificavel;
+
+    public const MODULO_CLASSIFICACAO = 'circular';
 
     protected $table = 'proc_circulares';
 

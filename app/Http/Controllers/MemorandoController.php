@@ -313,6 +313,7 @@ class MemorandoController extends Controller
         Acessos::registrar('memorando', $memorando->id, $user);
 
         return Inertia::render('GED/Memorandos/Show', [
+            'classificacao'   => \App\Support\Classificacao::doItem('memorando', $memorando->id),
             'acessos'         => Acessos::de('memorando', $memorando->id),
             'memorando'       => $memorando,
             'pode_receber'    => $podeReceber,

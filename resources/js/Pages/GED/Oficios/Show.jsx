@@ -10,6 +10,7 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import ClassificacaoDoItem from '../../../Components/ClassificacaoDoItem';
 import QuemAcessou from '../../../Components/QuemAcessou';
 import { useConfirm } from '../../../Components/ConfirmProvider';
 import EmitidoPorContrassenha from '../../../Components/EmitidoPorContrassenha';
@@ -25,7 +26,7 @@ const STATUS_MAP = {
 
 const TIMELINE_STEPS = ['enviado', 'entregue', 'lido', 'respondido'];
 
-export default function OficiosShow({ acessos = [], oficio, conteudo_html = '' }) {
+export default function OficiosShow({ classificacao = null, acessos = [], oficio, conteudo_html = '' }) {
     const confirmar = useConfirm();
     const of = oficio || {};
     const respostas = of.respostas || [];
@@ -334,6 +335,7 @@ export default function OficiosShow({ acessos = [], oficio, conteudo_html = '' }
                     <RastreioEmail of={of} />
                 </div>
             </div>
+            <ClassificacaoDoItem classificacao={classificacao} className="mt-6" />
             <QuemAcessou acessos={acessos} />
         </AdminLayout>
     );
