@@ -13,7 +13,7 @@ use App\Models\Processo\MemorandoTramitacao;
 use App\Models\User;
 use App\Support\Acessos;
 use App\Support\Setores;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Relatorio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -545,12 +545,11 @@ class MemorandoController extends Controller
             }
 
             // Gera o PDF do memorando
-            $pdf = Pdf::loadView('pdf.memorando', [
+            $pdf = Relatorio::pdf('pdf.memorando', [
                 'memorando' => $memorando,
                 'qrCodeUrl' => url("/memorandos/verificar/{$memorando->qr_code_token}"),
                 'ug'        => \App\Models\Ug::find($memorando->ug_id),
             ]);
-            $pdf->setPaper('A4', 'portrait');
             $pdfBytes = $pdf->output();
 
             $filename = 'memorando-' . str_replace(['/', '\\'], '-', $memorando->numero) . '.pdf';
@@ -612,8 +611,7 @@ class MemorandoController extends Controller
             'ug'         => \App\Models\Ug::find($memorando->ug_id),
         ];
 
-        $pdf = Pdf::loadView('pdf.memorando', $data);
-        $pdf->setPaper('A4', 'portrait');
+        $pdf = Relatorio::pdf('pdf.memorando', $data);
 
         $filename = "memorando-{$memorando->numero}.pdf";
         $filename = str_replace('/', '-', $filename);

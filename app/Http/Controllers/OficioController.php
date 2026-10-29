@@ -8,7 +8,7 @@ use App\Models\Notificacao;
 use App\Models\Processo\Oficio;
 use App\Models\Processo\OficioAnexo;
 use App\Models\Processo\OficioResposta;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Relatorio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -356,12 +356,11 @@ class OficioController extends Controller
                 }
             }
 
-            $pdf = Pdf::loadView('pdf.oficio', [
+            $pdf = Relatorio::pdf('pdf.oficio', [
                 'oficio'    => $oficio,
                 'qrCodeUrl' => url("/oficios/verificar/{$oficio->qr_code_token}"),
                 'ug'        => \App\Models\Ug::find($oficio->ug_id),
             ]);
-            $pdf->setPaper('A4', 'portrait');
             $pdfBytes = $pdf->output();
 
             $filename = 'oficio-' . str_replace(['/', '\\'], '-', $oficio->numero) . '.pdf';
@@ -426,8 +425,7 @@ class OficioController extends Controller
             'ug'        => \App\Models\Ug::find($oficio->ug_id),
         ];
 
-        $pdf = Pdf::loadView('pdf.oficio', $data);
-        $pdf->setPaper('A4', 'portrait');
+        $pdf = Relatorio::pdf('pdf.oficio', $data);
 
         $filename = "oficio-{$oficio->numero}.pdf";
         $filename = str_replace('/', '-', $filename);

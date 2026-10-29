@@ -8,7 +8,7 @@ use App\Mail\OficioEletronico;
 use App\Models\Notificacao;
 use App\Models\Processo\Oficio;
 use App\Models\Ug;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Relatorio;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -55,11 +55,13 @@ class OficioEmailService
     /** PDF oficial do ofício, o mesmo do botão "PDF" da tela. */
     public function pdf(Oficio $oficio): string
     {
-        return Pdf::loadView('pdf.oficio', [
+        return Relatorio::pdf('pdf.oficio', [
             'oficio'    => $oficio->loadMissing('remetente', 'respostas.usuario'),
             'qrCodeUrl' => url("/oficios/verificar/{$oficio->qr_code_token}"),
             'ug'        => Ug::withoutGlobalScopes()->find($oficio->ug_id),
-        ])->setPaper('A4', 'portrait')->output();
+            // Vai anexo no e-mail, às vezes pela fila (sem usuário logado): quem gerou é o remetente
+            'usuario'   => $oficio->remetente?->name,
+        ])->output();
     }
 
     /** Aberto: a imagem de rastreio do e-mail foi carregada. Só a primeira vez conta. */

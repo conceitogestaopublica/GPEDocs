@@ -17,7 +17,7 @@ use App\Models\Processo\Tramitacao;
 use App\Models\SolicitacaoAssinatura;
 use App\Models\User;
 use App\Models\Versao;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Relatorio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -606,12 +606,11 @@ class ProcessoController extends Controller
             // parcial) criam SolicitacaoAssinatura+Assinatura para exigir ICP-Brasil.
             $autor = User::find(Auth::id());
             $ug = \App\Models\Ug::find($processo->ug_id);
-            $pdf = Pdf::loadView('pdf.processo-decisao', [
+            $pdf = Relatorio::pdf('pdf.processo-decisao', [
                 'processo' => $processo->refresh()->load(['tipoProcesso', 'abertoPor', 'tramitacoes.remetente']),
                 'autor'    => $autor,
                 'ug'       => $ug,
             ]);
-            $pdf->setPaper('A4', 'portrait');
             $pdfBytes = $pdf->output();
 
             $filename = 'decisao-' . str_replace(['/', '\\'], '-', $processo->numero_protocolo) . '.pdf';

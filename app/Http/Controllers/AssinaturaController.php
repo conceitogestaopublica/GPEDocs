@@ -16,7 +16,7 @@ use App\Services\CertificadoService;
 use App\Services\ConviteAssinaturaService;
 use App\Services\FluxoAssinaturaService;
 use App\Services\PacoteAssinaturaService;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Relatorio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -1329,7 +1329,7 @@ class AssinaturaController extends Controller
             abort(403);
         }
 
-        $pdf = Pdf::loadView('assinaturas.manifesto', [
+        $pdf = Relatorio::pdf('assinaturas.manifesto', [
             'solicitacao' => $solicitacao,
             'documento'   => $documento,
         ]);

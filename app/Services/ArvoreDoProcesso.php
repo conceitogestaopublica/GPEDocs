@@ -23,7 +23,8 @@ use setasign\Fpdi\Tcpdf\Fpdi;
  * cronológica, abertura, despachos, manifestações, comentários (e notas internas), anexos
  * logo depois do ato que os juntou, decisão e documento da decisão, e — na versão com
  * assinaturas — o arquivo assinado e o manifesto com o código de verificação. Todas as
- * páginas levam "Fl. N/M" e o número do processo.
+ * páginas levam "Fl. N/M", o número do processo e o rodapé padrão dos relatórios; as
+ * páginas geradas aqui levam também o cabeçalho padrão (pdf.partials.cabecalho-ug).
  *
  * Os arquivos são lidos na hora de gerar: cada nova árvore traz as versões atuais
  * (TR 4.38.39). PDF anexado entra inteiro (qpdf normaliza; protegido por senha vira
@@ -43,6 +44,9 @@ final class ArvoreDoProcesso
     private array $trecho = [];
     /** @var list<string> */
     private array $observacoes = [];
+    private ?\App\Models\Ug $ug = null;
+    private string $usuario = 'Sistema';
+    private string $protocolo = '';
 
     public function gerar(Arvore $arvore): void
     {
@@ -52,6 +56,9 @@ final class ArvoreDoProcesso
             ->findOrFail($arvore->processo_id);
         $secoes = $arvore->secoes();
         $comprimir = in_array($arvore->configuracao, ['comprimida', 'fracionada'], true);
+        $this->ug = \App\Models\Ug::withoutGlobalScopes()->find($processo->ug_id);
+        $this->usuario = $arvore->solicitante?->name ?? 'Sistema';
+        $this->protocolo = (string) $processo->numero_protocolo;
 
         $this->dir = storage_path('app/arvores-tmp/' . $arvore->id . '-' . uniqid());
         File::ensureDirectoryExists($this->dir);
@@ -266,7 +273,8 @@ final class ArvoreDoProcesso
 
     private function render(array $dados): string
     {
-        return Pdf::loadView('pdf.arvore', $dados + ['fmt' => fn ($d) => $this->fmt($d)])->setPaper('A4')->output();
+        return Pdf::loadView('pdf.arvore', $dados + ['fmt' => fn ($d) => $this->fmt($d), 'ugCabecalho' => $this->ug,
+            'usuario' => $this->usuario, 'protocolo' => $this->protocolo])->setPaper('A4')->output();
     }
 
     /** Capa + sumário + peças, numeradas "Fl. N/M". */
@@ -283,7 +291,7 @@ final class ArvoreDoProcesso
                 $inicio += $paginas[$i];
             }
             file_put_contents($capa, $this->render(['modo' => 'capa', 'processo' => $p, 'sumario' => $sumario,
-                'ug' => \App\Models\Ug::find($p->ug_id)?->nome, 'configuracao' => Arvore::CONFIGURACOES[$arvore->configuracao] ?? $arvore->configuracao,
+                'configuracao' => Arvore::CONFIGURACOES[$arvore->configuracao] ?? $arvore->configuracao,
                 'solicitante' => $arvore->solicitante?->name]));
             $real = $this->paginas($capa);
             if ($real === $paginasCapa) {
@@ -316,8 +324,21 @@ final class ArvoreDoProcesso
             $pdf->useTemplate($tpl);
             $pdf->SetFont('helvetica', '', 7.5);
             $pdf->SetTextColor(90, 90, 90);
-            $pdf->SetXY($tam['width'] - 75, 6);
-            $pdf->Cell(68, 4, "{$protocolo} · Fl. {$n}/{$total}", 0, 0, 'R');
+            $pdf->SetXY($tam['width'] - 75, 1.5);
+            $pdf->Cell(63, 4, "{$protocolo} · Fl. {$n}/{$total}", 0, 0, 'R');
+
+            // Rodapé padrão dos relatórios, também sobre as páginas dos anexos
+            $base = $tam['height'] - 11;
+            $pdf->SetDrawColor(51, 51, 51);
+            $pdf->SetLineWidth(0.2);
+            $pdf->Line(12, $base, $tam['width'] - 12, $base);
+            $pdf->SetFont('helvetica', '', 6);
+            $pdf->SetTextColor(0, 0, 0);
+            $pdf->SetXY(12, $base + 0.8);
+            $pdf->Cell(90, 3, 'GPE Cloud — Gestão Pública Eficiente', 0, 0, 'L');
+            $pdf->SetXY($tam['width'] - 112, $base + 0.8);
+            $pdf->Cell(100, 3, "Usuário do Sistema: {$this->usuario}", 0, 2, 'R');
+            $pdf->Cell(100, 3, "Página {$n} de {$total}", 0, 0, 'R');
         }
         $saida = $this->dir . '/numerado.pdf';
         $pdf->Output($saida, 'F');

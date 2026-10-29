@@ -23,21 +23,15 @@
         table.rastreio tr:nth-child(even) { background: #f8fafc; }
         .status-lido { color: #16a34a; font-weight: bold; }
         .status-nao-lido { color: #ca8a04; font-weight: bold; }
-        .footer { margin-top: 30px; padding-top: 15px; border-top: 2px solid #1e40af; text-align: center; font-size: 9px; color: #999; }
+        .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ddd; text-align: center; font-size: 9px; color: #999; }
         .qr-placeholder { text-align: center; margin-top: 15px; }
         .destinatarios-list { font-size: 11px; }
         .destinatarios-list span { display: inline; }
     </style>
 </head>
 <body>
-    @include('pdf.partials.cabecalho-ug', ['ug' => $ug ?? null])
-
-    {{-- Cabecalho --}}
-    <div class="header">
-        <h1>CIRCULAR INTERNA</h1>
-        <div class="numero">{{ $circular->numero }}</div>
-        <p>Documento gerado em {{ now()->format('d/m/Y H:i:s') }}</p>
-    </div>
+    @include('pdf.partials.cabecalho-ug', ['ug' => $ug ?? null, 'titulo' => 'Circular Interna',
+        'subtitulo' => $circular->numero, 'usuario' => $usuario ?? null])
 
     {{-- Identificacao --}}
     <div class="section">
@@ -127,7 +121,6 @@
             <p style="margin-bottom: 5px;"><strong>Verificacao:</strong> {{ config('app.url') }}/verificar/{{ $circular->qr_code_token }}</p>
         </div>
         @endif
-        <p style="margin-top: 10px;"><strong>Conceito Gestao Publica</strong> — Plataforma Digital Integrada</p>
         <p>Documento gerado automaticamente em {{ now()->format('d/m/Y H:i:s') }}</p>
     </div>
 </body>

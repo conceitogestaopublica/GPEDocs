@@ -4,7 +4,6 @@
 <head>
 <meta charset="UTF-8">
 <style>
-    @page { margin: 28mm 18mm 22mm 18mm; }
     body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 10.5px; color: #222; line-height: 1.45; }
     h1 { font-size: 20px; color: #0e5a7a; margin: 0 0 4px; }
     h2 { font-size: 13px; color: #0e5a7a; border-bottom: 1px solid #cfe3ea; padding-bottom: 3px; margin: 0 0 8px; }
@@ -23,13 +22,15 @@
     .sumario td { padding: 3px 0; border-bottom: 1px dotted #ccc; }
     .sumario td.pg { text-align: right; width: 50px; }
     .ref { border: 2px dashed #b9c9d1; border-radius: 6px; padding: 24px; text-align: center; margin-top: 60px; }
-    img.anexo { max-width: 100%; max-height: 235mm; }
+    img.anexo { max-width: 100%; max-height: 225mm; }
 </style>
 </head>
 <body>
+{{-- Rodapé e "Fl. N/M" são carimbados por ArvoreDoProcesso::numerar, com a numeração da árvore inteira --}}
+@include('pdf.partials.cabecalho-ug', ['ug' => $ugCabecalho, 'titulo' => 'Árvore do Processo',
+    'subtitulo' => $protocolo, 'usuario' => $usuario, 'rodape' => false])
 @if ($modo === 'capa')
     <div class="capa">
-        <p style="color:#555">{{ $ug }}</p>
         <h1>Árvore do processo</h1>
         <div class="num">{{ $processo->numero_protocolo }}</div>
         <p style="font-size:13px">{{ $processo->assunto }}</p>

@@ -22,18 +22,15 @@
         .status-assinado { color: #16a34a; font-weight: bold; }
         .status-recusado { color: #dc2626; font-weight: bold; }
         .status-pendente { color: #ca8a04; font-weight: bold; }
-        .footer { margin-top: 30px; padding-top: 15px; border-top: 2px solid #1e40af; text-align: center; font-size: 9px; color: #999; }
+        .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ddd; text-align: center; font-size: 9px; color: #999; }
         .hash { font-family: 'Courier New', monospace; font-size: 9px; word-break: break-all; background: #f1f5f9; padding: 6px 10px; border-radius: 4px; }
         .legal { margin-top: 20px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 9px; color: #666; }
         .qr-placeholder { text-align: center; margin-top: 15px; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>MANIFESTO DE ASSINATURA ELETRONICA</h1>
-        <p>Conceito Gestao Publica — Plataforma Digital Integrada</p>
-        <p>Documento gerado em {{ now()->format('d/m/Y H:i:s') }}</p>
-    </div>
+    @include('pdf.partials.cabecalho-ug', ['ug' => \App\Models\Ug::withoutGlobalScopes()->find($documento->ug_id),
+        'titulo' => 'Manifesto de Assinatura Eletrônica', 'subtitulo' => $documento->nome])
 
     <div class="section">
         <div class="section-title">Informacoes do Documento</div>
@@ -229,8 +226,7 @@
     </div>
 
     <div class="footer">
-        <p><strong>Conceito Gestao Publica</strong> — Plataforma Digital Integrada</p>
-        <p>Documento gerado automaticamente. Verificacao: {{ config('app.url') }}/verificar/{{ $documento->qr_code_token }}</p>
+        <p>Documento gerado automaticamente em {{ now()->format('d/m/Y H:i:s') }}. Verificação: {{ config('app.url') }}/verificar/{{ $documento->qr_code_token }}</p>
     </div>
 </body>
 </html>

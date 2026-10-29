@@ -9,7 +9,7 @@ use App\Models\Processo\Circular;
 use App\Models\Processo\CircularAnexo;
 use App\Models\Processo\CircularDestinatario;
 use App\Models\User;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Relatorio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -250,12 +250,11 @@ class CircularController extends Controller
                 }
             }
 
-            $pdf = Pdf::loadView('pdf.circular', [
+            $pdf = Relatorio::pdf('pdf.circular', [
                 'circular'  => $circular,
                 'qrCodeUrl' => url("/circulares/verificar/{$circular->qr_code_token}"),
                 'ug'        => \App\Models\Ug::find($circular->ug_id),
             ]);
-            $pdf->setPaper('A4', 'portrait');
             $pdfBytes = $pdf->output();
 
             $filename = 'circular-' . str_replace(['/', '\\'], '-', $circular->numero) . '.pdf';
@@ -315,8 +314,7 @@ class CircularController extends Controller
             'ug'        => \App\Models\Ug::find($circular->ug_id),
         ];
 
-        $pdf = Pdf::loadView('pdf.circular', $data);
-        $pdf->setPaper('A4', 'portrait');
+        $pdf = Relatorio::pdf('pdf.circular', $data);
 
         $filename = "circular-{$circular->numero}.pdf";
         $filename = str_replace('/', '-', $filename);
