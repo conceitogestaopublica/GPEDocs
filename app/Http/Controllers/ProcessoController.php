@@ -232,7 +232,7 @@ class ProcessoController extends Controller
         }
     }
 
-    public function show($id): Response
+    public function show(Request $request, $id): Response
     {
         $processo = Processo::with([
             'tramitacoes.remetente',
@@ -268,7 +268,7 @@ class ProcessoController extends Controller
         $acessoGeral = (bool) $user->acesso_geral_ug;
 
         // Mesma regra que o servidor confere em cada ação (App\Services\AcaoNoProcesso).
-        $acoes = \App\Services\AcaoNoProcesso::avaliar($processo, $user);
+        $acoes = \App\Services\AcaoNoProcesso::avaliar($processo, $user, $request->integer('etapa') ?: null);
         $podeReceber = $acoes['receber'];
         $podeDespachar = $acoes['despachar'];
         $podeConcluir = $acoes['concluir'];
@@ -365,6 +365,8 @@ class ProcessoController extends Controller
             'cuidados'             => $this->cuidados($acoes),
             // Multissetorial (TR 4.9.4, 4.9.5, 4.9.14)
             'etapa_acao'           => $acoes['etapa'],
+            'minhas_etapas'        => \App\Services\AcaoNoProcesso::etapasDoUsuario($processo, $user)
+                ->map(fn ($t) => ['id' => $t->id, 'setor' => $t->setor_destino, 'principal' => $t->frente === 1])->values(),
             'pode_cancelar'        => $acoes['cancelar'],
             'pode_resolver'        => $acoes['resolver'],
             'aguardando_setores'   => $acoes['aguardando'],

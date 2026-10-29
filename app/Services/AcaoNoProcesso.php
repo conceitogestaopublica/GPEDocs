@@ -58,6 +58,14 @@ final class AcaoNoProcesso
             ?? $ativas->first();
     }
 
+    /** Etapas ativas em que o usuário pode agir (mais de uma: ele escolhe em qual). @return Collection<int, Tramitacao> */
+    public static function etapasDoUsuario(Processo $processo, User $user): Collection
+    {
+        return self::etapasAtivas($processo)
+            ->filter(fn (Tramitacao $t) => self::ativoNaEtapa($t, $user))
+            ->sortBy('frente')->values();
+    }
+
     /** Cópia ainda sem ciência endereçada ao usuário ou a um setor dele. */
     public static function copiaDoUsuario(Processo $processo, User $user): ?Tramitacao
     {
@@ -87,9 +95,13 @@ final class AcaoNoProcesso
      * @return array{etapa: ?Tramitacao, receber: bool, despachar: bool, concluir: bool,
      *               cancelar: bool, resolver: bool, aguardando: list<string>}
      */
-    public static function avaliar(Processo $processo, User $user): array
+    public static function avaliar(Processo $processo, User $user, ?int $etapaEscolhida = null): array
     {
-        $etapa = self::etapaDoUsuario($processo, $user);
+        // Quem age em mais de um setor do processo escolhe em qual (tela: "Agir como")
+        $escolhida = $etapaEscolhida
+            ? self::etapasAtivas($processo)->first(fn (Tramitacao $t) => $t->id === $etapaEscolhida && self::ativoNaEtapa($t, $user))
+            : null;
+        $etapa = $escolhida ?? self::etapaDoUsuario($processo, $user);
         $ativo = self::ativoNaEtapa($etapa, $user);
         $encerrado = in_array($processo->status, ['concluido', 'cancelado', 'aguardando_assinatura'], true);
 

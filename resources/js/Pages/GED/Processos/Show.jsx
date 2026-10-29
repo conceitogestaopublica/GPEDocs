@@ -67,7 +67,7 @@ const tabList = [
 ];
 
 export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
-    etapa_acao = null, pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
+    etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
     // Meu perfil › Preferências: abrir anexo no navegador ou baixar
@@ -709,6 +709,19 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                     {/* Painel de acao unificado */}
                     {(pode_despachar || pode_concluir) && ! ['concluido', 'cancelado', 'aguardando_assinatura'].includes(proc.status) && (
                     <Card title="O que você deseja fazer?" className="overflow-visible">
+                        {/* Quem age em mais de um setor do processo escolhe em qual */}
+                        {minhas_etapas.length > 1 && (
+                            <div className="mb-4 pb-4 border-b border-gray-100">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Agir como</label>
+                                <select value={etapaAtual?.id || ''} className="ds-input md:w-1/2"
+                                    onChange={(e) => router.get(`/processos/${proc.id}`, { etapa: e.target.value }, { preserveScroll: true, preserveState: false })}>
+                                    {minhas_etapas.map(m => (
+                                        <option key={m.id} value={m.id}>{m.setor}{m.principal ? ' (fluxo principal)' : ''}</option>
+                                    ))}
+                                </select>
+                                <p className="mt-1 text-[10px] text-gray-400">Você atua em mais de um setor deste processo. O fluxo principal decide e encerra; os outros setores resolvem a parte deles.</p>
+                            </div>
+                        )}
                         {/* Estágio da etapa no setor (TR 4.9.4) */}
                         {pode_despachar && etapaAtual && (
                             <div className="flex flex-wrap items-end gap-2 mb-4 pb-4 border-b border-gray-100">
