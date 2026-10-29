@@ -14,6 +14,7 @@ import EnderecoForm from '../../../Components/EnderecoForm';
 export default function Create({ tipos_processo, unidades = [], usuarios = [] }) {
     const tipos = tipos_processo || [];
     const [files, setFiles] = useState([]);
+    const [exigidos, setExigidos] = useState({});   // índice do documento exigido → arquivo
 
     const { data, setData, post, processing, errors: errosDoForm } = useForm({
         tipo_processo_id: '',
@@ -136,6 +137,7 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
 
         // Arquivos
         files.forEach((file, i) => formData.append(`files[${i}]`, file));
+        Object.entries(exigidos).forEach(([i, file]) => file && formData.append(`anexos_exigidos[${i}]`, file));
 
         router.post('/processos', formData, { forceFormData: true });
     };
@@ -374,6 +376,29 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                                 </div>
                             </div>
                         </Card>
+
+                        {/* Documentos exigidos pelo assunto (TR 4.32.14, 4.38.18) */}
+                        {(tipoSelecionado?.anexos_exigidos || []).length > 0 && (
+                            <Card title="Documentos exigidos">
+                                <div className="space-y-3">
+                                    {tipoSelecionado.anexos_exigidos.map((ax, i) => {
+                                        const exts = (ax.extensoes || '').split(',').map(e => e.trim().replace(/^\./, '')).filter(Boolean);
+                                        return (
+                                            <div key={i}>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    {ax.nome}{ax.obrigatorio !== false && <span className="text-red-500 ml-0.5">*</span>}
+                                                    {exts.length > 0 && <span className="ml-2 text-[10px] text-gray-400 uppercase">{exts.join(', ')}</span>}
+                                                </label>
+                                                <input type="file" accept={exts.map(e => `.${e}`).join(',') || undefined}
+                                                    onChange={(e) => setExigidos(prev => ({ ...prev, [i]: e.target.files[0] || null }))}
+                                                    className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700" />
+                                                {errors[`anexos_exigidos.${i}`] && <p className="mt-1 text-xs text-red-600">{errors[`anexos_exigidos.${i}`]}</p>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </Card>
+                        )}
 
                         {/* Anexos */}
                         <Card title="Anexos">

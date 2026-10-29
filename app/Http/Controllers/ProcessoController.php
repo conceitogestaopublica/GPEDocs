@@ -116,6 +116,13 @@ class ProcessoController extends Controller
         // Campos do formulário de abertura definidos no tipo de processo (obrigatoriedade e tipo).
         $tipoProcesso = TipoProcesso::find($request->input('tipo_processo_id'));
         [$regras, $nomes] = \App\Support\CamposDinamicos::regras($tipoProcesso?->schema_formulario, 'dados_formulario');
+        // Documentos exigidos pelo assunto: obrigatórios e extensões (TR 4.32.14, 4.38.18)
+        foreach ($tipoProcesso?->anexos_exigidos ?? [] as $i => $ax) {
+            $extensoes = array_values(array_filter(array_map(fn ($e) => strtolower(trim($e, " .\t")), explode(',', (string) ($ax['extensoes'] ?? '')))));
+            $regras["anexos_exigidos.{$i}"] = [($ax['obrigatorio'] ?? true) ? 'required' : 'nullable', 'file', 'max:51200',
+                ...($extensoes ? ['extensions:' . implode(',', $extensoes)] : [])];
+            $nomes["anexos_exigidos.{$i}"] = (string) ($ax['nome'] ?? 'Documento');
+        }
         $request->validate($regras, [], $nomes);
 
         try {
@@ -186,14 +193,20 @@ class ProcessoController extends Controller
             $processo->update(['etapa_atual_id' => $tramitacao->id]);
 
             // Armazenar anexos
-            if ($request->hasFile('files')) {
-                foreach ($request->file('files') as $file) {
+            // Documentos exigidos pelo assunto vêm com o nome do documento na frente
+            $exigidos = [];
+            foreach ((array) $request->file('anexos_exigidos', []) as $i => $file) {
+                $exigidos[] = [$file, ($tipo->anexos_exigidos[$i]['nome'] ?? 'Documento') . ' — '];
+            }
+            $avulsos = array_map(fn ($f) => [$f, ''], (array) $request->file('files', []));
+            if ($exigidos || $avulsos) {
+                foreach ([...$exigidos, ...$avulsos] as [$file, $rotulo]) {
                     $path = $file->store(\App\Tenant\TenantStorage::pasta('processos'), 'documentos');
 
                     ProcessoAnexo::create([
                         'processo_id'   => $processo->id,
                         'tramitacao_id' => $tramitacao->id,
-                        'nome'          => $file->getClientOriginalName(),
+                        'nome'          => mb_substr($rotulo . $file->getClientOriginalName(), 0, 255),
                         'arquivo_path'  => $path,
                         'tamanho'       => $file->getSize(),
                         'mime_type'     => $file->getMimeType(),

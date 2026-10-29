@@ -111,6 +111,7 @@ export default function Index({ tipos, unidades = [] }) {
         schema_formulario: [],
         etapas: [],
         templates_despacho: [],
+        anexos_exigidos: [],
     });
 
     const openCreate = () => {
@@ -131,6 +132,7 @@ export default function Index({ tipos, unidades = [] }) {
             schema_formulario: tipo.schema_formulario || [],
             etapas: (tipo.etapas || []).map(e => ({ ...e, unidades: e.unidades || [], obrigatorio: e.obrigatorio ?? true })),
             templates_despacho: tipo.templates_despacho || [],
+            anexos_exigidos: tipo.anexos_exigidos || [],
         });
         setEditingId(tipo.id);
         setActiveSection('basic');
@@ -215,6 +217,7 @@ export default function Index({ tipos, unidades = [] }) {
         { key: 'schema', label: 'Formulário', icon: 'fas fa-list-alt' },
         { key: 'etapas', label: 'Etapas', icon: 'fas fa-route' },
         { key: 'templates', label: 'Templates', icon: 'fas fa-file-alt' },
+        { key: 'anexos', label: 'Documentos exigidos', icon: 'fas fa-paperclip' },
     ];
 
     return (
@@ -670,6 +673,45 @@ export default function Index({ tipos, unidades = [] }) {
                     )}
 
                     {/* ── Section: Templates de Despacho ── */}
+                    {/* ── Section: Documentos exigidos (TR 4.32.14, 4.38.18) ── */}
+                    {activeSection === 'anexos' && (
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm text-gray-500">Documentos que o requerente anexa ao abrir. Sem os obrigatórios o processo não abre.</p>
+                                <button type="button" className="ds-btn ds-btn-outline ds-btn-sm"
+                                    onClick={() => setData('anexos_exigidos', [...data.anexos_exigidos, { nome: '', obrigatorio: true, extensoes: 'pdf' }])}>
+                                    <i className="fas fa-plus mr-1" />Adicionar documento
+                                </button>
+                            </div>
+                            {data.anexos_exigidos.length === 0 && (
+                                <p className="py-6 text-center text-sm text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">Nenhum documento exigido</p>
+                            )}
+                            {data.anexos_exigidos.map((ax, idx) => {
+                                const mudar = (k, v) => setData('anexos_exigidos', data.anexos_exigidos.map((a, i) => i === idx ? { ...a, [k]: v } : a));
+                                return (
+                                    <div key={idx} className="bg-gray-50 rounded-xl p-3 border border-gray-100 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                                        <div className="md:col-span-6">
+                                            <label className="block text-[11px] font-medium text-gray-500 mb-1">Documento</label>
+                                            <input value={ax.nome} onChange={(e) => mudar('nome', e.target.value)} className="ds-input text-xs" placeholder="Ex.: Cópia do RG" maxLength={150} />
+                                        </div>
+                                        <div className="md:col-span-3">
+                                            <label className="block text-[11px] font-medium text-gray-500 mb-1">Extensões permitidas</label>
+                                            <input value={ax.extensoes || ''} onChange={(e) => mudar('extensoes', e.target.value)} className="ds-input text-xs" placeholder="pdf, jpg, png" />
+                                        </div>
+                                        <label className="md:col-span-2 flex items-center gap-1.5 text-xs text-gray-600 pb-2 cursor-pointer">
+                                            <input type="checkbox" checked={ax.obrigatorio !== false} onChange={(e) => mudar('obrigatorio', e.target.checked)} className="rounded border-gray-300 text-blue-600" />
+                                            Obrigatório
+                                        </label>
+                                        <button type="button" title="Remover" onClick={() => setData('anexos_exigidos', data.anexos_exigidos.filter((_, i) => i !== idx))}
+                                            className="md:col-span-1 p-2 text-red-400 hover:text-red-600 justify-self-end">
+                                            <i className="fas fa-trash text-xs" />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
                     {activeSection === 'templates' && (
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
