@@ -171,6 +171,9 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     const [outrosSetores, setOutrosSetores] = useState([]);
     const [copiasSetores, setCopiasSetores] = useState([]);
     const [parecerSetor, setParecerSetor] = useState('');
+    // Manifestação do setor, ao despachar ou resolver a parte dele (TR 4.38.14)
+    const [manifestacao, setManifestacao] = useState('');
+    const manifestacoes = tramitacoes.filter(t => t.manifestacao);
     const [estagio, setEstagio] = useState('');
     useEffect(() => setEstagio(etapaAtual?.estagio || ''), [etapaAtual?.id, etapaAtual?.estagio]);
 
@@ -257,6 +260,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
             outros_setores: [...new Set([...outrosSetores, ...daEtapa])],
             copias: copiasSetores,
             etapa_destino: noFluxo ? etapaDestino : undefined,
+            manifestacao: manifestacao || undefined,
         }));
         despacharForm.post(`/tramitacoes/${etapaAtual.id}/despachar`, {
             forceFormData: true,
@@ -264,6 +268,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                 despacharForm.reset();
                 setDespacharFiles([]);
                 setOutrosSetores([]);
+                setManifestacao('');
                 setCopiasSetores([]);
             },
         });
@@ -678,6 +683,11 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                                 }`}>
                                                                     {tram.status}
                                                                 </span>
+                                                                {tram.manifestacao && (
+                                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${tram.manifestacao === 'deferido' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                                        {tram.manifestacao === 'deferido' ? 'Setor deferiu' : 'Setor indeferiu'}
+                                                                    </span>
+                                                                )}
                                                                 {tram.modo === 'copia' && (
                                                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-sky-100 text-sky-700">cópia</span>
                                                                 )}
@@ -938,6 +948,8 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                         </div>
                                     </div>
 
+                                    <ManifestacaoSetor valor={manifestacao} onChange={setManifestacao} />
+
                                     {/* Outros setores em paralelo e cópias (TR 4.9.4, 4.9.14) */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <SetoresMulti titulo="Outros setores que também vão tratar"
@@ -1052,12 +1064,15 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                     <p>Encerra só a parte de <strong>{etapaAtual.setor_destino}</strong>. O processo continua com os outros setores e é concluído pelo fluxo principal quando todos tiverem resolvido.</p>
                                 </div>
                                 <div>
+                                    <ManifestacaoSetor valor={manifestacao} onChange={setManifestacao} />
+                                </div>
+                                <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">O que o setor fez <span className="text-red-500">*</span></label>
                                     <textarea value={parecerSetor} onChange={(e) => setParecerSetor(e.target.value)} rows={4}
                                         className="ds-input !h-auto" placeholder="Parecer, providências tomadas, resultado..." />
                                 </div>
                                 <Button type="button" variant="primary" icon="fas fa-check-double" disabled={! parecerSetor.trim()}
-                                    onClick={() => router.post(`/tramitacoes/${etapaAtual.id}/resolver`, { parecer: parecerSetor }, {
+                                    onClick={() => router.post(`/tramitacoes/${etapaAtual.id}/resolver`, { parecer: parecerSetor, manifestacao: manifestacao || null }, {
                                         preserveScroll: true, onSuccess: () => setParecerSetor(''),
                                     })}>
                                     Resolver a parte do setor
@@ -1080,6 +1095,20 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                     <i className="fas fa-info-circle mt-0.5" />
                                     <p>Registre a <strong>decisão final</strong> sobre o pedido. O processo será <strong>encerrado</strong> após a decisão.</p>
                                 </div>
+                                {manifestacoes.length > 0 && (
+                                    <div className="rounded-xl border border-gray-200 p-3">
+                                        <p className="text-xs font-semibold text-gray-600 mb-1.5">Manifestações dos setores</p>
+                                        <ul className="space-y-1">
+                                            {manifestacoes.map(t => (
+                                                <li key={t.id} className="text-sm flex items-center gap-2">
+                                                    <i className={`fas ${t.manifestacao === 'deferido' ? 'fa-check-circle text-green-600' : 'fa-times-circle text-red-600'}`} />
+                                                    <span className="text-gray-800">{t.setor_destino}</span>
+                                                    <span className="text-gray-500">— {t.manifestacao}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Parecer / Justificativa <span className="text-red-500">*</span>
@@ -1416,6 +1445,26 @@ function getFileIcon(mime) {
     if (mime.includes('word') || mime.includes('document')) return 'fas fa-file-word text-blue-400';
     if (mime.includes('sheet') || mime.includes('excel')) return 'fas fa-file-excel text-green-400';
     return 'fas fa-file text-gray-400';
+}
+
+/** Manifestação do setor (TR 4.38.14): deferir ou indeferir na sua etapa; a decisão final é do fluxo principal. */
+function ManifestacaoSetor({ valor, onChange }) {
+    const opcoes = [['', 'Sem manifestação'], ['deferido', 'Deferido'], ['indeferido', 'Indeferido']];
+    return (
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Manifestação do setor <span className="text-gray-400 text-xs">(opcional)</span></label>
+            <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+                {opcoes.map(([v, r]) => (
+                    <button key={v || 'nenhuma'} type="button" onClick={() => onChange(v)}
+                        className={`px-3 py-1.5 text-sm border-r last:border-r-0 border-gray-200 ${valor === v
+                            ? (v === 'deferido' ? 'bg-green-600 text-white' : v === 'indeferido' ? 'bg-red-600 text-white' : 'bg-gray-700 text-white')
+                            : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                        {r}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
 }
 
 /** "Decorrido 1d 6h de 2d (63%)" — tempo na etapa contra o prazo ideal (TR 4.38.23). */

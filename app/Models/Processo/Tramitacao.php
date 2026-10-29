@@ -39,6 +39,7 @@ class Tramitacao extends Model
         'estagio',
         'resolvido_em',
         'resolvido_por',
+        'manifestacao',
     ];
 
     protected function casts(): array

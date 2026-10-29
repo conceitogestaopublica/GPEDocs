@@ -87,6 +87,8 @@ class TramitacaoController extends Controller
             'copias.*'         => ['integer', 'distinct', 'exists:ug_organograma,id'],
             // Etapa do fluxo para onde vai: id de uma das permitidas, ou 'manter' (fica na atual)
             'etapa_destino'    => ['nullable', 'string', 'max:20'],
+            // Manifestação do setor que despacha (TR 4.38.14)
+            'manifestacao'     => ['nullable', 'in:deferido,indeferido'],
             'files'           => ['nullable', 'array'],
             'files.*'         => ['file', 'max:51200'],
         ]);
@@ -111,6 +113,7 @@ class TramitacaoController extends Controller
                 'recebido_em'   => $tramitacaoAtual->recebido_em ?? now(),
                 'despachado_em' => now(),
                 'despacho'      => $request->input('despacho'),
+                'manifestacao'  => $request->input('manifestacao') ?: null,
             ]);
 
             // Etapa de destino: o fluxo do tipo de processo é o da frente principal, sem pular
@@ -345,7 +348,10 @@ class TramitacaoController extends Controller
      */
     public function resolver(Request $request, $id)
     {
-        $request->validate(['parecer' => ['required', 'string', 'max:5000']]);
+        $request->validate([
+            'parecer'      => ['required', 'string', 'max:5000'],
+            'manifestacao' => ['nullable', 'in:deferido,indeferido'],
+        ]);
 
         $tramitacao = Tramitacao::findOrFail($id);
         \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacao, Auth::user());
@@ -361,6 +367,7 @@ class TramitacaoController extends Controller
             $tramitacao->update([
                 'status'        => 'resolvido',
                 'parecer'       => $request->input('parecer'),
+                'manifestacao'  => $request->input('manifestacao') ?: null,
                 'recebido_por'  => $tramitacao->recebido_por ?? Auth::id(),
                 'recebido_em'   => $tramitacao->recebido_em ?? now(),
                 'resolvido_em'  => now(),
