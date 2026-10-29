@@ -79,7 +79,7 @@ const tabList = [
     { key: 'arvore', label: 'Árvore', icon: 'fas fa-sitemap' },
 ];
 
-export default function Show({ solicitante = null, ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
+export default function Show({ legislativo = null, solicitante = null, ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
     acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [], classificacao = null, mapa_avaliacao = null }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
@@ -598,6 +598,22 @@ export default function Show({ solicitante = null, ouvidoria = null, recebimento
                                 </li>
                             ))}
                         </ul>
+                    </Card>
+                )}
+                {/* Proposição legislativa: vereador, tipo, número e prazo de resposta (TR 4.37) */}
+                {activeTab === 'detalhes' && legislativo && (
+                    <Card title="Proposição legislativa" className="mb-6">
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                            {legislativo.proposicao && <span className="rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-xs font-semibold">{legislativo.proposicao}{legislativo.numero ? ` nº ${legislativo.numero}` : ''}</span>}
+                            {legislativo.vereador && <span className="text-gray-700"><i className="fas fa-user-tie text-gray-400 mr-1" />{legislativo.vereador.nome}{legislativo.vereador.partido ? ` (${legislativo.vereador.partido})` : ''}</span>}
+                        </div>
+                        {legislativo.prazo && (
+                            <p className="mt-3 text-sm"><i className="fas fa-hourglass-half text-gray-400 mr-1" />Prazo de resposta: <strong>{new Date(legislativo.prazo.vence_em).toLocaleDateString('pt-BR')}</strong>
+                                <span className={`ml-2 text-[11px] rounded-full px-2 py-0.5 ${['vencido', 'fora_do_prazo'].includes(legislativo.prazo.situacao) ? 'bg-red-100 text-red-700' : legislativo.prazo.situacao === 'vencendo' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                    {{ em_dia: 'No prazo', vencendo: 'Vence em breve', vencido: 'Vencida', no_prazo: 'Respondida no prazo', fora_do_prazo: 'Respondida fora do prazo' }[legislativo.prazo.situacao]}
+                                </span>
+                            </p>
+                        )}
                     </Card>
                 )}
                 {/* Descrição (com formatação e tabelas), patrimônio e em nome de quem foi aberto (TR 4.35) */}

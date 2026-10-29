@@ -13,7 +13,7 @@ import EnderecoForm from '../../../Components/EnderecoForm';
 import LocalizacaoDemanda from '../../../Components/LocalizacaoDemanda';
 import RichEditor from '../../../Components/RichEditor';
 
-export default function Create({ tipos_processo, unidades = [], usuarios = [], cidade = '', ouvidoria = { manifestacoes: {}, identificacoes: {}, canais: {} } }) {
+export default function Create({ tipos_processo, unidades = [], usuarios = [], cidade = '', ouvidoria = { manifestacoes: {}, identificacoes: {}, canais: {} }, legislativo = { proposicoes: {}, vereadores: [] } }) {
     const tipos = tipos_processo || [];
     const [local, setLocal] = useState({ latitude: null, longitude: null, endereco: '' });
     const [files, setFiles] = useState([]);
@@ -28,6 +28,10 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [], c
         // Chamado técnico (TR 4.35.4, 4.35.7)
         patrimonio: '',
         solicitante_user_id: '',
+        // Protocolo legislativo (TR 4.37.1)
+        vereador_id: '',
+        proposicao_tipo: '',
+        proposicao_numero: '',
         dados_formulario: {},
         requerente_nome: '',
         requerente_cpf: '',
@@ -122,6 +126,9 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [], c
         formData.append('assunto', data.assunto);
         // Descrição com formatação e tabelas (TR 4.35.10); o servidor guarda também o texto simples
         if (data.descricao_html) formData.append('descricao_html', data.descricao_html);
+        if (tipoSelecionado?.modalidade === 'legislativo') {
+            ['vereador_id', 'proposicao_tipo', 'proposicao_numero'].forEach((c) => { if (data[c]) formData.append(c, data[c]); });
+        }
         if (tipoSelecionado?.modalidade === 'chamado') {
             if (data.patrimonio) formData.append('patrimonio', data.patrimonio);
             if (data.solicitante_user_id) formData.append('solicitante_user_id', data.solicitante_user_id);
@@ -300,6 +307,34 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [], c
                                                 </label>
                                             ))}
                                         </div>
+                                    </div>
+                                </div>
+                            </Card>
+                        )}
+
+                        {/* Protocolo legislativo: vereador, tipo e número da proposição (TR 4.37.1) */}
+                        {tipoSelecionado?.modalidade === 'legislativo' && (
+                            <Card title="Proposição legislativa" subtitle={`Prazo de resposta: ${tipoSelecionado.prazo_resposta_dias || 15} dias${tipoSelecionado.prazo_dias_uteis ? ' úteis' : ''}`}>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Vereador <span className="text-red-500">*</span></label>
+                                        <select value={data.vereador_id} onChange={(e) => setData('vereador_id', e.target.value)} className="ds-input">
+                                            <option value="">Selecione…</option>
+                                            {legislativo.vereadores.map(v => <option key={v.id} value={v.id}>{v.nome}{v.partido ? ` (${v.partido})` : ''}</option>)}
+                                        </select>
+                                        {errors.vereador_id && <p className="mt-1 text-xs text-red-600">{errors.vereador_id}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tipo <span className="text-red-500">*</span></label>
+                                        <select value={data.proposicao_tipo} onChange={(e) => setData('proposicao_tipo', e.target.value)} className="ds-input">
+                                            <option value="">Selecione…</option>
+                                            {Object.entries(legislativo.proposicoes).map(([v, r]) => <option key={v} value={v}>{r}</option>)}
+                                        </select>
+                                        {errors.proposicao_tipo && <p className="mt-1 text-xs text-red-600">{errors.proposicao_tipo}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Número na Câmara</label>
+                                        <input value={data.proposicao_numero} onChange={(e) => setData('proposicao_numero', e.target.value)} className="ds-input" placeholder="Ex.: 123/2026" maxLength={30} />
                                     </div>
                                 </div>
                             </Card>

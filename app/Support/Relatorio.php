@@ -13,9 +13,10 @@ use Dompdf\FontMetrics;
  */
 class Relatorio
 {
-    public static function pdf(string $view, array $dados = []): DomPdf
+    /** $orientacao vai aqui (e não em setPaper depois): o PDF já sai renderizado. */
+    public static function pdf(string $view, array $dados = [], string $orientacao = 'portrait'): DomPdf
     {
-        $pdf = Pdf::loadView($view, $dados)->setPaper('A4', 'portrait');
+        $pdf = Pdf::loadView($view, $dados)->setPaper('A4', $orientacao);
         $pdf->render();
         $pdf->getDomPDF()->getCanvas()->page_script(function (int $n, int $total, Canvas $canvas, FontMetrics $metricas) {
             $fonte = $metricas->getFont('helvetica');

@@ -23,6 +23,7 @@ class Processo extends Model
         static::created(function (Processo $p) {
             // Ouvidoria/e-SIC: prazo legal; anônima não guarda identificação (TR 4.33.27)
             \App\Support\Ouvidoria::aoAbrir($p);
+            \App\Support\Legislativo::aoAbrir($p);
             // Manifestante sigiloso ou anônimo não vai para a base de contatos (seria visto por quem consulta contatos)
             if ($p->contato_id || ! $p->requerente_cpf || in_array($p->identificacao, ['sigilosa', 'anonima'], true)) {
                 return;
@@ -43,6 +44,9 @@ class Processo extends Model
     protected $fillable = [
         'ug_id',
         'patrimonio',
+        'vereador_id',
+        'proposicao_tipo',
+        'proposicao_numero',
         'solicitante_user_id',
         'descricao_html',
         'numero_protocolo',
@@ -91,6 +95,11 @@ class Processo extends Model
             'latitude' => 'float',
             'longitude' => 'float',
         ];
+    }
+
+    public function vereador(): BelongsTo
+    {
+        return $this->belongsTo(Vereador::class);
     }
 
     public function tipoProcesso(): BelongsTo

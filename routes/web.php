@@ -611,6 +611,14 @@ Route::middleware('auth')->group(function () {
         // Painéis da ouvidoria e do e-SIC (TR 4.33.25–26, 4.34)
         Route::get('ouvidoria', [\App\Http\Controllers\Flow\OuvidoriaController::class, 'ouvidoria'])->name('ouvidoria');
         Route::get('esic', [\App\Http\Controllers\Flow\OuvidoriaController::class, 'esic'])->name('esic');
+        // Protocolo legislativo (TR 4.37)
+        Route::middleware('can:legislativo.gerir')->controller(\App\Http\Controllers\Flow\LegislativoController::class)->group(function () {
+            Route::get('legislativo', 'index')->name('legislativo');
+            Route::get('legislativo/relatorio', 'relatorio')->name('legislativo.relatorio');
+            Route::get('legislativo/vereadores', 'vereadores')->name('legislativo.vereadores');
+            Route::post('legislativo/vereadores', 'salvarVereador')->name('legislativo.vereadores.store');
+            Route::put('legislativo/vereadores/{id}', 'salvarVereador')->whereNumber('id')->name('legislativo.vereadores.update');
+        });
         // Contatos (TR 4.21)
         Route::middleware('can:contato.gerenciar')->controller(\App\Http\Controllers\Contatos\ContatoController::class)->group(function () {
             Route::get('contatos', 'index')->name('contatos');

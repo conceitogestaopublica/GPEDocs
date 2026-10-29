@@ -90,6 +90,14 @@ export const MENU_GEPSP = [
         ],
     },
     {
+        // Requerimentos e indicações de vereadores (TR 4.37)
+        title: 'Legislativo', icon: 'fas fa-landmark', color: 'text-amber-600 bg-amber-100',
+        children: [
+            { title: 'Protocolo legislativo', icon: 'fas fa-landmark', href: '/flow/legislativo',            color: 'text-amber-600 bg-amber-100', permissao: 'legislativo.gerir' },
+            { title: 'Vereadores',            icon: 'fas fa-user-tie', href: '/flow/legislativo/vereadores', color: 'text-amber-600 bg-amber-100', permissao: 'legislativo.gerir' },
+        ],
+    },
+    {
         title: 'Privado', icon: 'fas fa-lock', color: 'text-emerald-600 bg-emerald-100',
         children: [
             { title: 'Saída (Originados)', icon: 'fas fa-paper-plane',  href: '/flow/saida',     color: 'text-emerald-600 bg-emerald-100' },

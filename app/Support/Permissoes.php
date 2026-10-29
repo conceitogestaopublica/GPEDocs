@@ -41,6 +41,7 @@ final class Permissoes
         'portal.atendimento'   => 'Atender solicitações do portal do cidadão',
         'portal.carta_servicos' => 'Manter a carta de serviços',
         'contato.gerenciar'    => 'Consultar e manter contatos (cadastro, listas, procurações, unificação e CSV)',
+        'legislativo.gerir'    => 'Protocolo legislativo: painel, relatórios e cadastro de vereadores',
         'rh.requerimentos'     => 'Gestão de Pessoas: ver todos os requerimentos pessoais de servidores',
         'ouvidoria.gerir'      => 'Ouvidoria: painel, dados de manifestante sigiloso, resolver em todos os setores e decisão final',
         'esic.gerir'           => 'e-SIC: painel de pedidos de acesso à informação e prorrogação de prazo (LAI)',

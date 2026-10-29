@@ -49,7 +49,8 @@ class TipoProcessoController extends Controller
             'sla_padrao_horas'        => ['required', 'integer'],
             'prazo_dias_uteis'        => ['nullable', 'boolean'],
             'localizacao'             => ['nullable', 'in:nao,opcional,obrigatoria'],
-            'modalidade'              => ['nullable', 'in:ouvidoria,esic,chamado,servidor'],
+            'modalidade'              => ['nullable', 'in:ouvidoria,esic,chamado,servidor,legislativo'],
+            'prazo_resposta_dias'     => ['nullable', 'integer', 'min:1', 'max:365'],
             'email_entrada'           => ['nullable', 'email', 'max:150', 'unique:proc_tipos_processo,email_entrada', 'required_with:email_unidade_id'],
             'email_unidade_id'        => ['nullable', 'integer', 'exists:ug_organograma,id', 'required_with:email_entrada'],
             'avaliacao'               => ['nullable', 'boolean'],
@@ -84,6 +85,7 @@ class TipoProcessoController extends Controller
                 // E-mail setorial que abre manifestação neste assunto (TR 4.33.4)
                 'email_entrada'     => mb_strtolower(trim((string) $request->input('email_entrada'))) ?: null,
                 'email_unidade_id'  => $request->integer('email_unidade_id') ?: null,
+                'prazo_resposta_dias' => $request->integer('prazo_resposta_dias') ?: null,
                 'avaliacao'         => $request->boolean('avaliacao', true),
                 'ativo'             => true,
                 'criado_por'        => Auth::id(),
@@ -131,7 +133,8 @@ class TipoProcessoController extends Controller
             'sla_padrao_horas'        => ['required', 'integer'],
             'prazo_dias_uteis'        => ['nullable', 'boolean'],
             'localizacao'             => ['nullable', 'in:nao,opcional,obrigatoria'],
-            'modalidade'              => ['nullable', 'in:ouvidoria,esic,chamado,servidor'],
+            'modalidade'              => ['nullable', 'in:ouvidoria,esic,chamado,servidor,legislativo'],
+            'prazo_resposta_dias'     => ['nullable', 'integer', 'min:1', 'max:365'],
             'email_entrada'           => ['nullable', 'email', 'max:150', \Illuminate\Validation\Rule::unique('proc_tipos_processo', 'email_entrada')->ignore($id), 'required_with:email_unidade_id'],
             'email_unidade_id'        => ['nullable', 'integer', 'exists:ug_organograma,id', 'required_with:email_entrada'],
             'avaliacao'               => ['nullable', 'boolean'],
@@ -168,6 +171,7 @@ class TipoProcessoController extends Controller
                 // E-mail setorial que abre manifestação neste assunto (TR 4.33.4)
                 'email_entrada'     => mb_strtolower(trim((string) $request->input('email_entrada'))) ?: null,
                 'email_unidade_id'  => $request->integer('email_unidade_id') ?: null,
+                'prazo_resposta_dias' => $request->integer('prazo_resposta_dias') ?: null,
                 'avaliacao'         => $request->boolean('avaliacao', true),
             ]);
 

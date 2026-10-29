@@ -98,6 +98,9 @@ class ProcessoController extends Controller
             // Ouvidoria (TR 4.33.4, 4.33.8, 4.33.27): tipo, identificação e canal de quem registrou
             'ouvidoria'      => ['manifestacoes' => \App\Support\Ouvidoria::MANIFESTACOES, 'identificacoes' => \App\Support\Ouvidoria::IDENTIFICACOES,
                 'canais' => array_diff_key(\App\Support\Ouvidoria::CANAIS, ['portal' => 1])],
+            // Protocolo legislativo (TR 4.37.1)
+            'legislativo'    => ['proposicoes' => \App\Support\Legislativo::PROPOSICOES,
+                'vereadores' => \App\Models\Processo\Vereador::where('ativo', true)->orderBy('nome')->get(['id', 'nome', 'partido'])],
         ]);
     }
 
@@ -121,6 +124,10 @@ class ProcessoController extends Controller
             'patrimonio'         => ['nullable', 'string', 'max:60'],
             'solicitante_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'descricao_html'     => ['nullable', 'string', 'max:200000'],
+            // Protocolo legislativo (TR 4.37.1)
+            'vereador_id'        => ['nullable', 'integer', 'exists:proc_vereadores,id'],
+            'proposicao_tipo'    => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\Legislativo::PROPOSICOES))],
+            'proposicao_numero'  => ['nullable', 'string', 'max:30'],
             'setor_destino_inicial' => ['required', 'integer', 'exists:ug_organograma,id'],
             'destinatario_inicial'  => ['nullable', 'integer', 'exists:users,id'],
             'files'              => ['nullable', 'array'],
@@ -131,6 +138,10 @@ class ProcessoController extends Controller
         $tipoProcesso = TipoProcesso::find($request->input('tipo_processo_id'));
         if ($tipoProcesso?->modalidade === 'ouvidoria') {
             $request->validate(['manifestacao_tipo' => ['required']], ['manifestacao_tipo.required' => 'Escolha o tipo da manifestação.']);
+        }
+        if ($tipoProcesso?->modalidade === 'legislativo') {
+            $request->validate(['vereador_id' => ['required'], 'proposicao_tipo' => ['required']],
+                ['vereador_id.required' => 'Escolha o vereador.', 'proposicao_tipo.required' => 'Escolha o tipo da proposição.']);
         }
         [$regras, $nomes] = \App\Support\CamposDinamicos::regras($tipoProcesso?->schema_formulario, 'dados_formulario');
         // Documentos exigidos pelo assunto: obrigatórios e extensões (TR 4.32.14, 4.38.18)
@@ -419,6 +430,9 @@ class ProcessoController extends Controller
             'recebimentos_fisicos' => \App\Http\Controllers\RecebimentoFisicoController::doProcesso($processo->id),
             'ouvidoria'       => self::dadosOuvidoria($processo),
             'menu_url'        => self::menuDoProcesso($request, $processo),
+            'legislativo'     => $processo->vereador_id || $processo->proposicao_tipo ? [
+                'vereador' => $processo->vereador?->only(['nome', 'partido']), 'proposicao' => \App\Support\Legislativo::PROPOSICOES[$processo->proposicao_tipo] ?? null,
+                'numero' => $processo->proposicao_numero, 'prazo' => \App\Support\Ouvidoria::situacaoPrazo($processo)] : null,
             'solicitante'     => $processo->solicitante_user_id ? User::find($processo->solicitante_user_id, ['id', 'name']) : null,
             'marcadores'      => ['citado_em' => \App\Support\Marcadores::citadoEm('processo', $processo->id), 'pessoas' => \App\Support\Marcadores::doDocumento('processo', $processo->id)],
             'classificacao'        => \App\Support\Classificacao::doItem('processo', $processo->id),
@@ -1028,7 +1042,9 @@ class ProcessoController extends Controller
      */
     private static function dadosChamado(Request $request): array
     {
-        $dados = ['patrimonio' => trim((string) $request->input('patrimonio')) ?: null];
+        $dados = ['patrimonio' => trim((string) $request->input('patrimonio')) ?: null,
+            'vereador_id' => $request->integer('vereador_id') ?: null, 'proposicao_tipo' => $request->input('proposicao_tipo') ?: null,
+            'proposicao_numero' => trim((string) $request->input('proposicao_numero')) ?: null];
         $html = \App\Support\HtmlSeguro::limpar($request->input('descricao_html'));
         if (trim(strip_tags($html)) !== '' || str_contains($html, '<table')) {
             $dados['descricao_html'] = $html;
@@ -1065,6 +1081,9 @@ class ProcessoController extends Controller
         $mod = \App\Support\Ouvidoria::modalidade($p);
         if ($mod) {
             return $mod === 'esic' ? '/flow/esic' : '/flow/ouvidoria';
+        }
+        if ($p->tipoProcesso?->modalidade === 'legislativo') {
+            return '/flow/legislativo';
         }
         if ($p->canal === 'portal' || $p->setor_origem === 'Portal do Cidadao') {
             return '/flow/portal/solicitacoes';

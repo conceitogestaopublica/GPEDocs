@@ -112,6 +112,7 @@ export default function Index({ tipos, unidades = [] }) {
         modalidade: '',
         email_entrada: '',
         email_unidade_id: '',
+        prazo_resposta_dias: '',
         avaliacao: true,
         ativo: true,
         schema_formulario: [],
@@ -139,6 +140,7 @@ export default function Index({ tipos, unidades = [] }) {
             modalidade: tipo.modalidade || '',
             email_entrada: tipo.email_entrada || '',
             email_unidade_id: tipo.email_unidade_id || '',
+            prazo_resposta_dias: tipo.prazo_resposta_dias || '',
             avaliacao: tipo.avaliacao !== false,
             ativo: tipo.ativo !== false,
             schema_formulario: tipo.schema_formulario || [],
@@ -457,7 +459,15 @@ export default function Index({ tipos, unidades = [] }) {
                                         <option value="esic">e-SIC / acesso à informação (LAI — 20 dias + 10)</option>
                                         <option value="chamado">Chamado técnico (patrimônio, abrir em nome de servidor)</option>
                                         <option value="servidor">Requerimento do servidor (só Gestão de Pessoas e setores envolvidos; fora das buscas)</option>
+                                        <option value="legislativo">Protocolo legislativo (vereador, proposição, prazo de resposta)</option>
                                     </select>
+                                    {data.modalidade === 'legislativo' && (
+                                        <div className="mb-3 -mt-1">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Prazo de resposta ao vereador (dias)</label>
+                                            <input type="number" min="1" max="365" value={data.prazo_resposta_dias} onChange={(e) => setData('prazo_resposta_dias', e.target.value)} className="ds-input" placeholder="15" />
+                                            <p className="text-[11px] text-gray-500 mt-1">Conta em dias úteis se a opção de dias úteis estiver marcada.</p>
+                                        </div>
+                                    )}
                                     <label className="block text-sm font-medium text-gray-700 mb-1">E-mail de entrada <span className="font-normal text-gray-400">(opcional)</span></label>
                                     <input type="email" value={data.email_entrada} onChange={(e) => setData('email_entrada', e.target.value)} className="ds-input" placeholder="ouvidoria@municipio.gov.br" />
                                     {errors.email_entrada && <p className="text-xs text-red-600 mt-1">{errors.email_entrada}</p>}

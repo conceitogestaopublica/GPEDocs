@@ -30,6 +30,7 @@ class TipoProcesso extends Model
         'modalidade',
         'email_entrada',
         'email_unidade_id',
+        'prazo_resposta_dias',
     ];
 
     protected function casts(): array
