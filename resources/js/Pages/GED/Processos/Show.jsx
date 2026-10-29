@@ -12,6 +12,7 @@ import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
 import Tabs from '../../../Components/Tabs';
 import Avatar from '../../../Components/Avatar';
+import QuemAcessou from '../../../Components/QuemAcessou';
 import AssinarModal from '../../../Components/AssinarModal';
 import { useConfirm, useAvisar } from '../../../Components/ConfirmProvider';
 
@@ -67,7 +68,7 @@ const tabList = [
 ];
 
 export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
-    etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
+    acessos = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
     // Meu perfil › Preferências: abrir anexo no navegador ou baixar
@@ -1135,6 +1136,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
 
                 {/* ── Tab: Comentarios ── */}
                 {activeTab === 'historico' && (
+                    <>
                     <Card title="Histórico do processo">
                         {(proc.historico || []).length === 0 ? (
                             <div className="py-8 text-center text-gray-400">
@@ -1170,6 +1172,8 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             </table>
                         )}
                     </Card>
+                    <QuemAcessou acessos={acessos} />
+                    </>
                 )}
 
                 {activeTab === 'comentarios' && (

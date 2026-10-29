@@ -60,6 +60,7 @@ class AssinaturaExternaController extends Controller
         if (! $assinatura->convite_acessado_em) {
             $assinatura->forceFill(['convite_acessado_em' => now()])->save();
         }
+        $this->registrarAcessoExterno($assinatura);
 
         $base = ['convite' => $this->dadosConvite($assinatura), 'token' => $token,
             'pacote_link' => $assinatura->pacoteConvite?->link()];
@@ -692,6 +693,34 @@ class AssinaturaExternaController extends Controller
         abort_unless($caminho && Storage::disk('documentos')->exists($caminho), 404);
 
         return $caminho;
+    }
+
+    /**
+     * Abertura do link pelo externo vai para a auditoria do documento (TR 4.14.3), como a
+     * visualização interna: a mesma pessoa reabrindo em até 10 minutos não gera outro registro.
+     */
+    private function registrarAcessoExterno(Assinatura $a): void
+    {
+        try {
+            $recente = AuditLog::where('documento_id', $a->documento_id)
+                ->where('acao', 'visualizacao_externa')
+                ->where('detalhes->assinatura_id', $a->id)
+                ->where('created_at', '>=', now()->subMinutes(10))
+                ->exists();
+            if (! $recente) {
+                AuditLog::create([
+                    'documento_id' => $a->documento_id,
+                    'usuario_id'   => null,
+                    'acao'         => 'visualizacao_externa',
+                    'detalhes'     => ['assinatura_id' => $a->id, 'nome' => $a->nome_signatario,
+                        'cpf' => ConviteAssinaturaService::mascararCpf($a->cpf_signatario), 'via' => 'link de assinatura'],
+                    'ip'           => request()->ip(),
+                    'user_agent'   => request()->userAgent(),
+                ]);
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     private function dadosConvite(Assinatura $a): array

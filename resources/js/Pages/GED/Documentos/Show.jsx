@@ -408,7 +408,7 @@ function TabAuditoria({ logs }) {
                     {items.map(log => (
                         <tr key={log.id} className="hover:bg-gray-50">
                             <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(log.created_at)}</td>
-                            <td className="px-4 py-3 text-gray-700 font-medium">{log.usuario_nome || '-'}</td>
+                            <td className="px-4 py-3 text-gray-700 font-medium">{log.usuario_nome || (log.detalhes?.nome ? `${log.detalhes.nome} (externo)` : '-')}</td>
                             <td className="px-4 py-3">
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{ACOES_AUDITORIA[log.acao] || log.acao}</span>
                             </td>
@@ -797,7 +797,7 @@ const ACOES_AUDITORIA = {
     edicao: 'Edição', alteracao_status: 'Situação alterada', movimentacao: 'Mudança de pasta',
     exclusao: 'Exclusão', nova_versao: 'Nova versão', solicitacao_assinatura: 'Assinatura solicitada',
     assinatura: 'Assinatura', assinatura_qualificada_icp: 'Assinatura ICP-Brasil', recusa_assinatura: 'Assinatura recusada',
-    assinatura_externa: 'Assinatura por link (externo)',
+    assinatura_externa: 'Assinatura por link (externo)', visualizacao_externa: 'Acesso pelo link (externo)',
     cancelado_via_integracao: 'Cancelado pela origem', restauracao: 'Restaurado da lixeira',
 };
 

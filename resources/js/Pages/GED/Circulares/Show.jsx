@@ -9,10 +9,11 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import QuemAcessou from '../../../Components/QuemAcessou';
 import { useConfirm } from '../../../Components/ConfirmProvider';
 import EmitidoPorContrassenha from '../../../Components/EmitidoPorContrassenha';
 
-export default function CircularesShow({ circular }) {
+export default function CircularesShow({ acessos = [], circular }) {
     const confirmar = useConfirm();
     const circ = circular || {};
     const destinatarios = circ.destinatarios || [];
@@ -206,6 +207,7 @@ export default function CircularesShow({ circular }) {
                     </Card>
                 </div>
             </div>
+            <QuemAcessou acessos={acessos} />
         </AdminLayout>
     );
 }

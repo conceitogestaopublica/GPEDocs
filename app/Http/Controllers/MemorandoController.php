@@ -11,6 +11,7 @@ use App\Models\Processo\MemorandoDestinatario;
 use App\Models\Processo\MemorandoResposta;
 use App\Models\Processo\MemorandoTramitacao;
 use App\Models\User;
+use App\Support\Acessos;
 use App\Support\Setores;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -241,6 +242,8 @@ class MemorandoController extends Controller
         $user = Auth::user();
         $userId = $user->id;
         $acessoGeral = (bool) $user->acesso_geral_ug;
+        // Usada no banner abaixo e nunca definida: toda tela de memorando dava erro 500.
+        $isRemetente = $memorando->remetente_id === $userId;
 
         if (! $this->podeVer($memorando, $user)) {
             abort(403, 'Você não tem permissão para visualizar este memorando.');
@@ -307,7 +310,10 @@ class MemorandoController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'unidade_id']);
 
+        Acessos::registrar('memorando', $memorando->id, $user);
+
         return Inertia::render('GED/Memorandos/Show', [
+            'acessos'         => Acessos::de('memorando', $memorando->id),
             'memorando'       => $memorando,
             'pode_receber'    => $podeReceber,
             'pode_tramitar'   => $podeTramitar,

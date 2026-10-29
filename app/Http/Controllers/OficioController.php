@@ -280,9 +280,12 @@ class OficioController extends Controller
             abort(403, 'Você não tem permissão para visualizar este ofício.');
         }
 
+        \App\Support\Acessos::registrar('oficio', $oficio->id, Auth::user());
+
         return Inertia::render('GED/Oficios/Show', [
             'oficio'        => $oficio,
             'conteudo_html' => $oficio->conteudoFinal(),
+            'acessos'       => \App\Support\Acessos::de('oficio', $oficio->id),
         ]);
     }
 
@@ -458,7 +461,9 @@ class OficioController extends Controller
         }
 
         app(\App\Services\OficioEmailService::class)->registrarLeitura($oficio);
-        $ug = \App\Models\Ug::withoutGlobalScopes()->find($oficio->ug_id);
+        // Acesso do externo pelo link (TR 4.14.3)
+        \App\Support\Acessos::registrar('oficio', $oficio->id, null, ($oficio->destinatario_nome ?: 'Destinatário') . ' (link do ofício)');
+        $ug =\App\Models\Ug::withoutGlobalScopes()->find($oficio->ug_id);
 
         return Inertia::render('GED/Oficios/Rastreio', [
             'valido' => true,

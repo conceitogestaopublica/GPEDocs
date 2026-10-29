@@ -270,6 +270,7 @@ class ProcessoController extends Controller
 
         // Mesma regra que o servidor confere em cada ação (App\Services\AcaoNoProcesso).
         $acoes = \App\Services\AcaoNoProcesso::avaliar($processo, $user, $request->integer('etapa') ?: null);
+        \App\Support\Acessos::registrar('processo', $processo->id, $user);
         $podeReceber = $acoes['receber'];
         $podeDespachar = $acoes['despachar'];
         $podeConcluir = $acoes['concluir'];
@@ -374,6 +375,7 @@ class ProcessoController extends Controller
             'copia_pendente'       => \App\Services\AcaoNoProcesso::copiaDoUsuario($processo, $user),
             'frentes'              => $this->frentes($processo),
             'estagios'             => Tramitacao::ESTAGIOS,
+            'acessos'              => \App\Support\Acessos::de('processo', $processo->id),
         ]);
     }
 
