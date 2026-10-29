@@ -71,6 +71,7 @@ class MemorandoController extends Controller
 
         return Inertia::render('GED/Memorandos/Create', [
             'variaveis'    => Memorando::variaveisParaEditor(),
+            'rascunho'     => \App\Support\Rascunhos::abrir(request()->integer('rascunho') ?: null, Auth::user(), 'memorando'),
             'autorizacoes' => EmNomeDe::autorizacoes(),
             'usuarios' => $usuarios,
             'unidades' => $unidades,
@@ -171,6 +172,11 @@ class MemorandoController extends Controller
                 }
             }
 
+            // Anexos guardados no rascunho automático (TR 4.16.8)
+            foreach (\App\Support\Rascunhos::entregarAnexos($request->integer('rascunho_id') ?: null, 'memorandos', Auth::user()) as $anexo) {
+                MemorandoAnexo::create(['memorando_id' => $memorando->id] + $anexo);
+            }
+
             foreach (array_unique($usuariosNotificar) as $usuarioId) {
                 Notificacao::create([
                     'usuario_id'      => (int) $usuarioId,
@@ -184,6 +190,7 @@ class MemorandoController extends Controller
             }
 
             DB::commit();
+            \App\Support\Rascunhos::concluir($request->integer('rascunho_id') ?: null, Auth::user());
 
             return redirect("/memorandos/{$memorando->id}")->with('success', 'Memorando enviado com sucesso. Número: ' . $numero);
         } catch (\Exception $e) {

@@ -59,6 +59,7 @@ class CircularController extends Controller
 
         return Inertia::render('GED/Circulares/Create', [
             'variaveis'    => Circular::variaveisParaEditor(),
+            'rascunho'     => \App\Support\Rascunhos::abrir(request()->integer('rascunho') ?: null, Auth::user(), 'circular'),
             'autorizacoes' => EmNomeDe::autorizacoes(),
             'usuarios' => $usuarios,
         ]);
@@ -146,6 +147,11 @@ class CircularController extends Controller
                 }
             }
 
+            // Anexos guardados no rascunho automático (TR 4.16.8)
+            foreach (\App\Support\Rascunhos::entregarAnexos($request->integer('rascunho_id') ?: null, 'circulares', Auth::user()) as $anexo) {
+                CircularAnexo::create(['circular_id' => $circular->id] + $anexo);
+            }
+
             // Notifications
             foreach ($userIds as $usuarioId) {
                 Notificacao::create([
@@ -160,6 +166,7 @@ class CircularController extends Controller
             }
 
             DB::commit();
+            \App\Support\Rascunhos::concluir($request->integer('rascunho_id') ?: null, Auth::user());
 
             return redirect("/circulares/{$circular->id}")->with('success', 'Circular enviada com sucesso. Número: ' . $numero);
         } catch (\Exception $e) {

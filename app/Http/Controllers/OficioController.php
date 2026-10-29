@@ -72,6 +72,7 @@ class OficioController extends Controller
 
         return Inertia::render('GED/Oficios/Create', [
             'variaveis'    => Oficio::variaveisParaEditor(),
+            'rascunho'     => \App\Support\Rascunhos::abrir(request()->integer('rascunho') ?: null, Auth::user(), 'oficio'),
             'autorizacoes' => EmNomeDe::autorizacoes(),
             'modelos' => $modelos,
             'setores' => $setores,
@@ -205,6 +206,11 @@ class OficioController extends Controller
                 }
             }
 
+            // Anexos guardados no rascunho automático (TR 4.16.8)
+            foreach (\App\Support\Rascunhos::entregarAnexos($request->integer('rascunho_id') ?: null, 'oficios', Auth::user()) as $anexo) {
+                OficioAnexo::create(['oficio_id' => $oficio->id, 'solicitar_assinatura' => false,] + $anexo);
+            }
+
             Notificacao::create([
                 'usuario_id'      => Auth::id(),
                 'tipo'            => 'oficio_enviado',
@@ -217,6 +223,7 @@ class OficioController extends Controller
             \App\Support\EmNomeDe::avisarAutorizador($origem, 'oficio', $oficio->id, "Ofício {$numero} — {$oficio->assunto}");
 
             DB::commit();
+            \App\Support\Rascunhos::concluir($request->integer('rascunho_id') ?: null, Auth::user());
         } catch (\Exception $e) {
             DB::rollBack();
 

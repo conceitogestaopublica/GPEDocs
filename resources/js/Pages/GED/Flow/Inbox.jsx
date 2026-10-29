@@ -200,6 +200,10 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                             </button>
                         );
                     })}
+                    <Link href="/flow/rascunhos" className="px-4 py-2 text-sm -mb-px border-b-2 border-transparent text-gray-500 hover:text-gray-800">
+                        <i className="fas fa-pencil-alt mr-1 text-xs" />Rascunhos
+                        {contagens.rascunhos > 0 && <span className="ml-1.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5">{contagens.rascunhos}</span>}
+                    </Link>
                 </div>
             )}
 

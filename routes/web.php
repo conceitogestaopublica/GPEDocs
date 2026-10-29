@@ -287,6 +287,17 @@ Route::middleware('auth')->group(function () {
 
     // Organograma (TR 4.12): todos os servidores veem; quem administra UGs desativa, reativa e publica
     Route::get('organograma', [\App\Http\Controllers\OrganogramaController::class, 'index'])->name('organograma');
+
+    // Rascunho automático do editor (TR 4.16.6–4.16.8) — chamadas da tela de criação
+    Route::controller(\App\Http\Controllers\RascunhoController::class)->prefix('rascunhos')->name('rascunhos.')->group(function () {
+        Route::post('/', 'store')->middleware('throttle:60,1')->name('store');
+        Route::put('{id}', 'update')->whereNumber('id')->middleware('throttle:120,1')->name('update');
+        Route::post('{id}/trava', 'travar')->whereNumber('id')->name('travar');
+        Route::post('{id}/liberar', 'liberar')->whereNumber('id')->name('liberar');
+        Route::post('{id}/anexos', 'anexar')->whereNumber('id')->name('anexar');
+        Route::delete('{id}/anexos/{anexo}', 'removerAnexo')->whereNumber(['id', 'anexo'])->name('anexos.remover');
+        Route::delete('{id}', 'destroy')->whereNumber('id')->name('destroy');
+    });
     Route::middleware('can:admin.ugs')->group(function () {
         Route::post('organograma/publicar', [\App\Http\Controllers\OrganogramaController::class, 'publicar'])->name('organograma.publicar');
         Route::post('organograma/{id}/desativar', [\App\Http\Controllers\OrganogramaController::class, 'desativar'])->whereNumber('id')->name('organograma.desativar');
@@ -588,7 +599,8 @@ Route::middleware('auth')->group(function () {
 
         // Privado
         Route::get('saida',         [\App\Http\Controllers\Flow\InboxController::class, 'saida'])->name('saida');
-        Route::get('rascunhos',     [\App\Http\Controllers\Flow\InboxController::class, 'rascunhos'])->name('rascunhos');
+        // Rascunhos do editor: meus e do setor (TR 4.16.6–4.16.9)
+        Route::get('rascunhos',     [\App\Http\Controllers\RascunhoController::class, 'index'])->name('rascunhos');
 
         // Compat: URLs antigas
         Route::redirect('encaminhados', '/flow/saida');

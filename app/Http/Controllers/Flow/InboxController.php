@@ -210,14 +210,6 @@ class InboxController extends Controller
     /**
      * Rascunhos — itens que eu criei mas ainda nao despachei.
      */
-    public function rascunhos(Request $request): Response
-    {
-        $userId = (int) Auth::id();
-        return $this->render($request, 'rascunhos',
-            fn ($q) => $q->where('remetente_id', $userId)->where('status', 'rascunho')
-        );
-    }
-
     private function render(Request $request, string $vista, \Closure $escopoFn, bool $avisoSemUnidade = false): Response
     {
         $busca = trim((string) $request->input('busca', ''));
@@ -510,6 +502,8 @@ class InboxController extends Controller
             'pessoal_por_tipo'     => $pessoalPorTipo,
             'setor_por_tipo'       => $setorPorTipo,
             'aguardando_assinatura'=> $assinatura,
+            // Rascunhos que posso continuar (meus e do setor) — aba da caixa do setor (TR 4.16.9)
+            'rascunhos'            => \App\Support\Rascunhos::visiveis(Auth::user())->count(),
         ];
     }
 }

@@ -10,13 +10,15 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import RichEditor from '../../../Components/RichEditor';
+import useRascunho from '../../../Hooks/useRascunho';
+import { AnexosRascunho, EstadoRascunho, comRascunho, dadosDoRascunho } from '../../../Components/RascunhoAutomatico';
 
-export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes = [], variaveis = [] }) {
+export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes = [], variaveis = [], rascunho = null }) {
     const userList = usuarios || [];
     const unidadeList = unidades || [];
     const [searchUser, setSearchUser] = useState('');
 
-    const { data, setData, processing, errors } = useForm({
+    const { data, setData, processing, errors } = useForm(comRascunho(rascunho, {
         assunto: '',
         tipo_destino: 'setor', // todos_setores | setor | usuario
         unidade_id: '',
@@ -28,7 +30,10 @@ export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes
         contrassenha: '',
         data_arquivamento_auto: '',
         files: [],
-    });
+    }));
+
+    // Rascunho automático do setor (TR 4.16.6–4.16.8)
+    const r = useRascunho({ modulo: 'memorando', dados: dadosDoRascunho(data), titulo: data.assunto, inicial: rascunho, temConteudo: !! (data.assunto || data.conteudo) });
 
     // Pra modo "usuario": filtra usuarios pelo setor escolhido (se tiver) + busca por nome/email
     const filteredUsers = useMemo(() => {
@@ -85,6 +90,8 @@ export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes
             });
         }
 
+        if (r.id) formData.append('rascunho_id', r.id);
+
         router.post('/memorandos', formData, {
             forceFormData: true,
         });
@@ -130,6 +137,8 @@ export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes
 
             <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <form onSubmit={submit} className="space-y-6">
+                    <EstadoRascunho r={r} />
+                    <fieldset disabled={!! r.travadoPor} className="space-y-6 min-w-0">
                             <EmNomeDe autorizacoes={autorizacoes} data={data} setData={setData} errors={usePage().props.errors} />
                     {/* Assunto */}
                     <div>
@@ -274,7 +283,7 @@ export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Conteúdo <span className="text-red-500">*</span>
                         </label>
-                        <RichEditor html={data.conteudo} onChange={(v) => setData('conteudo', v)} minHeight={260}
+                        <RichEditor somenteLeitura={!! r.travadoPor} html={data.conteudo} onChange={(v) => setData('conteudo', v)} minHeight={260}
                             variaveis={variaveis} erro={errors.conteudo}
                             placeholder="Digite o conteúdo do memorando…" />
                         {errors.conteudo && <p className="text-xs text-red-500 mt-1">{errors.conteudo}</p>}
@@ -328,19 +337,7 @@ export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes
                     </div>
 
                     {/* Anexos */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            <i className="fas fa-paperclip text-xs text-gray-400 mr-1" />
-                            Anexos
-                        </label>
-                        <input
-                            type="file"
-                            multiple
-                            onChange={(e) => setData('files', e.target.files)}
-                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                        />
-                        {errors.files && <p className="text-xs text-red-500 mt-1">{errors.files}</p>}
-                    </div>
+                    <AnexosRascunho r={r} />
 
                     {/* Acoes */}
                     <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
@@ -354,6 +351,7 @@ export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes
                             Enviar Memorando
                         </Button>
                     </div>
+                    </fieldset>
                 </form>
             </div>
         </AdminLayout>

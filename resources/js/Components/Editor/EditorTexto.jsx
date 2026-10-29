@@ -49,7 +49,7 @@ function imagemParaDataUri(arquivo) {
     });
 }
 
-export default function EditorTexto({ html, onChange, minHeight = 350, placeholder = '', variaveis = [], extensoes = [], compacto = false, erro = null }) {
+export default function EditorTexto({ html, onChange, minHeight = 350, placeholder = '', variaveis = [], extensoes = [], compacto = false, erro = null, somenteLeitura = false }) {
     const variaveisRef = useRef(variaveis);
     variaveisRef.current = variaveis;
     const [telaCheia, setTelaCheia] = useState(false);
@@ -112,6 +112,8 @@ export default function EditorTexto({ html, onChange, minHeight = 350, placehold
         return () => window.removeEventListener('keydown', esc);
     }, [telaCheia]);
 
+    useEffect(() => { editor?.setEditable(! somenteLeitura); }, [editor, somenteLeitura]);
+
     useEffect(() => { if (aviso) { const t = setTimeout(() => setAviso(''), 4000); return () => clearTimeout(t); } return undefined; }, [aviso]);
 
     if (! editor) return null;
@@ -139,7 +141,7 @@ export default function EditorTexto({ html, onChange, minHeight = 350, placehold
     return (
         <div className={telaCheia ? 'fixed inset-0 z-[70] bg-gray-100 flex flex-col' : ''}>
             <div className={`border ${erro ? 'border-red-400' : 'border-gray-300'} rounded-md bg-white flex flex-col ${telaCheia ? 'm-4 flex-1 min-h-0 shadow-xl' : ''}`}>
-                <div className="flex flex-wrap items-center gap-0.5 bg-gray-50 border-b border-gray-200 px-1.5 py-1 rounded-t-md sticky top-0 z-10">
+                <div className={`flex flex-wrap items-center gap-0.5 bg-gray-50 border-b border-gray-200 px-1.5 py-1 rounded-t-md ${somenteLeitura ? 'hidden' : ''}`}>
                     <Botao titulo="Desfazer (Ctrl+Z)" icone="fa-rotate-left" onClick={() => editor.chain().focus().undo().run()} desabilitado={! editor.can().undo()} />
                     <Botao titulo="Refazer (Ctrl+Y)" icone="fa-rotate-right" onClick={() => editor.chain().focus().redo().run()} desabilitado={! editor.can().redo()} />
                     <Sep />
