@@ -184,7 +184,7 @@ export default function Classificacao({ classificacoes = [], modulos = [], assun
                         <div key={k} className="space-y-3">
                             <h3 className="text-xs font-semibold uppercase text-gray-500">{titulo}</h3>
                             {(assuntos[k] || []).length === 0 && <p className="text-sm text-gray-400">Nenhum tipo ativo.</p>}
-                            <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                            <div className="space-y-3">
                                 {(assuntos[k] || []).map(a => (
                                     <div key={a.id}>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">{a.nome}</label>
