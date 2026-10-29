@@ -32,6 +32,8 @@ class ProcessoController extends Controller
     {
         $query = Processo::with(['tipoProcesso', 'abertoPor', 'etapaAtual'])
             ->whereNull('deleted_at');
+        // Requerimento do servidor: só quem participa (TR 4.36.1)
+        \App\Support\RequerimentoServidor::restringir($query, Auth::user());
 
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
@@ -293,6 +295,7 @@ class ProcessoController extends Controller
             'abertoPor',
             'concluidoPor',
         ])->findOrFail($id);
+        abort_unless(\App\Support\RequerimentoServidor::podeVer(Auth::user(), $processo), 403, 'Requerimento pessoal de servidor: acesso restrito a Gestão de Pessoas e aos setores envolvidos.');
 
         $ugId = session('ug_id');
         $usuarios = User::where('id', '!=', Auth::id())
@@ -1044,6 +1047,7 @@ class ProcessoController extends Controller
     public function folhaDeRosto(int $id)
     {
         $p = Processo::with(['tipoProcesso:id,nome,modalidade', 'abertoPor:id,name', 'anexos:id,processo_id,nome', 'etapaAtual'])->findOrFail($id);
+        abort_unless(\App\Support\RequerimentoServidor::podeVer(Auth::user(), $p), 403);
         if (! \App\Support\Ouvidoria::podeVerManifestante(Auth::user(), $p)) {
             \App\Support\Ouvidoria::ocultarManifestante($p);
         }

@@ -456,6 +456,7 @@ export default function Index({ tipos, unidades = [] }) {
                                         <option value="ouvidoria">Ouvidoria (Lei 13.460 — 30 dias úteis, sigilo, decisão final)</option>
                                         <option value="esic">e-SIC / acesso à informação (LAI — 20 dias + 10)</option>
                                         <option value="chamado">Chamado técnico (patrimônio, abrir em nome de servidor)</option>
+                                        <option value="servidor">Requerimento do servidor (só Gestão de Pessoas e setores envolvidos; fora das buscas)</option>
                                     </select>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">E-mail de entrada <span className="font-normal text-gray-400">(opcional)</span></label>
                                     <input type="email" value={data.email_entrada} onChange={(e) => setData('email_entrada', e.target.value)} className="ds-input" placeholder="ouvidoria@municipio.gov.br" />

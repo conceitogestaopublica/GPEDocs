@@ -25,7 +25,7 @@
         <tr><th>Serviço</th><td>{{ $solicitacao->servico?->titulo ?? '-' }}</td></tr>
         <tr><th>Solicitante</th><td>{{ $solicitacao->cidadao?->nome ?? 'Anônimo' }}@if($solicitacao->cidadao?->cpf) — CPF {{ \App\Support\DocumentoPessoa::mascararCpf($solicitacao->cidadao->cpf) }}@endif</td></tr>
         <tr><th>Aberta em</th><td>{{ $solicitacao->created_at?->copy()->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i') }}</td></tr>
-        <tr><th>Setor que vai atender</th><td>{{ $resumo['setor_destino']['nome'] ?? 'A definir pelo atendimento' }}@if(! empty($resumo['setor_destino']['sigla'])) ({{ $resumo['setor_destino']['sigla'] }})@endif</td></tr>
+        <tr><th>Setor que vai atender</th><td>@if(! empty($resumo['setor_destino']['superior'])){{ $resumo['setor_destino']['superior'] }} › @endif{{ $resumo['setor_destino']['nome'] ?? 'A definir pelo atendimento' }}@if(! empty($resumo['setor_destino']['sigla'])) ({{ $resumo['setor_destino']['sigla'] }})@endif</td></tr>
         <tr><th>Processo</th><td>{{ $resumo['processo_numero'] ?? 'Será aberto pelo atendimento' }}</td></tr>
         <tr><th>Situação</th><td>{{ $resumo['status_rotulo'] }}</td></tr>
         <tr><th>Anexos</th><td>
@@ -36,5 +36,6 @@
     </table>
 
     <p class="nota">Acompanhe e responda pelo portal: {{ $link }}</p>
+    @if(! empty($qr))<p style="text-align: center; margin-top: 10px;"><img src="{{ $qr }}" style="width: 110px; height: 110px;" alt="QR code"><br><span style="font-size: 9px; color: #555;">Aponte a câmera para acompanhar</span></p>@endif
 </body>
 </html>

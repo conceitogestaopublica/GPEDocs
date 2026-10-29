@@ -121,7 +121,7 @@ class BuscaController extends Controller
 
     private function processos(array $f, User $user)
     {
-        $q = Processo::query()->with('tipoProcesso:id,nome');
+        $q = \App\Support\RequerimentoServidor::restringir(Processo::query()->with('tipoProcesso:id,nome'), $user);
         // Manifestante sigiloso: só a ouvidoria acha o processo pelo nome/CPF dele (TR 4.33.27)
         $sigilo = ! (Auth::user()->super_admin || Auth::user()->can('ouvidoria.gerir'));
         $doRequerente = fn ($w) => $sigilo ? $w->where('identificacao', '<>', 'sigilosa') : $w;

@@ -34,7 +34,7 @@ class MapaAvaliacaoController extends Controller
             'de'       => $request->input('de') ?: null,
             'ate'      => $request->input('ate') ?: null,
         ];
-        $q = Processo::query()->with('tipoProcesso:id,nome')->whereNotNull('latitude');
+        $q = \App\Support\RequerimentoServidor::restringir(Processo::query()->with('tipoProcesso:id,nome')->whereNotNull('latitude'), $user);
         if (! $user->acesso_geral_ug && ! $user->super_admin) {
             $setores = Setores::doUsuario($user) ?: [-1];
             $q->where(fn ($w) => $w->where('aberto_por', $user->id)

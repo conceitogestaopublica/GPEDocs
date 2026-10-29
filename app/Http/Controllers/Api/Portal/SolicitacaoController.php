@@ -349,9 +349,12 @@ class SolicitacaoController extends PortalApiController
         $s = $this->doCidadao($request, $codigo);
         $s->load('anexos', 'servico:id,titulo,setor_responsavel_id', 'cidadao:id,nome,cpf', 'ug');   // load: o cidadão já veio sem o CPF
 
+        $link = 'http://' . $s->ug?->portal_slug . '.' . parse_url((string) config('app.url'), PHP_URL_HOST) . "/minhas-solicitacoes/{$s->id}";
+
         return \App\Support\Relatorio::pdf('pdf.comprovante-solicitacao', [
-            'solicitacao' => $s, 'resumo' => $this->resumo($s), 'ug' => $s->ug,
-            'link' => 'http://' . $s->ug?->portal_slug . '.' . parse_url((string) config('app.url'), PHP_URL_HOST) . "/minhas-solicitacoes/{$s->id}",
+            'solicitacao' => $s, 'resumo' => $this->resumo($s), 'ug' => $s->ug, 'link' => $link,
+            // QR code para abrir o acompanhamento no celular (TR 4.36.3)
+            'qr' => 'data:image/svg+xml;base64,' . base64_encode(\App\Support\Totp::qrSvg($link)),
         ])->stream("comprovante-{$s->codigo}.pdf");
     }
 
@@ -414,9 +417,11 @@ class SolicitacaoController extends PortalApiController
     {
         $id = $s->processo_id ? \App\Models\Processo\Tramitacao::where('processo_id', $s->processo_id)->where('frente', 1)->orderByDesc('ordem')->value('destino_unidade_id') : null;
         $id ??= $s->servico?->setor_responsavel_id;
-        $u = $id ? \App\Models\UgOrganograma::find($id, ['nome', 'sigla']) : null;
+        $u = $id ? \App\Models\UgOrganograma::find($id, ['nome', 'sigla', 'parent_id']) : null;
+        // Setor e o setor acima dele (ex.: Secretaria de Administração › Gestão de Pessoas) — TR 4.36.5
+        $superior = $u?->parent_id ? \App\Models\UgOrganograma::whereKey($u->parent_id)->value('nome') : null;
 
-        return $u ? ['nome' => $u->nome, 'sigla' => $u->sigla] : null;
+        return $u ? ['nome' => $u->nome, 'sigla' => $u->sigla, 'superior' => $superior] : null;
     }
 
     private function resumo(Solicitacao $s): array

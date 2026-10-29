@@ -35,7 +35,7 @@ class ConsultaProtocoloController extends Controller
         if (mb_strlen($q) >= 3) {
             $sigilo = ! (auth()->user()->super_admin || auth()->user()->can('ouvidoria.gerir'));
             // Processo já é escopado pela UG da sessão (BelongsToUg).
-            $processos = Processo::query()
+            $processos = \App\Support\RequerimentoServidor::restringir(Processo::query(), auth()->user())
                 ->with(['tipoProcesso:id,nome,sigla', 'etapaAtual:id,setor_destino'])
                 ->where(function ($w) use ($q, $digitos, $porDocumento, $sigilo) {
                     $w->where('numero_protocolo', 'ilike', "%{$q}%")

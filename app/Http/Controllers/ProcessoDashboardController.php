@@ -33,7 +33,7 @@ class ProcessoDashboardController extends Controller
             ->whereIn('status', ['pendente', 'recebido', 'em_analise'])
             ->count();
 
-        $processosRecentes = Processo::with(['tipoProcesso', 'abertoPor'])
+        $processosRecentes = \App\Support\RequerimentoServidor::restringir(Processo::with(['tipoProcesso', 'abertoPor']), Auth::user())
             ->orderByDesc('created_at')
             ->limit(10)
             ->get();
