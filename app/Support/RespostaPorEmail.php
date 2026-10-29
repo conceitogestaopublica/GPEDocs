@@ -29,7 +29,8 @@ use Illuminate\Support\Str;
  * entrega a resposta no webhook; aqui ela é conferida (o remetente tem de ser quem recebeu),
  * perde o texto citado do e-mail original e entra no documento com os anexos:
  * processo → despacho por e-mail; memorando → resposta; ofício → resposta externa;
- * solicitação do portal → mensagem do cidadão.
+ * solicitação do portal → mensagem do cidadão. E-mail no endereço de entrada de um assunto abre
+ * manifestação (ManifestacaoPorEmail).
  */
 final class RespostaPorEmail
 {
@@ -73,6 +74,14 @@ final class RespostaPorEmail
 
         preg_match('/resposta\+([a-z0-9]{24})@/i', $para, $m);
         $r = isset($m[1]) ? DB::table('ged_respostas_email')->where('token', mb_strtolower($m[1]))->first() : null;
+        if (! $r && ($tipo = ManifestacaoPorEmail::assuntoDe((array) ($msg['para'] ?? [])))) {
+            // Não é resposta a documento: e-mail setorial vira manifestação (TR 4.33.4)
+            $texto = trim(mb_substr((string) ($msg['texto'] ?? '') ?: strip_tags((string) ($msg['html'] ?? '')), 0, 20000));
+            $p = ManifestacaoPorEmail::abrir($tipo, (string) ($msg['de'] ?? ''), $assunto, $texto, $anexos);
+            $log('registrado', null, (object) ['referencia_tipo' => 'processo', 'referencia_id' => $p->id]);
+
+            return ['resultado' => 'registrado', 'motivo' => null, 'processo' => $p->numero_protocolo];
+        }
         if (! $r) {
             $log('sem_destino', 'Endereço de resposta desconhecido', null, $m[1] ?? null);
 

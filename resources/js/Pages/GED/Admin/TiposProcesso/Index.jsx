@@ -110,6 +110,8 @@ export default function Index({ tipos, unidades = [] }) {
         prazo_dias_uteis: false,
         localizacao: 'nao',
         modalidade: '',
+        email_entrada: '',
+        email_unidade_id: '',
         avaliacao: true,
         ativo: true,
         schema_formulario: [],
@@ -135,6 +137,8 @@ export default function Index({ tipos, unidades = [] }) {
             prazo_dias_uteis: !! tipo.prazo_dias_uteis,
             localizacao: tipo.localizacao || 'nao',
             modalidade: tipo.modalidade || '',
+            email_entrada: tipo.email_entrada || '',
+            email_unidade_id: tipo.email_unidade_id || '',
             avaliacao: tipo.avaliacao !== false,
             ativo: tipo.ativo !== false,
             schema_formulario: tipo.schema_formulario || [],
@@ -452,6 +456,15 @@ export default function Index({ tipos, unidades = [] }) {
                                         <option value="ouvidoria">Ouvidoria (Lei 13.460 — 30 dias úteis, sigilo, decisão final)</option>
                                         <option value="esic">e-SIC / acesso à informação (LAI — 20 dias + 10)</option>
                                     </select>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">E-mail de entrada <span className="font-normal text-gray-400">(opcional)</span></label>
+                                    <input type="email" value={data.email_entrada} onChange={(e) => setData('email_entrada', e.target.value)} className="ds-input" placeholder="ouvidoria@municipio.gov.br" />
+                                    {errors.email_entrada && <p className="text-xs text-red-600 mt-1">{errors.email_entrada}</p>}
+                                    <select value={data.email_unidade_id} onChange={(e) => setData('email_unidade_id', e.target.value)} className="ds-input mt-2">
+                                        <option value="">Setor que recebe os e-mails…</option>
+                                        {unidades.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
+                                    </select>
+                                    {errors.email_unidade_id && <p className="text-xs text-red-600 mt-1">{errors.email_unidade_id}</p>}
+                                    <p className="text-[11px] text-gray-500 mt-1 mb-3">O e-mail que chega neste endereço abre um processo deste assunto no setor escolhido, com canal "e-mail"; a decisão final volta ao remetente.</p>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Local da demanda no mapa</label>
                                     <select value={data.localizacao} onChange={(e) => setData('localizacao', e.target.value)} className="ds-input">
                                         <option value="nao">Não pede</option>

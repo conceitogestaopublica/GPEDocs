@@ -28,6 +28,8 @@ class TipoProcesso extends Model
         'localizacao',
         'avaliacao',
         'modalidade',
+        'email_entrada',
+        'email_unidade_id',
     ];
 
     protected function casts(): array

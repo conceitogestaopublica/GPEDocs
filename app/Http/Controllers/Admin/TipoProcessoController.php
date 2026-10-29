@@ -50,6 +50,8 @@ class TipoProcessoController extends Controller
             'prazo_dias_uteis'        => ['nullable', 'boolean'],
             'localizacao'             => ['nullable', 'in:nao,opcional,obrigatoria'],
             'modalidade'              => ['nullable', 'in:ouvidoria,esic'],
+            'email_entrada'           => ['nullable', 'email', 'max:150', 'unique:proc_tipos_processo,email_entrada', 'required_with:email_unidade_id'],
+            'email_unidade_id'        => ['nullable', 'integer', 'exists:ug_organograma,id', 'required_with:email_entrada'],
             'avaliacao'               => ['nullable', 'boolean'],
             'etapas'                  => ['nullable', 'array'],
             'etapas.*.nome'           => ['required', 'string'],
@@ -79,6 +81,9 @@ class TipoProcessoController extends Controller
                 'localizacao'       => $request->input('localizacao', 'nao'),
                 // Ouvidoria (Lei 13.460) ou e-SIC (LAI): prazo legal, sigilo e painéis próprios
                 'modalidade'        => $request->input('modalidade') ?: null,
+                // E-mail setorial que abre manifestação neste assunto (TR 4.33.4)
+                'email_entrada'     => mb_strtolower(trim((string) $request->input('email_entrada'))) ?: null,
+                'email_unidade_id'  => $request->integer('email_unidade_id') ?: null,
                 'avaliacao'         => $request->boolean('avaliacao', true),
                 'ativo'             => true,
                 'criado_por'        => Auth::id(),
@@ -127,6 +132,8 @@ class TipoProcessoController extends Controller
             'prazo_dias_uteis'        => ['nullable', 'boolean'],
             'localizacao'             => ['nullable', 'in:nao,opcional,obrigatoria'],
             'modalidade'              => ['nullable', 'in:ouvidoria,esic'],
+            'email_entrada'           => ['nullable', 'email', 'max:150', \Illuminate\Validation\Rule::unique('proc_tipos_processo', 'email_entrada')->ignore($id), 'required_with:email_unidade_id'],
+            'email_unidade_id'        => ['nullable', 'integer', 'exists:ug_organograma,id', 'required_with:email_entrada'],
             'avaliacao'               => ['nullable', 'boolean'],
             'etapas'                  => ['nullable', 'array'],
             'etapas.*.id'             => ['nullable', 'integer'],
@@ -158,6 +165,9 @@ class TipoProcessoController extends Controller
                 'localizacao'       => $request->input('localizacao', 'nao'),
                 // Ouvidoria (Lei 13.460) ou e-SIC (LAI): prazo legal, sigilo e painéis próprios
                 'modalidade'        => $request->input('modalidade') ?: null,
+                // E-mail setorial que abre manifestação neste assunto (TR 4.33.4)
+                'email_entrada'     => mb_strtolower(trim((string) $request->input('email_entrada'))) ?: null,
+                'email_unidade_id'  => $request->integer('email_unidade_id') ?: null,
                 'avaliacao'         => $request->boolean('avaliacao', true),
             ]);
 
