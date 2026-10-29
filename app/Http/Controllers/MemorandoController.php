@@ -31,9 +31,11 @@ class MemorandoController extends Controller
         if ($tipo === 'enviados') {
             $query = Memorando::where(fn ($q) => $q->where('remetente_id', Auth::id())->orWhere('digitador_id', Auth::id()));
         } else {
-            $query = Memorando::whereHas('destinatarios', function ($q) {
-                $q->where('usuario_id', Auth::id());
-            });
+            // Recebidos: para mim, para os setores que atendo (inclui "todos os setores") ou tramitados a eles
+            $setores = Setores::doUsuario(Auth::user()) ?: [-1];
+            $query = Memorando::where(fn ($m) => $m
+                ->whereHas('destinatarios', fn ($q) => $q->where('usuario_id', Auth::id())->orWhereIn('unidade_id', $setores))
+                ->orWhereHas('tramitacoes', fn ($q) => $q->where('destino_usuario_id', Auth::id())->orWhereIn('destino_unidade_id', $setores)));
         }
 
         $memorandos = $query->with(['remetente', 'destinatarios.usuario'])

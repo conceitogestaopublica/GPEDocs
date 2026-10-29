@@ -56,6 +56,8 @@ export const MENU_GEPSP = [
     {
         title: 'Comunicação', icon: 'fas fa-envelope', color: 'text-cyan-600 bg-cyan-100',
         children: [
+            { title: 'Memorandos',         icon: 'fas fa-envelope-open-text', href: '/memorandos',       color: 'text-amber-600 bg-amber-100' },
+            { title: 'Circulares',         icon: 'fas fa-bullhorn',         href: '/circulares',         color: 'text-rose-600 bg-rose-100' },
             { title: 'Novo Memorando',     icon: 'fas fa-envelope',         href: '/memorandos/create',  color: 'text-amber-600 bg-amber-100', permissao: 'comunicacao.enviar' },
             { title: 'Nova Circular',      icon: 'fas fa-bullhorn',         href: '/circulares/create',  color: 'text-rose-600 bg-rose-100', permissao: 'comunicacao.enviar' },
             { title: 'Novo Ofício',        icon: 'fas fa-file-alt',         href: '/oficios/create',     color: 'text-cyan-600 bg-cyan-100', permissao: 'comunicacao.enviar' },
