@@ -45,8 +45,9 @@ Route::get('oficios/rastrear/{token}/aberto', [OficioController::class, 'pixelAb
 // Rastreio de e-mail externo (TR 4.11.12–14): pixel de abertura, clique e retorno do provedor
 Route::get('e/{token}/a', [\App\Http\Controllers\RastreioEmailController::class, 'aberto'])->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:120,1')->name('email.aberto');
 Route::get('e/{token}/l', [\App\Http\Controllers\RastreioEmailController::class, 'clique'])->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:120,1')->name('email.clique');
-Route::post('webhooks/email/{segredo}', [\App\Http\Controllers\RastreioEmailController::class, 'webhook'])->middleware('throttle:600,1')
-    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])->name('email.webhook');
+Route::post('webhooks/email/{segredo}', [\App\Http\Controllers\RastreioEmailController::class, 'webhook'])->middleware('throttle:600,1')->name('email.webhook');
+// Resposta a e-mail do GED vira despacho no documento (TR 4.7.23, 4.8.8–9, 4.47.3)
+Route::post('webhooks/email-entrada/{segredo}', [\App\Http\Controllers\RastreioEmailController::class, 'entrada'])->middleware('throttle:300,1')->name('email.entrada');
 // Organograma público para incorporar no site da prefeitura (TR 4.12.8) — só com a chave da UG
 Route::get('organograma/publico/{token}', [\App\Http\Controllers\OrganogramaController::class, 'publico'])->middleware('throttle:60,1')->name('organograma.publico');
 // PDF do documento para o contato externo mencionado no texto (TR 4.16.17) — link assinado do e-mail

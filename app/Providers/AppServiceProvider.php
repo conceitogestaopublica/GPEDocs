@@ -24,6 +24,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Provedor de e-mail (entrega/falha e respostas) chama sem sessão: sem CSRF, protegido pelo segredo na URL.
+        // Aqui e não em bootstrap/app.php: o bootstrap vai na imagem, e isto precisa valer sem reconstruí-la.
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::except(['webhooks/*']);
+
         // Limites contra força bruta, separados por rota (o throttle sem nome soma tudo do IP).
         \Illuminate\Support\Facades\RateLimiter::for('login', fn ($request) =>
             \Illuminate\Cache\RateLimiting\Limit::perMinute(10)->by($request->ip() . '|' . mb_strtolower((string) $request->input('login'))));

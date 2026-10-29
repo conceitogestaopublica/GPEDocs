@@ -49,4 +49,20 @@ class RastreioEmailController extends Controller
 
         return response()->noContent();
     }
+
+    /**
+     * E-mail recebido pelo provedor (resposta a um e-mail do GED): {de, para, assunto, texto,
+     * html, anexos: [{nome, tipo, conteudo base64}]} — vira despacho no documento (TR 4.7.23).
+     */
+    public function entrada(Request $request, string $segredo)
+    {
+        $esperado = (string) config('mail.respostas.segredo');
+        abort_unless($esperado !== '' && hash_equals($esperado, $segredo), 404);
+        $d = $request->validate([
+            'de' => ['required', 'string', 'max:300'], 'para' => ['required'], 'assunto' => ['nullable', 'string', 'max:1000'],
+            'texto' => ['nullable', 'string'], 'html' => ['nullable', 'string'], 'anexos' => ['nullable', 'array', 'max:20'],
+        ]);
+
+        return response()->json(\App\Support\RespostaPorEmail::receber($d + ['anexos' => $request->input('anexos', [])]));
+    }
 }

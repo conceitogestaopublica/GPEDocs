@@ -28,6 +28,11 @@ class OficioEletronico extends Mailable
         $link = url("/oficios/rastrear/{$this->oficio->rastreio_token}");
         $arquivo = 'oficio-' . str_replace(['/', '\\'], '-', $this->oficio->numero) . '.pdf';
 
+        // Responder este e-mail registra a resposta (e os anexos) no ofício (TR 4.8.8–4.8.9)
+        if ($resp = \App\Support\RespostaPorEmail::endereco('oficio', $this->oficio->id, $this->oficio->destinatario_email)) {
+            $this->replyTo($resp);
+        }
+
         return $this->subject("[{$orgao}] Ofício {$this->oficio->numero}: {$this->oficio->assunto}")
             ->view('emails.oficio_eletronico')
             ->with([

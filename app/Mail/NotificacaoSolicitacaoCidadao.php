@@ -37,6 +37,12 @@ class NotificacaoSolicitacaoCidadao extends Mailable
             default            => "[{$this->ug->nome}] Solicitacao {$this->solicitacao->codigo}",
         };
 
+        // Responder este e-mail vira mensagem do cidadão na solicitação (TR 4.47.3)
+        $email = $this->solicitacao->email_contato ?: $this->solicitacao->cidadao?->email;
+        if ($resp = \App\Support\RespostaPorEmail::endereco('solicitacao', $this->solicitacao->id, $email)) {
+            $this->replyTo($resp);
+        }
+
         $mail = $this->subject($assunto)
             ->view('emails.solicitacao_cidadao')
             ->with([
