@@ -44,7 +44,7 @@ export const MENU_GEPSP = [
         ],
     },
     {
-        title: 'Em Andamento', icon: 'fas fa-share', color: 'text-orange-600 bg-orange-100',
+        title: 'Tramitação', icon: 'fas fa-share', color: 'text-orange-600 bg-orange-100',
         children: [
             { title: 'Em Tramitação', icon: 'fas fa-share',        href: '/flow/em-tramitacao', color: 'text-orange-600 bg-orange-100' },
             { title: 'Concluídos',    icon: 'fas fa-check-double', href: '/flow/concluidos',    color: 'text-green-600 bg-green-100' },

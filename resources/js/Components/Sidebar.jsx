@@ -30,7 +30,6 @@ const ROTULO_ABA = {
     'Processos Administrativos': 'Processos',
     'Portal do Cidadão': 'Portal',
     'Administração': 'Admin.',
-    'Em Andamento': 'Andamento',
 };
 
 /** @returns {{section: string, icon: string, items: object[]}[]} */
