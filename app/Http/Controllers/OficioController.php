@@ -71,6 +71,7 @@ class OficioController extends Controller
         }
 
         return Inertia::render('GED/Oficios/Create', [
+            'variaveis'    => Oficio::variaveisParaEditor(),
             'autorizacoes' => EmNomeDe::autorizacoes(),
             'modelos' => $modelos,
             'setores' => $setores,

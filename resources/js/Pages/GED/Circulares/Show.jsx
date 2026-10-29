@@ -14,7 +14,7 @@ import QuemAcessou from '../../../Components/QuemAcessou';
 import { useConfirm } from '../../../Components/ConfirmProvider';
 import EmitidoPorContrassenha from '../../../Components/EmitidoPorContrassenha';
 
-export default function CircularesShow({ classificacao = null, acessos = [], circular }) {
+export default function CircularesShow({ classificacao = null, acessos = [], circular, conteudo_html = '' }) {
     const confirmar = useConfirm();
     const circ = circular || {};
     const destinatarios = circ.destinatarios || [];
@@ -93,9 +93,7 @@ export default function CircularesShow({ classificacao = null, acessos = [], cir
                 <div className="lg:col-span-2 space-y-6">
                     {/* Conteudo */}
                     <Card title="Conteúdo">
-                        <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                            {circ.conteudo}
-                        </div>
+                        <div className="texto-rico" dangerouslySetInnerHTML={{ __html: conteudo_html }} />
                     </Card>
 
                     {/* Anexos */}

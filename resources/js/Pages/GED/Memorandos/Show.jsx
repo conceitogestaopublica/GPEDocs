@@ -16,7 +16,7 @@ import { useConfirm } from '../../../Components/ConfirmProvider';
 import Avatar from '../../../Components/Avatar';
 import EmitidoPorContrassenha from '../../../Components/EmitidoPorContrassenha';
 
-export default function MemorandosShow({ classificacao = null, acessos = [], memorando, pode_receber, pode_tramitar, meu_status, unidades = [], usuarios = [] }) {
+export default function MemorandosShow({ classificacao = null, acessos = [], memorando, conteudo_html = '', pode_receber, pode_tramitar, meu_status, unidades = [], usuarios = [] }) {
     const confirmar = useConfirm();
     const memo = memorando || {};
     const respostas = memo.respostas || [];
@@ -185,9 +185,7 @@ export default function MemorandosShow({ classificacao = null, acessos = [], mem
                 <div className="lg:col-span-2 space-y-6">
                     {/* Conteudo */}
                     <Card title="Conteúdo">
-                        <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                            {memo.conteudo}
-                        </div>
+                        <div className="texto-rico" dangerouslySetInnerHTML={{ __html: conteudo_html }} />
                     </Card>
 
                     {/* Anexos */}

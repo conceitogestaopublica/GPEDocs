@@ -23,6 +23,7 @@
     .sumario td.pg { text-align: right; width: 50px; }
     .ref { border: 2px dashed #b9c9d1; border-radius: 6px; padding: 24px; text-align: center; margin-top: 60px; }
     img.anexo { max-width: 100%; max-height: 225mm; }
+    @include('pdf.partials.estilo-texto-rico')
 </style>
 </head>
 <body>
@@ -69,6 +70,8 @@
                 </table>
             @endif
             @if (! empty($ato['texto']))<div class="caixa {{ ! empty($ato['interno']) ? 'nota' : '' }}">{{ $ato['texto'] }}</div>@endif
+            {{-- Despacho do editor: HTML já limpo (HtmlSeguro) --}}
+            @if (! empty($ato['html']))<div class="caixa conteudo-html">{!! $ato['html'] !!}</div>@endif
         </div>
     @endforeach
 @endif

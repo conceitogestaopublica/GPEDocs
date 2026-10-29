@@ -42,6 +42,14 @@ class Tramitacao extends Model
         'manifestacao',
     ];
 
+    /** Despacho escrito no editor (TR 4.16), limpo para exibir; despacho antigo em texto vira parágrafos. */
+    protected $appends = ['despacho_html'];
+
+    public function getDespachoHtmlAttribute(): string
+    {
+        return \App\Support\HtmlSeguro::limpar($this->attributes['despacho'] ?? null);
+    }
+
     protected function casts(): array
     {
         return [

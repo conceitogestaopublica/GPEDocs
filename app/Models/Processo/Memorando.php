@@ -14,7 +14,11 @@ use Illuminate\Support\Str;
 
 class Memorando extends Model
 {
-    use SoftDeletes, BelongsToUg, \App\Models\Concerns\Classificavel;
+    use SoftDeletes, BelongsToUg, \App\Models\Concerns\Classificavel, \App\Models\Concerns\TemConteudoComVariaveis;
+
+    /** Variáveis do editor (TR 4.16.10). */
+    public const ROTULOS_VARIAVEIS = ['numero' => 'Número do memorando', 'data' => 'Data por extenso', 'assunto' => 'Assunto',
+        'setor' => 'Setor de origem', 'remetente' => 'Remetente'];
 
     public const MODULO_CLASSIFICACAO = 'memorando';
 
@@ -88,5 +92,17 @@ class Memorando extends Model
     public function tramitacoes(): HasMany
     {
         return $this->hasMany(MemorandoTramitacao::class);
+    }
+
+    /** @return array<string, string> */
+    public function variaveis(): array
+    {
+        return [
+            'numero'    => (string) $this->numero,
+            'data'      => \App\Support\Variaveis::dataPorExtenso($this->enviado_em ?? $this->created_at),
+            'assunto'   => (string) $this->assunto,
+            'setor'     => (string) $this->setor_origem,
+            'remetente' => (string) $this->remetente?->name,
+        ];
     }
 }

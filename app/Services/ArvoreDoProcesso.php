@@ -132,7 +132,7 @@ final class ArvoreDoProcesso
                     'meta'   => 'Em ' . $this->fmt($t->despachado_em) . ($t->remetente ? " por {$t->remetente->name}" : '')
                         . ($t->setor_origem ? " · de {$t->setor_origem}" : ''),
                     'selo'   => $tem('manifestacoes') ? $t->manifestacao : null,
-                    'texto'  => $t->despacho,
+                    'html'   => \App\Support\HtmlSeguro::limpar($t->despacho),
                 ]]);
             }
             if ($tem('manifestacoes') && $t->status === 'resolvido' && $t->resolvido_em) {

@@ -9,8 +9,9 @@ import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
+import RichEditor from '../../../Components/RichEditor';
 
-export default function CircularesCreate({ usuarios, autorizacoes = [] }) {
+export default function CircularesCreate({ usuarios, autorizacoes = [], variaveis = [] }) {
     const userList = usuarios || [];
     const [searchUser, setSearchUser] = useState('');
     const [setorInput, setSetorInput] = useState('');
@@ -248,14 +249,9 @@ export default function CircularesCreate({ usuarios, autorizacoes = [] }) {
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Conteúdo <span className="text-red-500">*</span>
                         </label>
-                        <textarea
-                            value={data.conteudo}
-                            onChange={(e) => setData('conteudo', e.target.value)}
-                            className="ds-input !h-auto"
-                            rows={10}
-                            placeholder="Digite o conteúdo da circular..."
-                            required
-                        />
+                        <RichEditor html={data.conteudo} onChange={(v) => setData('conteudo', v)} minHeight={260}
+                            variaveis={variaveis} erro={errors.conteudo}
+                            placeholder="Digite o conteúdo da circular…" />
                         {errors.conteudo && <p className="text-xs text-red-500 mt-1">{errors.conteudo}</p>}
                     </div>
 

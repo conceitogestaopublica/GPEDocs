@@ -172,7 +172,7 @@ export default function OficiosShow({ classificacao = null, acessos = [], oficio
                     {/* Conteudo */}
                     <Card title="Conteúdo">
                         {/* HTML limpo no servidor e com as variáveis trocadas (Oficio::conteudoFinal). */}
-                        <div className="conteudo-oficio text-sm text-gray-700 leading-relaxed"
+                        <div className="conteudo-oficio texto-rico"
                             dangerouslySetInnerHTML={{ __html: conteudo_html }} />
                     </Card>
 

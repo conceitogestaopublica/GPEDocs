@@ -115,4 +115,21 @@ class Processo extends Model
     {
         return $this->belongsTo(User::class, 'concluido_por');
     }
+
+    /** Variáveis do despacho no editor (TR 4.16.10) — trocadas ao despachar: o despacho é o registro daquele momento. */
+    public const ROTULOS_VARIAVEIS_DESPACHO = ['numero' => 'Número do processo', 'assunto' => 'Assunto', 'requerente' => 'Requerente',
+        'setor' => 'Setor de quem despacha', 'servidor' => 'Quem despacha', 'data' => 'Data por extenso'];
+
+    /** @return array<string, string> */
+    public function variaveisDespacho(?string $setor = null): array
+    {
+        return [
+            'numero'     => (string) $this->numero_protocolo,
+            'assunto'    => (string) $this->assunto,
+            'requerente' => (string) $this->requerente_nome,
+            'setor'      => (string) $setor,
+            'servidor'   => (string) auth()->user()?->name,
+            'data'       => \App\Support\Variaveis::dataPorExtenso(now()),
+        ];
+    }
 }

@@ -12,7 +12,7 @@ import Button from '../../../Components/Button';
 import RichEditor from '../../../Components/RichEditor';
 import { useConfirm } from '../../../Components/ConfirmProvider';
 
-export default function OficiosCreate({ modelos = [], setores = [], autorizacoes = [] }) {
+export default function OficiosCreate({ modelos = [], setores = [], autorizacoes = [], variaveis = [] }) {
     const confirmar = useConfirm();
     // Monta nome hierarquico: "Orgao > Unidade > Setor"
     const buildPath = (s, all) => {
@@ -293,7 +293,7 @@ export default function OficiosCreate({ modelos = [], setores = [], autorizacoes
                                 <RichEditor
                                     html={data.conteudo}
                                     onChange={(html) => setData('conteudo', html)}
-                                    minHeight={420}
+                                    minHeight={420} variaveis={variaveis} erro={errors.conteudo}
                                     placeholder="Digite o conteúdo do ofício ou selecione um modelo acima..."
                                 />
                                 {errors.conteudo && <p className="text-xs text-red-500 mt-1">{errors.conteudo}</p>}

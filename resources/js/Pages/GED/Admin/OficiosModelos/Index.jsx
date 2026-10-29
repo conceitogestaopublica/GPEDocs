@@ -12,7 +12,7 @@ import Modal from '../../../../Components/Modal';
 import RichEditor from '../../../../Components/RichEditor';
 import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
 
-export default function ModelosOficio({ modelos = [] }) {
+export default function ModelosOficio({ modelos = [], variaveis = [] }) {
     // Listagem rola só por dentro — a página nunca (padrão gpe2).
     const scrollRef = useFillViewportHeight();
     const [editando, setEditando] = useState(null); // null | 'novo' | objeto modelo
@@ -77,7 +77,7 @@ export default function ModelosOficio({ modelos = [] }) {
             </Card>
 
             {editando && (
-                <ModeloModal modelo={editando === 'novo' ? null : editando}
+                <ModeloModal variaveis={variaveis} modelo={editando === 'novo' ? null : editando}
                     onClose={() => setEditando(null)} />
             )}
 
@@ -88,7 +88,7 @@ export default function ModelosOficio({ modelos = [] }) {
     );
 }
 
-function ModeloModal({ modelo, onClose }) {
+function ModeloModal({ modelo, onClose, variaveis = [] }) {
     const isEdit = !!modelo;
     const { data, setData, post, put, processing, errors, reset } = useForm({
         nome: modelo?.nome || '',
@@ -197,6 +197,7 @@ function ModeloModal({ modelo, onClose }) {
                         <RichEditor
                             html={data.conteudo}
                             onChange={(html) => setData('conteudo', html)}
+                            variaveis={variaveis}
                         />
                     ) : (
                         <textarea value={data.conteudo} onChange={e => setData('conteudo', e.target.value)}

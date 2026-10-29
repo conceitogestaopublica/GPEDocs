@@ -23,7 +23,8 @@ class OficioModeloController extends Controller
             ->get();
 
         return Inertia::render('GED/Admin/OficiosModelos/Index', [
-            'modelos' => $modelos,
+            'modelos'   => $modelos,
+            'variaveis' => \App\Models\Processo\Oficio::variaveisParaEditor(),
         ]);
     }
 

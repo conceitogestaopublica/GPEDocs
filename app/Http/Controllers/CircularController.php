@@ -58,6 +58,7 @@ class CircularController extends Controller
             ->get(['id', 'name', 'email']);
 
         return Inertia::render('GED/Circulares/Create', [
+            'variaveis'    => Circular::variaveisParaEditor(),
             'autorizacoes' => EmNomeDe::autorizacoes(),
             'usuarios' => $usuarios,
         ]);
@@ -212,6 +213,7 @@ class CircularController extends Controller
         return Inertia::render('GED/Circulares/Show', [
             'classificacao' => \App\Support\Classificacao::doItem('circular', $circular->id),
             'circular' => $circular,
+            'conteudo_html' => $circular->conteudoFinal(),
             'acessos'  => \App\Support\Acessos::de('circular', $circular->id),
         ]);
     }
@@ -263,7 +265,7 @@ class CircularController extends Controller
             \Illuminate\Support\Facades\Storage::disk('documentos')->put($path, $pdfBytes);
 
             $textoPesquisavel = collect([
-                'Circular', $circular->numero, $circular->assunto, $circular->conteudo,
+                'Circular', $circular->numero, $circular->assunto, \App\Support\Variaveis::textoPuro($circular->conteudoFinal()),
                 $circular->setor_origem, $circular->remetente?->name,
             ])->filter()->implode(' | ');
 

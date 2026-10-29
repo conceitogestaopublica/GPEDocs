@@ -45,7 +45,7 @@ export default function Rastreio({ valido, oficio }) {
 
                                 {/* HTML limpo no servidor e com as variáveis trocadas (Oficio::conteudoFinal). */}
                                 {oficio.conteudo && (
-                                    <div className="conteudo-oficio text-sm text-gray-700 leading-relaxed border border-gray-100 rounded-lg p-4 bg-gray-50"
+                                    <div className="conteudo-oficio texto-rico border border-gray-100 rounded-lg p-4 bg-gray-50"
                                         dangerouslySetInnerHTML={{ __html: oficio.conteudo }} />
                                 )}
 

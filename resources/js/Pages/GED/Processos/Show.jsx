@@ -19,6 +19,7 @@ import SetoresMulti from '../../../Components/SetoresMulti';
 import PrazosDoProcesso from '../../../Components/PrazosDoProcesso';
 import AnexosDoProcesso from '../../../Components/AnexosDoProcesso';
 import ArvoreDoProcesso from '../../../Components/ArvoreDoProcesso';
+import RichEditor, { textoParaHtml } from '../../../Components/RichEditor';
 import AssinarModal from '../../../Components/AssinarModal';
 import { useConfirm, useAvisar } from '../../../Components/ConfirmProvider';
 
@@ -74,7 +75,7 @@ const tabList = [
     { key: 'arvore', label: 'Árvore', icon: 'fas fa-sitemap' },
 ];
 
-export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
+export default function Show({ variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
     acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [], classificacao = null, mapa_avaliacao = null }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
@@ -305,7 +306,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     };
 
     const applyTemplate = (template) => {
-        despacharForm.setData('despacho', template.conteudo || template);
+        despacharForm.setData('despacho', textoParaHtml(template.conteudo || template));
     };
 
     return (
@@ -744,7 +745,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
 
                                                     {tram.despacho && (
                                                         <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                                                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{tram.despacho}</p>
+                                                            <div className="texto-rico" dangerouslySetInnerHTML={{ __html: tram.despacho_html }} />
                                                         </div>
                                                     )}
 
@@ -878,7 +879,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                             </div>
                                             {etapaAtualFluxo?.modelo && (
                                                 <div className="flex items-end">
-                                                    <button type="button" onClick={() => despacharForm.setData('despacho', etapaAtualFluxo.modelo)}
+                                                    <button type="button" onClick={() => despacharForm.setData('despacho', textoParaHtml(etapaAtualFluxo.modelo))}
                                                         className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100">
                                                         <i className="fas fa-file-alt mr-1" />Usar o modelo de texto da etapa "{etapaAtualFluxo.nome}"
                                                     </button>
@@ -1010,13 +1011,9 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
                                             Despacho <span className="text-red-500">*</span>
                                         </label>
-                                        <textarea
-                                            value={despacharForm.data.despacho}
-                                            onChange={(e) => despacharForm.setData('despacho', e.target.value)}
-                                            className="ds-input !h-auto"
-                                            rows={6}
-                                            placeholder="Texto do despacho..."
-                                        />
+                                        <RichEditor html={despacharForm.data.despacho} onChange={(v) => despacharForm.setData('despacho', v)}
+                                            minHeight={160} compacto variaveis={variaveis_despacho} erro={despacharForm.errors.despacho}
+                                            placeholder="Texto do despacho…" />
                                         {despacharForm.errors.despacho && (
                                             <p className="mt-1 text-xs text-red-600">{despacharForm.errors.despacho}</p>
                                         )}

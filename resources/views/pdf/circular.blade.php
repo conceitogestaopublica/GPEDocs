@@ -17,6 +17,7 @@
         .info-label { display: table-cell; font-weight: bold; color: #555; padding: 3px 10px 3px 0; width: 160px; font-size: 10px; }
         .info-value { display: table-cell; padding: 3px 0; font-size: 11px; }
         .conteudo { padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; line-height: 1.7; white-space: pre-wrap; word-wrap: break-word; }
+        @include('pdf.partials.estilo-texto-rico')
         table.rastreio { width: 100%; border-collapse: collapse; margin-top: 8px; }
         table.rastreio th { background: #1e40af; color: white; padding: 6px 8px; font-size: 9px; text-align: left; text-transform: uppercase; }
         table.rastreio td { padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px; }
@@ -68,7 +69,7 @@
             </div>
             <div class="info-row">
                 <div class="info-label">Data:</div>
-                <div class="info-value">{{ $circular->created_at?->format('d/m/Y H:i:s') }}</div>
+                <div class="info-value">{{ $circular->created_at?->copy()->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i:s') }}</div>
             </div>
         </div>
     </div>
@@ -76,7 +77,7 @@
     {{-- Conteudo --}}
     <div class="section">
         <div class="section-title">Conteudo</div>
-        <div class="conteudo">{{ $circular->conteudo }}</div>
+        <div class="conteudo conteudo-html">{!! $circular->conteudoFinal() !!}</div>
     </div>
 
     {{-- Rastreio de Leitura --}}
@@ -103,7 +104,7 @@
                     </td>
                     <td>
                         @if($dest->lido && $dest->lido_em)
-                            {{ \Carbon\Carbon::parse($dest->lido_em)->format('d/m/Y H:i:s') }}
+                            {{ \Carbon\Carbon::parse($dest->lido_em)->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i:s') }}
                         @else
                             -
                         @endif
@@ -121,7 +122,7 @@
             <p style="margin-bottom: 5px;"><strong>Verificacao:</strong> {{ config('app.url') }}/verificar/{{ $circular->qr_code_token }}</p>
         </div>
         @endif
-        <p>Documento gerado automaticamente em {{ now()->format('d/m/Y H:i:s') }}</p>
+        <p>Documento gerado automaticamente em {{ now('America/Sao_Paulo')->format('d/m/Y H:i:s') }}</p>
     </div>
 </body>
 </html>

@@ -112,7 +112,7 @@ class TramitacaoController extends Controller
                 'recebido_por'  => $tramitacaoAtual->recebido_por ?? Auth::id(),
                 'recebido_em'   => $tramitacaoAtual->recebido_em ?? now(),
                 'despachado_em' => now(),
-                'despacho'      => $request->input('despacho'),
+                'despacho'      => $this->textoDoDespacho($request, $processo, $tramitacaoAtual),
                 'manifestacao'  => $request->input('manifestacao') ?: null,
             ]);
 
@@ -183,7 +183,7 @@ class TramitacaoController extends Controller
                     'destinatario_id' => $request->input('destinatario_id'),
                     'setor_destino'   => $setorDestinoNome,
                     'destino_unidade_id' => $setorDestinoId,
-                    'despacho'        => $request->input('despacho'),
+                    'despacho'        => $this->textoDoDespacho($request, $processo, $tramitacaoAtual),
                     'outros_setores'  => $paralelas['frentes'],
                     'copias'          => $paralelas['copias'],
                 ],
@@ -232,7 +232,7 @@ class TramitacaoController extends Controller
             $tramitacaoAtual->update([
                 'status'        => 'devolvido',
                 'despachado_em' => now(),
-                'despacho'      => $request->input('despacho'),
+                'despacho'      => $this->textoDoDespacho($request, $processo, $tramitacaoAtual),
             ]);
 
             // Criar nova tramitacao devolvendo ao remetente anterior
@@ -262,7 +262,7 @@ class TramitacaoController extends Controller
                     'de_tramitacao'   => $tramitacaoAtual->id,
                     'para_tramitacao' => $novaTramitacao->id,
                     'destinatario_id' => $tramitacaoAtual->remetente_id,
-                    'despacho'        => $request->input('despacho'),
+                    'despacho'        => $this->textoDoDespacho($request, $processo, $tramitacaoAtual),
                 ],
                 'ip'         => $request->ip(),
                 'user_agent' => $request->userAgent(),
@@ -603,5 +603,13 @@ class TramitacaoController extends Controller
 
             return redirect()->back()->with('error', 'Erro ao anexar arquivo(s): ' . $e->getMessage());
         }
+    }
+
+    /** Despacho do editor com as variáveis trocadas e o HTML limpo (TR 4.16); vazio vira null. */
+    private function textoDoDespacho(Request $request, \App\Models\Processo\Processo $processo, \App\Models\Processo\Tramitacao $etapa): ?string
+    {
+        $html = \App\Support\Variaveis::aplicar($request->input('despacho'), $processo->variaveisDespacho($etapa->setor_destino));
+
+        return trim(strip_tags($html, '<img>')) === '' ? null : $html;
     }
 }

@@ -18,6 +18,7 @@
         .info-value { display: table-cell; padding: 3px 0; font-size: 11px; }
         .badge-confidencial { display: inline-block; background: #fef2f2; color: #dc2626; font-size: 9px; font-weight: bold; padding: 2px 8px; border-radius: 10px; border: 1px solid #fca5a5; }
         .conteudo { padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; line-height: 1.7; white-space: pre-wrap; word-wrap: break-word; }
+        @include('pdf.partials.estilo-texto-rico')
         .resposta { padding: 10px 15px; margin-bottom: 10px; background: #f1f5f9; border-left: 3px solid #1e40af; border-radius: 0 4px 4px 0; }
         .resposta-header { font-size: 10px; color: #555; margin-bottom: 4px; }
         .resposta-header strong { color: #1e40af; }
@@ -65,7 +66,7 @@
             </div>
             <div class="info-row">
                 <div class="info-label">Data:</div>
-                <div class="info-value">{{ $memorando->created_at?->format('d/m/Y H:i:s') }}</div>
+                <div class="info-value">{{ $memorando->created_at?->copy()->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i:s') }}</div>
             </div>
             @if($memorando->confidencial)
             <div class="info-row">
@@ -79,7 +80,7 @@
     {{-- Conteudo --}}
     <div class="section">
         <div class="section-title">Conteudo</div>
-        <div class="conteudo">{{ $memorando->conteudo }}</div>
+        <div class="conteudo conteudo-html">{!! $memorando->conteudoFinal() !!}</div>
     </div>
 
     {{-- Respostas --}}
@@ -90,7 +91,7 @@
         <div class="resposta">
             <div class="resposta-header">
                 <strong>{{ $resposta->user?->name ?? 'Usuario' }}</strong>
-                — {{ $resposta->created_at?->format('d/m/Y H:i:s') }}
+                — {{ $resposta->created_at?->copy()->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i:s') }}
             </div>
             <div class="resposta-body">{{ $resposta->conteudo }}</div>
         </div>
@@ -126,7 +127,7 @@
                     </td>
                     <td>
                         @if($lido && $lidoEm)
-                            {{ \Carbon\Carbon::parse($lidoEm)->format('d/m/Y H:i:s') }}
+                            {{ \Carbon\Carbon::parse($lidoEm)->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i:s') }}
                         @else
                             -
                         @endif
@@ -144,7 +145,7 @@
             <p style="margin-bottom: 5px;"><strong>Verificacao:</strong> {{ config('app.url') }}/verificar/{{ $memorando->qr_code_token }}</p>
         </div>
         @endif
-        <p>Documento gerado automaticamente em {{ now()->format('d/m/Y H:i:s') }}</p>
+        <p>Documento gerado automaticamente em {{ now('America/Sao_Paulo')->format('d/m/Y H:i:s') }}</p>
     </div>
 </body>
 </html>

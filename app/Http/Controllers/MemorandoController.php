@@ -70,6 +70,7 @@ class MemorandoController extends Controller
             ->get(['id', 'nome', 'codigo', 'nivel', 'parent_id']);
 
         return Inertia::render('GED/Memorandos/Create', [
+            'variaveis'    => Memorando::variaveisParaEditor(),
             'autorizacoes' => EmNomeDe::autorizacoes(),
             'usuarios' => $usuarios,
             'unidades' => $unidades,
@@ -316,6 +317,7 @@ class MemorandoController extends Controller
             'classificacao'   => \App\Support\Classificacao::doItem('memorando', $memorando->id),
             'acessos'         => Acessos::de('memorando', $memorando->id),
             'memorando'       => $memorando,
+            'conteudo_html'   => $memorando->conteudoFinal(),
             'pode_receber'    => $podeReceber,
             'pode_tramitar'   => $podeTramitar,
             'meu_status'      => $meuStatus,
@@ -559,7 +561,7 @@ class MemorandoController extends Controller
 
             $textoPesquisavel = collect([
                 'Memorando', $memorando->numero, $memorando->assunto,
-                $memorando->conteudo, $memorando->setor_origem,
+                \App\Support\Variaveis::textoPuro($memorando->conteudoFinal()), $memorando->setor_origem,
                 $memorando->remetente?->name,
             ])->filter()->implode(' | ');
 

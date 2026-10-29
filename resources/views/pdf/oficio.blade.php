@@ -17,13 +17,7 @@
         .info-label { display: table-cell; font-weight: bold; color: #555; padding: 3px 10px 3px 0; width: 160px; font-size: 10px; }
         .info-value { display: table-cell; padding: 3px 0; font-size: 11px; }
         .conteudo { padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; line-height: 1.7; white-space: pre-wrap; word-wrap: break-word; }
-        .conteudo-html { white-space: normal; }
-        .conteudo-html p { margin: 0 0 8px; }
-        .conteudo-html ul, .conteudo-html ol { margin: 0 0 8px 20px; }
-        .conteudo-html h1, .conteudo-html h2, .conteudo-html h3 { margin: 8px 0 6px; color: #333; }
-        .conteudo-html h1 { font-size: 15px; } .conteudo-html h2 { font-size: 13px; } .conteudo-html h3 { font-size: 12px; }
-        .conteudo-html blockquote { border-left: 3px solid #cbd5e1; padding-left: 8px; color: #555; }
-        .conteudo-html hr { border: 0; border-top: 1px solid #cbd5e1; margin: 8px 0; }
+        @include('pdf.partials.estilo-texto-rico')
         .resposta { padding: 10px 15px; margin-bottom: 10px; background: #f1f5f9; border-left: 3px solid #1e40af; border-radius: 0 4px 4px 0; }
         .resposta.externo { border-left-color: #7c3aed; background: #f5f3ff; }
         .resposta-header { font-size: 10px; color: #555; margin-bottom: 4px; }
@@ -89,7 +83,7 @@
             </div>
             <div class="info-row">
                 <div class="info-label">Data:</div>
-                <div class="info-value">{{ $oficio->created_at?->format('d/m/Y H:i:s') }}</div>
+                <div class="info-value">{{ $oficio->created_at?->copy()->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i:s') }}</div>
             </div>
         </div>
     </div>
@@ -112,7 +106,7 @@
                 @if($resposta->externo)
                     <span class="badge-externo">EXTERNO</span>
                 @endif
-                — {{ $resposta->created_at?->format('d/m/Y H:i:s') }}
+                — {{ $resposta->created_at?->copy()->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i:s') }}
             </div>
             <div class="resposta-body">{{ $resposta->conteudo }}</div>
         </div>
@@ -135,21 +129,21 @@
                 <tr>
                     <td>Enviado</td>
                     <td class="status-sim">Sim</td>
-                    <td>{{ $oficio->enviado_em?->format('d/m/Y H:i:s') ?? '-' }}</td>
+                    <td>{{ $oficio->enviado_em?->copy()->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i:s') ?? '-' }}</td>
                 </tr>
                 <tr>
                     <td>Entregue</td>
                     <td class="{{ $oficio->entregue_em ? 'status-sim' : 'status-nao' }}">
                         {{ $oficio->entregue_em ? 'Sim' : 'Aguardando' }}
                     </td>
-                    <td>{{ $oficio->entregue_em?->format('d/m/Y H:i:s') ?? '-' }}</td>
+                    <td>{{ $oficio->entregue_em?->copy()->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i:s') ?? '-' }}</td>
                 </tr>
                 <tr>
                     <td>Lido pelo Destinatário</td>
                     <td class="{{ $oficio->lido_em ? 'status-sim' : 'status-nao' }}">
                         {{ $oficio->lido_em ? 'Sim' : 'Aguardando' }}
                     </td>
-                    <td>{{ $oficio->lido_em?->format('d/m/Y H:i:s') ?? '-' }}</td>
+                    <td>{{ $oficio->lido_em?->copy()->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i:s') ?? '-' }}</td>
                 </tr>
             </tbody>
         </table>
@@ -162,7 +156,7 @@
             <p style="margin-bottom: 5px;"><strong>Verificação:</strong> {{ $qrCodeUrl }}</p>
         </div>
         @endif
-        <p>Documento gerado automaticamente em {{ now()->format('d/m/Y H:i:s') }}</p>
+        <p>Documento gerado automaticamente em {{ now('America/Sao_Paulo')->format('d/m/Y H:i:s') }}</p>
     </div>
 </body>
 </html>
