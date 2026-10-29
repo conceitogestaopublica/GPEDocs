@@ -535,7 +535,10 @@ Route::middleware('auth')->group(function () {
     Route::get('processos/inbox', [TramitacaoController::class, 'inbox'])->name('processos.inbox')->middleware('can:processo.visualizar');
     Route::get('processos/anexos/{anexo}/download', [ProcessoController::class, 'downloadAnexo'])->name('processos.anexos.download')->middleware('can:processo.visualizar');
     // Anexos: ZIP, ordem, avaliação e link seguro (TR 4.14.5, 4.20, 4.38.24–4.38.26)
-    Route::get('processos/{id}/anexos/zip', [\App\Http\Controllers\AnexoProcessoController::class, 'zip'])->whereNumber('id')->name('processos.anexos.zip')->middleware('can:processo.visualizar');
+    // Árvore do processo em PDF (TR 4.9.16, 4.38.27–4.38.42)
+    Route::post('processos/{id}/arvores', [\App\Http\Controllers\ArvoreController::class, 'solicitar'])->whereNumber('id')->name('processos.arvores.store')->middleware(['can:processo.visualizar', 'throttle:10,1']);
+    Route::get('arvores/{id}/baixar', [\App\Http\Controllers\ArvoreController::class, 'baixar'])->whereNumber('id')->name('arvores.baixar')->middleware('can:processo.visualizar');
+    Route::get('processos/{id}/anexos/zip',[\App\Http\Controllers\AnexoProcessoController::class, 'zip'])->whereNumber('id')->name('processos.anexos.zip')->middleware('can:processo.visualizar');
     Route::middleware('can:processo.tramitar')->controller(\App\Http\Controllers\AnexoProcessoController::class)->group(function () {
         Route::post('processos/{id}/anexos/ordem', 'ordenar')->whereNumber('id')->name('processos.anexos.ordem');
         Route::post('processos/anexos/{anexo}/avaliar', 'avaliar')->whereNumber('anexo')->name('processos.anexos.avaliar');

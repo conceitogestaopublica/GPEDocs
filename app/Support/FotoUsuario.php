@@ -64,23 +64,10 @@ final class FotoUsuario
         $caminho = TenantStorage::pasta('fotos') . "/usuario-{$user->id}-" . Str::lower(Str::random(8)) . '.jpg';
         $disco = Storage::disk('documentos');
         $disco->put($caminho, $jpeg);
-        self::donoDoStorage($disco->path($caminho));
+        DonoDoArquivo::ajustar($disco->path($caminho));
 
         self::apagarArquivo($user);
         $user->forceFill(['foto_path' => $caminho, 'foto_origem' => $origem])->save();
-    }
-
-    /** Gravada por comando como root (importação): o PHP da web precisa conseguir ler. */
-    private static function donoDoStorage(string $arquivo): void
-    {
-        if (function_exists('posix_geteuid') && posix_geteuid() === 0 && is_file($arquivo)) {
-            $dono = fileowner(storage_path('app'));
-            $grupo = filegroup(storage_path('app'));
-            @chown($arquivo, $dono);
-            @chgrp($arquivo, $grupo);
-            @chown(dirname($arquivo), $dono);
-            @chgrp(dirname($arquivo), $grupo);
-        }
     }
 
     private static function apagarArquivo(User $user): void

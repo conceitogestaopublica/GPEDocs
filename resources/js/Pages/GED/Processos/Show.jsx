@@ -16,6 +16,7 @@ import QuemAcessou from '../../../Components/QuemAcessou';
 import SetoresMulti from '../../../Components/SetoresMulti';
 import PrazosDoProcesso from '../../../Components/PrazosDoProcesso';
 import AnexosDoProcesso from '../../../Components/AnexosDoProcesso';
+import ArvoreDoProcesso from '../../../Components/ArvoreDoProcesso';
 import AssinarModal from '../../../Components/AssinarModal';
 import { useConfirm, useAvisar } from '../../../Components/ConfirmProvider';
 
@@ -68,10 +69,11 @@ const tabList = [
     { key: 'tramitacao', label: 'Tramitação', icon: 'fas fa-route' },
     { key: 'comentarios', label: 'Comentários', icon: 'fas fa-comments' },
     { key: 'historico', label: 'Histórico', icon: 'fas fa-history' },
+    { key: 'arvore', label: 'Árvore', icon: 'fas fa-sitemap' },
 ];
 
 export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
-    acessos = [], prazos = [], fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
+    acessos = [], prazos = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
     // Meu perfil › Preferências: abrir anexo no navegador ou baixar
@@ -1233,6 +1235,10 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                 )}
 
                 {/* ── Tab: Comentarios ── */}
+                {activeTab === 'arvore' && (
+                    <ArvoreDoProcesso processoId={proc.id} arvores={arvores} configuracoes={arvore_configuracoes} secoes={arvore_secoes} />
+                )}
+
                 {activeTab === 'historico' && (
                     <>
                     <Card title="Histórico do processo">
@@ -1614,7 +1620,7 @@ const ACOES_HISTORICO = {
     aos_cuidados: 'Aos cuidados', resolucao_setor: 'Setor resolveu a parte dele', estagio: 'Estágio',
     ciencia_copia: 'Ciência da cópia', decisao: 'Decisão', alteracao_assunto: 'Assunto alterado',
     prazo_criado: 'Prazo incluído', prazo_alterado: 'Prazo alterado', prazo_realizado: 'Prazo realizado', prazo_excluido: 'Prazo excluído',
-    anexos_reordenados: 'Anexos reordenados', anexo_avaliado: 'Anexo avaliado', link_anexo: 'Link seguro de anexo',
+    anexos_reordenados: 'Anexos reordenados', anexo_avaliado: 'Anexo avaliado', link_anexo: 'Link seguro de anexo', arvore_solicitada: 'Árvore do processo pedida',
 };
 
 function formatDate(dateStr) {

@@ -408,6 +408,14 @@ class ProcessoController extends Controller
             'frentes'              => $this->frentes($processo),
             'estagios'             => Tramitacao::ESTAGIOS,
             'acessos'              => \App\Support\Acessos::de('processo', $processo->id),
+            // Árvores geradas (TR 4.38.37, 4.38.38): a mais recente primeiro
+            'arvores'              => \App\Models\Processo\Arvore::where('processo_id', $processo->id)->with('solicitante:id,name')
+                ->orderByDesc('id')->limit(30)->get()
+                ->map(fn ($a) => $a->only(['id', 'configuracao', 'status', 'arquivo_tipo', 'tamanho', 'paginas', 'partes', 'observacao', 'erro'])
+                    + ['opcoes' => $a->opcoes, 'solicitante' => $a->solicitante?->name, 'criada_em' => $a->created_at?->toIso8601String(),
+                        'gerada_em' => $a->gerada_em?->toIso8601String()]),
+            'arvore_configuracoes' => \App\Models\Processo\Arvore::CONFIGURACOES,
+            'arvore_secoes'        => \App\Models\Processo\Arvore::SECOES,
             // Prazos lançados à mão que este usuário enxerga (TR 4.13)
             'prazos'               => \App\Models\Processo\Prazo::visiveisPara($user)->where('processo_id', $processo->id)
                 ->with(['unidade:id,nome', 'criador:id,name', 'concluidor:id,name'])->orderByRaw('concluido_em is not null')->orderBy('vence_em')->get()
