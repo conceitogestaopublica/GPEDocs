@@ -362,7 +362,23 @@ class ProcessoController extends Controller
             'decisao_assinada'     => $decisaoAssinada,
             'pastas'               => $pastas,
             'solicitacao_portal'   => $solicitacaoPortal,
+            'cuidados'             => $this->cuidados($acoes),
         ]);
+    }
+
+    /** "Aos cuidados" da etapa do setor: quem está com ela e para quem pode passar. */
+    private function cuidados(array $acoes): ?array
+    {
+        $etapa = $acoes['etapa'];
+        if (! $acoes['despachar'] || ! $etapa?->destino_unidade_id) {
+            return null;
+        }
+
+        return [
+            'responsavel' => $etapa->destinatario_id ? User::whereKey($etapa->destinatario_id)->first(['id', 'name']) : null,
+            'colegas'     => User::whereIn('id', \App\Support\Setores::servidores($etapa->destino_unidade_id))
+                ->whereNull('suspenso_em')->orderBy('name')->get(['id', 'name']),
+        ];
     }
 
     public function concluir(Request $request, $id)

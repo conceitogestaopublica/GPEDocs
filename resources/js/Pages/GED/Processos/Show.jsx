@@ -66,7 +66,7 @@ const tabList = [
     { key: 'historico', label: 'Histórico', icon: 'fas fa-history' },
 ];
 
-export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null }) {
+export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
     // Meu perfil › Preferências: abrir anexo no navegador ou baixar
@@ -107,6 +107,12 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     const [activeTab, setActiveTab] = useState('detalhes');
     const [showConcluirModal, setShowConcluirModal] = useState(false);
     const [showCancelarModal, setShowCancelarModal] = useState(false);
+    const [showCuidados, setShowCuidados] = useState(false);
+    const [cuidadosPara, setCuidadosPara] = useState('');
+    const { auth } = usePage().props;
+    const passarCuidados = (usuarioId) => router.post(`/tramitacoes/${etapaAtual.id}/cuidados`,
+        { usuario_id: usuarioId || null },
+        { preserveScroll: true, onSuccess: () => { setShowCuidados(false); setCuidadosPara(''); } });
     const [motivoCancelamento, setMotivoCancelamento] = useState('');
     const [assinarOpen, setAssinarOpen] = useState(false);
     const [arquivarGedOpen, setArquivarGedOpen] = useState(false);
@@ -437,6 +443,12 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                     <Button variant="secondary" icon="fas fa-inbox"
                                         onClick={() => router.post(`/tramitacoes/${etapaAtual.id}/receber`, {}, { preserveScroll: true })}>
                                         Receber
+                                    </Button>
+                                )}
+                                {cuidados && etapaAtual && (
+                                    <Button variant="secondary" icon="fas fa-user-check" onClick={() => setShowCuidados(true)}
+                                        title={cuidados.responsavel ? `Aos cuidados de ${cuidados.responsavel.name}` : 'Atribuir a alguém do setor, sem tramitar'}>
+                                        {cuidados.responsavel ? `Aos cuidados de ${cuidados.responsavel.name.split(' ')[0]}` : 'Aos cuidados'}
                                     </Button>
                                 )}
                                 {pode_concluir && (
@@ -1109,6 +1121,42 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                 )}
             </div>
 
+            {/* Modal: Aos cuidados (TR 4.9.13) */}
+            {cuidados && etapaAtual && (
+                <Modal show={showCuidados} onClose={() => setShowCuidados(false)} title="Aos cuidados">
+                    <div className="space-y-4">
+                        <p className="text-sm text-gray-600">
+                            {cuidados.responsavel
+                                ? <>Está aos cuidados de <b>{cuidados.responsavel.name}</b>.</>
+                                : <>Está na caixa do setor <b>{etapaAtual.setor_destino}</b>, sem responsável.</>}
+                            {' '}Passar não tramita: o processo continua no setor e vai para a caixa pessoal de quem ficar com ele.
+                        </p>
+                        {cuidados.responsavel?.id !== auth?.user?.id && (
+                            <Button variant="primary" icon="fas fa-hand-paper" onClick={() => passarCuidados(auth?.user?.id)}>
+                                Ficar comigo
+                            </Button>
+                        )}
+                        <div>
+                            <label className="block text-sm font-medium text-navy-900 mb-1">Passar para um colega do setor</label>
+                            <div className="flex gap-2">
+                                <select value={cuidadosPara} onChange={(e) => setCuidadosPara(e.target.value)} className="ds-input flex-1">
+                                    <option value="">Escolha…</option>
+                                    {cuidados.colegas.filter(c => c.id !== auth?.user?.id && c.id !== cuidados.responsavel?.id)
+                                        .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                                <Button variant="secondary" disabled={! cuidadosPara} onClick={() => passarCuidados(cuidadosPara)}>Passar</Button>
+                            </div>
+                        </div>
+                        {cuidados.responsavel && (
+                            <button type="button" onClick={() => passarCuidados(null)}
+                                className="text-sm text-gray-600 hover:text-red-600">
+                                <i className="fas fa-undo mr-1" /> Devolver para a caixa do setor
+                            </button>
+                        )}
+                    </div>
+                </Modal>
+            )}
+
             {/* Modal: Concluir */}
             <Modal show={showConcluirModal} onClose={() => setShowConcluirModal(false)} title="Concluir Processo">
                 <form onSubmit={handleConcluir}>
@@ -1179,6 +1227,7 @@ const ACOES_HISTORICO = {
     abertura: 'Abertura', recebimento: 'Recebimento', despacho: 'Despacho', devolucao: 'Devolucao',
     comentario: 'Comentário', anexo: 'Anexo', conclusao: 'Conclusão', cancelamento: 'Cancelamento',
     assinatura_decisao: 'Decisão assinada', arquivado_no_ged: 'Arquivado no repositório',
+    aos_cuidados: 'Aos cuidados',
 };
 
 function formatDate(dateStr) {

@@ -270,6 +270,67 @@ class TramitacaoController extends Controller
         }
     }
 
+    /**
+     * "Aos cuidados" (TR 4.9.13): quem está na etapa do setor a atribui a si ou a um
+     * colega do setor, sem tramitar — ela sai da caixa do setor e vai para a caixa
+     * pessoal dele. Sem usuário, volta para a caixa do setor.
+     */
+    public function aosCuidados(Request $request, $id)
+    {
+        $request->validate(['usuario_id' => ['nullable', 'integer', 'exists:users,id']]);
+
+        $tramitacao = Tramitacao::findOrFail($id);
+        \App\Services\AcaoNoProcesso::exigirAtivoNaTramitacao($tramitacao, Auth::user());
+        if (! $tramitacao->destino_unidade_id) {
+            return redirect()->back()->with('error', 'Só a etapa endereçada a um setor pode ficar aos cuidados de alguém.');
+        }
+
+        $novo = $request->filled('usuario_id') ? \App\Models\User::find((int) $request->input('usuario_id')) : null;
+        if ($novo && ! \App\Support\Setores::atende($novo, $tramitacao->destino_unidade_id)) {
+            return redirect()->back()->with('error', "{$novo->name} não atende o setor {$tramitacao->setor_destino}.");
+        }
+        if ($novo?->id === $tramitacao->destinatario_id) {
+            return redirect()->back();
+        }
+
+        DB::transaction(function () use ($request, $tramitacao, $novo) {
+            $anterior = $tramitacao->destinatario_id;
+            $tramitacao->update(['destinatario_id' => $novo?->id]);
+            $processo = $tramitacao->processo;
+
+            ProcessoHistorico::create([
+                'processo_id' => $processo->id,
+                'usuario_id'  => Auth::id(),
+                'acao'        => 'aos_cuidados',
+                'detalhes'    => [
+                    'tramitacao_id' => $tramitacao->id,
+                    'setor'         => $tramitacao->setor_destino,
+                    'de_usuario_id' => $anterior,
+                    'para_usuario_id' => $novo?->id,
+                    'para'          => $novo?->name ?? 'caixa do setor',
+                ],
+                'ip'         => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
+            if ($novo && $novo->id !== Auth::id()) {
+                Notificacao::create([
+                    'usuario_id'      => $novo->id,
+                    'tipo'            => 'processo',
+                    'titulo'          => 'Processo aos seus cuidados',
+                    'mensagem'        => Auth::user()->name . " deixou o processo {$processo->numero_protocolo} - {$processo->assunto} aos seus cuidados.",
+                    'referencia_tipo' => 'processo',
+                    'referencia_id'   => $processo->id,
+                    'lida'            => false,
+                ]);
+            }
+        });
+
+        return redirect()->back()->with('success', $novo
+            ? ($novo->id === Auth::id() ? 'O processo ficou aos seus cuidados.' : "O processo ficou aos cuidados de {$novo->name}.")
+            : 'O processo voltou para a caixa do setor.');
+    }
+
     public function comentar(Request $request, $id)
     {
         $request->validate([
