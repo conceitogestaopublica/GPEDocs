@@ -393,6 +393,10 @@ class ProcessoController extends Controller
             'frentes'              => $this->frentes($processo),
             'estagios'             => Tramitacao::ESTAGIOS,
             'acessos'              => \App\Support\Acessos::de('processo', $processo->id),
+            // Alterar / recategorizar o assunto (TR 4.32.24, 4.33.15)
+            'pode_alterar_assunto' => ! in_array($processo->status, ['concluido', 'cancelado'], true)
+                && ($user->super_admin || ($acoes['despachar'] && ($acoes['etapa']?->frente ?? 1) === 1)),
+            'tipos_processo'       => TipoProcesso::where('ativo', true)->orderBy('nome')->get(['id', 'nome', 'sigla']),
             'fluxo'                => \App\Services\FluxoDoProcesso::paraTela($processo,
                 \App\Services\AcaoNoProcesso::etapaAtual($processo)?->tipo_etapa_id),
         ]);
@@ -435,6 +439,67 @@ class ProcessoController extends Controller
                 'ciente_em' => $c->recebido_em?->toIso8601String(),
             ])->values()->all(),
         ];
+    }
+
+    /**
+     * Alterar o assunto ou recategorizar (trocar o tipo de processo) — TR 4.32.24, 4.33.15.
+     * Quem está no fluxo principal (ou o super admin). Fica no histórico com o anterior,
+     * data e hora. Trocando o tipo, o fluxo recomeça na 1ª etapa do novo assunto.
+     */
+    public function alterarAssunto(Request $request, $id)
+    {
+        $dados = $request->validate([
+            'assunto'          => ['required', 'string', 'max:500'],
+            'tipo_processo_id' => ['required', 'integer', 'exists:proc_tipos_processo,id'],
+            'motivo'           => ['required', 'string', 'max:1000'],
+        ]);
+
+        return DB::transaction(function () use ($request, $dados, $id) {
+            $processo = Processo::with('tipoProcesso')->lockForUpdate()->findOrFail($id);
+            $user = Auth::user();
+            $acoes = \App\Services\AcaoNoProcesso::avaliar($processo, $user);
+            $noPrincipal = $acoes['despachar'] && ($acoes['etapa']?->frente ?? 1) === 1;
+            if (! $user->super_admin && ! $noPrincipal) {
+                abort(403, 'Só quem está com o processo no fluxo principal altera o assunto.');
+            }
+
+            $tipoNovo = TipoProcesso::findOrFail((int) $dados['tipo_processo_id']);
+            $mudouTipo = $tipoNovo->id !== $processo->tipo_processo_id;
+            $mudouTexto = trim($dados['assunto']) !== $processo->assunto;
+            if (! $mudouTipo && ! $mudouTexto) {
+                return redirect()->back()->with('error', 'Nada foi alterado.');
+            }
+
+            ProcessoHistorico::create([
+                'processo_id' => $processo->id,
+                'usuario_id'  => $user->id,
+                'acao'        => 'alteracao_assunto',
+                'detalhes'    => [
+                    'assunto_anterior' => $processo->assunto,
+                    'assunto_novo'     => trim($dados['assunto']),
+                    'tipo_anterior'    => $processo->tipoProcesso?->nome,
+                    'tipo_novo'        => $tipoNovo->nome,
+                    'motivo'           => $dados['motivo'],
+                ],
+                'ip'         => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
+            $processo->update(['assunto' => trim($dados['assunto']), 'tipo_processo_id' => $tipoNovo->id]);
+
+            // Recategorizado: a etapa principal em andamento passa a ser a 1ª do novo assunto
+            if ($mudouTipo) {
+                $principal = \App\Services\AcaoNoProcesso::etapaAtual($processo);
+                $primeira = $tipoNovo->etapas()->first();
+                if ($principal && $principal->frente === 1) {
+                    $principal->update(['tipo_etapa_id' => $primeira?->id]);
+                }
+            }
+
+            return redirect()->back()->with('success', $mudouTipo
+                ? "Assunto recategorizado para \"{$tipoNovo->nome}\"."
+                : 'Assunto alterado.');
+        });
     }
 
     /** "Aos cuidados" da etapa do setor: quem está com ela e para quem pode passar. */

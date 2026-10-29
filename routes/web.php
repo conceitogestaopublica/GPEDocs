@@ -524,6 +524,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('can:processo.tramitar')->group(function () {
         Route::post('processos/{id}/concluir', [ProcessoController::class, 'concluir'])->name('processos.concluir');
         Route::post('processos/{id}/cancelar', [ProcessoController::class, 'cancelar'])->name('processos.cancelar');
+        Route::post('processos/{id}/assunto', [ProcessoController::class, 'alterarAssunto'])->name('processos.assunto');
         Route::post('processos/{id}/arquivar-no-ged', [ProcessoController::class, 'arquivarNoGed'])->name('processos.arquivar-no-ged');
         Route::post('processos/anexos/{anexo}/enviar-assinatura', [ProcessoController::class, 'enviarAnexoParaAssinatura'])
             ->name('processos.anexos.enviar-assinatura');

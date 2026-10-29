@@ -43,11 +43,17 @@ final class FluxoDoProcesso
     /** Maior ordem de etapa já alcançada pela frente principal (0 = nenhuma). */
     public static function ordemAlcancada(Processo $processo): int
     {
-        $ids = $processo->tramitacoes()
-            ->where('modo', 'tramite')->where('frente', 1)
-            ->whereNotNull('tipo_etapa_id')->pluck('tipo_etapa_id');
+        // Só etapas do assunto ATUAL: recategorizado, o fluxo recomeça no novo
+        return (int) TipoEtapa::whereIn('id', self::etapasPassadas($processo))
+            ->where('tipo_processo_id', $processo->tipo_processo_id)->max('ordem');
+    }
 
-        return (int) TipoEtapa::whereIn('id', $ids)->max('ordem');
+    /** Etapas por onde a frente principal já passou. @return list<int> */
+    private static function etapasPassadas(Processo $processo): array
+    {
+        return $processo->tramitacoes()
+            ->where('modo', 'tramite')->where('frente', 1)
+            ->whereNotNull('tipo_etapa_id')->pluck('tipo_etapa_id')->map(fn ($id) => (int) $id)->all();
     }
 
     /** Etapas para onde o despacho da frente principal pode ir: a próxima e as seguintes até a 1ª obrigatória. */
@@ -119,8 +125,7 @@ final class FluxoDoProcesso
             return null;
         }
         $alcancada = self::ordemAlcancada($processo);
-        $passou = $processo->tramitacoes()->where('modo', 'tramite')->where('frente', 1)
-            ->whereNotNull('tipo_etapa_id')->pluck('tipo_etapa_id')->map(fn ($id) => (int) $id)->all();
+        $passou = self::etapasPassadas($processo);
         $todosSetores =UgOrganograma::whereIn('id', $etapas->pluck('unidades')->flatten()->filter()->unique())
             ->where('ug_id', $processo->ug_id)->pluck('nome', 'id');
         $mapa = fn (TipoEtapa $e) => [

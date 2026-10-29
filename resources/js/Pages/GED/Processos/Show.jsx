@@ -69,7 +69,7 @@ const tabList = [
 ];
 
 export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
-    acessos = [], fluxo = null, etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
+    acessos = [], fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [] }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
     // Meu perfil › Preferências: abrir anexo no navegador ou baixar
@@ -112,6 +112,10 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     const [showConcluirModal, setShowConcluirModal] = useState(false);
     const [showCancelarModal, setShowCancelarModal] = useState(false);
     const [showCuidados, setShowCuidados] = useState(false);
+    // Alterar / recategorizar o assunto (TR 4.32.24, 4.33.15)
+    const [showAssunto, setShowAssunto] = useState(false);
+    const assuntoForm = useForm({ assunto: processo.assunto || '', tipo_processo_id: String(processo.tipo_processo_id || ''), motivo: '' });
+    const alteracoesAssunto = (processo.historico || []).filter(h => h.acao === 'alteracao_assunto');
     const [cuidadosPara, setCuidadosPara] = useState('');
     const { auth } = usePage().props;
     const passarCuidados = (usuarioId) => router.post(`/tramitacoes/${etapaAtual.id}/cuidados`,
@@ -481,7 +485,15 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                 {proc.prioridade}
                             </span>
                         </div>
-                        <p className="text-gray-600 ml-8">{proc.assunto}</p>
+                        <p className="text-gray-600 ml-8">
+                            {proc.assunto}
+                            {pode_alterar_assunto && (
+                                <button type="button" onClick={() => setShowAssunto(true)} title="Alterar o assunto ou recategorizar"
+                                    className="ml-2 text-xs text-cyan-700 hover:underline">
+                                    <i className="fas fa-pen mr-1" />Alterar assunto
+                                </button>
+                            )}
+                        </p>
                         <div className="flex items-center gap-4 mt-2 ml-8 text-xs text-gray-400">
                             <span><i className="fas fa-folder mr-1" />{tipoProcesso.nome || '-'}</span>
                             <span><i className="fas fa-building mr-1" />{proc.setor_origem || '-'}</span>
@@ -532,6 +544,27 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
 
             <div className="mt-6">
                 {/* ── Tab: Detalhes ── */}
+                {activeTab === 'detalhes' && alteracoesAssunto.length > 0 && (
+                    <Card title="Alterações do assunto" className="mb-6">
+                        <ul className="divide-y divide-gray-100">
+                            {alteracoesAssunto.map(h => (
+                                <li key={h.id} className="py-2 text-sm">
+                                    <p className="text-gray-800">
+                                        {h.detalhes?.tipo_anterior !== h.detalhes?.tipo_novo && (
+                                            <><b>{h.detalhes?.tipo_anterior}</b> → <b>{h.detalhes?.tipo_novo}</b><br /></>
+                                        )}
+                                        {h.detalhes?.assunto_anterior !== h.detalhes?.assunto_novo && (
+                                            <>"{h.detalhes?.assunto_anterior}" → "{h.detalhes?.assunto_novo}"</>
+                                        )}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                        {formatDate(h.created_at)} · {h.usuario?.name || '-'} · Motivo: {h.detalhes?.motivo}
+                                    </p>
+                                </li>
+                            ))}
+                        </ul>
+                    </Card>
+                )}
                 {activeTab === 'detalhes' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Dados do formulario */}
@@ -1345,6 +1378,37 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                 )}
             </div>
 
+            {/* Modal: Alterar assunto / recategorizar (TR 4.32.24, 4.33.15) */}
+            {pode_alterar_assunto && (
+                <Modal show={showAssunto} onClose={() => setShowAssunto(false)} title="Alterar o assunto">
+                    <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); assuntoForm.post(`/processos/${proc.id}/assunto`, { preserveScroll: true, onSuccess: () => { setShowAssunto(false); assuntoForm.setData('motivo', ''); } }); }}>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de processo (assunto)</label>
+                            <select value={assuntoForm.data.tipo_processo_id} onChange={(e) => assuntoForm.setData('tipo_processo_id', e.target.value)} className="ds-input">
+                                {tipos_processo.map(t => <option key={t.id} value={String(t.id)}>{t.nome}{t.sigla ? ` (${t.sigla})` : ''}</option>)}
+                            </select>
+                            {String(proc.tipo_processo_id) !== assuntoForm.data.tipo_processo_id && (
+                                <p className="mt-1 text-xs text-amber-700"><i className="fas fa-route mr-1" />Recategorizar recomeça o fluxo na 1ª etapa do novo assunto. O número do protocolo não muda.</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Assunto</label>
+                            <input value={assuntoForm.data.assunto} onChange={(e) => assuntoForm.setData('assunto', e.target.value)} maxLength={500} className="ds-input" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Motivo <span className="text-red-500">*</span></label>
+                            <textarea value={assuntoForm.data.motivo} onChange={(e) => assuntoForm.setData('motivo', e.target.value)} rows={3} className="ds-input !h-auto" />
+                            {assuntoForm.errors.motivo && <p className="mt-1 text-xs text-red-600">{assuntoForm.errors.motivo}</p>}
+                        </div>
+                        <p className="text-xs text-gray-500">O assunto anterior, a data e a hora ficam registrados no processo.</p>
+                        <div className="flex justify-end gap-2">
+                            <Button type="button" variant="secondary" onClick={() => setShowAssunto(false)}>Cancelar</Button>
+                            <Button type="submit" variant="primary" loading={assuntoForm.processing} disabled={! assuntoForm.data.motivo.trim()}>Salvar</Button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+
             {/* Modal: Aos cuidados (TR 4.9.13) */}
             {cuidados && etapaAtual && (
                 <Modal show={showCuidados} onClose={() => setShowCuidados(false)} title="Aos cuidados">
@@ -1565,7 +1629,7 @@ const ACOES_HISTORICO = {
     comentario: 'Comentário', anexo: 'Anexo', conclusao: 'Conclusão', cancelamento: 'Cancelamento',
     assinatura_decisao: 'Decisão assinada', arquivado_no_ged: 'Arquivado no repositório',
     aos_cuidados: 'Aos cuidados', resolucao_setor: 'Setor resolveu a parte dele', estagio: 'Estágio',
-    ciencia_copia: 'Ciência da cópia', decisao: 'Decisão',
+    ciencia_copia: 'Ciência da cópia', decisao: 'Decisão', alteracao_assunto: 'Assunto alterado',
 };
 
 function formatDate(dateStr) {
