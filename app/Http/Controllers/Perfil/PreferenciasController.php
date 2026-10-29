@@ -20,8 +20,9 @@ class PreferenciasController extends Controller
 
         return Inertia::render('GED/Perfil/Preferencias', [
             'preferencias' => PreferenciasUsuario::de($user),
-            'avisos'       => collect(PreferenciasUsuario::AVISOS)->map(fn ($g) => $g['rotulo']),
+            'abrangencias' => \App\Support\Notificacoes::ABRANGENCIAS,
             'emails'       => array_values(array_filter([$user->email, $user->email_secundario])),
+            'celular'      => $user->telefone,
         ]);
     }
 
@@ -30,10 +31,13 @@ class PreferenciasController extends Controller
         $dados = $request->validate([
             'editor'   => ['required', Rule::in(['avancado', 'basico'])],
             'anexos'   => ['required', Rule::in(['visualizar', 'baixar'])],
-            'avisos'   => ['array'],
-            'avisos.*' => [Rule::in(array_keys(PreferenciasUsuario::AVISOS))],
+            'canais.email'     => ['required', Rule::in(array_keys(\App\Support\Notificacoes::ABRANGENCIAS))],
+            'canais.sms'       => ['required', Rule::in(array_keys(\App\Support\Notificacoes::ABRANGENCIAS))],
+            'email_mencao'     => ['boolean'],
+            'email_assinatura' => ['boolean'],
         ]);
-        $dados['avisos'] = array_values(array_unique($dados['avisos'] ?? []));
+        $dados['email_mencao'] = (bool) ($dados['email_mencao'] ?? false);
+        $dados['email_assinatura'] = (bool) ($dados['email_assinatura'] ?? false);
 
         Auth::user()->forceFill(['preferencias' => $dados])->save();
 

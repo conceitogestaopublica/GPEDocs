@@ -50,6 +50,18 @@ class User extends Authenticatable
     }
 
     /** Endereço da foto do servidor (servida por rota autenticada) — null sem foto. */
+    /** Troca do setor principal vira aviso para o servidor (TR 4.11.3). */
+    protected static function booted(): void
+    {
+        static::updated(function (User $u) {
+            if ($u->wasChanged('unidade_id') && $u->unidade_id && $u->tipo === 'interno') {
+                Notificacao::create([
+                    'usuario_id' => $u->id, 'tipo' => 'troca_setor', 'titulo' => 'Seu setor principal mudou',
+                    'mensagem' => 'Agora: ' . UgOrganograma::whereKey($u->unidade_id)->value('nome'), 'lida' => false,
+                ]);
+            }
+        });
+    }
     public function getFotoUrlAttribute(): ?string
     {
         // Lido cru: em consultas com colunas escolhidas (id, name) a coluna não vem

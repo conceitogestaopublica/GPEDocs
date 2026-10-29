@@ -10,44 +10,34 @@ use App\Models\User;
  * Preferências do servidor (users.preferencias):
  *   editor  → avancado (formatação) | basico (texto simples)
  *   anexos  → visualizar (abre no navegador) | baixar
- *   avisos  → grupos de notificação que também chegam por e-mail
+ *   canais  → abrangência do e-mail e do SMS (TR 4.11.4–5): tudo | direcionado | urgentes | nada
+ *   email_mencao / email_assinatura → e-mail em menção e em pedido de assinatura (TR 4.11.6)
  */
 final class PreferenciasUsuario
 {
-    /** Grupos de aviso por e-mail → tipos de Notificacao que cada um cobre. */
-    public const AVISOS = [
-        'assinatura' => ['rotulo' => 'Assinaturas (pedidos, assinadas e recusadas)', 'tipos' => ['assinatura_pendente', 'assinatura_realizada', 'assinatura_recusada']],
-        'processo'   => ['rotulo' => 'Processos e fluxos tramitados para mim', 'tipos' => ['processo', 'fluxo']],
-        'memorando'  => ['rotulo' => 'Memorandos (recebidos, respostas e tramitação)', 'tipos' => ['memorando_recebido', 'memorando_resposta', 'memorando_tramitado']],
-        'circular'   => ['rotulo' => 'Circulares recebidas', 'tipos' => ['circular_recebida']],
-        'oficio'     => ['rotulo' => 'Ofícios (enviados, lidos e falhas de e-mail)', 'tipos' => ['oficio_enviado', 'oficio_lido', 'oficio_email_falhou']],
-        'contrassenha' => ['rotulo' => 'Documentos emitidos em meu nome (contrassenha)', 'tipos' => ['contrassenha_usada']],
-    ];
-
-    /** Padrão de quem nunca mexeu: o que pede ação dele e o que sai em nome dele. */
+    /**
+     * Padrão de quem nunca mexeu: e-mail do que é direcionado a ele (pedidos de assinatura e
+     * menções incluídos), SMS desligado.
+     */
     public const PADRAO = [
-        'editor' => 'avancado',
-        'anexos' => 'visualizar',
-        'avisos' => ['assinatura', 'processo', 'contrassenha'],
+        'editor'           => 'avancado',
+        'anexos'           => 'visualizar',
+        'canais'           => ['email' => 'direcionado', 'sms' => 'nada'],
+        'email_mencao'     => true,
+        'email_assinatura' => true,
     ];
 
-    /** @return array{editor: string, anexos: string, avisos: array<int, string>} */
+    /** @return array{editor: string, anexos: string, canais: array{email: string, sms: string}, email_mencao: bool, email_assinatura: bool} */
     public static function de(User $user): array
     {
         $salvas = is_array($user->preferencias) ? $user->preferencias : [];
-
-        return array_replace(self::PADRAO, array_intersect_key($salvas, self::PADRAO));
-    }
-
-    /** O tipo de notificação vai por e-mail para este servidor? */
-    public static function querEmail(User $user, string $tipoNotificacao): bool
-    {
-        foreach (self::de($user)['avisos'] as $grupo) {
-            if (in_array($tipoNotificacao, self::AVISOS[$grupo]['tipos'] ?? [], true)) {
-                return true;
-            }
+        // Quem escolheu os grupos antigos (`avisos`) sem marcar nenhum não queria e-mail
+        if (! isset($salvas['canais']) && array_key_exists('avisos', $salvas)) {
+            $salvas['canais'] = ['email' => $salvas['avisos'] ? 'direcionado' : 'nada', 'sms' => 'nada'];
         }
+        $p = array_replace(self::PADRAO, array_intersect_key($salvas, self::PADRAO));
+        $p['canais'] = array_replace(self::PADRAO['canais'], array_intersect_key((array) $p['canais'], self::PADRAO['canais']));
 
-        return false;
+        return $p;
     }
 }

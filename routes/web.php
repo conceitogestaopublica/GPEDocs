@@ -730,6 +730,7 @@ Route::middleware('auth')->group(function () {
 
     // Notificacoes
     Route::get('notificacoes', [NotificacaoController::class, 'index'])->name('notificacoes');
+    Route::get('notificacoes/recentes', [NotificacaoController::class, 'recentes'])->name('notificacoes.recentes');
     Route::post('notificacoes/marcar-todas', [NotificacaoController::class, 'marcarTodas'])->name('notificacoes.marcar-todas');
     Route::get('notificacoes/{id}/abrir', [NotificacaoController::class, 'abrir'])->name('notificacoes.abrir');
     Route::post('notificacoes/{id}/lida', [NotificacaoController::class, 'marcarLida'])->name('notificacoes.lida');

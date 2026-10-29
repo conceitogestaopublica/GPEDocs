@@ -22,12 +22,18 @@ class Notificacao extends Model
         'referencia_tipo',
         'referencia_id',
         'lida',
+        'categoria',
+        'alcance',
+        'urgente',
+        'lida_em',
     ];
 
     protected function casts(): array
     {
         return [
             'lida' => 'boolean',
+            'urgente' => 'boolean',
+            'lida_em' => 'datetime',
         ];
     }
 
@@ -38,6 +44,10 @@ class Notificacao extends Model
      */
     protected static function booted(): void
     {
+        // Categoria da página de notificações sai do tipo (TR 4.11.3)
+        static::creating(function (Notificacao $n) {
+            $n->categoria ??= \App\Support\Notificacoes::categoriaDe((string) $n->tipo);
+        });
         static::created(function (Notificacao $n) {
             try {
                 $dominio = app()->runningInConsole() ? null : request()->getSchemeAndHttpHost();

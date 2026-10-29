@@ -6,6 +6,7 @@
  * notificações e perfil; avisos como toast no canto e rodapé com a marca GPE Cloud.
  */
 import { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 import { Link, usePage, router } from '@inertiajs/react';
 import FlashMessage from '../Components/FlashMessage';
 import Sidebar from '../Components/Sidebar';
@@ -224,7 +225,13 @@ function FavoritosMenu({ favoritos }) {
  */
 function NotificacoesDropdown({ count }) {
     const [open, setOpen] = useState(false);
+    const [itens, setItens] = useState(null);
     const ref = useFora(setOpen);
+    useEffect(() => {
+        if (! open) return;
+        setItens(null);
+        axios.get('/notificacoes/recentes').then((r) => setItens(r.data)).catch(() => setItens([]));
+    }, [open]);
 
     return (
         <div className="relative" ref={ref}>
@@ -244,13 +251,26 @@ function NotificacoesDropdown({ count }) {
                         <p className="text-sm font-semibold text-gray-800">Notificações</p>
                         {count > 0 && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{count} novas</span>}
                     </div>
-                    <div className="max-h-64 overflow-y-auto">
-                        {count === 0 && (
+                    <div className="max-h-96 overflow-y-auto">
+                        {itens === null && <p className="px-4 py-4 text-xs text-gray-400">Carregando…</p>}
+                        {itens?.length === 0 && (
                             <div className="px-4 py-6 text-center text-gray-400">
                                 <i className="fas fa-bell-slash text-2xl mb-2 block" />
-                                <p className="text-sm">Nenhuma notificação nova</p>
+                                <p className="text-sm">Nenhuma notificação</p>
                             </div>
                         )}
+                        {/* Últimos avisos no próprio sino (TR 4.11.2) */}
+                        {itens?.map((n) => (
+                            <Link key={n.id} href={n.tem_link ? `/notificacoes/${n.id}/abrir` : '/notificacoes'}
+                                className={`flex items-start gap-2 px-4 py-2.5 hover:bg-gray-50 ${n.lida ? '' : 'bg-blue-50/50'}`}>
+                                <i className={`fas ${n.icone} text-xs mt-1 ${n.lida ? 'text-gray-300' : 'text-blue-600'}`} />
+                                <span className="flex-1 min-w-0">
+                                    <span className={`block text-xs truncate ${n.lida ? 'text-gray-600' : 'text-gray-900 font-semibold'}`}>{n.urgente && <b className="text-red-600">URGENTE · </b>}{n.titulo}</span>
+                                    {n.mensagem && <span className="block text-[11px] text-gray-500 truncate">{n.mensagem}</span>}
+                                    <span className="block text-[10px] text-gray-400">{new Date(n.em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                                </span>
+                            </Link>
+                        ))}
                         <Link href={count > 0 ? '/notificacoes?nao_lidas=1' : '/notificacoes'}
                             className="block px-4 py-3 text-sm text-primary-600 hover:bg-primary-50 text-center font-medium">
                             {count > 0 ? 'Ver notificações novas' : 'Ver todas as notificações'}

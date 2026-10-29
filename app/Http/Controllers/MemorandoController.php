@@ -190,6 +190,7 @@ class MemorandoController extends Controller
                 Notificacao::create([
                     'usuario_id'      => (int) $usuarioId,
                     'tipo'            => 'memorando_recebido',
+                    'alcance'         => $tipoDestino === 'usuario' ? 'pessoal' : 'setor',
                     'titulo'          => 'Novo memorando recebido',
                     'mensagem'        => "Memorando {$numero} - {$memorando->assunto} recebido.",
                     'referencia_tipo' => 'memorando',

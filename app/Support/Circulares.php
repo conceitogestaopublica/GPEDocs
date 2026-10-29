@@ -58,7 +58,8 @@ final class Circulares
         foreach ($novos as $id) {
             CircularDestinatario::create(['circular_id' => $c->id, 'usuario_id' => $id, 'lido' => false]);
             Notificacao::create([
-                'usuario_id' => $id, 'tipo' => 'circular_recebida',
+                'usuario_id' => $id, 'tipo' => 'circular_recebida', 'urgente' => (bool) $c->urgente,
+                'alcance' => $c->destino_tipo === 'usuarios' ? 'pessoal' : 'setor',
                 'titulo' => ($c->urgente ? 'URGENTE — ' : '') . $titulo,
                 'mensagem' => "Circular {$c->numero} - {$c->assunto}",
                 'referencia_tipo' => 'circular', 'referencia_id' => $c->id, 'lida' => false,

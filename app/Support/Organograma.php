@@ -112,7 +112,13 @@ final class Organograma
 
         DB::transaction(function () use ($no, $destino) {
             if ($destino) {
+                $movidos = User::where('unidade_id', $no->id)->pluck('id');
                 User::where('unidade_id', $no->id)->update(['unidade_id' => $destino->id]);
+                // Atualização em massa não dispara o aviso do modelo: avisa aqui (TR 4.11.3)
+                foreach ($movidos as $uid) {
+                    \App\Models\Notificacao::create(['usuario_id' => $uid, 'tipo' => 'troca_setor', 'titulo' => 'Seu setor principal mudou',
+                        'mensagem' => "\"{$no->nome}\" foi desativado. Agora: {$destino->nome}", 'lida' => false]);
+                }
                 $comVinculo = DB::table('user_setores')->where('unidade_id', $no->id)->pluck('user_id');
                 DB::table('user_setores')->where('unidade_id', $no->id)->delete();
                 foreach ($comVinculo as $userId) {

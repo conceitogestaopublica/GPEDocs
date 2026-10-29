@@ -200,11 +200,12 @@ class TramitacaoController extends Controller
             } elseif ($setorDestinoId) {
                 $usuariosNotificar = \App\Support\Setores::servidores($setorDestinoId);
             }
-            $this->avisar($usuariosNotificar, $processo, 'Processo despachado para voce', 'foi despachado para você.');
+            $this->avisar($usuariosNotificar, $processo, 'Processo despachado para você', 'foi despachado para você.',
+                $request->filled('destinatario_id') ? 'pessoal' : 'setor');
             foreach ($paralelas['avisar'] as [$ids, $copia]) {
                 $this->avisar($ids, $processo,
                     $copia ? 'Cópia de processo para ciência' : 'Processo despachado para o seu setor',
-                    $copia ? 'foi enviado em cópia ao seu setor, para ciência.' : 'chegou ao seu setor para tratar a parte dele.');
+                    $copia ? 'foi enviado em cópia ao seu setor, para ciência.' : 'chegou ao seu setor para tratar a parte dele.', 'setor');
             }
 
             DB::commit();
@@ -331,10 +332,13 @@ class TramitacaoController extends Controller
     }
 
     /** @param  list<int>  $usuarios */
-    private function avisar(array $usuarios, \App\Models\Processo\Processo $processo, string $titulo, string $complemento): void
+    /** $alcance: pessoal (a alguém) ou setor (ao setor inteiro) — vale para a abrangência do e-mail/SMS (TR 4.11.4). */
+    private function avisar(array $usuarios, \App\Models\Processo\Processo $processo, string $titulo, string $complemento, string $alcance = 'pessoal'): void
     {
         foreach (array_unique($usuarios) as $uid) {
             Notificacao::create([
+                'alcance'         => $alcance,
+                'urgente'         => in_array($processo->prioridade, ['urgente', 'alta'], true),
                 'usuario_id'      => (int) $uid,
                 'tipo'            => 'processo',
                 'titulo'          => $titulo,
@@ -392,7 +396,8 @@ class TramitacaoController extends Controller
             if ($faltam->isEmpty() && $principal && $principal->frente === 1) {
                 $this->avisar(
                     $principal->destinatario_id ? [$principal->destinatario_id] : \App\Support\Setores::servidores((int) $principal->destino_unidade_id),
-                    $processo, 'Todos os setores resolveram', 'teve a parte de todos os setores resolvida e já pode ser concluído.');
+                    $processo, 'Todos os setores resolveram', 'teve a parte de todos os setores resolvida e já pode ser concluído.',
+                    $principal->destinatario_id ? 'pessoal' : 'setor');
             }
         });
 

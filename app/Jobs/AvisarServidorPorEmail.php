@@ -34,7 +34,7 @@ class AvisarServidorPorEmail extends TenantAwareJob
         $n = Notificacao::with('usuario')->find($this->notificacaoId);
         $user = $n?->usuario;
         if (! $user || $user->suspenso_em || $user->tipo !== 'interno'
-            || (! $this->forcar && ! PreferenciasUsuario::querEmail($user, (string) $n->tipo))) {
+            || (! $this->forcar && ! \App\Support\Notificacoes::quer($user, $n, 'email'))) {
             return;
         }
 

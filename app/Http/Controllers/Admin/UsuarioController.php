@@ -302,7 +302,16 @@ class UsuarioController extends Controller
     private function sincronizarSetores(User $user, array $validated): void
     {
         $ids = $user->tipo === 'externo' ? [] : array_map('intval', $validated['setores_secundarios'] ?? []);
-        $user->setoresSecundarios()->sync(array_values(array_diff(array_unique($ids), [(int) $user->unidade_id])));
+        $mudou = $user->setoresSecundarios()->sync(array_values(array_diff(array_unique($ids), [(int) $user->unidade_id])));
+        // Aviso de setor secundário incluído ou retirado (TR 4.11.3)
+        foreach (['attached' => 'incluído', 'detached' => 'retirado'] as $chave => $acao) {
+            foreach ($mudou[$chave] ?? [] as $unidadeId) {
+                \App\Models\Notificacao::create([
+                    'usuario_id' => $user->id, 'tipo' => 'setor_secundario', 'titulo' => "Setor secundário $acao",
+                    'mensagem' => (string) \App\Models\UgOrganograma::whereKey($unidadeId)->value('nome'), 'lida' => false,
+                ]);
+            }
+        }
     }
 
     private function sincronizarUgs(User $user, array $ugIds): void

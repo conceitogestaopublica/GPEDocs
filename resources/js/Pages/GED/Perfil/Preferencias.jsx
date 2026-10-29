@@ -1,6 +1,6 @@
 /**
  * Meu perfil › Preferências — editor de texto, abertura de anexos e quais
- * avisos chegam também por e-mail (TR 4.7.16, 4.7.17, 4.7.19).
+ * avisos chegam também por e-mail e SMS, com a abrangência de cada canal (TR 4.7.16–4.7.19, 4.11.4–4.11.6).
  */
 import { Head, useForm } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
@@ -19,9 +19,9 @@ function Opcao({ nome, valor, atual, onChange, titulo, descricao }) {
     );
 }
 
-export default function Preferencias({ preferencias, avisos, emails }) {
+export default function Preferencias({ preferencias, abrangencias = {}, emails, celular = null }) {
     const { data, setData, post, processing, isDirty } = useForm(preferencias);
-    const alternarAviso = (g) => setData('avisos', data.avisos.includes(g) ? data.avisos.filter((x) => x !== g) : [...data.avisos, g]);
+    const canal = (c, v) => setData('canais', { ...data.canais, [c]: v });
 
     return (
         <AdminLayout>
@@ -48,18 +48,42 @@ export default function Preferencias({ preferencias, avisos, emails }) {
                 </div>
 
                 <div className="ds-card p-5">
-                    <p className="text-sm font-semibold text-gray-800"><i className="fas fa-envelope mr-2 text-cyan-600" />Avisos também por e-mail</p>
+                    <p className="text-sm font-semibold text-gray-800"><i className="fas fa-bell mr-2 text-cyan-600" />Avisos fora do sistema</p>
                     <p className="text-xs text-gray-500 mt-1 mb-3">
-                        Os avisos continuam aparecendo no sino. Marque os que também devem chegar em
-                        {emails.length ? <b> {emails.join(' e ')}</b> : ' seu e-mail'}.
+                        Todos os avisos continuam no sino. Escolha o que também chega por e-mail
+                        {emails.length ? <b> ({emails.join(' e ')})</b> : ''} e por SMS{celular ? <b> ({celular})</b> : ''}.
+                        "Direcionado a mim" é o que vem em seu nome; "do meu setor" inclui o que chega para o setor inteiro.
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {Object.entries(avisos).map(([g, rotulo]) => (
-                            <label key={g} className="flex items-center gap-2 text-sm text-gray-700 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                <input type="checkbox" checked={data.avisos.includes(g)} onChange={() => alternarAviso(g)} className="rounded border-gray-300 text-cyan-600" />
-                                {rotulo}
-                            </label>
-                        ))}
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                            <thead><tr className="text-xs text-gray-500 text-left">
+                                <th className="py-1 pr-3 font-medium">Canal</th>
+                                {Object.values(abrangencias).map((r) => <th key={r} className="py-1 px-2 font-medium text-center">{r}</th>)}
+                            </tr></thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {[['email', 'fa-envelope', 'E-mail'], ['sms', 'fa-mobile-screen', 'SMS']].map(([c, ic, rot]) => (
+                                    <tr key={c}>
+                                        <td className="py-2 pr-3 text-gray-800"><i className={`fas ${ic} mr-2 text-gray-400`} />{rot}
+                                            {c === 'sms' && ! celular && <span className="block text-[11px] text-amber-700">Cadastre o celular em Meus dados para receber SMS.</span>}</td>
+                                        {Object.keys(abrangencias).map((v) => (
+                                            <td key={v} className="text-center">
+                                                <input type="radio" name={`canal-${c}`} aria-label={`${rot}: ${abrangencias[v]}`} checked={data.canais[c] === v} onChange={() => canal(c, v)} />
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="mt-3 space-y-1">
+                        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                            <input type="checkbox" checked={!! data.email_mencao} onChange={(e) => setData('email_mencao', e.target.checked)} className="rounded border-gray-300 text-cyan-600" />
+                            E-mail quando alguém me mencionar (@) num documento
+                        </label>
+                        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                            <input type="checkbox" checked={!! data.email_assinatura} onChange={(e) => setData('email_assinatura', e.target.checked)} className="rounded border-gray-300 text-cyan-600" />
+                            E-mail quando pedirem a minha assinatura
+                        </label>
                     </div>
                 </div>
 

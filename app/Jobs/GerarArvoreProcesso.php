@@ -55,7 +55,7 @@ class GerarArvoreProcesso extends TenantAwareJob
     {
         Notificacao::create([
             'usuario_id'      => $arvore->solicitado_por,
-            'tipo'            => 'processo',
+            'tipo'            => 'exportacao',
             'titulo'          => $titulo,
             'mensagem'        => "A árvore do processo {$arvore->processo?->numero_protocolo} {$complemento}",
             'referencia_tipo' => 'processo',
