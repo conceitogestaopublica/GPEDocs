@@ -31,6 +31,7 @@ export const MENU_CONFIGURACOES = [
     { title: 'Perfis e Permissões', icon: 'fas fa-shield-alt', href: '/configuracoes/perfis', color: 'text-slate-600 bg-slate-100', permissao: 'admin.roles' },
     { section: 'label', label: 'Portal do Cidadão' },
     { title: 'Carta de Serviços', icon: 'fas fa-clipboard-list', href: '/configuracoes/carta-servicos', color: 'text-blue-600 bg-blue-100', permissao: 'portal.carta_servicos' },
+    { title: 'Textos do portal', icon: 'fas fa-file-shield', href: '/configuracoes/portal-textos', color: 'text-slate-600 bg-slate-100', permissao: 'portal.carta_servicos' },
     { section: 'label', label: 'Integrações' },
     { title: 'Sistemas Integrados', icon: 'fas fa-plug', href: '/configuracoes/sistemas-integrados', color: 'text-violet-600 bg-violet-100', permissao: 'admin.sistemas_integrados' },
 ];

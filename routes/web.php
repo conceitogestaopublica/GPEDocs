@@ -152,6 +152,11 @@ Route::prefix('api/portal')
         Route::get('catalogo', [\App\Http\Controllers\Api\Portal\CatalogoController::class, 'show'])->name('catalogo');
         // Órgãos responsáveis e contador de acessos da Carta de Serviços (TR 4.30.4, 4.30.27)
         Route::get('orgaos', [\App\Http\Controllers\Api\Portal\CatalogoController::class, 'orgaos'])->name('orgaos');
+        // Central de Atendimento (TR 4.23): verificação por código (registrada), textos do portal, ofício pela Central
+        Route::get('verificar/{codigo}', [\App\Http\Controllers\Api\Portal\CentralController::class, 'verificar'])->where('codigo', '[A-Za-z0-9-]{4,120}')->middleware('throttle:60,1')->name('verificar');
+        Route::get('textos', [\App\Http\Controllers\Api\Portal\CentralController::class, 'textos'])->name('textos');
+        Route::get('oficios/{token}', [\App\Http\Controllers\Api\Portal\CentralController::class, 'oficio'])->name('oficios.show');
+        Route::post('oficios/{token}/resposta', [\App\Http\Controllers\Api\Portal\CentralController::class, 'responderOficio'])->middleware('throttle:20,1')->name('oficios.resposta');
         Route::post('servicos/{slug}/visualizacao', [\App\Http\Controllers\Api\Portal\CatalogoController::class, 'visualizacao'])->name('servicos.visualizacao');
         // Imagem de ajuda dos campos do formulário do assunto (o portal repassa ao navegador)
         Route::get('ajuda-imagem/{id}', [\App\Http\Controllers\Admin\TipoProcessoController::class, 'imagemAjuda'])->whereUuid('id')->name('ajuda-imagem');
@@ -458,6 +463,9 @@ Route::middleware('auth')->group(function () {
         });
 
         // Carta de Servicos (admin) — gestor da UG mantem catalogo publicado no /portal
+        // Textos do portal: política de privacidade e acesso à informação (TR 4.23.1, 4.23.5)
+        Route::get('portal-textos', [\App\Http\Controllers\Configuracao\PortalTextosController::class, 'index'])->name('portal-textos')->middleware('can:portal.carta_servicos');
+        Route::put('portal-textos/{chave}', [\App\Http\Controllers\Configuracao\PortalTextosController::class, 'salvar'])->name('portal-textos.salvar')->middleware('can:portal.carta_servicos');
         Route::prefix('carta-servicos')->name('carta-servicos.')->middleware('can:portal.carta_servicos')->group(function () {
             Route::get('/', [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'index'])->name('index');
             Route::post('categorias',           [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'storeCategoria'])->name('categorias.store');

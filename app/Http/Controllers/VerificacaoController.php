@@ -24,6 +24,7 @@ class VerificacaoController extends Controller
         $token = $assinatura
             ? Documento::withoutGlobalScopes(['ug', 'sigilo'])->whereKey($assinatura->documento_id)->value('qr_code_token')
             : null;
+        \App\Support\Verificacoes::registrar(request(), $codigo, 'web', (bool) $token, 'assinatura', $assinatura?->id);   // TR 4.23.14
 
         if (! $token) {
             return Inertia::render('GED/Verificar', ['documento' => null, 'valido' => false]);
@@ -40,6 +41,10 @@ class VerificacaoController extends Controller
             ->with(['tipoDocumental', 'autor', 'versaoAtual'])
             ->where('qr_code_token', $token)
             ->first();
+        // Página aberta pelo código da assinatura já foi registrada em porCodigo
+        if (! request()->filled('codigo')) {
+            \App\Support\Verificacoes::registrar(request(), $token, 'web', (bool) $documento, 'documento', $documento?->id);
+        }
 
         if (!$documento) {
             return Inertia::render('GED/Verificar', [
