@@ -13,4 +13,6 @@ Illuminate\Support\Facades\Schedule::command('processos:alertar-prazos')->dailyA
 // Memorandos e circulares com data de arquivamento automático (TR 4.46.12)
 // Diário Oficial: edição ordinária do dia com os atos pendentes (TR 4.43.8)
 Illuminate\Support\Facades\Schedule::command('diario:montar-ordinaria')->dailyAt('06:00')->timezone('America/Sao_Paulo');
+// Relatórios agendados entregues sozinhos (TR 4.25.15)
+Illuminate\Support\Facades\Schedule::command('relatorios:agendados')->hourly();
 Illuminate\Support\Facades\Schedule::command('comunicacao:arquivar-agendados')->dailyAt('00:15')->timezone('America/Sao_Paulo');

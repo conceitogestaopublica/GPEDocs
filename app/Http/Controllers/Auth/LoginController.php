@@ -111,6 +111,7 @@ class LoginController extends Controller
 
     public function destroy(Request $request)
     {
+        \App\Support\Eventos::registrar('ACE.SAIDA', 'acesso', 'Saída do sistema');
         Auth::logout();
 
         $request->session()->invalidate();

@@ -83,5 +83,10 @@ class RegistrarAcesso
         } catch (\Throwable $e) {
             Log::warning('Registro de acesso não gravado', ['erro' => $e->getMessage()]);
         }
+        // Trilha de eventos (TR 4.25.12)
+        $usuario = $dados['user_id'] ? \App\Models\User::find($dados['user_id']) : null;
+        \App\Support\Eventos::registrar($dados['sucesso'] ? 'ACE.ENTRADA' : 'ACE.RECUSA', 'acesso',
+            $dados['sucesso'] ? 'Entrada no sistema' . (! empty($dados['origem']) ? " ({$dados['origem']})" : '') : 'Entrada recusada: ' . ($dados['motivo'] ?? '-'),
+            ['usuario' => $usuario, 'login' => $dados['login'] ?? null, 'sucesso' => (bool) $dados['sucesso'], 'rota' => 'login']);
     }
 }

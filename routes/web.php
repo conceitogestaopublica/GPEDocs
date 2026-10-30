@@ -513,8 +513,6 @@ Route::middleware('auth')->group(function () {
                 ->whereNumber('ugId')->name('certificado-prefeitura.toggle');
         });
 
-        // Sistemas integrados (API tokens para sistemas externos)
-        Route::middleware('can:admin.sistemas_integrados')->group(function () {
         // Formulários do app da fiscalização (TR 4.52)
         Route::controller(\App\Http\Controllers\AppFiscalizacaoController::class)->prefix('fiscalizacao')->name('fiscalizacao.')->group(function () {
             Route::get('/', 'index')->name('index');
@@ -534,6 +532,8 @@ Route::middleware('auth')->group(function () {
             Route::post('lotes', 'importarLotes')->name('lotes.importar');
             Route::post('config', 'salvarConfig')->name('config');
         });
+        // Sistemas integrados (API tokens para sistemas externos)
+        Route::middleware('can:admin.sistemas_integrados')->group(function () {
         // Sistema tributário integrado (GPE Tributário, outro fornecedor por REST ou nenhum)
         Route::controller(\App\Http\Controllers\Configuracao\IntegracaoTributariaController::class)->middleware('can:admin.sistemas_integrados')->group(function () {
             Route::get('integracao-tributaria', 'index')->name('integracao-tributaria.index');
@@ -862,7 +862,17 @@ Route::middleware('auth')->group(function () {
         Route::post('processos/anexos/{anexo}/externo', 'visibilidade')->whereNumber('anexo')->name('processos.anexos.externo');
         Route::post('processos/{id}/consulta-link', [\App\Http\Controllers\ConsultaPublicaController::class, 'link'])->whereNumber('id')->name('processos.consulta-link');
     });
-    // App offline da fiscalização (TR 4.52): tela do fiscal, sincronização e relatório da vistoria
+    // Trilha de eventos e relatórios (TR 4.25.4–6, 4.25.12–16): servidores com a permissão delegada
+    Route::controller(\App\Http\Controllers\RelatorioController::class)->prefix('relatorios')->name('relatorios.')->middleware('can:relatorio.eventos')->group(function () {
+        Route::get('eventos', 'eventos')->name('eventos');
+        Route::get('acessos', 'acessos')->name('acessos');
+        Route::get('exportar/{tipo}', 'exportar')->whereIn('tipo', ['eventos', 'acessos'])->middleware('throttle:20,1')->name('exportar');
+        Route::get('gerados/{id}', 'gerado')->whereNumber('id')->name('gerado');
+        Route::get('gerados/{id}/baixar', 'baixar')->whereNumber('id')->name('baixar');
+        Route::post('agendados', 'agendar')->name('agendados.store');
+        Route::post('agendados/{id}/alternar', 'alternarAgendamento')->whereNumber('id')->name('agendados.alternar');
+        Route::delete('agendados/{id}', 'excluirAgendamento')->whereNumber('id')->name('agendados.destroy');
+    });
     Route::controller(\App\Http\Controllers\AppFiscalizacaoController::class)->prefix('fiscal')->name('fiscal.')->group(function () {
         Route::get('/', 'app')->name('app');
         Route::get('api/sessao', 'sessao')->name('sessao');

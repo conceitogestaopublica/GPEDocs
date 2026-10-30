@@ -19,6 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\EnsureUgSelected::class,
             \App\Http\Middleware\BloquearUsuarioSuspenso::class,
+            // Trilha de eventos: alterações feitas pelos servidores (TR 4.25.12)
+            \App\Http\Middleware\RegistrarEvento::class,
             ]);
 
             // Aliases para uso em rotas

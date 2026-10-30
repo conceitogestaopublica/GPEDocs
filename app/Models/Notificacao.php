@@ -82,6 +82,7 @@ class Notificacao extends Model
             'memorando'  => "/memorandos/{$this->referencia_id}",
             'oficio'     => "/oficios/{$this->referencia_id}",
             'circular'   => "/circulares/{$this->referencia_id}",
+            'relatorio'  => "/relatorios/gerados/{$this->referencia_id}",
             default      => null,
         };
     }
