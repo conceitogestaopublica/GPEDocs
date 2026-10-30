@@ -278,6 +278,13 @@ Route::prefix('assinar/{token}')->where(['token' => '[A-Za-z0-9]{20,64}'])->name
 Route::get('verificar/codigo/{codigo}', [VerificacaoController::class, 'porCodigo'])
     ->where('codigo', '[A-Za-z0-9-]{6,20}')->name('verificar.codigo');
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
+// Consulta do processo sem login, pelo link (TR 4.48.27)
+Route::controller(\App\Http\Controllers\ConsultaPublicaController::class)->middleware('throttle:60,1')->group(function () {
+    Route::get('consulta/{token}', 'show')->name('consulta.show');
+    Route::get('consulta/{token}/anexos/{anexo}', 'anexo')->whereNumber('anexo')->name('consulta.anexo');
+    Route::get('consulta/{token}/pareceres/{parecer}', 'parecer')->whereNumber('parecer')->name('consulta.parecer');
+});
+
 // Convite do participante do processo para confirmar os dados, sem login (TR 4.48.31)
 Route::get('participantes/convite/{token}', [\App\Http\Controllers\ParticipanteController::class, 'convite'])->middleware('throttle:60,1')->name('participantes.convite');
 Route::post('participantes/convite/{token}', [\App\Http\Controllers\ParticipanteController::class, 'confirmar'])->middleware('throttle:20,1')->name('participantes.confirmar');
@@ -546,6 +553,7 @@ Route::middleware('auth')->group(function () {
         Route::middleware('can:admin.tipos_processo')->group(function () {
             Route::resource('tipos-processo', TipoProcessoController::class)->except(['create', 'edit', 'show']);
             Route::post('tipos-processo/{id}/toggle-ativo', [TipoProcessoController::class, 'toggleAtivo'])->name('tipos-processo.toggle-ativo');
+            Route::post('tipos-processo/modelos-projetos', [TipoProcessoController::class, 'modelosProjetos'])->name('tipos-processo.modelos-projetos');
             Route::post('tipos-processo/ajuda-imagem', [TipoProcessoController::class, 'enviarImagemAjuda'])->name('tipos-processo.ajuda-imagem');
             Route::resource('oficios-modelos', \App\Http\Controllers\Admin\OficioModeloController::class)->only(['index', 'store', 'update', 'destroy']);
             Route::post('oficios-modelos/importar-docx', [\App\Http\Controllers\Admin\OficioModeloController::class, 'importarDocx'])->name('oficios-modelos.importar-docx');
@@ -812,6 +820,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('processos/{id}/participantes/{participante}', 'remover')->whereNumber(['id', 'participante'])->name('processos.participantes.destroy');
         Route::post('processos/{id}/participantes/{participante}/convite', 'convidar')->whereNumber(['id', 'participante'])->middleware('throttle:20,1')->name('processos.participantes.convite');
         Route::post('processos/anexos/{anexo}/externo', 'visibilidade')->whereNumber('anexo')->name('processos.anexos.externo');
+        Route::post('processos/{id}/consulta-link', [\App\Http\Controllers\ConsultaPublicaController::class, 'link'])->whereNumber('id')->name('processos.consulta-link');
     });
     // Sistema tributário no processo (TR 4.48.22, 4.48.42, 4.49)
     Route::controller(\App\Http\Controllers\ProcessoTributarioController::class)->prefix('processos/{id}/tributario')->whereNumber('id')->name('processos.tributario.')->group(function () {

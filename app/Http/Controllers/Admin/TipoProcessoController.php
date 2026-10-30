@@ -33,6 +33,14 @@ class TipoProcessoController extends Controller
         ]);
     }
 
+    /** Cria os modelos de aprovação de projetos (construção e parcelamento do solo) que ainda não existem. */
+    public function modelosProjetos()
+    {
+        $criados = \App\Support\ModelosProjetos::criar(Auth::id());
+
+        return back()->with('success', $criados ? 'Criados: ' . implode(', ', $criados) . '. Ajuste setores e etapas.' : 'Os modelos já existem.');
+    }
+
     public function store(Request $request)
     {
         $request->validate([

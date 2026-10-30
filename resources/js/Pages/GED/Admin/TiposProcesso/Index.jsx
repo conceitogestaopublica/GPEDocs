@@ -239,6 +239,10 @@ export default function Index({ tipos, unidades = [] }) {
             <Head title="Tipos de Processo" />
 
             <PageHeader title="Tipos de Processo" subtitle="Gerenciar tipos e fluxos de processos">
+                {/* Construção e parcelamento do solo, com CA, TO e TP calculados (TR 4.48.1, 4.48.2, 4.48.15) */}
+                <Button variant="secondary" icon="fas fa-helmet-safety" onClick={() => router.post('/admin/tipos-processo/modelos-projetos', {}, { preserveScroll: true })}>
+                    Modelos de aprovação de projetos
+                </Button>
                 <Button icon="fas fa-plus" onClick={openCreate}>
                     Novo Tipo
                 </Button>

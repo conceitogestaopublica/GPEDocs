@@ -13,7 +13,8 @@
             <p><strong>Assunto:</strong> {{ $p->assunto }}</p>
             @if(count($anexados))<p><strong>Cópia dos documentos entregues</strong> (anexos a este e-mail):</p><ul>@foreach($anexados as $n)<li>{{ $n }}</li>@endforeach</ul>@endif
             @if(count($listados))<p>Também entregues (grandes demais para o e-mail):</p><ul>@foreach($listados as $n)<li>{{ $n }}</li>@endforeach</ul>@endif
-            <p>Acompanhe pelo portal com o seu CPF/CNPJ, informando o número do protocolo.</p>
+            @if(! empty($consulta))<p style="text-align:center; margin:20px 0;"><a href="{{ $consulta }}" style="background:#0891b2; color:#fff; padding:10px 20px; border-radius:8px; text-decoration:none; font-weight:bold;">Acompanhar o protocolo</a></p>@endif
+            <p>Acompanhe também pelo portal com o seu CPF/CNPJ, informando o número do protocolo.</p>
             @include('emails.partials.rodape-descadastro')
         </div>
     </div>

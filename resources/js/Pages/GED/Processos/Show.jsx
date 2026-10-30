@@ -535,6 +535,11 @@ export default function Show({ externo = null, tributario = null, pad = null, pa
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        <button type="button" title="Link para o requerente acompanhar sem login (andamento, decisão e pareceres)"
+                            onClick={async () => { try { const r = await (await fetch(`/processos/${proc.id}/consulta-link`, { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content, Accept: 'application/json' } })).json(); if (r.url) { await navigator.clipboard?.writeText(r.url); window.prompt('Link de consulta (copiado):', r.url); } else { alert(r.message || 'Sem link para este processo.'); } } catch { alert('Não foi possível gerar o link.'); } }}
+                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50">
+                            <i className="fas fa-link" />Link de consulta
+                        </button>
                         <a href={`/processos/${proc.id}/folha-rosto`} target="_blank" rel="noreferrer" title="Folha de rosto para a pasta física ou o arquivo"
                             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50">
                             <i className="fas fa-file-pdf" />Folha de rosto

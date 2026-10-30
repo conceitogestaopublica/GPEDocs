@@ -46,6 +46,9 @@ class ConfirmacaoProtocolo extends Mailable
 
         return $this->subject("[{$orgao}] Protocolo {$this->processo->numero_protocolo} registrado")
             ->view('emails.confirmacao_protocolo')
-            ->with(['orgao' => $orgao, 'p' => $this->processo, 'anexados' => $anexados, 'listados' => $listados, 'pixel' => $r['pixel']]);
+            ->with(['orgao' => $orgao, 'p' => $this->processo, 'anexados' => $anexados, 'listados' => $listados, 'pixel' => $r['pixel'],
+                // Consulta sem login pelo link (TR 4.48.27) — processos sigilosos não têm
+                'consulta' => in_array($this->processo->identificacao, ['sigilosa', 'anonima'], true) || in_array($this->processo->tipo_processo_id, \App\Support\RequerimentoServidor::assuntos(), true)
+                    ? null : \App\Http\Controllers\ConsultaPublicaController::url($this->processo)]);
     }
 }
