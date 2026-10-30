@@ -207,6 +207,7 @@ Route::prefix('api/portal')
         // Ouvidoria anônima/sigilosa sem login (código + chave) e estatísticas do e-SIC (TR 4.33.27, 4.34)
         Route::get('acompanhar/{codigo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'acompanhar'])->where('codigo', '[^/]+')->middleware('throttle:30,1')->name('acompanhar');
         Route::get('esic/estatisticas', [\App\Http\Controllers\Api\Portal\EsicController::class, 'estatisticas'])->name('esic.estatisticas');
+        Route::get('processos/{numero}/anexos/{anexo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'anexoProcesso'])->where('numero', '[^/]+')->whereNumber('anexo')->name('processos.anexo');
         Route::get('processos/{numero}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'processo'])->where('numero', '[^/]+')->name('processos.show');
     });
 
@@ -277,6 +278,10 @@ Route::prefix('assinar/{token}')->where(['token' => '[A-Za-z0-9]{20,64}'])->name
 Route::get('verificar/codigo/{codigo}', [VerificacaoController::class, 'porCodigo'])
     ->where('codigo', '[A-Za-z0-9-]{6,20}')->name('verificar.codigo');
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
+// Convite do participante do processo para confirmar os dados, sem login (TR 4.48.31)
+Route::get('participantes/convite/{token}', [\App\Http\Controllers\ParticipanteController::class, 'convite'])->middleware('throttle:60,1')->name('participantes.convite');
+Route::post('participantes/convite/{token}', [\App\Http\Controllers\ParticipanteController::class, 'confirmar'])->middleware('throttle:20,1')->name('participantes.confirmar');
+
 // Verificação pública da edição do Diário Oficial (TR 4.43.41)
 Route::get('diario/verificar/{token}', [\App\Http\Controllers\DiarioController::class, 'verificar'])->middleware('throttle:60,1')->name('diario.verificar');
 
@@ -800,6 +805,14 @@ Route::middleware('auth')->group(function () {
         Route::post('processos/{id}/localizacao', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'localizacao'])->whereNumber('id')->name('processos.localizacao');
     // Recebimento de documento físico com comprovante (TR 4.32.28)
     Route::post('processos/{id}/recebimentos', [\App\Http\Controllers\RecebimentoFisicoController::class, 'store'])->whereNumber('id')->middleware('can:processo.tramitar')->name('processos.recebimentos.store');
+    // Participantes do processo e o que o externo vê (TR 4.48.20, 4.48.30, 4.48.31)
+    Route::controller(\App\Http\Controllers\ParticipanteController::class)->group(function () {
+        Route::post('processos/{id}/participantes', 'salvar')->whereNumber('id')->name('processos.participantes.store');
+        Route::put('processos/{id}/participantes/{participante}', 'salvar')->whereNumber(['id', 'participante'])->name('processos.participantes.update');
+        Route::delete('processos/{id}/participantes/{participante}', 'remover')->whereNumber(['id', 'participante'])->name('processos.participantes.destroy');
+        Route::post('processos/{id}/participantes/{participante}/convite', 'convidar')->whereNumber(['id', 'participante'])->middleware('throttle:20,1')->name('processos.participantes.convite');
+        Route::post('processos/anexos/{anexo}/externo', 'visibilidade')->whereNumber('anexo')->name('processos.anexos.externo');
+    });
     // Sistema tributário no processo (TR 4.48.22, 4.48.42, 4.49)
     Route::controller(\App\Http\Controllers\ProcessoTributarioController::class)->prefix('processos/{id}/tributario')->whereNumber('id')->name('processos.tributario.')->group(function () {
         Route::post('imovel', 'imovel')->name('imovel');

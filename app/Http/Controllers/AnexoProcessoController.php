@@ -203,7 +203,9 @@ class AnexoProcessoController extends Controller
             $path = \App\Tenant\TenantStorage::pasta('processos') . '/' . \Illuminate\Support\Str::uuid() . '.pdf';
             Storage::disk('documentos')->put($path, $bytes);
             $gerado = ProcessoAnexo::create(['processo_id' => $processo->id, 'tramitacao_id' => $processo->etapa_atual_id, 'nome' => mb_substr($nome, 0, 255),
-                'arquivo_path' => $path, 'tamanho' => strlen($bytes), 'mime_type' => 'application/pdf', 'hash_sha256' => hash('sha256', $bytes), 'enviado_por' => $user->id]);
+                'arquivo_path' => $path, 'tamanho' => strlen($bytes), 'mime_type' => 'application/pdf', 'hash_sha256' => hash('sha256', $bytes), 'enviado_por' => $user->id,
+                // Recusado o externo vê já (precisa corrigir); aceito, só depois do deferimento (TR 4.48.20)
+                'externo' => $d['resultado'] === 'recusado' ? 'sempre' : 'ao_deferir']);
             $anexo->update(['avaliacao' => $d['resultado'] === 'aceito' ? 'aprovado' : 'reprovado', 'avaliacao_motivo' => $d['motivo'] ?? null,
                 'avaliado_por' => $user->id, 'avaliado_em' => now()]);
             $valores = ['anotacoes' => json_encode($d['anotacoes'], JSON_UNESCAPED_UNICODE), 'escala' => json_encode($d['escala']), 'precisao' => $d['precisao'],

@@ -24,6 +24,7 @@ class ProcessoAnexo extends Model
         'documento_id',
         'ordem',
         'avaliacao',
+        'externo',
         'avaliacao_motivo',
         'avaliado_por',
         'avaliado_em',

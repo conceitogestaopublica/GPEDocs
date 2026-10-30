@@ -294,7 +294,13 @@ class ProcessoController extends Controller
 
             DB::commit();
 
-            return redirect("/processos/{$processo->id}")->with('success', 'Processo aberto com sucesso. Protocolo: ' . $protocolo);
+            // Confirmação ao requerente com cópia dos anexos (TR 4.48.33)
+            $confirmou = $processo->requerente_email && filter_var($processo->requerente_email, FILTER_VALIDATE_EMAIL) && $request->boolean('enviar_confirmacao', true)
+                && \App\Support\RastreioEmail::enviar(new \App\Mail\ConfirmacaoProtocolo($processo->fresh()), $processo->requerente_email, 'cidadao',
+                    "Protocolo {$protocolo}", 'processo', $processo->id, Auth::id());
+
+            return redirect("/processos/{$processo->id}")->with('success', 'Processo aberto com sucesso. Protocolo: ' . $protocolo
+                . ($confirmou ? " · confirmação enviada a {$processo->requerente_email}" : ''));
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -444,6 +450,8 @@ class ProcessoController extends Controller
             'pareceres'       => \App\Http\Controllers\ParecerController::doProcesso($processo->id),
             'pode_emitir_parecer' => \App\Support\Pareceres::podeEmitir(Auth::user()),
             'pad'             => \App\Http\Controllers\Flow\PadController::doProcesso($processo),
+            // Participantes e o que o externo recebeu, viu e baixou (TR 4.48.20, 4.48.28, 4.48.30)
+            'externo'         => \App\Http\Controllers\ParticipanteController::doProcesso($processo),
             // Sistema tributário: imóvel, guias, alvará/habite-se, fiscalização (TR 4.48, 4.49)
             'tributario'      => \App\Http\Controllers\ProcessoTributarioController::doProcesso($processo),
             'legislativo'     => $processo->vereador_id || $processo->proposicao_tipo ? [

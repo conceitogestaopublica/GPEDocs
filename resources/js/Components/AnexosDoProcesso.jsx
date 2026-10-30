@@ -82,6 +82,14 @@ export default function AnexosDoProcesso({ processoId, anexos = [], podeOrganiza
                                         <button type="button" onClick={() => router.post(`/processos/anexos/${a.id}/enviar-assinatura`)} className="text-blue-600 hover:underline"
                                             title="Arquiva o anexo no GED e escolhe quem assina"><i className="fas fa-pen-nib mr-1" />Assinar</button>
                                     )}
+                                    {/* O que o externo vê deste anexo (TR 4.48.20) */}
+                                    {podeOrganizar && (
+                                        <select value={a.externo || 'nao'} title="Visibilidade para o requerente e participantes" className="text-[11px] border border-gray-200 rounded px-1 py-0.5 text-gray-600"
+                                            onChange={(e) => router.post(`/processos/anexos/${a.id}/externo`, { externo: e.target.value }, { preserveScroll: true })}>
+                                            <option value="nao">só interno</option><option value="sempre">externo vê</option><option value="ao_deferir">externo vê após deferir</option>
+                                        </select>
+                                    )}
+                                    {! podeOrganizar && a.externo && a.externo !== 'nao' && <span className="text-[11px] text-gray-500"><i className="fas fa-eye mr-1" />{a.externo === 'sempre' ? 'externo vê' : 'após deferir'}</span>}
                                     {/* Revisão com anotações e medição (TR 4.48.16, 4.48.39) */}
                                     {ehPdf(a) && <Link href={`/processos/anexos/${a.id}/revisar`} className="text-violet-700 hover:underline" title="Anotar, medir e aceitar/recusar"><i className="fas fa-pen-ruler mr-1" />Revisar</Link>}
                                     {podeOrganizar && (

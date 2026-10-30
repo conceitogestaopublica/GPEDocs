@@ -369,8 +369,9 @@ class SolicitacaoController extends PortalApiController
         if (strlen($cpf) !== 11) {
             return response()->json(['processos' => []]);
         }
-        $lista = Processo::query()->withoutGlobalScope('ug')->with('tipoProcesso:id,nome')
-            ->where('ug_id', $ug->id)->whereRaw("regexp_replace(coalesce(requerente_cpf, ''), '\D', '', 'g') = ?", [$cpf])
+        // Requerente ou participante (arquiteto, engenheiro…) do processo (TR 4.48.30)
+        $lista = \App\Support\ExternoDoProcesso::doDocumento(Processo::query()->withoutGlobalScope('ug')->with('tipoProcesso:id,nome')
+            ->where('ug_id', $ug->id), $cpf)
             ->orderByDesc('id')->limit(200)->get(['id', 'numero_protocolo', 'assunto', 'status', 'tipo_processo_id', 'created_at']);
 
         return response()->json(['processos' => $lista->map(fn (Processo $p) => [
@@ -384,8 +385,10 @@ class SolicitacaoController extends PortalApiController
     {
         $ug = $this->ug($request);
         $cpf = preg_replace('/\D/', '', (string) $this->cidadao($request)->cpf);
-        $p = Processo::query()->withoutGlobalScope('ug')->with('tipoProcesso:id,nome')->where('ug_id', $ug->id)
-            ->where('numero_protocolo', $numero)->whereRaw("regexp_replace(coalesce(requerente_cpf, ''), '\D', '', 'g') = ?", [$cpf])->firstOrFail();
+        $p = \App\Support\ExternoDoProcesso::doDocumento(Processo::query()->withoutGlobalScope('ug')->with('tipoProcesso:id,nome')->where('ug_id', $ug->id)
+            ->where('numero_protocolo', $numero), $cpf)->firstOrFail();
+        // O externo viu o processo (TR 4.48.28)
+        \App\Support\ExternoDoProcesso::registrar($p, 'visualizou', null, $this->cidadao($request)->nome, $cpf);
         $etapas = \App\Models\Processo\Tramitacao::with('destinoUnidade:id,nome,sigla')->where('processo_id', $p->id)->orderBy('ordem')->orderBy('id')->get();
 
         return response()->json(['processo' => [
@@ -393,7 +396,26 @@ class SolicitacaoController extends PortalApiController
             'aberto_em' => $p->created_at?->toIso8601String(), 'concluido_em' => $p->concluido_em?->toIso8601String(),
             'andamento' => $etapas->map(fn ($t) => ['setor' => $t->destinoUnidade?->nome ?? $t->setor_destino, 'sigla' => $t->destinoUnidade?->sigla,
                 'situacao' => $t->status, 'desde' => ($t->despachado_em ?? $t->created_at)?->toIso8601String()])->values(),
+            'decisao' => $p->decisao,
+            // Documentos liberados ao externo (TR 4.48.20): "sempre" e, depois do deferimento, "ao deferir"
+            'anexos' => \App\Support\ExternoDoProcesso::anexosVisiveis($p)->map(fn ($a) => ['id' => $a->id, 'nome' => $a->nome, 'tamanho' => $a->tamanho,
+                'em' => $a->created_at?->toIso8601String(), 'url' => url("/api/portal/processos/" . rawurlencode($p->numero_protocolo) . "/anexos/{$a->id}")])->values(),
+            'participantes' => DB::table('proc_participantes')->where('processo_id', $p->id)->orderBy('id')->get(['papel', 'nome', 'registro'])
+                ->map(fn ($x) => ['papel' => \App\Support\ExternoDoProcesso::PAPEIS[$x->papel] ?? $x->papel, 'nome' => $x->nome, 'registro' => $x->registro]),
         ]]);
+    }
+
+    /** Anexo liberado ao externo; o download fica registrado (TR 4.48.28). */
+    public function anexoProcesso(Request $request, string $numero, int $anexo)
+    {
+        $ug = $this->ug($request);
+        $cidadao = $this->cidadao($request);
+        $p = \App\Support\ExternoDoProcesso::doDocumento(Processo::query()->withoutGlobalScope('ug')->where('ug_id', $ug->id)->where('numero_protocolo', $numero), (string) $cidadao->cpf)->firstOrFail();
+        $a = \App\Support\ExternoDoProcesso::anexosVisiveis($p)->firstWhere('id', $anexo) ?? abort(404);
+        $a = \App\Models\Processo\ProcessoAnexo::find($a->id);
+        \App\Support\ExternoDoProcesso::registrar($p, 'baixou', $a->id, $cidadao->nome, (string) $cidadao->cpf);
+
+        return \App\Support\Anexos::baixar($a->arquivo_path, $a->nome);
     }
 
     private static function setorAtual(int $processoId): ?array
