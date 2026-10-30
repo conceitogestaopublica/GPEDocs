@@ -117,6 +117,15 @@ export const MENU_GEPSP = [
         ],
     },
     {
+        // Treinamento a distância (TR 4.24)
+        title: 'Treinamento (EAD)', icon: 'fas fa-graduation-cap', color: 'text-indigo-600 bg-indigo-100',
+        children: [
+            { title: 'Meus treinamentos', icon: 'fas fa-circle-play',  href: '/ead',           color: 'text-indigo-600 bg-indigo-100' },
+            { title: 'Cursos (gestão)',   icon: 'fas fa-chalkboard',   href: '/ead/gestao',    color: 'text-slate-600 bg-slate-100', permissao: 'ead.gerir' },
+            { title: 'Progresso dos servidores', icon: 'fas fa-user-graduate', href: '/ead/relatorio', color: 'text-emerald-600 bg-emerald-100', permissao: 'ead.gerir' },
+        ],
+    },
+    {
         // Ofícios e processos com outros entes (TR 4.28)
         title: 'Tramita GOV.BR', icon: 'fas fa-share-nodes', color: 'text-green-700 bg-green-100',
         children: [

@@ -65,4 +65,8 @@ return [
     // Retorno de entrega/falha do provedor de e-mail (TR 4.11.12–13): POST /webhooks/email/{segredo}
     'email_webhook' => ['segredo' => env('EMAIL_WEBHOOK_SECRET')],
 
+    // EAD (TR 4.24): tamanho máximo do vídeo enviado; o PHP (upload_max_filesize/post_max_size) e o nginx
+    // (client_max_body_size) precisam aceitar o mesmo valor. Vídeo longo: link do YouTube "não listado".
+    'ead' => ['video_max_mb' => (int) env('EAD_VIDEO_MAX_MB', 50)],
+
 ];

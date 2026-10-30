@@ -284,6 +284,9 @@ Route::get('verificar/codigo/{codigo}', [VerificacaoController::class, 'porCodig
     ->where('codigo', '[A-Za-z0-9-]{6,20}')->name('verificar.codigo');
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
 // Mapa público da consulta prévia de viabilidade (TR 4.50)
+// Verificação pública do certificado do EAD (QR do PDF, TR 4.24.7)
+Route::get('ead/certificados/{codigo}', [\App\Http\Controllers\EadController::class, 'verificar'])->whereUuid('codigo')->middleware('throttle:60,1')->name('ead.verificar');
+
 // Suporte: avaliar ou reabrir pelo link do e-mail de resolução, sem login (TR 4.26.8)
 Route::controller(\App\Http\Controllers\SuporteController::class)->prefix('suporte/avaliar')->middleware('throttle:30,1')->group(function () {
     Route::get('{token}', 'avaliacao')->whereUuid('token')->name('suporte.avaliacao');
@@ -879,6 +882,26 @@ Route::middleware('auth')->group(function () {
         Route::post('processos/{id}/participantes/{participante}/convite', 'convidar')->whereNumber(['id', 'participante'])->middleware('throttle:20,1')->name('processos.participantes.convite');
         Route::post('processos/anexos/{anexo}/externo', 'visibilidade')->whereNumber('anexo')->name('processos.anexos.externo');
         Route::post('processos/{id}/consulta-link', [\App\Http\Controllers\ConsultaPublicaController::class, 'link'])->whereNumber('id')->name('processos.consulta-link');
+    });
+    // Treinamento EAD (TR 4.24, 4.25.2)
+    Route::controller(\App\Http\Controllers\EadController::class)->prefix('ead')->name('ead.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('cursos/{id}', 'curso')->whereNumber('id')->name('curso');
+        Route::post('aulas/{id}/progresso', 'progresso')->whereNumber('id')->middleware('throttle:240,1')->name('progresso');
+        Route::get('aulas/{id}/video', 'video')->whereNumber('id')->name('video');
+        Route::post('cursos/{id}/avaliacao', 'avaliar')->whereNumber('id')->middleware('throttle:20,1')->name('avaliar');
+        Route::get('certificados/{codigo}/pdf', 'certificado')->whereUuid('codigo')->name('certificado');
+        Route::get('gestao', 'gestao')->name('gestao');
+        Route::post('gestao', 'salvarCurso')->name('gestao.store');
+        Route::get('gestao/{id}', 'editar')->whereNumber('id')->name('gestao.editar');
+        Route::post('gestao/{id}', 'salvarCurso')->whereNumber('id')->name('gestao.update');
+        Route::post('gestao/{curso}/aulas', 'salvarAula')->whereNumber('curso')->name('aulas.store');
+        Route::post('gestao/{curso}/aulas/{id}', 'salvarAula')->whereNumber(['curso', 'id'])->name('aulas.update');
+        Route::delete('gestao/{curso}/aulas/{id}', 'excluirAula')->whereNumber(['curso', 'id'])->name('aulas.destroy');
+        Route::post('gestao/{curso}/questoes', 'salvarQuestao')->whereNumber('curso')->name('questoes.store');
+        Route::post('gestao/{curso}/questoes/{id}', 'salvarQuestao')->whereNumber(['curso', 'id'])->name('questoes.update');
+        Route::delete('gestao/{curso}/questoes/{id}', 'excluirQuestao')->whereNumber(['curso', 'id'])->name('questoes.destroy');
+        Route::get('relatorio', 'relatorio')->name('relatorio');
     });
     // Tramita GOV.BR (TR 4.28): enviados/recebidos, envio do ofício e do processo, aceite/recusa, configuração
     Route::controller(\App\Http\Controllers\TramitaController::class)->prefix('tramita')->name('tramita.')->group(function () {
