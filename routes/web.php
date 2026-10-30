@@ -776,6 +776,10 @@ Route::middleware('auth')->group(function () {
     Route::middleware('can:processo.tramitar')->controller(\App\Http\Controllers\AnexoProcessoController::class)->group(function () {
         Route::post('processos/{id}/anexos/ordem', 'ordenar')->whereNumber('id')->name('processos.anexos.ordem');
         Route::post('processos/anexos/{anexo}/avaliar', 'avaliar')->whereNumber('anexo')->name('processos.anexos.avaliar');
+        // Revisão de PDF/planta com anotações e medição (TR 4.48.16–4.48.18, 4.48.39)
+        Route::get('processos/anexos/{anexo}/revisar', 'revisar')->whereNumber('anexo')->name('processos.anexos.revisar');
+        Route::put('processos/anexos/{anexo}/revisao', 'salvarRevisao')->whereNumber('anexo')->name('processos.anexos.revisao');
+        Route::post('processos/anexos/{anexo}/revisao/concluir', 'concluirRevisao')->whereNumber('anexo')->middleware('throttle:20,1')->name('processos.anexos.revisao.concluir');
         Route::post('processos/anexos/{anexo}/link', 'link')->whereNumber('anexo')->name('processos.anexos.link');
     });
     Route::post('processos/{id}/comentarios', [ProcessoController::class, 'comentar'])->name('processos.comentarios.store')->middleware('can:processo.visualizar');

@@ -82,6 +82,8 @@ export default function AnexosDoProcesso({ processoId, anexos = [], podeOrganiza
                                         <button type="button" onClick={() => router.post(`/processos/anexos/${a.id}/enviar-assinatura`)} className="text-blue-600 hover:underline"
                                             title="Arquiva o anexo no GED e escolhe quem assina"><i className="fas fa-pen-nib mr-1" />Assinar</button>
                                     )}
+                                    {/* Revisão com anotações e medição (TR 4.48.16, 4.48.39) */}
+                                    {ehPdf(a) && <Link href={`/processos/anexos/${a.id}/revisar`} className="text-violet-700 hover:underline" title="Anotar, medir e aceitar/recusar"><i className="fas fa-pen-ruler mr-1" />Revisar</Link>}
                                     {podeOrganizar && (
                                         <>
                                             {a.avaliacao !== 'aprovado' && <button type="button" className="text-green-700 hover:underline" onClick={() => avaliar(a, 'aprovado')}>Aprovar</button>}
