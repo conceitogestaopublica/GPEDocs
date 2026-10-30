@@ -8,8 +8,6 @@ use App\Mail\ConviteAssinaturaExterna;
 use App\Models\Assinatura;
 use App\Models\Documento;
 use App\Models\SolicitacaoAssinatura;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 /**
@@ -90,19 +88,14 @@ class ConviteAssinaturaService
             return false;
         }
 
-        try {
-            Mail::to($assinatura->email_signatario)->send(new ConviteAssinaturaExterna($assinatura));
+        // Rastreado (TR 4.11.12): falha registrada e avisada a quem pediu a assinatura
+        $ok = \App\Support\RastreioEmail::enviar(new ConviteAssinaturaExterna($assinatura), $assinatura->email_signatario, 'assinatura',
+            'Convite de assinatura: ' . $assinatura->documento?->nome, 'documento', $assinatura->documento_id, $assinatura->solicitacao?->solicitante_id);
+        if ($ok) {
             $assinatura->forceFill(['convite_enviado_em' => now()])->save();
-
-            return true;
-        } catch (\Throwable $e) {
-            Log::warning('Convite de assinatura externa não enviado', [
-                'assinatura_id' => $assinatura->id,
-                'erro'          => $e->getMessage(),
-            ]);
-
-            return false;
         }
+
+        return $ok;
     }
 
     public static function soDigitos(?string $valor): string
@@ -133,8 +126,6 @@ class ConviteAssinaturaService
 
     public static function mascararCpf(?string $cpf): string
     {
-        $d = self::soDigitos($cpf);
-
-        return strlen($d) === 11 ? substr($d, 0, 3) . '.***.***-' . substr($d, 9, 2) : (string) $cpf;
+        return (string) \App\Support\DocumentoPessoa::mascararCpf($cpf);
     }
 }

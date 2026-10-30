@@ -17,13 +17,13 @@ import { rotinasDe } from '../menus';
 
 // Detectar modulo pela URL
 function getModulo(url) {
-    if (url.startsWith('/configuracoes') || url.startsWith('/perfil/certificados')) return 'configuracoes';
-    if (url.startsWith('/flow') || url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url.startsWith('/oficios') || url === '/admin/tipos-processo' || url.startsWith('/admin/oficios-modelos')) return 'gepsp';
+    if (url.startsWith('/configuracoes') || url.startsWith('/perfil/')) return 'configuracoes';
+    if (url.startsWith('/flow') || url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url.startsWith('/oficios') || url.startsWith('/pareceres') || url.startsWith('/atos') || url.startsWith('/diario') || url.startsWith('/relatorios') || url.startsWith('/suporte') || url.startsWith('/tramita') || url.startsWith('/ead') || url === '/admin/tipos-processo' || url.startsWith('/admin/oficios-modelos')) return 'gepsp';
     return 'ged';
 }
 
 export default function AdminLayout({ children }) {
-    const { auth, flash, notificacoes_pendentes, notificacoes_recentes, tenant, favoritos } = usePage().props;
+    const { auth, flash, notificacoes_pendentes, tenant, favoritos, somente_leitura } = usePage().props;
     const { url } = usePage();
     const modulo = getModulo(url);
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -98,7 +98,7 @@ export default function AdminLayout({ children }) {
                         <div className="hidden sm:block w-px h-8 bg-gray-200" />
 
                         <FavoritosMenu favoritos={favoritos || []} />
-                        <NotificacoesDropdown count={notificacoes_pendentes || 0} recentes={notificacoes_recentes || []} />
+                        <NotificacoesDropdown count={notificacoes_pendentes || 0} />
 
                         <UserMenu user={auth?.user} />
                     </div>
@@ -111,6 +111,13 @@ export default function AdminLayout({ children }) {
                         {flash?.success && <FlashMessage type="success" message={flash.success} />}
                         {flash?.error && <FlashMessage type="error" message={flash.error} />}
                         {flash?.warning && <FlashMessage type="warning" message={flash.warning} />}
+                    </div>
+                )}
+
+                {/* Ambiente somente leitura (TR 4.26.17) */}
+                {somente_leitura && (
+                    <div className="bg-amber-100 border-b border-amber-300 px-4 sm:px-5 lg:px-8 py-2 text-sm text-amber-900 no-print">
+                        <i className="fas fa-lock mr-2" />Ambiente <b>somente leitura</b>: consulte e baixe documentos e processos; nada pode ser alterado.
                     </div>
                 )}
 
@@ -224,9 +231,13 @@ function UserMenu({ user }) {
         <div className="relative" ref={ref}>
             <button onClick={() => setOpen(!open)}
                 className="flex items-center gap-3 pl-1 pr-3 py-1 rounded-xl hover:bg-gray-50 transition-colors">
-                <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-md shadow-cyan-200">
-                    <span className="text-white font-bold text-sm">{initials}</span>
-                </div>
+                {user?.foto_url ? (
+                    <img src={user.foto_url} alt="" className="w-10 h-10 rounded-xl object-cover shadow-md shadow-cyan-200" />
+                ) : (
+                    <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-md shadow-cyan-200">
+                        <span className="text-white font-bold text-sm">{initials}</span>
+                    </div>
+                )}
                 <div className="hidden md:block text-left">
                     <p className="text-sm font-semibold text-gray-800 leading-tight">{user?.name || 'Usuário'}</p>
                     <p className="text-[11px] text-gray-400 leading-tight">{user?.perfil_nome || 'Usuário'}</p>
@@ -241,12 +252,26 @@ function UserMenu({ user }) {
                         <p className="text-xs text-gray-400">{user?.email}</p>
                     </div>
                     <div className="py-1">
+                        <Link href="/perfil"
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                            <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center">
+                                <i className="fas fa-user text-xs text-gray-400" />
+                            </div>
+                            <span className="font-medium">Meu perfil</span>
+                        </Link>
                         <Link href="/perfil/certificados"
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
                             <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center">
                                 <i className="fas fa-id-card text-xs text-gray-400" />
                             </div>
                             <span className="font-medium">Meus certificados</span>
+                        </Link>
+                        <Link href="/perfil/seguranca"
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                            <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center">
+                                <i className="fas fa-shield-alt text-xs text-gray-400" />
+                            </div>
+                            <span className="font-medium">Segurança</span>
                         </Link>
                     </div>
                     <div className="border-t border-gray-100 py-1">

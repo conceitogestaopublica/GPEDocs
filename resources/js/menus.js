@@ -16,6 +16,7 @@ export const MENU_GED = [
     { title: 'Assinaturas', icon: 'fas fa-file-signature', href: '/assinaturas', color: 'text-emerald-600 bg-emerald-100' },
     { section: 'label', label: 'Administração' },
     { title: 'Tipos Documentais', icon: 'fas fa-file-signature', href: '/admin/tipos-documentais', color: 'text-violet-600 bg-violet-100', permissao: 'admin.tipos_documentais' },
+    { title: 'Plano de Classificação', icon: 'fas fa-sitemap', href: '/admin/classificacao', color: 'text-teal-600 bg-teal-100', permissao: 'admin.classificacao' },
 ];
 
 export const MENU_CONFIGURACOES = [
@@ -23,13 +24,21 @@ export const MENU_CONFIGURACOES = [
     { section: 'label', label: 'Estrutura' },
     { title: 'Unidades Gestoras', icon: 'fas fa-building', href: '/configuracoes/ugs', color: 'text-indigo-600 bg-indigo-100', permissao: 'admin.ugs' },
     { title: 'Certificado da Prefeitura', icon: 'fas fa-shield-alt', href: '/configuracoes/certificado-prefeitura', color: 'text-emerald-600 bg-emerald-100', permissao: 'admin.ugs' },
+    { title: 'Expediente e feriados', icon: 'fas fa-calendar-days', href: '/configuracoes/expediente', color: 'text-amber-600 bg-amber-100', permissao: 'admin.configuracoes' },
+    { title: 'Backup e portabilidade', icon: 'fas fa-box-archive', href: '/configuracoes/portabilidade', color: 'text-teal-600 bg-teal-100', permissao: 'admin.portabilidade' },
+    { title: 'Identidade visual', icon: 'fas fa-palette', href: '/configuracoes/identidade-visual', color: 'text-pink-600 bg-pink-100', permissao: 'admin.configuracoes' },
     { section: 'label', label: 'Acessos' },
     { title: 'Usuários', icon: 'fas fa-users', href: '/configuracoes/usuarios', color: 'text-red-600 bg-red-100', permissao: 'admin.usuarios' },
     { title: 'Perfis e Permissões', icon: 'fas fa-shield-alt', href: '/configuracoes/perfis', color: 'text-slate-600 bg-slate-100', permissao: 'admin.roles' },
     { section: 'label', label: 'Portal do Cidadão' },
     { title: 'Carta de Serviços', icon: 'fas fa-clipboard-list', href: '/configuracoes/carta-servicos', color: 'text-blue-600 bg-blue-100', permissao: 'portal.carta_servicos' },
+    { title: 'Textos do portal', icon: 'fas fa-file-shield', href: '/configuracoes/portal-textos', color: 'text-slate-600 bg-slate-100', permissao: 'portal.carta_servicos' },
     { section: 'label', label: 'Integrações' },
     { title: 'Sistemas Integrados', icon: 'fas fa-plug', href: '/configuracoes/sistemas-integrados', color: 'text-violet-600 bg-violet-100', permissao: 'admin.sistemas_integrados' },
+    { title: 'Sistema tributário', icon: 'fas fa-landmark-dome', href: '/configuracoes/integracao-tributaria', color: 'text-emerald-600 bg-emerald-100', permissao: 'admin.sistemas_integrados' },
+    { section: 'label', label: 'Urbanismo' },
+    { title: 'Consulta prévia (mapa)', icon: 'fas fa-map', href: '/configuracoes/urbanismo', color: 'text-teal-600 bg-teal-100', permissao: 'urbanismo.gerir' },
+    { title: 'App da fiscalização', icon: 'fas fa-mobile-screen', href: '/configuracoes/fiscalizacao', color: 'text-cyan-600 bg-cyan-100', permissao: 'fiscalizacao.formularios' },
 ];
 
 export const MENU_GEPSP = [
@@ -42,19 +51,26 @@ export const MENU_GEPSP = [
         ],
     },
     {
-        title: 'Em Andamento', icon: 'fas fa-share', color: 'text-orange-600 bg-orange-100',
+        title: 'Tramitação', icon: 'fas fa-share', color: 'text-orange-600 bg-orange-100',
         children: [
             { title: 'Em Tramitação', icon: 'fas fa-share',        href: '/flow/em-tramitacao', color: 'text-orange-600 bg-orange-100' },
             { title: 'Concluídos',    icon: 'fas fa-check-double', href: '/flow/concluidos',    color: 'text-green-600 bg-green-100' },
+            { title: 'Calendário de prazos', icon: 'fas fa-calendar-days', href: '/flow/prazos', color: 'text-amber-600 bg-amber-100' },
+            { title: 'Etiquetas do setor', icon: 'fas fa-tags', href: '/flow/etiquetas', color: 'text-violet-600 bg-violet-100' },
+            { title: 'Busca avançada', icon: 'fas fa-magnifying-glass', href: '/flow/busca', color: 'text-sky-600 bg-sky-100' },
         ],
     },
     {
         title: 'Comunicação', icon: 'fas fa-envelope', color: 'text-cyan-600 bg-cyan-100',
         children: [
+            { title: 'Memorandos',         icon: 'fas fa-envelope-open-text', href: '/memorandos',       color: 'text-amber-600 bg-amber-100' },
+            { title: 'Circulares',         icon: 'fas fa-bullhorn',         href: '/circulares',         color: 'text-rose-600 bg-rose-100' },
             { title: 'Novo Memorando',     icon: 'fas fa-envelope',         href: '/memorandos/create',  color: 'text-amber-600 bg-amber-100', permissao: 'comunicacao.enviar' },
             { title: 'Nova Circular',      icon: 'fas fa-bullhorn',         href: '/circulares/create',  color: 'text-rose-600 bg-rose-100', permissao: 'comunicacao.enviar' },
             { title: 'Novo Ofício',        icon: 'fas fa-file-alt',         href: '/oficios/create',     color: 'text-cyan-600 bg-cyan-100', permissao: 'comunicacao.enviar' },
             { title: 'Controle de Ofícios', icon: 'fas fa-book',            href: '/oficios/controle',   color: 'text-cyan-600 bg-cyan-100' },
+            { title: 'Pareceres',          icon: 'fas fa-scale-balanced',   href: '/pareceres',          color: 'text-indigo-600 bg-indigo-100' },
+            { title: 'Organograma e telefones', icon: 'fas fa-sitemap',    href: '/organograma',        color: 'text-teal-600 bg-teal-100' },
         ],
     },
     {
@@ -63,6 +79,8 @@ export const MENU_GEPSP = [
             { title: 'Painel',           icon: 'fas fa-tachometer-alt', href: '/processos/dashboard', color: 'text-teal-600 bg-teal-100', permissao: 'processo.visualizar' },
             { title: 'Novo Processo',    icon: 'fas fa-plus-circle',    href: '/processos/create',    color: 'text-green-600 bg-green-100', permissao: 'processo.criar' },
             { title: 'Todos Processos',  icon: 'fas fa-folder-open',    href: '/processos',           color: 'text-indigo-600 bg-indigo-100', permissao: 'processo.visualizar' },
+            { title: 'PAD',              icon: 'fas fa-gavel',          href: '/flow/pad',            color: 'text-red-600 bg-red-100', permissao: 'processo.visualizar' },
+            { title: 'Processo seletivo (PSS)', icon: 'fas fa-user-graduate', href: '/flow/pss',          color: 'text-emerald-600 bg-emerald-100', permissao: 'pss.gerir' },
         ],
     },
     {
@@ -72,6 +90,66 @@ export const MENU_GEPSP = [
             { title: 'Solicitações',        icon: 'fas fa-inbox',          href: '/flow/portal/solicitacoes',   color: 'text-indigo-600 bg-indigo-100', permissao: 'portal.atendimento' },
             { title: 'Novo Protocolo',      icon: 'fas fa-file-signature', href: '/processos/create?origem=balcao', color: 'text-emerald-600 bg-emerald-100', permissao: 'processo.criar' },
             { title: 'Consultar Protocolo', icon: 'fas fa-search',         href: '/flow/atendimento/consultar', color: 'text-sky-600 bg-sky-100', permissao: 'processo.visualizar' },
+            { title: 'Mapa das demandas',   icon: 'fas fa-map-location-dot', href: '/flow/mapa',               color: 'text-emerald-600 bg-emerald-100', permissao: 'processo.visualizar' },
+            { title: 'Ouvidoria',           icon: 'fas fa-bullhorn',       href: '/flow/ouvidoria',             color: 'text-violet-600 bg-violet-100', permissao: 'ouvidoria.gerir' },
+            { title: 'e-SIC (LAI)',         icon: 'fas fa-circle-info',    href: '/flow/esic',                  color: 'text-cyan-600 bg-cyan-100', permissao: 'esic.gerir' },
+            { title: 'Contatos',            icon: 'fas fa-address-book',  href: '/flow/contatos',              color: 'text-violet-600 bg-violet-100', permissao: 'contato.gerenciar' },
+            { title: 'Configurar contatos', icon: 'fas fa-sliders',        href: '/flow/contatos/configuracao', color: 'text-slate-600 bg-slate-100', permissao: 'admin.contatos' },
+        ],
+    },
+    {
+        // Leis, decretos, portarias, editais… (TR 4.42)
+        title: 'Atos oficiais', icon: 'fas fa-stamp', color: 'text-blue-600 bg-blue-100',
+        children: [
+            { title: 'Todos os atos', icon: 'fas fa-stamp',     href: '/atos',        color: 'text-blue-600 bg-blue-100', permissao: 'processo.visualizar' },
+            { title: 'Novo ato',      icon: 'fas fa-plus',      href: '/atos/create', color: 'text-blue-600 bg-blue-100', permissao: 'ato.elaborar' },
+            { title: 'Tipos de ato',  icon: 'fas fa-sliders',   href: '/atos/tipos',  color: 'text-slate-600 bg-slate-100', permissao: 'ato.tipos' },
+            { title: 'Diário Oficial', icon: 'fas fa-newspaper', href: '/diario',     color: 'text-indigo-600 bg-indigo-100', permissao: 'diario.gerir' },
+            { title: 'Cadernos e responsáveis', icon: 'fas fa-sitemap', href: '/diario/configuracao', color: 'text-slate-600 bg-slate-100', permissao: 'diario.gerir' },
+        ],
+    },
+    {
+        // Requerimentos e indicações de vereadores (TR 4.37)
+        title: 'Legislativo', icon: 'fas fa-landmark', color: 'text-amber-600 bg-amber-100',
+        children: [
+            { title: 'Protocolo legislativo', icon: 'fas fa-landmark', href: '/flow/legislativo',            color: 'text-amber-600 bg-amber-100', permissao: 'legislativo.gerir' },
+            { title: 'Vereadores',            icon: 'fas fa-user-tie', href: '/flow/legislativo/vereadores', color: 'text-amber-600 bg-amber-100', permissao: 'legislativo.gerir' },
+        ],
+    },
+    {
+        // Treinamento a distância (TR 4.24)
+        title: 'Treinamento (EAD)', icon: 'fas fa-graduation-cap', color: 'text-indigo-600 bg-indigo-100',
+        children: [
+            { title: 'Meus treinamentos', icon: 'fas fa-circle-play',  href: '/ead',           color: 'text-indigo-600 bg-indigo-100' },
+            { title: 'Cursos (gestão)',   icon: 'fas fa-chalkboard',   href: '/ead/gestao',    color: 'text-slate-600 bg-slate-100', permissao: 'ead.gerir' },
+            { title: 'Progresso dos servidores', icon: 'fas fa-user-graduate', href: '/ead/relatorio', color: 'text-emerald-600 bg-emerald-100', permissao: 'ead.gerir' },
+        ],
+    },
+    {
+        // Ofícios e processos com outros entes (TR 4.28)
+        title: 'Tramita GOV.BR', icon: 'fas fa-share-nodes', color: 'text-green-700 bg-green-100',
+        children: [
+            { title: 'Enviados e recebidos', icon: 'fas fa-right-left', href: '/tramita',              color: 'text-green-700 bg-green-100', permissao: 'tramita.usar' },
+            { title: 'Configuração',         icon: 'fas fa-sliders',    href: '/tramita/configuracao', color: 'text-slate-600 bg-slate-100', permissao: 'tramita.configurar' },
+        ],
+    },
+    {
+        // Suporte ao usuário da plataforma (TR 4.26)
+        title: 'Suporte', icon: 'fas fa-life-ring', color: 'text-cyan-600 bg-cyan-100',
+        children: [
+            { title: 'Central de suporte', icon: 'fas fa-headset',       href: '/suporte',              color: 'text-cyan-600 bg-cyan-100' },
+            { title: 'Central de ajuda',   icon: 'fas fa-book-open',     href: '/suporte/ajuda',        color: 'text-blue-600 bg-blue-100' },
+            { title: 'Configurar suporte', icon: 'fas fa-sliders',       href: '/suporte/configuracao', color: 'text-slate-600 bg-slate-100', permissao: 'suporte.gerir' },
+        ],
+    },
+    {
+        // Auditoria e uso do sistema (TR 4.25)
+        title: 'Relatórios', icon: 'fas fa-chart-line', color: 'text-rose-600 bg-rose-100',
+        children: [
+            { title: 'Painel de indicadores', icon: 'fas fa-chart-pie',       href: '/relatorios/indicadores', color: 'text-violet-600 bg-violet-100', permissao: 'relatorio.indicadores' },
+            { title: 'Mapa das demandas',    icon: 'fas fa-map-location-dot', href: '/flow/mapa', color: 'text-emerald-600 bg-emerald-100', permissao: 'processo.visualizar' },
+            { title: 'Relatório de eventos', icon: 'fas fa-list-check',       href: '/relatorios/eventos', color: 'text-rose-600 bg-rose-100', permissao: 'relatorio.eventos' },
+            { title: 'Acessos diários',      icon: 'fas fa-right-to-bracket', href: '/relatorios/acessos', color: 'text-sky-600 bg-sky-100', permissao: 'relatorio.eventos' },
         ],
     },
     {
@@ -85,7 +163,8 @@ export const MENU_GEPSP = [
         title: 'Cadastros', icon: 'fas fa-cogs', color: 'text-slate-600 bg-slate-100',
         children: [
             { title: 'Tipos de Processo',  icon: 'fas fa-cogs',            href: '/admin/tipos-processo',  color: 'text-teal-600 bg-teal-100', permissao: 'admin.tipos_processo' },
-            { title: 'Modelos de Ofício',  icon: 'fas fa-file-signature',  href: '/admin/oficios-modelos', color: 'text-cyan-600 bg-cyan-100', permissao: 'admin.tipos_processo' },
+            { title: 'Modelos de texto',   icon: 'fas fa-file-signature',  href: '/admin/oficios-modelos', color: 'text-cyan-600 bg-cyan-100', permissao: 'admin.tipos_processo' },
+            { title: 'Plano de Classificação', icon: 'fas fa-sitemap',      href: '/admin/classificacao',   color: 'text-teal-600 bg-teal-100', permissao: 'admin.classificacao' },
         ],
     },
 ];

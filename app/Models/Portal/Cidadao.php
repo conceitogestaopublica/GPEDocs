@@ -27,6 +27,8 @@ class Cidadao extends Authenticatable
         'token_verificacao',
         'token_verificacao_expira_em',
         'ativo',
+        'nomes_anteriores',
+        'endereco',
     ];
 
     protected $hidden = [
@@ -41,6 +43,9 @@ class Cidadao extends Authenticatable
             'email_verificado_em'         => 'datetime',
             'token_verificacao_expira_em' => 'datetime',
             'ativo'                       => 'boolean',
+            'nomes_anteriores'            => 'array',
+            'endereco'                    => 'array',
+            'email_novo_expira_em'        => 'datetime',
         ];
     }
 
@@ -61,5 +66,20 @@ class Cidadao extends Authenticatable
     public function solicitacoes(): HasMany
     {
         return $this->hasMany(Solicitacao::class, 'cidadao_id');
+    }
+
+    protected static function booted(): void
+    {
+        // O cadastro do portal é também o contato da pessoa na base única (TR 4.21)
+        static::saved(function (Cidadao $c) {
+            if (! $c->wasRecentlyCreated && ! $c->wasChanged(['nome', 'email', 'telefone', 'cpf', 'endereco'])) {
+                return;
+            }
+            try {
+                \App\Support\Contatos::doCidadao($c);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Cidadão não entrou nos contatos', ['cidadao' => $c->id, 'erro' => $e->getMessage()]);
+            }
+        });
     }
 }

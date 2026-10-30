@@ -22,7 +22,21 @@ class SolicitacaoEvento extends Model
         'status_anterior',
         'status_novo',
         'mensagem',
+        'setor_nome',
+        'setor_sigla',
     ];
+
+    /** Quem é do GED interagiu: guarda o setor e a sigla dele para o cidadão ver (TR 4.23.3). */
+    protected static function booted(): void
+    {
+        static::creating(function (SolicitacaoEvento $e) {
+            if ($e->autor_user_id && ! $e->setor_sigla && ! $e->setor_nome) {
+                $setor = \App\Models\UgOrganograma::find(\App\Models\User::whereKey($e->autor_user_id)->value('unidade_id'), ['nome', 'sigla']);
+                $e->setor_nome = $setor?->nome;
+                $e->setor_sigla = $setor?->sigla;
+            }
+        });
+    }
 
     public function solicitacao(): BelongsTo
     {

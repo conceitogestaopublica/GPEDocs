@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Assinatura;
+use App\Models\Documento;
 use App\Support\PdfCompativel;
 use App\Tenant\TenantStorage;
 use Illuminate\Support\Facades\Storage;
@@ -12,14 +13,18 @@ use RuntimeException;
 use setasign\Fpdi\Tcpdf\Fpdi;
 
 /**
- * Carimbo visual da assinatura eletrônica por link ("Assinado digitalmente por: NOME /
- * CPF mascarado / código / data"), desenhado na página e na posição que o signatário
- * escolheu na tela.
+ * Os dois arquivos de um documento assinado:
  *
- * O PDF é sempre remontado a partir da versão atual do documento, redesenhando os
- * carimbos de todas as assinaturas já feitas (externas e ICP com posição) — o mesmo
- * modelo da assinatura A1 (AssinaturaIcpService::gerarPdfAssinado). Assim a ordem em que
- * as pessoas assinam não importa e o arquivo mais recente tem todos os carimbos.
+ *  - ORIGINAL ASSINADO: o PDF da versão, intocado, recebendo cada assinatura ICP
+ *    (e o selo da prefeitura sobre as assinaturas por link) de forma incremental
+ *    (PadesIncremental) — todas continuam válidas no validar.iti.gov.br.
+ *
+ *  - CÓPIA PARA IMPRESSÃO: a versão remontada com o carimbo visual de cada
+ *    assinatura (na posição escolhida na tela; ICP sem posição vai no rodapé da
+ *    última página), a tarja lateral e a página de termo com as evidências,
+ *    selada pela prefeitura quando há e-CNPJ. É refeita a cada assinatura, então
+ *    a mais recente traz todas. Desenhar no original seria alteração depois da
+ *    assinatura e invalidaria as anteriores.
  */
 class CarimboAssinaturaService
 {
@@ -33,15 +38,50 @@ class CarimboAssinaturaService
     }
 
     /**
-     * Gera o PDF carimbado para a assinatura (já com status assinado e código), com a página
-     * de termo de evidências no fim e, se a UG tem certificado, o selo digital da prefeitura.
+     * Assinatura por link (já com status assinado e código): sela o original com o
+     * e-CNPJ da prefeitura, se houver, e gera a cópia para impressão.
      *
-     * @return array{caminho:string, selo:?array} selo = {cn, cnpj, icp_brasil, thumbprint}
+     * @return array{caminho: ?string, impressao: string, selo: ?array}
+     *         caminho = novo original assinado (null sem selo: o original não muda)
      */
     public function gerar(Assinatura $atual): array
     {
         $documento = $atual->documento;
         $versao = $documento?->versaoAtual;
+        if (! $versao || ! str_ends_with(strtolower((string) $versao->arquivo_path), '.pdf')) {
+            throw new RuntimeException('Somente documentos em PDF podem ser assinados por link.');
+        }
+
+        $disk = Storage::disk('documentos');
+        $selo = $this->selos->material($documento->ug_id);
+
+        $caminho = null;
+        if ($selo) {
+            $origem = $disk->path($documento->caminhoOficial() ?? $versao->arquivo_path);
+            $caminho = sprintf(TenantStorage::pasta('assinaturas/externas') . '/%s_doc%d_ass%d_original.pdf',
+                date('Ymd_His'), $atual->documento_id, $atual->id);
+            $disk->put($caminho, $this->selar($origem, $selo, 'Selo da prefeitura sobre assinatura eletrônica por link (Lei 14.063/2020)', $documento));
+        }
+
+        return [
+            'caminho'   => $caminho,
+            'impressao' => $this->copiaImpressao($documento, $atual),
+            'selo'      => $selo ? [
+                'cn'         => $selo['meta']['subject_cn'] ?? null,
+                'cnpj'       => $selo['registro']->cnpj,
+                'icp_brasil' => $selo['registro']->icp_brasil,
+                'thumbprint' => $selo['registro']->thumbprint_sha256,
+            ] : null,
+        ];
+    }
+
+    /**
+     * Cópia para impressão com todas as assinaturas já gravadas do documento.
+     * Devolve o caminho no disco documentos.
+     */
+    public function copiaImpressao(Documento $documento, Assinatura $atual): string
+    {
+        $versao = $documento->versaoAtual;
         if (! $versao) {
             throw new RuntimeException('Documento sem versão para carimbar.');
         }
@@ -49,13 +89,12 @@ class CarimboAssinaturaService
         $disk = Storage::disk('documentos');
         $origem = $disk->path($versao->arquivo_path);
         if (! is_file($origem) || ! str_ends_with(strtolower((string) $versao->arquivo_path), '.pdf')) {
-            throw new RuntimeException('Somente documentos em PDF podem ser assinados por link.');
+            throw new RuntimeException('Somente documentos em PDF recebem a cópia para impressão.');
         }
 
         $carimbos = Assinatura::with(['certificado', 'signatario:id,name'])
-            ->where('documento_id', $atual->documento_id)
+            ->where('documento_id', $documento->id)
             ->where('status', 'assinado')
-            ->whereNotNull('signature_position')
             ->where(fn ($q) => $q->where('tipo_signatario', 'externo')->orWhere('tipo_assinatura', 'qualificada'))
             ->orderBy('assinado_em')
             ->get();
@@ -67,7 +106,6 @@ class CarimboAssinaturaService
         $pdf->SetAutoPageBreak(false, 0);
 
         $selo = $this->selos->material($documento->ug_id);
-        $cadeiaArquivo = null;
 
         // A cópia compatível (se houve) só sai depois do Output: o FPDI relê a origem ao gravar.
         $fonte = PdfCompativel::caminho($origem);
@@ -80,50 +118,49 @@ class CarimboAssinaturaService
                 $pdf->useTemplate($tpl);
             }
 
+            $semPosicao = 0;
             foreach ($carimbos as $a) {
-                $this->desenhar($pdf, $a, $total);
+                $this->desenhar($pdf, $a, $total, $semPosicao);
             }
-            $assinadas = Assinatura::where('documento_id', $atual->documento_id)->where('status', 'assinado')->count();
+            $assinadas = Assinatura::where('documento_id', $documento->id)->where('status', 'assinado')->count();
             TarjaAssinatura::desenhar($pdf, $total, $assinadas, url('/verificar/' . $documento->qr_code_token));
 
-            $this->paginaTermo($pdf, $atual, $versao, $total, $selo);
-
-            if ($selo) {
-                // extracerts do TCPDF exige caminho de arquivo (ver AssinaturaIcpService).
-                if ($selo['extracerts']) {
-                    $cadeiaArquivo = tempnam(sys_get_temp_dir(), 'ged_selo_');
-                    file_put_contents($cadeiaArquivo, implode("\n", $selo['extracerts']));
-                }
-                $pdf->setSignature($selo['cert'], $selo['pkey'], '', $cadeiaArquivo ?: '', 2, [
-                    'Name'        => $selo['meta']['subject_cn'] ?? '',
-                    'Location'    => 'Brasil',
-                    'Reason'      => 'Selo da prefeitura sobre assinaturas eletrônicas (Lei 14.063/2020)',
-                    'ContactInfo' => url('/verificar/' . $documento->qr_code_token),
-                ]);
-                // Área do selo no rodapé do termo (última página).
-                $pdf->setSignatureAppearance(15, 262, 120, 18);
-            }
+            $this->paginaTermo($pdf, $documento, $versao, $total, $selo);
 
             $bytes = $pdf->Output('', 'S');
         } finally {
             PdfCompativel::liberar($fonte, $origem);
-            if ($cadeiaArquivo && is_file($cadeiaArquivo)) {
-                @unlink($cadeiaArquivo);
+        }
+
+        $caminho = sprintf(TenantStorage::pasta('assinaturas/impressao') . '/%s_doc%d_ass%d.pdf',
+            date('Ymd_His'), $documento->id, $atual->id);
+        if ($selo) {
+            $tmp = tempnam(sys_get_temp_dir(), 'ged_copia_');
+            file_put_contents($tmp, $bytes);
+            try {
+                $bytes = $this->selar($tmp, $selo, 'Cópia para impressão selada pela prefeitura (Lei 14.063/2020)', $documento);
+            } finally {
+                @unlink($tmp);
             }
         }
-        $caminho = sprintf(TenantStorage::pasta('assinaturas/externas') . '/%s_doc%d_ass%d.pdf',
-            date('Ymd_His'), $atual->documento_id, $atual->id);
         $disk->put($caminho, $bytes);
 
-        return [
-            'caminho' => $caminho,
-            'selo'    => $selo ? [
-                'cn'         => $selo['meta']['subject_cn'] ?? null,
-                'cnpj'       => $selo['registro']->cnpj,
-                'icp_brasil' => $selo['registro']->icp_brasil,
-                'thumbprint' => $selo['registro']->thumbprint_sha256,
-            ] : null,
-        ];
+        return $caminho;
+    }
+
+    /** Selo da prefeitura (e-CNPJ) acrescentado ao PDF de forma incremental, no padrão AD-RB. */
+    private function selar(string $caminhoAbsoluto, array $selo, string $razao, Documento $documento): string
+    {
+        [$pdf, $byteRange] = PadesIncremental::preparar($caminhoAbsoluto, [
+            'nome'    => $selo['meta']['subject_cn'] ?? '',
+            'razao'   => $razao,
+            'local'   => 'Brasil',
+            'contato' => url('/verificar/' . $documento->qr_code_token),
+        ]);
+        $atributos = CmsAdRb::atributosAssinados($selo['cert'], PadesPlaceholder::digest($pdf, $byteRange));
+        $cms = CmsAdRb::envelope($selo['cert'], $selo['extracerts'] ?? [], $atributos, CmsAdRb::assinarComChave($atributos, $selo['pkey']));
+
+        return PadesPlaceholder::embutir($pdf, $byteRange, $cms);
     }
 
     /**
@@ -131,11 +168,10 @@ class CarimboAssinaturaService
      * as evidências de cada uma (como se identificou, quando, de onde, código) e o QR da
      * verificação pública. Refeita a cada assinatura, então sempre traz a lista completa.
      */
-    private function paginaTermo(Fpdi $pdf, Assinatura $atual, $versao, int $paginasDocumento, ?array $selo): void
+    private function paginaTermo(Fpdi $pdf, Documento $documento, $versao, int $paginasDocumento, ?array $selo): void
     {
-        $documento = $atual->documento;
         $assinaturas = Assinatura::with(['signatario:id,name', 'certificado:id,subject_cn,issuer_cn'])
-            ->where('documento_id', $atual->documento_id)
+            ->where('documento_id', $documento->id)
             ->where('status', 'assinado')
             ->orderBy('assinado_em')
             ->get();
@@ -189,11 +225,13 @@ class CarimboAssinaturaService
         $pdf->Ln(3);
 
         $seloTexto = $selo
-            ? 'Este arquivo está <b>selado digitalmente</b> por ' . $e($selo['meta']['subject_cn'] ?? '')
+            ? 'Esta cópia para impressão está <b>selada digitalmente</b> por ' . $e($selo['meta']['subject_cn'] ?? '')
               . ($selo['registro']->cnpj ? ' (CNPJ ' . $e($selo['registro']->cnpj) . ')' : '')
               . ', certificado ' . ($selo['registro']->icp_brasil ? 'ICP-Brasil' : '<b>de teste, sem validade ICP-Brasil</b>')
               . ' emitido por ' . $e($selo['meta']['issuer_cn'] ?? '') . '. Qualquer alteração no arquivo invalida o selo.'
-            : 'Este arquivo não tem selo digital da prefeitura (certificado não configurado). A integridade é conferida pelo hash e pela verificação pública.';
+            : 'Esta cópia para impressão não tem selo digital da prefeitura (certificado não configurado). A integridade é conferida pelo hash e pela verificação pública.';
+        $seloTexto .= ' As assinaturas com certificado ICP-Brasil estão no <b>original assinado</b>, disponível no endereço de verificação,'
+            . ' e podem ser conferidas em validar.iti.gov.br.';
         $pdf->writeHTML('<p style="font-size:8pt">' . $seloTexto . '</p>'
             . '<p style="font-size:7.5pt;color:#555">Assinaturas eletrônicas nos termos da Lei nº 14.063/2020 e do art. 10, § 2º, da MP nº 2.200-2/2001. '
             . 'Para conferir, acesse o endereço de verificação acima ou leia o QR code; cada assinatura também pode ser consultada pelo seu código.</p>',
@@ -240,11 +278,25 @@ class CarimboAssinaturaService
         }
     }
 
-    private function desenhar(Fpdi $pdf, Assinatura $a, int $totalPaginas): void
+    private function desenhar(Fpdi $pdf, Assinatura $a, int $totalPaginas, int &$semPosicao): void
     {
         $pos = $a->signature_position;
         if (! isset($pos['x'], $pos['y'])) {
-            return;
+            if ($a->tipo_assinatura !== 'qualificada') {
+                return;
+            }
+            // ICP sem quadro escolhido: rodapé da última página, da direita para
+            // a esquerda e subindo a cada linha cheia, para não sobrepor
+            $pdf->setPage($totalPaginas);
+            $porLinha = max(1, (int) floor(($pdf->getPageWidth() - 10) / (self::LARGURA_PADRAO + 3)));
+            $coluna = $semPosicao % $porLinha;
+            $linha = intdiv($semPosicao, $porLinha);
+            $semPosicao++;
+            $pos = [
+                'page' => $totalPaginas,
+                'x'    => $pdf->getPageWidth() - 8 - (self::LARGURA_PADRAO + 3) * ($coluna + 1) + 3,
+                'y'    => $pdf->getPageHeight() - 8 - (self::ALTURA_PADRAO + 3) * ($linha + 1) + 3,
+            ];
         }
         $pagina = (int) ($pos['page'] ?? -1);
         if ($pagina === -1 || $pagina > $totalPaginas) {

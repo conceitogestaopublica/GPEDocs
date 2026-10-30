@@ -90,6 +90,9 @@ class PortalSolicitacoesController extends Controller
                 ->find($solicitacao->processo_id, ['id', 'numero_protocolo', 'status', 'etapa_atual_id']);
         }
 
+        // CPF do cidadão só em parte na tela (LGPD).
+        $solicitacao->cidadao?->setAttribute('cpf', \App\Support\DocumentoPessoa::mascararCpf($solicitacao->cidadao->cpf));
+
         return Inertia::render('Portal/Admin/Solicitacoes/Show', [
             'solicitacao' => $solicitacao,
             'processo'    => $processo,
@@ -206,15 +209,15 @@ class PortalSolicitacoesController extends Controller
         });
 
         $email = $solicitacao->email_contato ?? $solicitacao->cidadao?->email;
-        if ($email) {
-            Mail::to($email)
-                ->send(new NotificacaoSolicitacaoCidadao(
+        if ($email && ! \App\Support\DescadastroEmail::descadastrado($email)) {   // pediu para não receber avisos
+            \App\Support\RastreioEmail::enviar(new NotificacaoSolicitacaoCidadao(
                     $solicitacao->fresh(),
                     $solicitacao->servico,
                     $solicitacao->ug,
                     'status_alterado'
-                ));
+                ), $email, 'cidadao', "Solicitação {$solicitacao->codigo}", 'solicitacao', $solicitacao->id, $atendente->id);
         }
+        \App\Support\SmsCidadao::solicitacao($solicitacao->fresh(), 'status_alterado');   // TR 4.11.1
 
         $feito = match ($data['decisao'] ?? null) {
             'deferir'   => 'Pedido deferido',
@@ -244,16 +247,16 @@ class PortalSolicitacoesController extends Controller
         ]);
 
         $email = $solicitacao->email_contato ?? $solicitacao->cidadao?->email;
-        if ($email) {
-            Mail::to($email)
-                ->send(new NotificacaoSolicitacaoCidadao(
+        if ($email && ! \App\Support\DescadastroEmail::descadastrado($email)) {   // pediu para não receber avisos
+            \App\Support\RastreioEmail::enviar(new NotificacaoSolicitacaoCidadao(
                     $solicitacao,
                     $solicitacao->servico,
                     $solicitacao->ug,
                     'comentario',
                     $data['mensagem']
-                ));
+                ), $email, 'cidadao', "Solicitação {$solicitacao->codigo}", 'solicitacao', $solicitacao->id, $atendente->id);
         }
+        \App\Support\SmsCidadao::solicitacao($solicitacao, 'comentario');
 
         return back()->with('success', 'Mensagem enviada ao cidadão por email.');
     }

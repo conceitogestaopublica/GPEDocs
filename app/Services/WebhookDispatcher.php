@@ -58,6 +58,8 @@ class WebhookDispatcher
             'enviado_em'     => now()->toIso8601String(),
             'visualizacao_url' => url("/documentos/{$documento->id}"),
             'pdf_assinado_url' => url("/documentos/{$documento->id}/download"),
+            'pdf_impressao_url' => url("/documentos/{$documento->id}/download?copia=impressao"),
+            'pdf_original_url'  => url("/documentos/{$documento->id}/download"),
         ], $payloadExtra);
 
         $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -137,7 +139,7 @@ class WebhookDispatcher
         // Remove campos auto-gerados antes de reenviar (sao recriados)
         $payloadExtra = collect($log->payload ?? [])
             ->except(['evento', 'sistema_origem', 'numero_externo', 'documento_id', 'enviado_em',
-                      'visualizacao_url', 'pdf_assinado_url'])
+                      'visualizacao_url', 'pdf_assinado_url', 'pdf_impressao_url', 'pdf_original_url'])
             ->toArray();
 
         return $this->disparar($documento, $log->evento, $payloadExtra);

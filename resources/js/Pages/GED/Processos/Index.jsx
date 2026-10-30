@@ -156,7 +156,8 @@ export default function Index({ processos, filters, tipos_processo }) {
                         <p className="text-sm font-medium">Nenhum processo encontrado</p>
                     </div>
                 ) : (
-                    <TabelaRolavel total={lista.length}>
+                    <TabelaRolavel total={lista.length} alturaMinima={480}>
+                        {/* Em tela baixa (notebook com zoom) a lista não encolhe a 3 linhas: mínimo de ~8 e a página rola */}
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50">
                                 <tr className="border-b border-gray-200 bg-gray-50">

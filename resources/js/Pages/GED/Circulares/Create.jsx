@@ -3,27 +3,39 @@
  *
  * Formulario de criacao de circular interna.
  */
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import EmNomeDe from '../../../Components/EmNomeDe';
 import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
+import RichEditor from '../../../Components/RichEditor';
+import SetoresMulti from '../../../Components/SetoresMulti';
+import useRascunho from '../../../Hooks/useRascunho';
+import FerramentasDoTexto from '../../../Components/FerramentasDoTexto';
+import { AnexosRascunho, EstadoRascunho, comRascunho, dadosDoRascunho } from '../../../Components/RascunhoAutomatico';
 
-export default function CircularesCreate({ usuarios }) {
+export default function CircularesCreate({ usuarios, autorizacoes = [], variaveis = [], rascunho = null, unidades = [], opcoes_respostas = {} }) {
     const userList = usuarios || [];
     const [searchUser, setSearchUser] = useState('');
-    const [setorInput, setSetorInput] = useState('');
 
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors } = useForm(comRascunho(rascunho, {
         assunto: '',
         destino_tipo: 'todos',
         destinatarios: [],
         destino_setores: [],
         conteudo: '',
         setor_origem: '',
+        em_nome_de: '',
+        contrassenha: '',
         data_arquivamento_auto: '',
+        urgente: false,
+        respostas: 'abertas',
         files: [],
-    });
+    }));
+
+    // Rascunho automático do setor (TR 4.16.6–4.16.8)
+    const r = useRascunho({ modulo: 'circular', dados: dadosDoRascunho(data), titulo: data.assunto, inicial: rascunho, temConteudo: !! (data.assunto || data.conteudo) });
 
     const filteredUsers = userList.filter(u =>
         u.name.toLowerCase().includes(searchUser.toLowerCase()) ||
@@ -37,21 +49,6 @@ export default function CircularesCreate({ usuarios }) {
         setData('destinatarios', list);
     };
 
-    const addSetor = () => {
-        const trimmed = setorInput.trim();
-        if (trimmed) {
-            const novos = trimmed.split(',').map(s => s.trim()).filter(s => s && !data.destino_setores.includes(s));
-            if (novos.length > 0) {
-                setData('destino_setores', [...data.destino_setores, ...novos]);
-            }
-            setSetorInput('');
-        }
-    };
-
-    const removeSetor = (setor) => {
-        setData('destino_setores', data.destino_setores.filter(s => s !== setor));
-    };
-
     const submit = (e) => {
         e.preventDefault();
 
@@ -60,7 +57,13 @@ export default function CircularesCreate({ usuarios }) {
         formData.append('conteudo', data.conteudo);
         formData.append('destino_tipo', data.destino_tipo);
         formData.append('setor_origem', data.setor_origem);
+        if (data.em_nome_de) {
+            formData.append('em_nome_de', data.em_nome_de);
+            formData.append('contrassenha', data.contrassenha);
+        }
         formData.append('data_arquivamento_auto', data.data_arquivamento_auto);
+        formData.append('urgente', data.urgente ? '1' : '0');
+        formData.append('respostas', data.respostas);
 
         if (data.destino_tipo === 'usuarios') {
             data.destinatarios.forEach((id, i) => {
@@ -69,8 +72,8 @@ export default function CircularesCreate({ usuarios }) {
         }
 
         if (data.destino_tipo === 'setores') {
-            data.destino_setores.forEach((setor, i) => {
-                formData.append(`destino_setores[${i}]`, setor);
+            data.destino_setores.filter((v) => Number.isInteger(Number(v))).forEach((id, i) => {
+                formData.append(`destino_setores[${i}]`, id);
             });
         }
 
@@ -79,6 +82,8 @@ export default function CircularesCreate({ usuarios }) {
                 formData.append(`files[${i}]`, file);
             });
         }
+
+        if (r.id) formData.append('rascunho_id', r.id);
 
         router.post('/circulares', formData, {
             forceFormData: true,
@@ -97,6 +102,9 @@ export default function CircularesCreate({ usuarios }) {
 
             <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <form onSubmit={submit} className="space-y-6">
+                    <EstadoRascunho r={r} />
+                    <fieldset disabled={!! r.travadoPor} className="space-y-6 min-w-0">
+                            <EmNomeDe autorizacoes={autorizacoes} data={data} setData={setData} errors={usePage().props.errors} />
                     {/* Assunto */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -149,33 +157,11 @@ export default function CircularesCreate({ usuarios }) {
                     {data.destino_tipo === 'setores' && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Setores <span className="text-red-500">*</span>
+                                Setores do organograma <span className="text-red-500">*</span>
                             </label>
-                            {data.destino_setores.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 mb-2">
-                                    {data.destino_setores.map(setor => (
-                                        <span key={setor} className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
-                                            <i className="fas fa-sitemap text-[9px]" />
-                                            {setor}
-                                            <button type="button" onClick={() => removeSetor(setor)}
-                                                className="ml-0.5 hover:text-red-500">
-                                                <i className="fas fa-times text-[8px]" />
-                                            </button>
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    value={setorInput}
-                                    onChange={(e) => setSetorInput(e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSetor(); } }}
-                                    className="ds-input flex-1"
-                                    placeholder="Digite nomes de setores separados por vírgula"
-                                />
-                                <Button type="button" variant="secondary" onClick={addSetor}>Adicionar</Button>
-                            </div>
+                            <SetoresMulti unidades={unidades} valor={(data.destino_setores || []).filter((v) => Number.isInteger(Number(v))).map(Number)}
+                                onChange={(v) => setData('destino_setores', v)} />
+                            <p className="mt-1 text-[11px] text-gray-500">Chega a quem atende o setor e os subsetores dele.</p>
                             {errors.destino_setores && <p className="text-xs text-red-500 mt-1">{errors.destino_setores}</p>}
                         </div>
                     )}
@@ -237,17 +223,16 @@ export default function CircularesCreate({ usuarios }) {
 
                     {/* Conteudo */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Conteúdo <span className="text-red-500">*</span>
-                        </label>
-                        <textarea
-                            value={data.conteudo}
-                            onChange={(e) => setData('conteudo', e.target.value)}
-                            className="ds-input !h-auto"
-                            rows={10}
-                            placeholder="Digite o conteúdo da circular..."
-                            required
-                        />
+                        <div className="flex flex-wrap items-end justify-between gap-2 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">
+                                Conteúdo <span className="text-red-500">*</span>
+                            </label>
+                            <FerramentasDoTexto modulo="circular" conteudo={data.conteudo} onAplicar={(html) => setData('conteudo', html)}
+                                dadosPrevia={() => dadosDoRascunho(data)} desabilitado={!! r.travadoPor} />
+                        </div>
+                        <RichEditor somenteLeitura={!! r.travadoPor} html={data.conteudo} onChange={(v) => setData('conteudo', v)} minHeight={260}
+                            variaveis={variaveis} marcadores={['mencao', 'referencia', 'assinatura']} erro={errors.conteudo}
+                            placeholder="Digite o conteúdo da circular…" />
                         {errors.conteudo && <p className="text-xs text-red-500 mt-1">{errors.conteudo}</p>}
                     </div>
 
@@ -277,20 +262,26 @@ export default function CircularesCreate({ usuarios }) {
                         </div>
                     </div>
 
-                    {/* Anexos */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            <i className="fas fa-paperclip text-xs text-gray-400 mr-1" />
-                            Anexos
+                    {/* Prioridade e respostas (TR 4.46.4, 4.46.6, 4.46.13) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <label className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer ${data.urgente ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                            <input type="checkbox" checked={data.urgente} onChange={(e) => setData('urgente', e.target.checked)} className="mt-0.5 rounded border-gray-300 text-red-600" />
+                            <span>
+                                <span className="block text-sm font-semibold text-gray-800"><i className="fas fa-bolt text-red-500 mr-1" />Urgente</span>
+                                <span className="block text-[11px] text-gray-500">Aparece destacada na lista e no aviso de quem recebe.</span>
+                            </span>
                         </label>
-                        <input
-                            type="file"
-                            multiple
-                            onChange={(e) => setData('files', e.target.files)}
-                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                        />
-                        {errors.files && <p className="text-xs text-red-500 mt-1">{errors.files}</p>}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Respostas</label>
+                            <select value={data.respostas} onChange={(e) => setData('respostas', e.target.value)} className="ds-input">
+                                {Object.entries(opcoes_respostas).map(([v, r]) => <option key={v} value={v}>{r}</option>)}
+                            </select>
+                            {errors.respostas && <p className="text-xs text-red-500 mt-1">{errors.respostas}</p>}
+                        </div>
                     </div>
+
+                    {/* Anexos */}
+                    <AnexosRascunho r={r} />
 
                     {/* Acoes */}
                     <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
@@ -307,6 +298,7 @@ export default function CircularesCreate({ usuarios }) {
                             Enviar Circular
                         </Button>
                     </div>
+                    </fieldset>
                 </form>
             </div>
         </AdminLayout>

@@ -87,6 +87,21 @@ return [
             'report'   => false,
         ],
 
+        // Backups e exportações (TR 4.26.13): em produção, outro ambiente (bucket S3/MinIO em outra
+        // região ou servidor) — a redundância exigida. Local só para desenvolvimento.
+        'backup' => [
+            'driver'   => env('BACKUP_DRIVER', 'local'),
+            'root'     => env('BACKUP_ROOT', storage_path('app/backups')),
+            'key'      => env('BACKUP_KEY', env('AWS_ACCESS_KEY_ID')),
+            'secret'   => env('BACKUP_SECRET', env('AWS_SECRET_ACCESS_KEY')),
+            'region'   => env('BACKUP_REGION', env('AWS_DEFAULT_REGION', 'us-east-1')),
+            'bucket'   => env('BACKUP_BUCKET'),
+            'endpoint' => env('BACKUP_ENDPOINT', env('AWS_ENDPOINT')),
+            'use_path_style_endpoint' => env('BACKUP_PATH_STYLE', true),
+            'visibility' => 'private',
+            'throw'    => true,
+        ],
+
     ],
 
     /*

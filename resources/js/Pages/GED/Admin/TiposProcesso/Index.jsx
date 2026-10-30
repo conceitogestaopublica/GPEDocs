@@ -11,6 +11,7 @@ import Button from '../../../../Components/Button';
 import Card from '../../../../Components/Card';
 import Modal from '../../../../Components/Modal';
 import TabelaRolavel from '../../../../Components/TabelaRolavel';
+import SetoresMulti from '../../../../Components/SetoresMulti';
 
 const categoriaOptions = [
     { value: 'administrativo', label: 'Administrativo' },
@@ -28,7 +29,54 @@ const tiposCampo = [
     { value: 'select', label: 'Seleção' },
     { value: 'textarea', label: 'Texto longo' },
     { value: 'money', label: 'Monetário' },
+    { value: 'cpf_cnpj', label: 'CPF/CNPJ (validado)' },
+    { value: 'cep', label: 'Endereço com CEP' },
+    { value: 'email', label: 'E-mail' },
+    { value: 'telefone', label: 'Telefone' },
+    { value: 'checkbox', label: 'Caixa de marcar' },
+    { value: 'calculo', label: 'Cálculo entre campos' },
 ];
+
+/** Ajuda do campo para quem preenche (TR 4.38.6): texto e imagem. */
+function AjudaDoCampo({ field, onChange }) {
+    const [enviando, setEnviando] = useState(false);
+    const enviar = async (arquivo) => {
+        if (! arquivo) return;
+        setEnviando(true);
+        try {
+            const fd = new FormData(); fd.append('imagem', arquivo);
+            const xsrf = decodeURIComponent((document.cookie.match(/XSRF-TOKEN=([^;]+)/) || [])[1] || '');
+            const r = await fetch('/admin/tipos-processo/ajuda-imagem', { method: 'POST', body: fd, headers: { 'X-XSRF-TOKEN': xsrf, Accept: 'application/json' } });
+            const j = await r.json();
+            if (j.url) onChange('ajuda_imagem', j.url);
+        } finally {
+            setEnviando(false);
+        }
+    };
+    return (
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="md:col-span-2">
+                <label className="block text-[11px] font-medium text-gray-500 mb-1">Ajuda (aparece abaixo do campo)</label>
+                <input type="text" value={field.ajuda || ''} onChange={(e) => onChange('ajuda', e.target.value)}
+                    className="ds-input text-xs" placeholder="Ex.: informe a matrícula que está no carnê do IPTU" maxLength={500} />
+            </div>
+            <div>
+                <label className="block text-[11px] font-medium text-gray-500 mb-1">Imagem de ajuda</label>
+                {field.ajuda_imagem ? (
+                    <div className="flex items-center gap-2">
+                        <img src={field.ajuda_imagem} alt="" className="h-9 rounded border border-gray-200" />
+                        <button type="button" onClick={() => onChange('ajuda_imagem', '')} className="text-xs text-red-600 hover:underline">Remover</button>
+                    </div>
+                ) : (
+                    <label className="ds-btn ds-btn-outline ds-btn-sm cursor-pointer">
+                        <i className={`fas ${enviando ? 'fa-spinner fa-spin' : 'fa-image'} mr-1`} />{enviando ? 'Enviando…' : 'Escolher imagem'}
+                        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={(e) => enviar(e.target.files[0])} />
+                    </label>
+                )}
+            </div>
+        </div>
+    );
+}
 
 const tiposEtapa = [
     { value: 'analise', label: 'Analise' },
@@ -40,10 +88,10 @@ const tiposEtapa = [
 ];
 
 const emptyField = { campo: '', tipo: 'text', label: '', obrigatorio: false, opcoes: '' };
-const emptyEtapa = { nome: '', tipo: 'analise', setor_destino: '', sla_horas: '', template_texto: '' };
+const emptyEtapa = { nome: '', tipo: 'analise', setor_destino: '', unidades: [], obrigatorio: true, sla_horas: '', template_texto: '' };
 const emptyTemplate = { nome: '', conteudo: '' };
 
-export default function Index({ tipos }) {
+export default function Index({ tipos, unidades = [] }) {
     const lista = tipos?.data || tipos || [];
     const [showModal, setShowModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -57,10 +105,18 @@ export default function Index({ tipos }) {
         descricao: '',
         categoria: 'administrativo',
         sla_padrao_horas: '',
+        prazo_dias_uteis: false,
+        localizacao: 'nao',
+        modalidade: '',
+        email_entrada: '',
+        email_unidade_id: '',
+        prazo_resposta_dias: '',
+        avaliacao: true,
         ativo: true,
         schema_formulario: [],
         etapas: [],
         templates_despacho: [],
+        anexos_exigidos: [],
     });
 
     const openCreate = () => {
@@ -77,10 +133,18 @@ export default function Index({ tipos }) {
             descricao: tipo.descricao || '',
             categoria: tipo.categoria || 'administrativo',
             sla_padrao_horas: tipo.sla_padrao_horas || '',
+            prazo_dias_uteis: !! tipo.prazo_dias_uteis,
+            localizacao: tipo.localizacao || 'nao',
+            modalidade: tipo.modalidade || '',
+            email_entrada: tipo.email_entrada || '',
+            email_unidade_id: tipo.email_unidade_id || '',
+            prazo_resposta_dias: tipo.prazo_resposta_dias || '',
+            avaliacao: tipo.avaliacao !== false,
             ativo: tipo.ativo !== false,
             schema_formulario: tipo.schema_formulario || [],
-            etapas: tipo.etapas || [],
+            etapas: (tipo.etapas || []).map(e => ({ ...e, unidades: e.unidades || [], obrigatorio: e.obrigatorio ?? true })),
             templates_despacho: tipo.templates_despacho || [],
+            anexos_exigidos: tipo.anexos_exigidos || [],
         });
         setEditingId(tipo.id);
         setActiveSection('basic');
@@ -165,6 +229,7 @@ export default function Index({ tipos }) {
         { key: 'schema', label: 'Formulário', icon: 'fas fa-list-alt' },
         { key: 'etapas', label: 'Etapas', icon: 'fas fa-route' },
         { key: 'templates', label: 'Templates', icon: 'fas fa-file-alt' },
+        { key: 'anexos', label: 'Documentos exigidos', icon: 'fas fa-paperclip' },
     ];
 
     return (
@@ -172,6 +237,10 @@ export default function Index({ tipos }) {
             <Head title="Tipos de Processo" />
 
             <PageHeader title="Tipos de Processo" subtitle="Gerenciar tipos e fluxos de processos">
+                {/* Construção e parcelamento do solo, com CA, TO e TP calculados (TR 4.48.1, 4.48.2, 4.48.15) */}
+                <Button variant="secondary" icon="fas fa-helmet-safety" onClick={() => router.post('/admin/tipos-processo/modelos-projetos', {}, { preserveScroll: true })}>
+                    Modelos de aprovação de projetos
+                </Button>
                 <Button icon="fas fa-plus" onClick={openCreate}>
                     Novo Tipo
                 </Button>
@@ -378,6 +447,51 @@ export default function Index({ tipos }) {
                                         placeholder="Ex: 48"
                                         min="1"
                                     />
+                                    <label className="mt-2 flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
+                                        <input type="checkbox" checked={!! data.prazo_dias_uteis} onChange={(e) => setData('prazo_dias_uteis', e.target.checked)}
+                                            className="mt-0.5 rounded border-gray-300 text-blue-600" />
+                                        <span>Contar em dias úteis (cada 24h = 1 dia útil; vence no fechamento do expediente, sem fins de semana e feriados — Configurações › Expediente e feriados)</span>
+                                    </label>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Modalidade</label>
+                                    <select value={data.modalidade} onChange={(e) => setData('modalidade', e.target.value)} className="ds-input mb-3">
+                                        <option value="">Processo comum</option>
+                                        <option value="ouvidoria">Ouvidoria (Lei 13.460 — 30 dias úteis, sigilo, decisão final)</option>
+                                        <option value="esic">e-SIC / acesso à informação (LAI — 20 dias + 10)</option>
+                                        <option value="chamado">Chamado técnico (patrimônio, abrir em nome de servidor)</option>
+                                        <option value="servidor">Requerimento do servidor (só Gestão de Pessoas e setores envolvidos; fora das buscas)</option>
+                                        <option value="legislativo">Protocolo legislativo (vereador, proposição, prazo de resposta)</option>
+                                        <option value="pad">PAD — processo disciplinar (sigiloso, comissão, tipo de infração)</option>
+                                        <option value="fiscalizacao">Fiscalização de obras e posturas (diligências com fotos e GPS)</option>
+                                    </select>
+                                    {data.modalidade === 'legislativo' && (
+                                        <div className="mb-3 -mt-1">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Prazo de resposta ao vereador (dias)</label>
+                                            <input type="number" min="1" max="365" value={data.prazo_resposta_dias} onChange={(e) => setData('prazo_resposta_dias', e.target.value)} className="ds-input" placeholder="15" />
+                                            <p className="text-[11px] text-gray-500 mt-1">Conta em dias úteis se a opção de dias úteis estiver marcada.</p>
+                                        </div>
+                                    )}
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">E-mail de entrada <span className="font-normal text-gray-400">(opcional)</span></label>
+                                    <input type="email" value={data.email_entrada} onChange={(e) => setData('email_entrada', e.target.value)} className="ds-input" placeholder="ouvidoria@municipio.gov.br" />
+                                    {errors.email_entrada && <p className="text-xs text-red-600 mt-1">{errors.email_entrada}</p>}
+                                    <select value={data.email_unidade_id} onChange={(e) => setData('email_unidade_id', e.target.value)} className="ds-input mt-2">
+                                        <option value="">Setor que recebe os e-mails…</option>
+                                        {unidades.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
+                                    </select>
+                                    {errors.email_unidade_id && <p className="text-xs text-red-600 mt-1">{errors.email_unidade_id}</p>}
+                                    <p className="text-[11px] text-gray-500 mt-1 mb-3">O e-mail que chega neste endereço abre um processo deste assunto no setor escolhido, com canal "e-mail"; a decisão final volta ao remetente.</p>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Local da demanda no mapa</label>
+                                    <select value={data.localizacao} onChange={(e) => setData('localizacao', e.target.value)} className="ds-input">
+                                        <option value="nao">Não pede</option>
+                                        <option value="opcional">Pede, opcional</option>
+                                        <option value="obrigatoria">Obrigatório marcar no mapa</option>
+                                    </select>
+                                    <label className="mt-2 flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
+                                        <input type="checkbox" checked={!! data.avaliacao} onChange={(e) => setData('avaliacao', e.target.checked)}
+                                            className="mt-0.5 rounded border-gray-300 text-blue-600" />
+                                        <span>Pedir avaliação por estrelas ao concluir</span>
+                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -484,6 +598,19 @@ export default function Index({ tipos }) {
                                                     />
                                                 </div>
                                             )}
+                                            {field.tipo === 'calculo' && (
+                                                <div className="mt-3">
+                                                    <label className="block text-[11px] font-medium text-gray-500 mb-1">Fórmula</label>
+                                                    <input type="text" value={field.formula || ''}
+                                                        onChange={(e) => updateField(idx, 'formula', e.target.value)}
+                                                        className="ds-input text-xs font-mono" placeholder="{quantidade} * {valor_unitario}" />
+                                                    <p className="mt-1 text-[10px] text-gray-400">
+                                                        Use o identificador dos outros campos entre chaves e + − * / ( ). Disponíveis: {data.schema_formulario
+                                                            .filter(c => c.campo && ['number', 'money', 'calculo'].includes(c.tipo) && c !== field).map(c => `{${c.campo}}`).join(' ') || 'nenhum campo numérico ainda'}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            <AjudaDoCampo field={field} onChange={(k, v) => updateField(idx, k, v)} />
                                         </div>
                                     ))}
                                 </div>
@@ -564,16 +691,6 @@ export default function Index({ tipos }) {
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[11px] font-medium text-gray-500 mb-1">Setor Destino</label>
-                                                    <input
-                                                        type="text"
-                                                        value={etapa.setor_destino}
-                                                        onChange={(e) => updateEtapa(idx, 'setor_destino', e.target.value)}
-                                                        className="ds-input text-xs"
-                                                        placeholder="Setor responsável"
-                                                    />
-                                                </div>
-                                                <div>
                                                     <label className="block text-[11px] font-medium text-gray-500 mb-1">SLA (horas)</label>
                                                     <input
                                                         type="number"
@@ -584,6 +701,20 @@ export default function Index({ tipos }) {
                                                         min="1"
                                                     />
                                                 </div>
+                                                <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer pt-5">
+                                                    <input type="checkbox" checked={etapa.obrigatorio !== false}
+                                                        onChange={(e) => updateEtapa(idx, 'obrigatorio', e.target.checked)}
+                                                        className="rounded border-gray-300 text-blue-600" />
+                                                    Obrigatória (não pode ser pulada)
+                                                </label>
+                                            </div>
+                                            <div className="mt-3">
+                                                <SetoresMulti pequeno titulo="Setores responsáveis pela etapa"
+                                                    ajuda={etapa.setor_destino && ! (etapa.unidades || []).length
+                                                        ? `Antes era um texto: "${etapa.setor_destino}". Escolha os setores no organograma. Vazio = etapa livre (qualquer setor).`
+                                                        : 'Um ou vários setores. Vazio = etapa livre: quem despacha escolhe qualquer setor.'}
+                                                    unidades={unidades} valor={etapa.unidades || []}
+                                                    onChange={(v) => updateEtapa(idx, 'unidades', v)} />
                                             </div>
                                             <div className="mt-3">
                                                 <label className="block text-[11px] font-medium text-gray-500 mb-1">Template de Texto</label>
@@ -603,6 +734,45 @@ export default function Index({ tipos }) {
                     )}
 
                     {/* ── Section: Templates de Despacho ── */}
+                    {/* ── Section: Documentos exigidos (TR 4.32.14, 4.38.18) ── */}
+                    {activeSection === 'anexos' && (
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm text-gray-500">Documentos que o requerente anexa ao abrir. Sem os obrigatórios o processo não abre.</p>
+                                <button type="button" className="ds-btn ds-btn-outline ds-btn-sm"
+                                    onClick={() => setData('anexos_exigidos', [...data.anexos_exigidos, { nome: '', obrigatorio: true, extensoes: 'pdf' }])}>
+                                    <i className="fas fa-plus mr-1" />Adicionar documento
+                                </button>
+                            </div>
+                            {data.anexos_exigidos.length === 0 && (
+                                <p className="py-6 text-center text-sm text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">Nenhum documento exigido</p>
+                            )}
+                            {data.anexos_exigidos.map((ax, idx) => {
+                                const mudar = (k, v) => setData('anexos_exigidos', data.anexos_exigidos.map((a, i) => i === idx ? { ...a, [k]: v } : a));
+                                return (
+                                    <div key={idx} className="bg-gray-50 rounded-xl p-3 border border-gray-100 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                                        <div className="md:col-span-6">
+                                            <label className="block text-[11px] font-medium text-gray-500 mb-1">Documento</label>
+                                            <input value={ax.nome} onChange={(e) => mudar('nome', e.target.value)} className="ds-input text-xs" placeholder="Ex.: Cópia do RG" maxLength={150} />
+                                        </div>
+                                        <div className="md:col-span-3">
+                                            <label className="block text-[11px] font-medium text-gray-500 mb-1">Extensões permitidas</label>
+                                            <input value={ax.extensoes || ''} onChange={(e) => mudar('extensoes', e.target.value)} className="ds-input text-xs" placeholder="pdf, jpg, png" />
+                                        </div>
+                                        <label className="md:col-span-2 flex items-center gap-1.5 text-xs text-gray-600 pb-2 cursor-pointer">
+                                            <input type="checkbox" checked={ax.obrigatorio !== false} onChange={(e) => mudar('obrigatorio', e.target.checked)} className="rounded border-gray-300 text-blue-600" />
+                                            Obrigatório
+                                        </label>
+                                        <button type="button" title="Remover" onClick={() => setData('anexos_exigidos', data.anexos_exigidos.filter((_, i) => i !== idx))}
+                                            className="md:col-span-1 p-2 text-red-400 hover:text-red-600 justify-self-end">
+                                            <i className="fas fa-trash text-xs" />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
                     {activeSection === 'templates' && (
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">

@@ -25,8 +25,36 @@ use App\Http\Controllers\NotificacaoController;
 use App\Http\Controllers\PastaController;
 use Illuminate\Support\Facades\Route;
 
+// Captcha dos formulários públicos (sem "png" no endereço: o nginx serve imagens direto do disco)
+Route::get('captcha/{contexto}', [\App\Http\Controllers\CaptchaController::class, 'imagem'])
+    ->where('contexto', '[a-z-]+')->middleware('throttle:60,1')->name('captcha');
+
+// Descadastro dos avisos por e-mail (link assinado; o POST atende também o botão de um clique)
+Route::get('email/descadastrar', [\App\Http\Controllers\DescadastroEmailController::class, 'mostrar'])
+    ->middleware(['signed', 'throttle:30,1'])->name('email.descadastrar');
+Route::post('email/descadastrar', [\App\Http\Controllers\DescadastroEmailController::class, 'confirmar'])
+    ->middleware(['signed', 'throttle:30,1'])->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+
 // Rastreio de oficio (publico, sem auth)
 Route::get('oficios/rastrear/{token}', [OficioController::class, 'rastrear'])->name('oficios.rastrear');
+// Anexo de processo por link seguro com validade (TR 4.20.2) — público, só com a assinatura do link
+Route::get('anexos/compartilhado/{anexo}', [\App\Http\Controllers\AnexoProcessoController::class, 'compartilhado'])
+    ->whereNumber('anexo')->middleware(['signed', 'throttle:30,1'])->name('anexos.compartilhado');
+Route::get('oficios/rastrear/{token}/pdf', [OficioController::class, 'pdfPublico'])->middleware('throttle:30,1')->name('oficios.rastrear.pdf');
+Route::get('oficios/rastrear/{token}/aberto', [OficioController::class, 'pixelAbertura'])->middleware('throttle:60,1')->name('oficios.rastrear.aberto');
+// Identidade visual na tela de acesso (TR 4.22.1): brasão e fundo, antes do login
+Route::get('identidade/brasao', [\App\Http\Controllers\Configuracao\IdentidadeVisualController::class, 'brasao'])->middleware('throttle:120,1')->name('identidade.brasao');
+Route::get('identidade/fundo', [\App\Http\Controllers\Configuracao\IdentidadeVisualController::class, 'fundo'])->middleware('throttle:120,1')->name('identidade.fundo');
+// Rastreio de e-mail externo (TR 4.11.12–14): pixel de abertura, clique e retorno do provedor
+Route::get('e/{token}/a', [\App\Http\Controllers\RastreioEmailController::class, 'aberto'])->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:120,1')->name('email.aberto');
+Route::get('e/{token}/l', [\App\Http\Controllers\RastreioEmailController::class, 'clique'])->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:120,1')->name('email.clique');
+Route::post('webhooks/email/{segredo}', [\App\Http\Controllers\RastreioEmailController::class, 'webhook'])->middleware('throttle:600,1')->name('email.webhook');
+// Resposta a e-mail do GED vira despacho no documento (TR 4.7.23, 4.8.8–9, 4.47.3)
+Route::post('webhooks/email-entrada/{segredo}', [\App\Http\Controllers\RastreioEmailController::class, 'entrada'])->middleware('throttle:300,1')->name('email.entrada');
+// Organograma público para incorporar no site da prefeitura (TR 4.12.8) — só com a chave da UG
+Route::get('organograma/publico/{token}', [\App\Http\Controllers\OrganogramaController::class, 'publico'])->middleware('throttle:60,1')->name('organograma.publico');
+// PDF do documento para o contato externo mencionado no texto (TR 4.16.17) — link assinado do e-mail
+Route::get('documentos-redigidos/{tipo}/{id}', [\App\Http\Controllers\EditorController::class, 'publico'])->whereIn('tipo', ['memorando', 'circular', 'oficio'])->whereNumber('id')->middleware(['signed', 'throttle:30,1'])->name('documentos-redigidos.publico');
 
 /* ─── SSO consume — recebe token emitido pelo landlord (fluxo multi-tenant) ─── */
 // GET porque o landlord redireciona via 302 com ?t=<token>. O token é de uso
@@ -72,6 +100,9 @@ Route::prefix('api/integracoes')
     ->group(function () {
         Route::post('documentos', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'store'])
             ->name('api.integracoes.documentos.store');
+        // Eventos do sistema tributário (guia paga, alvará emitido…) — qualquer fornecedor
+        Route::post('tributario/eventos', [\App\Http\Controllers\Api\IntegracaoTributariaController::class, 'eventos'])
+            ->middleware('throttle:120,1')->name('api.integracoes.tributario.eventos');
         // Rotas mais especificas vem ANTES da generica `documentos/{numero}` pra
         // evitar que a regex `.+` engula segmentos (ex.: `1-2026-2770-r2/pdf-assinado`).
         // Tambem restringimos `numero` a `[^/]+` (sem barras) — nosso formato e
@@ -122,20 +153,67 @@ Route::prefix('api/portal')
     ->name('api.portal.')
     ->group(function () {
         Route::get('catalogo', [\App\Http\Controllers\Api\Portal\CatalogoController::class, 'show'])->name('catalogo');
+        // Órgãos responsáveis e contador de acessos da Carta de Serviços (TR 4.30.4, 4.30.27)
+        Route::get('orgaos', [\App\Http\Controllers\Api\Portal\CatalogoController::class, 'orgaos'])->name('orgaos');
+        // Central de Atendimento (TR 4.23): verificação por código (registrada), textos do portal, ofício pela Central
+        Route::get('verificar/{codigo}', [\App\Http\Controllers\Api\Portal\CentralController::class, 'verificar'])->where('codigo', '[A-Za-z0-9-]{4,120}')->middleware('throttle:60,1')->name('verificar');
+        Route::get('textos', [\App\Http\Controllers\Api\Portal\CentralController::class, 'textos'])->name('textos');
+        Route::get('oficios/{token}', [\App\Http\Controllers\Api\Portal\CentralController::class, 'oficio'])->name('oficios.show');
+        Route::post('oficios/{token}/resposta', [\App\Http\Controllers\Api\Portal\CentralController::class, 'responderOficio'])->middleware('throttle:20,1')->name('oficios.resposta');
+        Route::post('servicos/{slug}/visualizacao', [\App\Http\Controllers\Api\Portal\CatalogoController::class, 'visualizacao'])->name('servicos.visualizacao');
+        // Imagem de ajuda dos campos do formulário do assunto (o portal repassa ao navegador)
+        Route::get('ajuda-imagem/{id}', [\App\Http\Controllers\Admin\TipoProcessoController::class, 'imagemAjuda'])->whereUuid('id')->name('ajuda-imagem');
 
-        Route::post('cidadaos/identificar', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'identificar'])->name('cidadaos.identificar');
+        Route::get('contatos/campos', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'camposComplementares'])->name('contatos.campos');
+        Route::post('cidadaos/identificar',[\App\Http\Controllers\Api\Portal\CidadaoController::class, 'identificar'])->name('cidadaos.identificar');
         Route::post('cidadaos', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'cadastrar'])->name('cidadaos.cadastrar');
         Route::post('cidadaos/confirmar-email', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'confirmarEmail'])->name('cidadaos.confirmar-email');
         Route::post('cidadaos/reenviar-codigo', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'reenviarCodigo'])->name('cidadaos.reenviar-codigo');
         Route::post('cidadaos/autenticar', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'autenticar'])->name('cidadaos.autenticar');
         Route::post('cidadaos/senha/codigo', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'codigoSenha'])->name('cidadaos.senha.codigo');
         Route::post('cidadaos/senha/redefinir', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'redefinirSenha'])->name('cidadaos.senha.redefinir');
+        Route::post('cidadaos/identificar-externo', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'identificarExterno'])->name('cidadaos.identificar-externo');
+        Route::post('cidadaos/certificado/desafio', [\App\Http\Controllers\Api\Portal\CertificadoCidadaoController::class, 'desafio'])->name('cidadaos.certificado.desafio');
+        Route::post('cidadaos/certificado/autenticar', [\App\Http\Controllers\Api\Portal\CertificadoCidadaoController::class, 'autenticar'])->name('cidadaos.certificado.autenticar');
         Route::get('cidadaos/{id}', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'show'])->whereNumber('id')->name('cidadaos.show');
+        Route::put('cidadaos/{id}', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'atualizar'])->whereNumber('id')->name('cidadaos.atualizar');
+        Route::post('cidadaos/{id}/confirmar-email-novo', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'confirmarEmailNovo'])->whereNumber('id')->name('cidadaos.confirmar-email-novo');
+        Route::get('cidadaos/{id}/caixa', [\App\Http\Controllers\Api\Portal\CaixaController::class, 'index'])->whereNumber('id')->name('cidadaos.caixa');
 
         Route::get('solicitacoes', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'index'])->name('solicitacoes.index');
         Route::post('solicitacoes', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'store'])->name('solicitacoes.store');
         Route::get('solicitacoes/{codigo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'show'])->where('codigo', '[^/]+')->name('solicitacoes.show');
-        Route::post('solicitacoes/{codigo}/cancelar', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'cancelar'])->where('codigo', '[^/]+')->name('solicitacoes.cancelar');
+        Route::post('solicitacoes/{codigo}/avaliacao', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'avaliar'])->where('codigo', '[^/]+')->name('solicitacoes.avaliacao');
+        Route::post('solicitacoes/{codigo}/cancelar',[\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'cancelar'])->where('codigo', '[^/]+')->name('solicitacoes.cancelar');
+        // Interação depois de abrir, comprovante e processos do cidadão (TR 4.32.1, 4.32.11, 4.32.23)
+        Route::post('solicitacoes/{codigo}/mensagens', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'mensagem'])->where('codigo', '[^/]+')->middleware('throttle:30,1')->name('solicitacoes.mensagens');
+        Route::get('solicitacoes/{codigo}/comprovante', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'comprovante'])->where('codigo', '[^/]+')->name('solicitacoes.comprovante');
+        Route::get('processos', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'processos'])->name('processos.index');
+        // Consulta prévia de viabilidade (TR 4.50)
+        Route::get('urbanismo/dados', [\App\Http\Controllers\Api\Portal\UrbanismoController::class, 'dados'])->name('urbanismo.dados');
+        Route::get('urbanismo/lotes', [\App\Http\Controllers\Api\Portal\UrbanismoController::class, 'lotes'])->name('urbanismo.lotes');
+        Route::get('urbanismo/lote', [\App\Http\Controllers\Api\Portal\UrbanismoController::class, 'lote'])->name('urbanismo.lote');
+        Route::get('urbanismo/busca', [\App\Http\Controllers\Api\Portal\UrbanismoController::class, 'busca'])->name('urbanismo.busca');
+        // Diário Oficial: área pública (TR 4.43.32–4.43.46)
+        Route::get('diario/calendario', [\App\Http\Controllers\Api\Portal\DiarioController::class, 'calendario'])->name('diario.calendario');
+        Route::get('diario/dia', [\App\Http\Controllers\Api\Portal\DiarioController::class, 'dia'])->name('diario.dia');
+        Route::get('diario/busca', [\App\Http\Controllers\Api\Portal\DiarioController::class, 'busca'])->middleware('throttle:60,1')->name('diario.busca');
+        Route::get('diario/edicoes/{id}', [\App\Http\Controllers\Api\Portal\DiarioController::class, 'edicao'])->whereNumber('id')->name('diario.edicao');
+        Route::get('diario/edicoes/{id}/pdf', [\App\Http\Controllers\Api\Portal\DiarioController::class, 'pdf'])->whereNumber('id')->name('diario.edicao.pdf');
+        Route::get('diario/atos/{materia}/pdf', [\App\Http\Controllers\Api\Portal\DiarioController::class, 'atoPdf'])->whereNumber('materia')->name('diario.ato.pdf');
+        // Atos oficiais publicados: consulta pública (TR 4.42.6)
+        Route::get('atos', [\App\Http\Controllers\Api\Portal\AtoController::class, 'index'])->name('atos.index');
+        Route::get('atos/{id}/pdf', [\App\Http\Controllers\Api\Portal\AtoController::class, 'pdf'])->whereNumber('id')->name('atos.pdf');
+        // Processo seletivo simplificado (TR 4.41)
+        Route::get('pss', [\App\Http\Controllers\Api\Portal\PssController::class, 'index'])->name('pss.index');
+        Route::get('pss/inscricoes', [\App\Http\Controllers\Api\Portal\PssController::class, 'minhas'])->name('pss.minhas');
+        Route::get('pss/inscricoes/{numero}/ficha', [\App\Http\Controllers\Api\Portal\PssController::class, 'ficha'])->where('numero', '[A-Za-z0-9-]+')->name('pss.ficha');
+        Route::post('pss/{id}/inscricoes', [\App\Http\Controllers\Api\Portal\PssController::class, 'inscrever'])->whereNumber('id')->middleware('throttle:20,1')->name('pss.inscrever');
+        // Ouvidoria anônima/sigilosa sem login (código + chave) e estatísticas do e-SIC (TR 4.33.27, 4.34)
+        Route::get('acompanhar/{codigo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'acompanhar'])->where('codigo', '[^/]+')->middleware('throttle:30,1')->name('acompanhar');
+        Route::get('esic/estatisticas', [\App\Http\Controllers\Api\Portal\EsicController::class, 'estatisticas'])->name('esic.estatisticas');
+        Route::get('processos/{numero}/anexos/{anexo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'anexoProcesso'])->where('numero', '[^/]+')->whereNumber('anexo')->name('processos.anexo');
+        Route::get('processos/{numero}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'processo'])->where('numero', '[^/]+')->name('processos.show');
     });
 
 // Portal Cidadao — Carta de Servicos (publico, sem auth)
@@ -205,9 +283,51 @@ Route::prefix('assinar/{token}')->where(['token' => '[A-Za-z0-9]{20,64}'])->name
 Route::get('verificar/codigo/{codigo}', [VerificacaoController::class, 'porCodigo'])
     ->where('codigo', '[A-Za-z0-9-]{6,20}')->name('verificar.codigo');
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
+// Mapa público da consulta prévia de viabilidade (TR 4.50)
+// Verificação pública do certificado do EAD (QR do PDF, TR 4.24.7)
+Route::get('ead/certificados/{codigo}', [\App\Http\Controllers\EadController::class, 'verificar'])->whereUuid('codigo')->middleware('throttle:60,1')->name('ead.verificar');
+
+// Suporte: avaliar ou reabrir pelo link do e-mail de resolução, sem login (TR 4.26.8)
+Route::controller(\App\Http\Controllers\SuporteController::class)->prefix('suporte/avaliar')->middleware('throttle:30,1')->group(function () {
+    Route::get('{token}', 'avaliacao')->whereUuid('token')->name('suporte.avaliacao');
+    Route::post('{token}', 'avaliar')->whereUuid('token')->name('suporte.avaliar');
+});
+
+// App offline da fiscalização (TR 4.52): arquivos do PWA ficam fora do login (o service worker se atualiza sozinho)
+Route::controller(\App\Http\Controllers\AppFiscalizacaoController::class)->prefix('fiscal')->group(function () {
+    Route::get('sw', 'sw')->name('fiscal.sw');
+    Route::get('manifesto', 'manifesto')->name('fiscal.manifesto');
+    Route::get('icone', 'icone')->name('fiscal.icone');
+});
+
+Route::controller(\App\Http\Controllers\UrbanismoController::class)->prefix('mapa-urbano')->middleware('throttle:120,1')->group(function () {
+    Route::get('/', 'mapa')->name('mapa-urbano');
+    Route::get('dados', 'dados')->name('mapa-urbano.dados');
+    Route::get('lotes', 'lotes')->name('mapa-urbano.lotes');
+    Route::get('lote', 'lote')->name('mapa-urbano.lote');
+    Route::get('busca', 'busca')->name('mapa-urbano.busca');
+});
+
+// Consulta do processo sem login, pelo link (TR 4.48.27)
+Route::controller(\App\Http\Controllers\ConsultaPublicaController::class)->middleware('throttle:60,1')->group(function () {
+    Route::get('consulta/{token}', 'show')->name('consulta.show');
+    Route::get('consulta/{token}/anexos/{anexo}', 'anexo')->whereNumber('anexo')->name('consulta.anexo');
+    Route::get('consulta/{token}/pareceres/{parecer}', 'parecer')->whereNumber('parecer')->name('consulta.parecer');
+});
+
+// Convite do participante do processo para confirmar os dados, sem login (TR 4.48.31)
+Route::get('participantes/convite/{token}', [\App\Http\Controllers\ParticipanteController::class, 'convite'])->middleware('throttle:60,1')->name('participantes.convite');
+Route::post('participantes/convite/{token}', [\App\Http\Controllers\ParticipanteController::class, 'confirmar'])->middleware('throttle:20,1')->name('participantes.confirmar');
+
+// Verificação pública da edição do Diário Oficial (TR 4.43.41)
+Route::get('diario/verificar/{token}', [\App\Http\Controllers\DiarioController::class, 'verificar'])->middleware('throttle:60,1')->name('diario.verificar');
+
+// QR do ato oficial (TR 4.42.8)
+Route::get('atos/verificar/{token}', [\App\Http\Controllers\AtoController::class, 'verificar'])->middleware('throttle:60,1')->name('atos.verificar');
+
 // QR dos PDFs de memorando, ofício e circular
 Route::get('{tipo}/verificar/{token}', [\App\Http\Controllers\VerificacaoComunicacaoController::class, 'verificar'])
-    ->whereIn('tipo', ['memorandos', 'oficios', 'circulares'])
+    ->whereIn('tipo', ['memorandos', 'oficios', 'circulares', 'pareceres'])
     ->name('comunicacoes.verificar');
 
 // Validacao publica de assinatura ICP-Brasil em PDF (sem auth)
@@ -219,6 +339,21 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'index'])->name('login');
     // Limite de tentativas por IP: antes não havia nenhum contra força bruta.
     Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:login');
+
+    // Entrada com certificado digital ICP-Brasil (Web PKI)
+    Route::get('/login/certificado/desafio', [\App\Http\Controllers\Auth\CertificadoLoginController::class, 'desafio'])->middleware('throttle:30,1');
+    Route::post('/login/certificado', [\App\Http\Controllers\Auth\CertificadoLoginController::class, 'entrar'])->middleware('throttle:login');
+
+    // Entrada pelo gov.br e pelo Google (OpenID Connect) — desligadas sem credenciais
+    Route::get('/login/oidc/{provedor}', [\App\Http\Controllers\Auth\OidcLoginController::class, 'redirecionar'])
+        ->whereIn('provedor', ['govbr', 'google'])->middleware('throttle:30,1')->name('login.oidc');
+    Route::get('/login/oidc/{provedor}/retorno', [\App\Http\Controllers\Auth\OidcLoginController::class, 'retorno'])
+        ->whereIn('provedor', ['govbr', 'google'])->middleware('throttle:login');
+
+    // Verificação em duas etapas (código do aplicativo depois da senha)
+    Route::get('/login/verificacao', [\App\Http\Controllers\Auth\DoisFatoresController::class, 'formulario'])->name('login.dois-fatores');
+    Route::post('/login/verificacao', [\App\Http\Controllers\Auth\DoisFatoresController::class, 'confirmar'])->middleware('throttle:login');
+    Route::post('/login/verificacao/cancelar', [\App\Http\Controllers\Auth\DoisFatoresController::class, 'cancelar'])->name('login.dois-fatores.cancelar');
 
     // Recuperação de senha
     Route::get('/forgot-password', [\App\Http\Controllers\Auth\SenhaController::class, 'solicitar'])->name('password.request');
@@ -242,6 +377,33 @@ Route::middleware('auth')->group(function () {
     Route::get('/', fn () => redirect('/modulos'));
     Route::get('/modulos', ModulosController::class)->name('modulos');
     Route::get('/dashboard', DashboardController::class)->name('dashboard')->middleware('can:documento.visualizar');
+
+    // Organograma (TR 4.12): todos os servidores veem; quem administra UGs desativa, reativa e publica
+    Route::get('organograma', [\App\Http\Controllers\OrganogramaController::class, 'index'])->name('organograma');
+
+    // Sugestões do editor: @ pessoas, ! quem assina, # documentos (TR 4.16.13–4.16.18)
+    Route::get('editor/sugestoes', [\App\Http\Controllers\EditorController::class, 'sugestoes'])->middleware('throttle:120,1')->name('editor.sugestoes');
+    Route::post('editor/previa', [\App\Http\Controllers\EditorController::class, 'previa'])->middleware('throttle:30,1')->name('editor.previa');
+    // Modelos de texto do setor e da administração (TR 4.16.11)
+    Route::get('modelos-texto', [\App\Http\Controllers\ModeloTextoController::class, 'index'])->name('modelos-texto.index');
+    Route::post('modelos-texto', [\App\Http\Controllers\ModeloTextoController::class, 'store'])->middleware('throttle:30,1')->name('modelos-texto.store');
+    Route::delete('modelos-texto/{id}', [\App\Http\Controllers\ModeloTextoController::class, 'destroy'])->whereNumber('id')->name('modelos-texto.destroy');
+
+    // Rascunho automático do editor (TR 4.16.6–4.16.8) — chamadas da tela de criação
+    Route::controller(\App\Http\Controllers\RascunhoController::class)->prefix('rascunhos')->name('rascunhos.')->group(function () {
+        Route::post('/', 'store')->middleware('throttle:60,1')->name('store');
+        Route::put('{id}', 'update')->whereNumber('id')->middleware('throttle:120,1')->name('update');
+        Route::post('{id}/trava', 'travar')->whereNumber('id')->name('travar');
+        Route::post('{id}/liberar', 'liberar')->whereNumber('id')->name('liberar');
+        Route::post('{id}/anexos', 'anexar')->whereNumber('id')->name('anexar');
+        Route::delete('{id}/anexos/{anexo}', 'removerAnexo')->whereNumber(['id', 'anexo'])->name('anexos.remover');
+        Route::delete('{id}', 'destroy')->whereNumber('id')->name('destroy');
+    });
+    Route::middleware('can:admin.ugs')->group(function () {
+        Route::post('organograma/publicar', [\App\Http\Controllers\OrganogramaController::class, 'publicar'])->name('organograma.publicar');
+        Route::post('organograma/{id}/desativar', [\App\Http\Controllers\OrganogramaController::class, 'desativar'])->whereNumber('id')->name('organograma.desativar');
+        Route::post('organograma/{id}/reativar', [\App\Http\Controllers\OrganogramaController::class, 'reativar'])->whereNumber('id')->name('organograma.reativar');
+    });
 
     // Documentos — permissões do catálogo App\Support\Permissoes (Gate::before no AppServiceProvider)
     Route::resource('documentos', DocumentoController::class)->except(['create', 'edit'])
@@ -306,7 +468,24 @@ Route::middleware('auth')->group(function () {
 
         // Usuarios e perfis (movidos de /admin)
         Route::resource('usuarios', UsuarioController::class)->except(['show'])->middleware('can:admin.usuarios');
+        Route::post('usuarios/{id}/reativar', [UsuarioController::class, 'reativar'])->middleware('can:admin.usuarios')->name('usuarios.reativar');
+        Route::post('usuarios/{id}/dois-fatores/remover', [UsuarioController::class, 'removerDoisFatores'])->middleware('can:admin.usuarios')->name('usuarios.dois-fatores.remover');
+        Route::post('usuarios/{id}/foto', [UsuarioController::class, 'enviarFoto'])->middleware('can:admin.usuarios')->name('usuarios.foto');
+        Route::post('usuarios/{id}/foto/remover', [UsuarioController::class, 'removerFoto'])->middleware('can:admin.usuarios')->name('usuarios.foto.remover');
         Route::resource('perfis', RoleController::class)->parameters(['perfis' => 'role'])->except(['create', 'edit', 'show'])->middleware('can:admin.roles');
+
+        // Expediente e feriados — base do prazo em dias úteis (TR 4.13.9–4.13.11)
+        // Identidade visual do município (TR 4.22.1)
+        Route::get('identidade-visual', [\App\Http\Controllers\Configuracao\IdentidadeVisualController::class, 'index'])->name('identidade')->middleware('can:admin.configuracoes');
+        Route::post('identidade-visual', [\App\Http\Controllers\Configuracao\IdentidadeVisualController::class, 'salvar'])->name('identidade.salvar')->middleware('can:admin.configuracoes');
+        Route::prefix('expediente')->name('expediente.')->middleware('can:admin.configuracoes')
+            ->controller(\App\Http\Controllers\Configuracao\ExpedienteController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::put('/', 'salvar')->name('salvar');
+                Route::post('feriados', 'adicionarFeriado')->name('feriados.store');
+                Route::delete('feriados/{id}', 'removerFeriado')->whereNumber('id')->name('feriados.destroy');
+                Route::post('feriados/nacionais', 'importarNacionais')->name('feriados.nacionais');
+            });
 
         // Unidades Gestoras + organograma + banners do portal
         Route::middleware('can:admin.ugs')->group(function () {
@@ -343,8 +522,47 @@ Route::middleware('auth')->group(function () {
                 ->whereNumber('ugId')->name('certificado-prefeitura.toggle');
         });
 
+        // Backup e portabilidade (TR 4.26.13–17)
+        Route::controller(\App\Http\Controllers\Configuracao\PortabilidadeController::class)->prefix('portabilidade')->name('portabilidade.')->middleware('can:admin.portabilidade')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('backup', 'backup')->middleware('throttle:6,1')->name('backup');
+            Route::post('backups/{id}/verificar', 'verificar')->whereNumber('id')->name('verificar');
+            Route::get('backups/{id}/baixar', 'baixarBackup')->whereNumber('id')->name('baixar');
+            Route::post('acervo', 'acervo')->middleware('throttle:6,1')->name('acervo');
+            Route::post('exportar', 'exportar')->middleware('throttle:6,1')->name('exportar');
+            Route::get('exportacoes/{id}/baixar', 'baixarExportacao')->whereNumber('id')->name('exportacao');
+            Route::get('dicionario', 'dicionario')->name('dicionario');
+            Route::post('config', 'salvarConfig')->name('config');
+        });
+        // Formulários do app da fiscalização (TR 4.52)
+        Route::controller(\App\Http\Controllers\AppFiscalizacaoController::class)->prefix('fiscalizacao')->name('fiscalizacao.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('formularios', 'salvarFormulario')->name('formularios.store');
+            Route::post('formularios/{id}', 'salvarFormulario')->whereNumber('id')->name('formularios.update');
+            Route::delete('formularios/{id}', 'excluirFormulario')->whereNumber('id')->name('formularios.destroy');
+        });
+        // Consulta prévia: zonas, camadas e lotes do mapa (TR 4.50)
+        Route::controller(\App\Http\Controllers\UrbanismoController::class)->prefix('urbanismo')->name('urbanismo.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('zonas', 'salvarZona')->name('zonas.store');
+            Route::post('zonas/{id}', 'salvarZona')->whereNumber('id')->name('zonas.update');
+            Route::delete('zonas/{id}', 'excluirZona')->whereNumber('id')->name('zonas.destroy');
+            Route::post('camadas', 'salvarCamada')->name('camadas.store');
+            Route::post('camadas/{id}', 'salvarCamada')->whereNumber('id')->name('camadas.update');
+            Route::delete('camadas/{id}', 'excluirCamada')->whereNumber('id')->name('camadas.destroy');
+            Route::post('lotes', 'importarLotes')->name('lotes.importar');
+            Route::post('config', 'salvarConfig')->name('config');
+        });
         // Sistemas integrados (API tokens para sistemas externos)
         Route::middleware('can:admin.sistemas_integrados')->group(function () {
+        // Sistema tributário integrado (GPE Tributário, outro fornecedor por REST ou nenhum)
+        Route::controller(\App\Http\Controllers\Configuracao\IntegracaoTributariaController::class)->middleware('can:admin.sistemas_integrados')->group(function () {
+            Route::get('integracao-tributaria', 'index')->name('integracao-tributaria.index');
+            Route::post('integracao-tributaria', 'salvar')->name('integracao-tributaria.store');
+            Route::put('integracao-tributaria/{id}', 'salvar')->whereNumber('id')->name('integracao-tributaria.update');
+            Route::post('integracao-tributaria/{id}/testar', 'testar')->whereNumber('id')->name('integracao-tributaria.testar');
+            Route::delete('integracao-tributaria/{id}', 'excluir')->whereNumber('id')->name('integracao-tributaria.destroy');
+        });
         Route::resource('sistemas-integrados', \App\Http\Controllers\Configuracao\SistemaIntegradoController::class)
             ->except(['create', 'edit', 'show']);
         Route::post('sistemas-integrados/{id}/regenerar-token', [\App\Http\Controllers\Configuracao\SistemaIntegradoController::class, 'regenerarToken'])
@@ -358,6 +576,9 @@ Route::middleware('auth')->group(function () {
         });
 
         // Carta de Servicos (admin) — gestor da UG mantem catalogo publicado no /portal
+        // Textos do portal: política de privacidade e acesso à informação (TR 4.23.1, 4.23.5)
+        Route::get('portal-textos', [\App\Http\Controllers\Configuracao\PortalTextosController::class, 'index'])->name('portal-textos')->middleware('can:portal.carta_servicos');
+        Route::put('portal-textos/{chave}', [\App\Http\Controllers\Configuracao\PortalTextosController::class, 'salvar'])->name('portal-textos.salvar')->middleware('can:portal.carta_servicos');
         Route::prefix('carta-servicos')->name('carta-servicos.')->middleware('can:portal.carta_servicos')->group(function () {
             Route::get('/', [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'index'])->name('index');
             Route::post('categorias',           [\App\Http\Controllers\Configuracao\CartaServicosController::class, 'storeCategoria'])->name('categorias.store');
@@ -376,9 +597,25 @@ Route::middleware('auth')->group(function () {
             Route::resource('tipos-documentais', TipoDocumentalController::class)->except(['create', 'edit', 'show']);
             Route::post('tipos-documentais/{id}/toggle-ativo', [TipoDocumentalController::class, 'toggleAtivo'])->name('tipos-documentais.toggle-ativo');
         });
+        // Plano de classificação (TR 4.27)
+        Route::middleware('can:admin.classificacao')->controller(\App\Http\Controllers\Admin\ClassificacaoController::class)->group(function () {
+            Route::get('classificacao', 'index')->name('classificacao');
+            Route::post('classificacao', 'store')->name('classificacao.store');
+            Route::put('classificacao/{id}', 'update')->whereNumber('id')->name('classificacao.update');
+            Route::delete('classificacao/{id}', 'destroy')->whereNumber('id')->name('classificacao.destroy');
+            Route::post('classificacao/{id}/alternar', 'alternar')->whereNumber('id')->name('classificacao.alternar');
+            Route::post('classificacao/padroes', 'padroes')->name('classificacao.padroes');
+            Route::post('classificacao/retroativa', 'retroativa')->name('classificacao.retroativa');
+            Route::post('classificacao/conferir', 'conferir')->name('classificacao.conferir');
+            Route::post('classificacao/importar', 'importar')->name('classificacao.importar');
+            Route::get('classificacao/exportar', 'exportar')->name('classificacao.exportar');
+            Route::post('classificacao/item/{modulo}/{id}', 'reclassificar')->whereNumber('id')->name('classificacao.reclassificar');
+        });
         Route::middleware('can:admin.tipos_processo')->group(function () {
             Route::resource('tipos-processo', TipoProcessoController::class)->except(['create', 'edit', 'show']);
             Route::post('tipos-processo/{id}/toggle-ativo', [TipoProcessoController::class, 'toggleAtivo'])->name('tipos-processo.toggle-ativo');
+            Route::post('tipos-processo/modelos-projetos', [TipoProcessoController::class, 'modelosProjetos'])->name('tipos-processo.modelos-projetos');
+            Route::post('tipos-processo/ajuda-imagem', [TipoProcessoController::class, 'enviarImagemAjuda'])->name('tipos-processo.ajuda-imagem');
             Route::resource('oficios-modelos', \App\Http\Controllers\Admin\OficioModeloController::class)->only(['index', 'store', 'update', 'destroy']);
             Route::post('oficios-modelos/importar-docx', [\App\Http\Controllers\Admin\OficioModeloController::class, 'importarDocx'])->name('oficios-modelos.importar-docx');
         });
@@ -412,6 +649,53 @@ Route::middleware('auth')->group(function () {
 
     // Memorandos
     // Comunicações: ver/responder depende de ser participante (403 no controller); emitir exige permissão
+    // Diário Oficial (TR 4.43)
+    Route::controller(\App\Http\Controllers\DiarioController::class)->prefix('diario')->name('diario.')->group(function () {
+        Route::get('/', 'painel')->name('painel');
+        Route::get('configuracao', 'configuracao')->name('configuracao');
+        Route::post('estrutura', 'salvarEstrutura')->name('estrutura.store');
+        Route::put('estrutura/{id}', 'salvarEstrutura')->whereNumber('id')->name('estrutura.update');
+        Route::delete('estrutura/{id}', 'excluirEstrutura')->whereNumber('id')->name('estrutura.destroy');
+        Route::post('responsaveis', 'salvarResponsavel')->name('responsaveis.store');
+        Route::put('responsaveis/{id}', 'salvarResponsavel')->whereNumber('id')->name('responsaveis.update');
+        Route::post('materias', 'enviar')->name('materias.store');
+        Route::put('materias/{id}', 'atualizarMateria')->whereNumber('id')->name('materias.update');
+        Route::delete('materias/{id}', 'retirarMateria')->whereNumber('id')->name('materias.destroy');
+        Route::post('edicoes', 'criarEdicao')->name('edicoes.store');
+        Route::get('edicoes/{id}', 'edicao')->whereNumber('id')->name('edicoes.show');
+        Route::put('edicoes/{id}', 'atualizarEdicao')->whereNumber('id')->name('edicoes.update');
+        Route::delete('edicoes/{id}', 'excluirEdicao')->whereNumber('id')->name('edicoes.destroy');
+        Route::post('edicoes/{id}/publicar', 'publicar')->whereNumber('id')->middleware('throttle:10,1')->name('edicoes.publicar');
+        Route::get('edicoes/{id}/pdf', 'pdf')->whereNumber('id')->name('edicoes.pdf');
+    });
+    // Atos oficiais (TR 4.42)
+    Route::controller(\App\Http\Controllers\AtoController::class)->group(function () {
+        Route::get('atos', 'index')->name('atos.index');
+        Route::get('atos/tipos', 'tipos')->name('atos.tipos');
+        Route::post('atos/tipos', 'salvarTipo')->name('atos.tipos.store');
+        Route::post('atos/tipos/{id}', 'salvarTipo')->whereNumber('id')->name('atos.tipos.update');
+        Route::get('atos/create', 'create')->name('atos.create');
+        Route::post('atos', 'store')->name('atos.store');
+        Route::get('atos/{id}', 'show')->whereNumber('id')->name('atos.show');
+        Route::get('atos/{id}/edit', 'edit')->whereNumber('id')->name('atos.edit');
+        Route::put('atos/{id}', 'update')->whereNumber('id')->name('atos.update');
+        Route::post('atos/{id}/gerar', 'gerar')->whereNumber('id')->middleware('throttle:20,1')->name('atos.gerar');
+        Route::post('atos/{id}/assinar', 'assinar')->whereNumber('id')->name('atos.assinar');
+        Route::post('atos/{id}/publicar', 'publicar')->whereNumber('id')->name('atos.publicar');
+        Route::post('atos/{id}/revogar', 'revogar')->whereNumber('id')->name('atos.revogar');
+        Route::get('atos/{id}/pdf', 'pdf')->whereNumber('id')->name('atos.pdf');
+    });
+    // Pareceres (TR 4.39)
+    Route::controller(\App\Http\Controllers\ParecerController::class)->group(function () {
+        Route::get('pareceres', 'index')->name('pareceres.index');
+        Route::get('pareceres/create', 'create')->name('pareceres.create');
+        Route::post('pareceres', 'store')->name('pareceres.store');
+        Route::post('pareceres/setores', 'setores')->name('pareceres.setores');
+        Route::get('pareceres/{id}', 'show')->whereNumber('id')->name('pareceres.show');
+        Route::get('pareceres/{id}/pdf', 'pdf')->whereNumber('id')->name('pareceres.pdf');
+        Route::get('pareceres/{id}/anexos/{anexo}', 'anexo')->whereNumber(['id', 'anexo'])->name('pareceres.anexo');
+        Route::post('pareceres/{id}/assinar', 'assinar')->whereNumber('id')->name('pareceres.assinar');
+    });
     Route::resource('memorandos', MemorandoController::class)->only(['index', 'create', 'store', 'show'])
         ->middlewareFor(['create', 'store'], 'can:comunicacao.enviar');
     Route::post('memorandos/{id}/responder', [MemorandoController::class, 'responder'])->name('memorandos.responder');
@@ -420,6 +704,7 @@ Route::middleware('auth')->group(function () {
     Route::post('memorandos/{id}/tramitar', [MemorandoController::class, 'tramitar'])->name('memorandos.tramitar');
     Route::post('memorandos/{id}/arquivar-no-ged', [MemorandoController::class, 'arquivarNoGed'])->name('memorandos.arquivar-no-ged');
     Route::get('memorandos/{id}/pdf', [MemorandoController::class, 'downloadPdf'])->name('memorandos.pdf');
+    Route::get('memorandos/{id}/folha-de-rosto', [MemorandoController::class, 'folhaDeRosto'])->whereNumber('id')->name('memorandos.folha-de-rosto');
     Route::get('memorandos/{id}/anexos/{anexo}/download', [MemorandoController::class, 'downloadAnexo'])->name('memorandos.anexos.download');
 
     // Oficios
@@ -434,6 +719,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('oficios', OficioController::class)->only(['index', 'create', 'store', 'show'])
         ->middlewareFor(['create', 'store'], 'can:comunicacao.enviar');
     Route::post('oficios/{id}/responder', [OficioController::class, 'responder'])->name('oficios.responder');
+    Route::post('oficios/{id}/reenviar-email', [OficioController::class, 'reenviarEmail'])
+        ->middleware(['can:comunicacao.enviar', 'throttle:10,1'])->name('oficios.reenviar-email');
     Route::post('oficios/{id}/arquivar', [OficioController::class, 'arquivar'])->name('oficios.arquivar');
     Route::post('oficios/{id}/arquivar-no-ged', [OficioController::class, 'arquivarNoGed'])->name('oficios.arquivar-no-ged');
     Route::get('oficios/{id}/pdf', [OficioController::class, 'downloadPdf'])->name('oficios.pdf');
@@ -443,6 +730,11 @@ Route::middleware('auth')->group(function () {
     Route::resource('circulares', CircularController::class)->only(['index', 'create', 'store', 'show'])
         ->middlewareFor(['create', 'store'], 'can:comunicacao.enviar');
     Route::post('circulares/{id}/arquivar', [CircularController::class, 'arquivar'])->name('circulares.arquivar');
+    // Respostas, arquivar/silenciar para si e encaminhar a setores novos (TR 4.46.6, 4.46.9, 4.46.10)
+    Route::post('circulares/{id}/responder', [CircularController::class, 'responder'])->whereNumber('id')->name('circulares.responder');
+    Route::post('circulares/{id}/arquivar-para-mim', [CircularController::class, 'arquivarParaMim'])->whereNumber('id')->name('circulares.arquivar-para-mim');
+    Route::post('circulares/{id}/silenciar', [CircularController::class, 'silenciar'])->whereNumber('id')->name('circulares.silenciar');
+    Route::post('circulares/{id}/encaminhar', [CircularController::class, 'encaminhar'])->whereNumber('id')->name('circulares.encaminhar');
     Route::post('circulares/{id}/arquivar-no-ged', [CircularController::class, 'arquivarNoGed'])->name('circulares.arquivar-no-ged');
     Route::get('circulares/{id}/pdf', [CircularController::class, 'downloadPdf'])->name('circulares.pdf');
     Route::get('circulares/{id}/anexos/{anexo}/download', [CircularController::class, 'downloadAnexo'])->name('circulares.anexos.download');
@@ -456,6 +748,77 @@ Route::middleware('auth')->group(function () {
         // Entrada (preciso agir)
         Route::get('inbox-pessoal',         [\App\Http\Controllers\Flow\InboxController::class, 'pessoal'])->name('inbox-pessoal');
         Route::get('inbox-setor',           [\App\Http\Controllers\Flow\InboxController::class, 'setor'])->name('inbox-setor');
+        Route::get('prazos',                [\App\Http\Controllers\Flow\CalendarioPrazosController::class, 'index'])->name('prazos');
+        // Busca avançada de processos, memorandos e ofícios (TR 4.15)
+        Route::get('busca', [\App\Http\Controllers\Flow\BuscaController::class, 'index'])->name('busca');
+        // Etiquetas do setor (TR 4.19)
+        Route::controller(\App\Http\Controllers\Flow\EtiquetaController::class)->group(function () {
+            Route::get('etiquetas', 'index')->name('etiquetas');
+            Route::post('etiquetas', 'store')->name('etiquetas.store');
+            Route::put('etiquetas/{id}', 'update')->whereNumber('id')->name('etiquetas.update');
+            Route::delete('etiquetas/{id}', 'destroy')->whereNumber('id')->name('etiquetas.destroy');
+            Route::post('etiquetar', 'aplicar')->name('etiquetar');
+        });
+        // Mapa das demandas (TR 4.32.21, 4.33.9)
+        Route::get('mapa', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'mapa'])->middleware('can:processo.visualizar')->name('mapa');
+        // Painéis da ouvidoria e do e-SIC (TR 4.33.25–26, 4.34)
+        Route::get('ouvidoria', [\App\Http\Controllers\Flow\OuvidoriaController::class, 'ouvidoria'])->name('ouvidoria');
+        Route::get('esic', [\App\Http\Controllers\Flow\OuvidoriaController::class, 'esic'])->name('esic');
+        // Processo seletivo simplificado (TR 4.41)
+        Route::middleware('can:pss.gerir')->controller(\App\Http\Controllers\Flow\PssController::class)->group(function () {
+            Route::get('pss', 'index')->name('pss');
+            Route::post('pss', 'salvar')->name('pss.store');
+            Route::put('pss/{id}', 'salvar')->whereNumber('id')->name('pss.update');
+            Route::get('pss/{id}', 'show')->whereNumber('id')->name('pss.show');
+            Route::get('pss/{id}/csv', 'csv')->whereNumber('id')->name('pss.csv');
+            Route::get('pss/{id}/anexos/{anexo}', 'anexo')->whereNumber(['id', 'anexo'])->name('pss.anexo');
+            Route::post('pss/{id}/inscricoes/{inscricao}/resposta', 'responder')->whereNumber(['id', 'inscricao'])->name('pss.responder');
+        });
+        // PAD (TR 4.40)
+        Route::controller(\App\Http\Controllers\Flow\PadController::class)->group(function () {
+            Route::get('pad', 'index')->name('pad');
+            Route::get('pad/infracoes', 'infracoes')->name('pad.infracoes');
+            Route::post('pad/infracoes', 'salvarInfracao')->name('pad.infracoes.store');
+            Route::put('pad/infracoes/{id}', 'salvarInfracao')->whereNumber('id')->name('pad.infracoes.update');
+            Route::post('pad/{id}/comissao', 'comissao')->whereNumber('id')->name('pad.comissao');
+            Route::delete('pad/{id}/comissao/{userId}', 'removerMembro')->whereNumber(['id', 'userId'])->name('pad.comissao.remover');
+        });
+        // Protocolo legislativo (TR 4.37)
+        Route::middleware('can:legislativo.gerir')->controller(\App\Http\Controllers\Flow\LegislativoController::class)->group(function () {
+            Route::get('legislativo', 'index')->name('legislativo');
+            Route::get('legislativo/relatorio', 'relatorio')->name('legislativo.relatorio');
+            Route::get('legislativo/vereadores', 'vereadores')->name('legislativo.vereadores');
+            Route::post('legislativo/vereadores', 'salvarVereador')->name('legislativo.vereadores.store');
+            Route::put('legislativo/vereadores/{id}', 'salvarVereador')->whereNumber('id')->name('legislativo.vereadores.update');
+        });
+        // Contatos (TR 4.21)
+        Route::middleware('can:contato.gerenciar')->controller(\App\Http\Controllers\Contatos\ContatoController::class)->group(function () {
+            Route::get('contatos', 'index')->name('contatos');
+            Route::get('contatos/novo', 'create')->name('contatos.create');
+            Route::get('contatos/buscar', 'buscar')->name('contatos.buscar');
+            Route::get('contatos/exportar', 'exportar')->name('contatos.exportar');
+            Route::post('contatos/conferir', 'conferir')->name('contatos.conferir');
+            Route::post('contatos/importar', 'importar')->name('contatos.importar');
+            Route::post('contatos/unificar', 'unificar')->name('contatos.unificar');
+            Route::post('contatos', 'store')->name('contatos.store');
+            Route::get('contatos/{id}', 'show')->whereNumber('id')->name('contatos.show');
+            Route::put('contatos/{id}', 'update')->whereNumber('id')->name('contatos.update');
+            Route::delete('contatos/{id}', 'destroy')->whereNumber('id')->name('contatos.destroy');
+            Route::post('contatos/{id}/procuracoes', 'procuracao')->whereNumber('id')->name('contatos.procuracao');
+            Route::post('contatos/procuracoes/{id}/revogar', 'revogarProcuracao')->whereNumber('id')->name('contatos.procuracao.revogar');
+            Route::get('contatos/procuracoes/{id}/documento', 'documentoProcuracao')->whereNumber('id')->name('contatos.procuracao.documento');
+            Route::post('contatos/listas', 'salvarLista')->name('contatos.listas.store');
+            Route::put('contatos/listas/{id}', 'salvarLista')->whereNumber('id')->name('contatos.listas.update');
+            Route::delete('contatos/listas/{id}', 'excluirLista')->whereNumber('id')->name('contatos.listas.destroy');
+            Route::post('contatos/listas/{id}/itens', 'itensLista')->whereNumber('id')->name('contatos.listas.itens');
+        });
+        Route::middleware('can:admin.contatos')->controller(\App\Http\Controllers\Contatos\ConfiguracaoController::class)->group(function () {
+            Route::get('contatos/configuracao', 'index')->name('contatos.configuracao');
+            Route::post('contatos/campos', 'salvarCampo')->name('contatos.campos.store');
+            Route::put('contatos/campos/{id}', 'salvarCampo')->whereNumber('id')->name('contatos.campos.update');
+            Route::post('contatos/campos/{id}/alternar', 'alternarCampo')->whereNumber('id')->name('contatos.campos.alternar');
+            Route::post('contatos/regras', 'regras')->name('contatos.regras');
+        });
         Route::get('aguardando-assinatura', [\App\Http\Controllers\Flow\InboxController::class, 'aguardandoAssinatura'])->name('aguardando-assinatura');
 
         // Em andamento
@@ -466,7 +829,8 @@ Route::middleware('auth')->group(function () {
 
         // Privado
         Route::get('saida',         [\App\Http\Controllers\Flow\InboxController::class, 'saida'])->name('saida');
-        Route::get('rascunhos',     [\App\Http\Controllers\Flow\InboxController::class, 'rascunhos'])->name('rascunhos');
+        // Rascunhos do editor: meus e do setor (TR 4.16.6–4.16.9)
+        Route::get('rascunhos',     [\App\Http\Controllers\RascunhoController::class, 'index'])->name('rascunhos');
 
         // Compat: URLs antigas
         Route::redirect('encaminhados', '/flow/saida');
@@ -478,13 +842,160 @@ Route::middleware('auth')->group(function () {
     Route::get('processos/dashboard', [ProcessoDashboardController::class, '__invoke'])->name('processos.dashboard')->middleware('can:processo.visualizar');
     Route::get('processos/inbox', [TramitacaoController::class, 'inbox'])->name('processos.inbox')->middleware('can:processo.visualizar');
     Route::get('processos/anexos/{anexo}/download', [ProcessoController::class, 'downloadAnexo'])->name('processos.anexos.download')->middleware('can:processo.visualizar');
+    // Anexos: ZIP, ordem, avaliação e link seguro (TR 4.14.5, 4.20, 4.38.24–4.38.26)
+    // Árvore do processo em PDF (TR 4.9.16, 4.38.27–4.38.42)
+    Route::post('processos/{id}/arvores', [\App\Http\Controllers\ArvoreController::class, 'solicitar'])->whereNumber('id')->name('processos.arvores.store')->middleware(['can:processo.visualizar', 'throttle:10,1']);
+    Route::get('arvores/{id}/baixar', [\App\Http\Controllers\ArvoreController::class, 'baixar'])->whereNumber('id')->name('arvores.baixar')->middleware('can:processo.visualizar');
+    Route::get('processos/{id}/anexos/zip',[\App\Http\Controllers\AnexoProcessoController::class, 'zip'])->whereNumber('id')->name('processos.anexos.zip')->middleware('can:processo.visualizar');
+    Route::middleware('can:processo.tramitar')->controller(\App\Http\Controllers\AnexoProcessoController::class)->group(function () {
+        Route::post('processos/{id}/anexos/ordem', 'ordenar')->whereNumber('id')->name('processos.anexos.ordem');
+        Route::post('processos/anexos/{anexo}/avaliar', 'avaliar')->whereNumber('anexo')->name('processos.anexos.avaliar');
+        // Revisão de PDF/planta com anotações e medição (TR 4.48.16–4.48.18, 4.48.39)
+        Route::get('processos/anexos/{anexo}/revisar', 'revisar')->whereNumber('anexo')->name('processos.anexos.revisar');
+        Route::put('processos/anexos/{anexo}/revisao', 'salvarRevisao')->whereNumber('anexo')->name('processos.anexos.revisao');
+        Route::post('processos/anexos/{anexo}/revisao/concluir', 'concluirRevisao')->whereNumber('anexo')->middleware('throttle:20,1')->name('processos.anexos.revisao.concluir');
+        Route::post('processos/anexos/{anexo}/link', 'link')->whereNumber('anexo')->name('processos.anexos.link');
+    });
     Route::post('processos/{id}/comentarios', [ProcessoController::class, 'comentar'])->name('processos.comentarios.store')->middleware('can:processo.visualizar');
+    // Imagem de ajuda dos campos do formulário do assunto (TR 4.38.6)
+    Route::get('processos/ajuda-imagem/{id}', [\App\Http\Controllers\Admin\TipoProcessoController::class, 'imagemAjuda'])
+        ->whereUuid('id')->name('processos.ajuda-imagem');
     Route::resource('processos', ProcessoController::class)->except(['edit', 'update', 'destroy'])
         ->middlewareFor(['index', 'show'], 'can:processo.visualizar')
         ->middlewareFor(['create', 'store'], 'can:processo.criar');
     Route::middleware('can:processo.tramitar')->group(function () {
         Route::post('processos/{id}/concluir', [ProcessoController::class, 'concluir'])->name('processos.concluir');
         Route::post('processos/{id}/cancelar', [ProcessoController::class, 'cancelar'])->name('processos.cancelar');
+        Route::post('processos/{id}/assunto', [ProcessoController::class, 'alterarAssunto'])->name('processos.assunto');
+        // Ouvidoria e e-SIC (TR 4.33.22–23; Lei 13.460 art. 16; LAI art. 11)
+        Route::post('processos/{id}/prorrogar-prazo', [ProcessoController::class, 'prorrogarPrazo'])->whereNumber('id')->name('processos.prorrogar-prazo');
+        Route::post('processos/{id}/resolver-ouvidoria', [ProcessoController::class, 'resolverOuvidoria'])->whereNumber('id')->name('processos.resolver-ouvidoria');
+        // Localização, avaliação no balcão e reabertura (TR 4.32.21, 4.32.25–27, 4.33.9)
+        Route::post('processos/{id}/localizacao', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'localizacao'])->whereNumber('id')->name('processos.localizacao');
+    // Recebimento de documento físico com comprovante (TR 4.32.28)
+    Route::post('processos/{id}/recebimentos', [\App\Http\Controllers\RecebimentoFisicoController::class, 'store'])->whereNumber('id')->middleware('can:processo.tramitar')->name('processos.recebimentos.store');
+    // Participantes do processo e o que o externo vê (TR 4.48.20, 4.48.30, 4.48.31)
+    Route::controller(\App\Http\Controllers\ParticipanteController::class)->group(function () {
+        Route::post('processos/{id}/participantes', 'salvar')->whereNumber('id')->name('processos.participantes.store');
+        Route::put('processos/{id}/participantes/{participante}', 'salvar')->whereNumber(['id', 'participante'])->name('processos.participantes.update');
+        Route::delete('processos/{id}/participantes/{participante}', 'remover')->whereNumber(['id', 'participante'])->name('processos.participantes.destroy');
+        Route::post('processos/{id}/participantes/{participante}/convite', 'convidar')->whereNumber(['id', 'participante'])->middleware('throttle:20,1')->name('processos.participantes.convite');
+        Route::post('processos/anexos/{anexo}/externo', 'visibilidade')->whereNumber('anexo')->name('processos.anexos.externo');
+        Route::post('processos/{id}/consulta-link', [\App\Http\Controllers\ConsultaPublicaController::class, 'link'])->whereNumber('id')->name('processos.consulta-link');
+    });
+    // Treinamento EAD (TR 4.24, 4.25.2)
+    Route::controller(\App\Http\Controllers\EadController::class)->prefix('ead')->name('ead.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('cursos/{id}', 'curso')->whereNumber('id')->name('curso');
+        Route::post('aulas/{id}/progresso', 'progresso')->whereNumber('id')->middleware('throttle:240,1')->name('progresso');
+        Route::get('aulas/{id}/video', 'video')->whereNumber('id')->name('video');
+        Route::post('cursos/{id}/avaliacao', 'avaliar')->whereNumber('id')->middleware('throttle:20,1')->name('avaliar');
+        Route::get('certificados/{codigo}/pdf', 'certificado')->whereUuid('codigo')->name('certificado');
+        Route::get('gestao', 'gestao')->name('gestao');
+        Route::post('gestao', 'salvarCurso')->name('gestao.store');
+        Route::get('gestao/{id}', 'editar')->whereNumber('id')->name('gestao.editar');
+        Route::post('gestao/{id}', 'salvarCurso')->whereNumber('id')->name('gestao.update');
+        Route::post('gestao/{curso}/aulas', 'salvarAula')->whereNumber('curso')->name('aulas.store');
+        Route::post('gestao/{curso}/aulas/{id}', 'salvarAula')->whereNumber(['curso', 'id'])->name('aulas.update');
+        Route::delete('gestao/{curso}/aulas/{id}', 'excluirAula')->whereNumber(['curso', 'id'])->name('aulas.destroy');
+        Route::post('gestao/{curso}/questoes', 'salvarQuestao')->whereNumber('curso')->name('questoes.store');
+        Route::post('gestao/{curso}/questoes/{id}', 'salvarQuestao')->whereNumber(['curso', 'id'])->name('questoes.update');
+        Route::delete('gestao/{curso}/questoes/{id}', 'excluirQuestao')->whereNumber(['curso', 'id'])->name('questoes.destroy');
+        Route::get('relatorio', 'relatorio')->name('relatorio');
+    });
+    // Tramita GOV.BR (TR 4.28): enviados/recebidos, envio do ofício e do processo, aceite/recusa, configuração
+    Route::controller(\App\Http\Controllers\TramitaController::class)->prefix('tramita')->name('tramita.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('estruturas', 'estruturas')->middleware('throttle:60,1')->name('estruturas');
+        Route::post('oficios/{id}', 'enviarOficio')->whereNumber('id')->middleware('throttle:20,1')->name('oficio');
+        Route::post('processos/{id}', 'enviarProcesso')->whereNumber('id')->middleware('throttle:20,1')->name('processo');
+        Route::post('sincronizar', 'sincronizar')->middleware('throttle:20,1')->name('sincronizar');
+        Route::post('{id}/aceitar', 'aceitar')->whereNumber('id')->name('aceitar');
+        Route::post('{id}/recusar', 'recusar')->whereNumber('id')->name('recusar');
+        Route::get('{id}/componentes/{indice}', 'componente')->whereNumber(['id', 'indice'])->name('componente');
+        Route::get('{id}/comprovante', 'comprovante')->whereNumber('id')->name('comprovante');
+        Route::get('configuracao', 'configuracao')->name('configuracao');
+        Route::post('configuracao', 'salvarConfig')->name('configuracao.salvar');
+        Route::post('configuracao/testar', 'testar')->name('testar');
+        Route::post('configuracao/simular', 'simularEntrada')->name('simular');
+    });
+    // Suporte na plataforma (TR 4.26.1–10): chat flutuante (api), central de suporte, ajuda e configuração
+    Route::controller(\App\Http\Controllers\SuporteController::class)->prefix('suporte')->name('suporte.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('ajuda', 'ajuda')->name('ajuda');
+        Route::get('atendimentos/{id}', 'show')->whereNumber('id')->name('show');
+        Route::post('atendimentos/{id}/assumir', 'assumir')->whereNumber('id')->name('assumir');
+        Route::post('atendimentos/{id}/escalar', 'escalar')->whereNumber('id')->name('escalar');
+        Route::post('atendimentos/{id}/incluir', 'incluir')->whereNumber('id')->name('incluir');
+        Route::post('atendimentos/{id}/resolver', 'resolver')->whereNumber('id')->name('resolver');
+        Route::post('atendimentos/{id}/reabrir', 'reabrir')->whereNumber('id')->name('reabrir');
+        Route::post('atendimentos/{id}/cancelar', 'cancelar')->whereNumber('id')->name('cancelar');
+        Route::post('disponibilidade', 'disponibilidade')->name('disponibilidade');
+        Route::get('api/painel', 'painel')->name('api.painel');
+        Route::get('api/artigos', 'artigos')->name('api.artigos');
+        Route::post('api/artigos/{id}/visto', 'artigoVisto')->whereNumber('id')->name('api.artigo-visto');
+        Route::post('api/artigos/{id}/retorno', 'artigoRetorno')->whereNumber('id')->name('api.artigo-retorno');
+        Route::post('api/atendimentos', 'abrir')->middleware('throttle:20,1')->name('api.abrir');
+        Route::get('api/buscar', 'buscar')->name('api.buscar');
+        Route::get('api/atendimentos/{id}/mensagens', 'mensagens')->whereNumber('id')->name('api.mensagens');
+        Route::post('api/atendimentos/{id}/mensagens', 'enviar')->whereNumber('id')->middleware('throttle:60,1')->name('api.enviar');
+        Route::get('api/pessoas', 'pessoas')->name('api.pessoas');
+        Route::get('configuracao', 'configuracao')->name('configuracao');
+        Route::post('configuracao', 'salvarConfig')->name('configuracao.salvar');
+        Route::post('assuntos', 'salvarAssunto')->name('assuntos.store');
+        Route::post('assuntos/{id}', 'salvarAssunto')->whereNumber('id')->name('assuntos.update');
+        Route::post('artigos', 'salvarArtigo')->name('artigos.store');
+        Route::post('artigos/{id}', 'salvarArtigo')->whereNumber('id')->name('artigos.update');
+        Route::delete('artigos/{id}', 'excluirArtigo')->whereNumber('id')->name('artigos.destroy');
+        Route::post('atendentes', 'salvarAtendente')->name('atendentes.salvar');
+    });
+    Route::controller(\App\Http\Controllers\IndicadorController::class)->prefix('relatorios/indicadores')->name('relatorios.indicadores')->middleware('can:relatorio.indicadores')->group(function () {
+        Route::get('/', 'index');
+        Route::post('planilha', 'planilha')->middleware('throttle:60,1')->name('.planilha');
+    });
+    Route::controller(\App\Http\Controllers\RelatorioController::class)->prefix('relatorios')->name('relatorios.')->middleware('can:relatorio.eventos')->group(function () {
+        Route::get('eventos', 'eventos')->name('eventos');
+        Route::get('acessos', 'acessos')->name('acessos');
+        Route::get('exportar/{tipo}', 'exportar')->whereIn('tipo', ['eventos', 'acessos'])->middleware('throttle:20,1')->name('exportar');
+        Route::get('gerados/{id}', 'gerado')->whereNumber('id')->name('gerado');
+        Route::get('gerados/{id}/baixar', 'baixar')->whereNumber('id')->name('baixar');
+        Route::post('agendados', 'agendar')->name('agendados.store');
+        Route::post('agendados/{id}/alternar', 'alternarAgendamento')->whereNumber('id')->name('agendados.alternar');
+        Route::delete('agendados/{id}', 'excluirAgendamento')->whereNumber('id')->name('agendados.destroy');
+    });
+    Route::controller(\App\Http\Controllers\AppFiscalizacaoController::class)->prefix('fiscal')->name('fiscal.')->group(function () {
+        Route::get('/', 'app')->name('app');
+        Route::get('api/sessao', 'sessao')->name('sessao');
+        Route::get('api/vistorias', 'minhas')->name('minhas');
+        Route::post('api/vistorias', 'sincronizar')->middleware('throttle:60,1')->name('sincronizar');
+        Route::get('vistorias/{id}/pdf', 'pdf')->whereNumber('id')->name('pdf');
+        Route::get('vistorias/{id}/fotos/{indice}', 'foto')->whereNumber(['id', 'indice'])->name('foto');
+    });
+    // Fiscalização de obras e posturas (TR 4.49)
+    Route::controller(\App\Http\Controllers\FiscalizacaoController::class)->group(function () {
+        Route::post('processos/{id}/fiscalizacao-interna', 'gerar')->whereNumber('id')->name('processos.fiscalizacao-interna');
+        Route::post('processos/{id}/diligencias', 'diligencia')->whereNumber('id')->name('processos.diligencias');
+        Route::post('processos/anexos/{anexo}/copia', 'enviarCopia')->whereNumber('anexo')->middleware('throttle:20,1')->name('processos.anexos.copia');
+    });
+    // Sistema tributário no processo (TR 4.48.22, 4.48.42, 4.49)
+    Route::controller(\App\Http\Controllers\ProcessoTributarioController::class)->prefix('processos/{id}/tributario')->whereNumber('id')->name('processos.tributario.')->group(function () {
+        Route::post('imovel', 'imovel')->name('imovel');
+        Route::post('guias', 'guia')->name('guia');
+        Route::post('documentos', 'documento')->name('documento');
+        Route::post('fiscalizacao', 'fiscalizacao')->name('fiscalizacao');
+        Route::post('manual', 'manual')->name('manual');
+        Route::post('{vinculo}/atualizar', 'atualizar')->whereNumber('vinculo')->name('atualizar');
+        Route::delete('{vinculo}', 'remover')->whereNumber('vinculo')->name('remover');
+    });
+    Route::get('processos/{id}/folha-rosto', [\App\Http\Controllers\ProcessoController::class, 'folhaDeRosto'])->whereNumber('id')->middleware('can:processo.visualizar')->name('processos.folha-rosto');
+    Route::get('processos/{id}/recebimentos/{recebimento}/comprovante', [\App\Http\Controllers\RecebimentoFisicoController::class, 'comprovante'])->whereNumber(['id', 'recebimento'])->middleware('can:processo.visualizar')->name('processos.recebimentos.comprovante');
+        Route::post('processos/{id}/avaliacao', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'avaliar'])->whereNumber('id')->name('processos.avaliacao');
+        Route::post('processos/{id}/reabrir', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'reabrir'])->whereNumber('id')->name('processos.reabrir');
+        // Prazos e atividades lançados à mão (TR 4.13, 4.32.16)
+        Route::post('processos/{id}/prazos', [\App\Http\Controllers\PrazoController::class, 'store'])->whereNumber('id')->name('processos.prazos.store');
+        Route::put('prazos/{id}', [\App\Http\Controllers\PrazoController::class, 'update'])->whereNumber('id')->name('prazos.update');
+        Route::post('prazos/{id}/concluir', [\App\Http\Controllers\PrazoController::class, 'concluir'])->whereNumber('id')->name('prazos.concluir');
+        Route::delete('prazos/{id}', [\App\Http\Controllers\PrazoController::class, 'destroy'])->whereNumber('id')->name('prazos.destroy');
         Route::post('processos/{id}/arquivar-no-ged', [ProcessoController::class, 'arquivarNoGed'])->name('processos.arquivar-no-ged');
         Route::post('processos/anexos/{anexo}/enviar-assinatura', [ProcessoController::class, 'enviarAnexoParaAssinatura'])
             ->name('processos.anexos.enviar-assinatura');
@@ -493,6 +1004,10 @@ Route::middleware('auth')->group(function () {
         Route::post('tramitacoes/{id}/receber', [TramitacaoController::class, 'receber'])->name('tramitacoes.receber');
         Route::post('tramitacoes/{id}/despachar', [TramitacaoController::class, 'despachar'])->name('tramitacoes.despachar');
         Route::post('tramitacoes/{id}/devolver', [TramitacaoController::class, 'devolver'])->name('tramitacoes.devolver');
+        Route::post('tramitacoes/{id}/cuidados', [TramitacaoController::class, 'aosCuidados'])->name('tramitacoes.cuidados');
+        Route::post('tramitacoes/{id}/resolver', [TramitacaoController::class, 'resolver'])->name('tramitacoes.resolver');
+        Route::post('tramitacoes/{id}/estagio', [TramitacaoController::class, 'estagio'])->name('tramitacoes.estagio');
+        Route::post('tramitacoes/{id}/ciente', [TramitacaoController::class, 'ciente'])->name('tramitacoes.ciente');
         Route::post('tramitacoes/{id}/comentar', [TramitacaoController::class, 'comentar'])->name('tramitacoes.comentar');
         Route::post('tramitacoes/{id}/anexar', [TramitacaoController::class, 'anexar'])->name('tramitacoes.anexar');
     });
@@ -514,6 +1029,37 @@ Route::middleware('auth')->group(function () {
         ->name('assinaturas.simular-restantes');
     Route::get('assinaturas/{id}/manifesto', [AssinaturaController::class, 'manifesto'])->name('assinaturas.manifesto');
 
+    // Meu perfil › Meus dados (e-mail, celular, foto, senha) e foto de qualquer servidor
+    Route::prefix('perfil')->name('perfil.')->controller(\App\Http\Controllers\Perfil\PerfilController::class)->group(function () {
+        Route::get('/', 'index')->name('dados');
+        Route::post('/dados', 'atualizar')->middleware('throttle:20,1')->name('dados.salvar');
+        Route::post('/senha', 'alterarSenha')->middleware('throttle:10,1')->name('senha');
+        Route::post('/foto', 'enviarFoto')->middleware('throttle:20,1')->name('foto');
+        Route::post('/foto/remover', 'removerFoto')->name('foto.remover');
+        Route::get('/historico', 'historico')->name('historico');
+        Route::get('/administradores', 'administradores')->name('administradores');
+    });
+    Route::get('usuarios/{id}/foto', [\App\Http\Controllers\Perfil\PerfilController::class, 'foto'])->whereNumber('id')->name('usuarios.foto');
+    Route::get('perfil/contrassenhas', [\App\Http\Controllers\Perfil\ContrassenhasController::class, 'index'])->name('perfil.contrassenhas');
+    Route::post('perfil/contrassenhas', [\App\Http\Controllers\Perfil\ContrassenhasController::class, 'store'])->middleware('throttle:20,1')->name('perfil.contrassenhas.gerar');
+    Route::post('perfil/contrassenhas/{id}/cancelar', [\App\Http\Controllers\Perfil\ContrassenhasController::class, 'cancelar'])->whereNumber('id')->name('perfil.contrassenhas.cancelar');
+    Route::get('perfil/equipe', [\App\Http\Controllers\Perfil\EquipeController::class, 'index'])->name('perfil.equipe');
+    Route::post('perfil/equipe/{id}/reativar', [\App\Http\Controllers\Perfil\EquipeController::class, 'reativar'])->whereNumber('id')->name('perfil.equipe.reativar');
+    Route::get('perfil/preferencias', [\App\Http\Controllers\Perfil\PreferenciasController::class, 'index'])->name('perfil.preferencias');
+    Route::post('perfil/preferencias', [\App\Http\Controllers\Perfil\PreferenciasController::class, 'salvar'])->name('perfil.preferencias.salvar');
+    Route::get('perfil/ausencias', [\App\Http\Controllers\Perfil\AusenciasController::class, 'index'])->name('perfil.ausencias');
+    Route::post('perfil/ausencias', [\App\Http\Controllers\Perfil\AusenciasController::class, 'store'])->name('perfil.ausencias.salvar');
+    Route::delete('perfil/ausencias/{id}', [\App\Http\Controllers\Perfil\AusenciasController::class, 'destroy'])->whereNumber('id')->name('perfil.ausencias.remover');
+
+    // Meu perfil › Segurança: verificação em duas etapas
+    Route::prefix('perfil/seguranca')->name('perfil.seguranca')->controller(\App\Http\Controllers\Perfil\SegurancaController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::post('/dois-fatores/iniciar', 'iniciar')->name('.iniciar');
+        Route::post('/dois-fatores/ativar', 'ativar')->middleware('throttle:10,1')->name('.ativar');
+        Route::post('/dois-fatores/desativar', 'desativar')->middleware('throttle:10,1')->name('.desativar');
+        Route::post('/dois-fatores/codigos', 'regerarCodigos')->middleware('throttle:10,1')->name('.codigos');
+    });
+
     // Meus Certificados ICP-Brasil (perfil do usuario)
     Route::get('perfil/certificados', [CertificadoController::class, 'index'])->name('certificados.index');
     Route::post('perfil/certificados', [CertificadoController::class, 'store'])->name('certificados.store');
@@ -522,6 +1068,7 @@ Route::middleware('auth')->group(function () {
 
     // Notificacoes
     Route::get('notificacoes', [NotificacaoController::class, 'index'])->name('notificacoes');
+    Route::get('notificacoes/recentes', [NotificacaoController::class, 'recentes'])->name('notificacoes.recentes');
     Route::post('notificacoes/marcar-todas', [NotificacaoController::class, 'marcarTodas'])->name('notificacoes.marcar-todas');
     Route::get('notificacoes/{id}/abrir', [NotificacaoController::class, 'abrir'])->name('notificacoes.abrir');
     Route::post('notificacoes/{id}/lida', [NotificacaoController::class, 'marcarLida'])->name('notificacoes.lida');

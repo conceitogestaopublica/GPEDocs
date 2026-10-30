@@ -3,14 +3,32 @@
  *
  * Detalhes completos, timeline de tramitacao, despacho e comentarios.
  */
-import { Head, Link, useForm, router } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
+import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import ClassificacaoDoItem from '../../../Components/ClassificacaoDoItem';
+import MarcadoresDoDocumento from '../../../Components/MarcadoresDoDocumento';
+import RecebimentosFisicos from '../../../Components/RecebimentosFisicos';
+import OuvidoriaDoProcesso from '../../../Components/OuvidoriaDoProcesso';
+import ComissaoPad from '../../../Components/ComissaoPad';
+import TributarioDoProcesso from '../../../Components/TributarioDoProcesso';
+import ParticipantesDoProcesso from '../../../Components/ParticipantesDoProcesso';
+import FiscalizacaoDoProcesso from '../../../Components/FiscalizacaoDoProcesso';
+import TramitaDoDocumento from '../../../Components/TramitaDoDocumento';
+import FerramentasDoTexto from '../../../Components/FerramentasDoTexto';
+import MapaAvaliacaoDoProcesso from '../../../Components/MapaAvaliacaoDoProcesso';
 import Modal from '../../../Components/Modal';
 import Tabs from '../../../Components/Tabs';
+import Avatar from '../../../Components/Avatar';
+import QuemAcessou from '../../../Components/QuemAcessou';
+import SetoresMulti from '../../../Components/SetoresMulti';
+import PrazosDoProcesso from '../../../Components/PrazosDoProcesso';
+import AnexosDoProcesso from '../../../Components/AnexosDoProcesso';
+import ArvoreDoProcesso from '../../../Components/ArvoreDoProcesso';
+import RichEditor, { textoParaHtml } from '../../../Components/RichEditor';
 import AssinarModal from '../../../Components/AssinarModal';
 import { useConfirm, useAvisar } from '../../../Components/ConfirmProvider';
 
@@ -63,11 +81,15 @@ const tabList = [
     { key: 'tramitacao', label: 'Tramitação', icon: 'fas fa-route' },
     { key: 'comentarios', label: 'Comentários', icon: 'fas fa-comments' },
     { key: 'historico', label: 'Histórico', icon: 'fas fa-history' },
+    { key: 'arvore', label: 'Árvore', icon: 'fas fa-sitemap' },
 ];
 
-export default function Show({ processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null }) {
+export default function Show({ tramita = null, fiscalizacao = null, externo = null, tributario = null, pad = null, pareceres = [], pode_emitir_parecer = false, legislativo = null, solicitante = null, ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
+    acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [], classificacao = null, mapa_avaliacao = null }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
+    // Meu perfil › Preferências: abrir anexo no navegador ou baixar
+    const verAnexos = (usePage().props.auth?.user?.preferencias?.anexos || 'visualizar') === 'visualizar';
     const proc = processo || {};
     const tramitacoes = proc.tramitacoes || [];
     const comentarios = proc.comentarios || [];
@@ -76,7 +98,8 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     const requerente = proc.requerente || {};
     const tipoProcesso = proc.tipo_processo || {};
     const templatesDespacho = tipoProcesso.templates_despacho || [];
-    const etapaAtual = proc.etapa_atual || tramitacoes
+    // Etapa em que ESTE usuário age (o processo pode estar em vários setores ao mesmo tempo)
+    const etapaAtual = etapa_acao || proc.etapa_atual || tramitacoes
         .filter(t => t.status === 'pendente' || t.status === 'recebido')
         .reduce((ult, t) => (!ult || t.id > ult.id ? t : ult), null);
     const userList = usuarios || [];
@@ -104,6 +127,16 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     const [activeTab, setActiveTab] = useState('detalhes');
     const [showConcluirModal, setShowConcluirModal] = useState(false);
     const [showCancelarModal, setShowCancelarModal] = useState(false);
+    const [showCuidados, setShowCuidados] = useState(false);
+    // Alterar / recategorizar o assunto (TR 4.32.24, 4.33.15)
+    const [showAssunto, setShowAssunto] = useState(false);
+    const assuntoForm = useForm({ assunto: processo.assunto || '', tipo_processo_id: String(processo.tipo_processo_id || ''), motivo: '' });
+    const alteracoesAssunto = (processo.historico || []).filter(h => h.acao === 'alteracao_assunto');
+    const [cuidadosPara, setCuidadosPara] = useState('');
+    const { auth } = usePage().props;
+    const passarCuidados = (usuarioId) => router.post(`/tramitacoes/${etapaAtual.id}/cuidados`,
+        { usuario_id: usuarioId || null },
+        { preserveScroll: true, onSuccess: () => { setShowCuidados(false); setCuidadosPara(''); } });
     const [motivoCancelamento, setMotivoCancelamento] = useState('');
     const [assinarOpen, setAssinarOpen] = useState(false);
     const [arquivarGedOpen, setArquivarGedOpen] = useState(false);
@@ -154,15 +187,41 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
         files: [],
     });
     const [despacharFiles, setDespacharFiles] = useState([]);
+    // Multissetorial (TR 4.9.4) e cópia (TR 4.9.14)
+    const [outrosSetores, setOutrosSetores] = useState([]);
+    const [copiasSetores, setCopiasSetores] = useState([]);
+    const [parecerSetor, setParecerSetor] = useState('');
+    // Manifestação do setor, ao despachar ou resolver a parte dele (TR 4.38.14)
+    const [manifestacao, setManifestacao] = useState('');
+    const manifestacoes = tramitacoes.filter(t => t.manifestacao);
+    const [estagio, setEstagio] = useState('');
+    useEffect(() => setEstagio(etapaAtual?.estagio || ''), [etapaAtual?.id, etapaAtual?.estagio]);
+
+    // Fluxo do assunto (TR 4.38.19–22): na frente principal o despacho vai para a próxima
+    // etapa (ou uma adiante sem pular obrigatória) e só para os setores dela; ou fica na atual.
+    const noFluxo = !! fluxo && (etapaAtual?.frente ?? 1) === 1;
+    const [etapaDestino, setEtapaDestino] = useState(() => (fluxo?.permitidas?.[0] ? String(fluxo.permitidas[0]) : 'manter'));
+    const etapaEscolhida = noFluxo && etapaDestino !== 'manter' ? fluxo.etapas.find(e => String(e.id) === etapaDestino) : null;
+    const setoresDaEtapa = etapaEscolhida?.setores || [];
+    const setoresPermitidos = etapaEscolhida?.obrigatorio && setoresDaEtapa.length ? setoresDaEtapa.map(s => Number(s.id)) : null;
+    const etapaAtualFluxo = fluxo?.etapas.find(e => e.id === fluxo.atual_id) || null;
+    const [todosDaEtapa, setTodosDaEtapa] = useState(false);
+    useEffect(() => {
+        // Etapa com um setor só: já vem escolhido; trocou de etapa: limpa o que não serve
+        if (setoresPermitidos?.length === 1) despacharForm.setData('setor_destino', setoresPermitidos[0]);
+        else if (setoresPermitidos && ! setoresPermitidos.includes(Number(despacharForm.data.setor_destino))) despacharForm.setData('setor_destino', '');
+        setTodosDaEtapa(false);
+    }, [etapaDestino]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Combobox de setor (busca + dropdown)
     const [setorSearch, setSetorSearch] = useState('');
     const [setorOpen, setSetorOpen] = useState(false);
     const unidadesFiltradas = useMemo(() => {
-        if (! setorSearch.trim()) return unidadesTree;
+        const base = setoresPermitidos ? unidadesTree.filter(u => setoresPermitidos.includes(Number(u.id))) : unidadesTree;
+        if (! setorSearch.trim()) return base;
         const t = setorSearch.toLowerCase();
-        return unidadesTree.filter(u => u.nome.toLowerCase().includes(t) || (u.codigo || '').toLowerCase().includes(t));
-    }, [unidadesTree, setorSearch]);
+        return base.filter(u => u.nome.toLowerCase().includes(t) || (u.codigo || '').toLowerCase().includes(t));
+    }, [unidadesTree, setorSearch, setoresPermitidos?.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
     const setorSelecionado = unidadesTree.find(u => String(u.id) === String(despacharForm.data.setor_destino));
 
     // Form: Comentario
@@ -211,18 +270,26 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
         e.preventDefault();
         if (!etapaAtual) return;
 
-        const formData = new FormData();
-        formData.append('destinatario_id', despacharForm.data.destinatario_id);
-        formData.append('setor_destino', despacharForm.data.setor_destino);
-        formData.append('despacho', despacharForm.data.despacho);
-        despacharFiles.forEach((file, i) => formData.append(`files[${i}]`, file));
-
+        // O useForm envia os dados dele (a opção `data` é ignorada): o que fica fora do
+        // form — anexos, outros setores, cópias — entra pelo transform.
+        // Etapa com vários setores e "enviar a todos": os outros viram frentes paralelas (TR 4.38.20)
+        const daEtapa = todosDaEtapa ? setoresDaEtapa.map(s => Number(s.id)).filter(id => id !== Number(despacharForm.data.setor_destino)) : [];
+        despacharForm.transform((d) => ({
+            ...d,
+            files: despacharFiles,
+            outros_setores: [...new Set([...outrosSetores, ...daEtapa])],
+            copias: copiasSetores,
+            etapa_destino: noFluxo ? etapaDestino : undefined,
+            manifestacao: manifestacao || undefined,
+        }));
         despacharForm.post(`/tramitacoes/${etapaAtual.id}/despachar`, {
-            data: formData,
             forceFormData: true,
             onSuccess: () => {
                 despacharForm.reset();
                 setDespacharFiles([]);
+                setOutrosSetores([]);
+                setManifestacao('');
+                setCopiasSetores([]);
             },
         });
     };
@@ -248,7 +315,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
     };
 
     const applyTemplate = (template) => {
-        despacharForm.setData('despacho', template.conteudo || template);
+        despacharForm.setData('despacho', textoParaHtml(template.conteudo || template));
     };
 
     return (
@@ -277,6 +344,20 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                     ) : (
                         <span className="text-xs text-purple-600 italic">Outro signatário esta assinando.</span>
                     )}
+                </div>
+            )}
+
+            {/* Cópia para ciência (TR 4.9.14) */}
+            {copia_pendente && (
+                <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-start gap-2 text-sm text-sky-900">
+                        <i className="fas fa-copy mt-0.5" />
+                        <span>Cópia enviada a <b>{copia_pendente.setor_destino}</b> para ciência. O processo segue com os setores que o tratam.</span>
+                    </div>
+                    <Button variant="primary" icon="fas fa-check"
+                        onClick={() => router.post(`/tramitacoes/${copia_pendente.id}/ciente`, {}, { preserveScroll: true })}>
+                        Ciente
+                    </Button>
                 </div>
             )}
 
@@ -420,7 +501,35 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                 {proc.prioridade}
                             </span>
                         </div>
-                        <p className="text-gray-600 ml-8">{proc.assunto}</p>
+                        <p className="text-gray-600 ml-8">
+                            {proc.assunto}
+                            {pode_alterar_assunto && (
+                                <button type="button" onClick={() => setShowAssunto(true)} title="Alterar o assunto ou recategorizar"
+                                    className="ml-2 text-xs text-cyan-700 hover:underline">
+                                    <i className="fas fa-pen mr-1" />Alterar assunto
+                                </button>
+                            )}
+                        </p>
+                        {/* Etiquetas do setor (TR 4.19.4) */}
+                        {minhas_etiquetas.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 mt-2 ml-8">
+                                {etiquetas_processo.map(e => (
+                                    <span key={e.id} style={{ color: e.cor_texto, backgroundColor: e.cor_fundo }} title={`Etiqueta do setor ${e.setor}`}
+                                        className="inline-flex items-center gap-1 text-[11px] rounded-full px-2 py-0.5 font-semibold">
+                                        {e.nome}
+                                        <button type="button" title="Retirar" className="opacity-70 hover:opacity-100"
+                                            onClick={() => router.post('/flow/etiquetar', { etiqueta_id: e.id, acao: 'remover', itens: [{ tipo: 'processo', item_id: proc.id }] }, { preserveScroll: true })}>
+                                            <i className="fas fa-times text-[9px]" />
+                                        </button>
+                                    </span>
+                                ))}
+                                <select value="" className="text-xs border border-dashed border-gray-300 rounded-full px-2 py-0.5 text-gray-500 bg-white"
+                                    onChange={(ev) => ev.target.value && router.post('/flow/etiquetar', { etiqueta_id: ev.target.value, acao: 'aplicar', itens: [{ tipo: 'processo', item_id: proc.id }] }, { preserveScroll: true })}>
+                                    <option value="">+ etiqueta</option>
+                                    {minhas_etiquetas.filter(e => ! etiquetas_processo.some(x => x.id === e.id)).map(e => <option key={e.id} value={e.id}>{e.nome} ({e.setor})</option>)}
+                                </select>
+                            </div>
+                        )}
                         <div className="flex items-center gap-4 mt-2 ml-8 text-xs text-gray-400">
                             <span><i className="fas fa-folder mr-1" />{tipoProcesso.nome || '-'}</span>
                             <span><i className="fas fa-building mr-1" />{proc.setor_origem || '-'}</span>
@@ -428,6 +537,15 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        <button type="button" title="Link para o requerente acompanhar sem login (andamento, decisão e pareceres)"
+                            onClick={async () => { try { const r = await (await fetch(`/processos/${proc.id}/consulta-link`, { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content, Accept: 'application/json' } })).json(); if (r.url) { await navigator.clipboard?.writeText(r.url); window.prompt('Link de consulta (copiado):', r.url); } else { alert(r.message || 'Sem link para este processo.'); } } catch { alert('Não foi possível gerar o link.'); } }}
+                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50">
+                            <i className="fas fa-link" />Link de consulta
+                        </button>
+                        <a href={`/processos/${proc.id}/folha-rosto`} target="_blank" rel="noreferrer" title="Folha de rosto para a pasta física ou o arquivo"
+                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50">
+                            <i className="fas fa-file-pdf" />Folha de rosto
+                        </a>
                         {proc.status !== 'concluido' && proc.status !== 'cancelado' && (
                             <>
                                 {pode_receber && etapaAtual && (
@@ -436,19 +554,25 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                         Receber
                                     </Button>
                                 )}
-                                {pode_concluir && (
+                                {cuidados && etapaAtual && (
+                                    <Button variant="secondary" icon="fas fa-user-check" onClick={() => setShowCuidados(true)}
+                                        title={cuidados.responsavel ? `Aos cuidados de ${cuidados.responsavel.name}` : 'Atribuir a alguém do setor, sem tramitar'}>
+                                        {cuidados.responsavel ? `Aos cuidados de ${cuidados.responsavel.name.split(' ')[0]}` : 'Aos cuidados'}
+                                    </Button>
+                                )}
+                                {(pode_despachar || pode_concluir) && (
                                     <Button variant="primary" icon="fas fa-bolt"
                                         onClick={() => setActiveTab('tramitacao')}>
                                         Tramitar
                                     </Button>
                                 )}
-                                {pode_concluir && (
+                                {pode_cancelar && (
                                     <Button variant="danger" icon="fas fa-ban"
                                         onClick={() => setShowCancelarModal(true)}>
                                         Cancelar
                                     </Button>
                                 )}
-                                {! pode_concluir && (
+                                {! pode_despachar && ! pode_concluir && (
                                     <span className="text-xs text-gray-500 italic">
                                         <i className="fas fa-clock mr-1" />
                                         Aguardando ação do destino atual
@@ -465,6 +589,92 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
 
             <div className="mt-6">
                 {/* ── Tab: Detalhes ── */}
+                {activeTab === 'detalhes' && alteracoesAssunto.length > 0 && (
+                    <Card title="Alterações do assunto" className="mb-6">
+                        <ul className="divide-y divide-gray-100">
+                            {alteracoesAssunto.map(h => (
+                                <li key={h.id} className="py-2 text-sm">
+                                    <p className="text-gray-800">
+                                        {h.detalhes?.tipo_anterior !== h.detalhes?.tipo_novo && (
+                                            <><b>{h.detalhes?.tipo_anterior}</b> → <b>{h.detalhes?.tipo_novo}</b><br /></>
+                                        )}
+                                        {h.detalhes?.assunto_anterior !== h.detalhes?.assunto_novo && (
+                                            <>"{h.detalhes?.assunto_anterior}" → "{h.detalhes?.assunto_novo}"</>
+                                        )}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                        {formatDate(h.created_at)} · {h.usuario?.name || '-'} · Motivo: {h.detalhes?.motivo}
+                                    </p>
+                                </li>
+                            ))}
+                        </ul>
+                    </Card>
+                )}
+                {/* Proposição legislativa: vereador, tipo, número e prazo de resposta (TR 4.37) */}
+                {activeTab === 'detalhes' && legislativo && (
+                    <Card title="Proposição legislativa" className="mb-6">
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                            {legislativo.proposicao && <span className="rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-xs font-semibold">{legislativo.proposicao}{legislativo.numero ? ` nº ${legislativo.numero}` : ''}</span>}
+                            {legislativo.vereador && <span className="text-gray-700"><i className="fas fa-user-tie text-gray-400 mr-1" />{legislativo.vereador.nome}{legislativo.vereador.partido ? ` (${legislativo.vereador.partido})` : ''}</span>}
+                        </div>
+                        {legislativo.prazo && (
+                            <p className="mt-3 text-sm"><i className="fas fa-hourglass-half text-gray-400 mr-1" />Prazo de resposta: <strong>{new Date(legislativo.prazo.vence_em).toLocaleDateString('pt-BR')}</strong>
+                                <span className={`ml-2 text-[11px] rounded-full px-2 py-0.5 ${['vencido', 'fora_do_prazo'].includes(legislativo.prazo.situacao) ? 'bg-red-100 text-red-700' : legislativo.prazo.situacao === 'vencendo' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                    {{ em_dia: 'No prazo', vencendo: 'Vence em breve', vencido: 'Vencida', no_prazo: 'Respondida no prazo', fora_do_prazo: 'Respondida fora do prazo' }[legislativo.prazo.situacao]}
+                                </span>
+                            </p>
+                        )}
+                    </Card>
+                )}
+                {/* Fiscalização: origem, geradas e diligências (TR 4.49) */}
+                {activeTab === 'detalhes' && <TramitaDoDocumento dados={tramita} url={`/tramita/processos/${proc.id}`} rotulo="processo" className="mb-4" />}
+                {activeTab === 'detalhes' && fiscalizacao && <FiscalizacaoDoProcesso processoId={proc.id} dados={fiscalizacao} unidades={unidadesTree} pode={(auth?.user?.permissoes || []).some((p) => ['*', 'processo.tramitar'].includes(p))} />}
+                {/* Participantes e acesso do externo (TR 4.48.28, 4.48.30) */}
+                {activeTab === 'detalhes' && externo && <ParticipantesDoProcesso processoId={proc.id} dados={externo} podeEditar={(auth?.user?.permissoes || []).some((p) => ['*', 'processo.tramitar'].includes(p))} />}
+                {/* Sistema tributário: imóvel, guias, alvará/habite-se, fiscalização (TR 4.48, 4.49) */}
+                {activeTab === 'detalhes' && tributario && (tributario.pode || tributario.vinculos.length > 0) && <TributarioDoProcesso processoId={proc.id} dados={tributario} anexos={anexos} />}
+                {/* PAD: infração e comissão processante (TR 4.40) */}
+                {activeTab === 'detalhes' && pad && <ComissaoPad processoId={proc.id} pad={pad} usuarios={usuarios} />}
+                {/* Pareceres emitidos no processo (TR 4.39) */}
+                {activeTab === 'detalhes' && (pareceres.length > 0 || pode_emitir_parecer) && (
+                    <Card title={`Pareceres (${pareceres.length})`} className="mb-6">
+                        {pareceres.length === 0 ? <p className="text-sm text-gray-400">Nenhum parecer emitido.</p> : (
+                            <ul className="divide-y divide-gray-100">
+                                {pareceres.map(pa => (
+                                    <li key={pa.id} className="py-2 flex flex-wrap items-center gap-2 text-sm">
+                                        <Link href={`/pareceres/${pa.id}`} className="text-cyan-700 font-medium hover:underline">{pa.numero}</Link>
+                                        <span className="text-gray-700">{pa.assunto}</span>
+                                        <span className="text-[11px] rounded-full bg-gray-100 text-gray-700 px-2 py-0.5">{pa.conclusao_rotulo}</span>
+                                        <span className="text-xs text-gray-500 ml-auto">{pa.parecerista} · {new Date(pa.emitido_em).toLocaleDateString('pt-BR')}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                        {pode_emitir_parecer && (
+                            <div className="mt-3"><Link href={`/pareceres/create?processo_id=${proc.id}`}><Button size="sm" variant="secondary" icon="fas fa-scale-balanced">Emitir parecer neste processo</Button></Link></div>
+                        )}
+                    </Card>
+                )}
+                {/* Descrição (com formatação e tabelas), patrimônio e em nome de quem foi aberto (TR 4.35) */}
+                {activeTab === 'detalhes' && (proc.descricao || proc.patrimonio || solicitante) && (
+                    <Card title="Descrição" className="mb-6">
+                        {(proc.patrimonio || solicitante) && (
+                            <div className="flex flex-wrap gap-2 mb-3 text-xs">
+                                {proc.patrimonio && <span className="rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5"><i className="fas fa-barcode mr-1" />Patrimônio {proc.patrimonio}</span>}
+                                {solicitante && <span className="rounded-full bg-gray-100 text-gray-700 px-2.5 py-0.5"><i className="fas fa-user-tag mr-1" />Aberto em nome de {solicitante.name}</span>}
+                            </div>
+                        )}
+                        {proc.descricao_html
+                            ? <div className="texto-rico" dangerouslySetInnerHTML={{ __html: proc.descricao_html }} />
+                            : proc.descricao && <p className="text-sm text-gray-800 whitespace-pre-wrap">{proc.descricao}</p>}
+                    </Card>
+                )}
+                {activeTab === 'detalhes' && <MapaAvaliacaoDoProcesso processoId={processo.id} dados={mapa_avaliacao} className="mb-6" />}
+                {activeTab === 'detalhes' && <OuvidoriaDoProcesso processoId={processo.id} dados={ouvidoria} className="mb-6" />}
+                {activeTab === 'detalhes' && <MarcadoresDoDocumento dados={marcadores} className="mb-6" />}
+                {activeTab === 'detalhes' && <RecebimentosFisicos processoId={processo.id} recebimentos={recebimentos_fisicos} className="mb-6"
+                    podeRegistrar={['*', 'processo.tramitar'].some((p) => (auth?.user?.permissoes || []).includes(p))} />}
+                {activeTab === 'detalhes' && <ClassificacaoDoItem classificacao={classificacao} className="mb-6" />}
                 {activeTab === 'detalhes' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Dados do formulario */}
@@ -473,14 +683,17 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                 <p className="text-sm text-gray-400">Nenhum dado preenchido</p>
                             ) : (
                                 <div className="space-y-3">
-                                    {Object.entries(dadosFormulario).map(([key, value]) => (
-                                        <div key={key} className="flex items-start justify-between py-2 border-b border-gray-50 last:border-0">
-                                            <span className="text-sm font-medium text-gray-500 capitalize">
-                                                {key.replace(/_/g, ' ')}
-                                            </span>
-                                            <span className="text-sm text-gray-800 text-right max-w-[60%]">{value || '-'}</span>
-                                        </div>
-                                    ))}
+                                    {Object.entries(dadosFormulario).map(([key, value]) => {
+                                        const campo = (tipoProcesso.schema_formulario || []).find(c => c.campo === key);
+                                        return (
+                                            <div key={key} className="flex items-start justify-between py-2 border-b border-gray-50 last:border-0">
+                                                <span className={`text-sm font-medium text-gray-500 ${campo ? '' : 'capitalize'}`}>
+                                                    {campo?.label || key.replace(/_/g, ' ')}
+                                                </span>
+                                                <span className="text-sm text-gray-800 text-right max-w-[60%]">{valorDoCampo(campo?.tipo, value)}</span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </Card>
@@ -521,48 +734,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             </Card>
 
                             {/* Anexos */}
-                            <Card title={`Anexos (${anexos.length})`}>
-                                {anexos.length === 0 ? (
-                                    <p className="text-sm text-gray-400">Nenhum anexo</p>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {anexos.map((anexo, idx) => (
-                                            <div key={idx} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
-                                                <div className="flex items-center gap-3">
-                                                    <i className={`${getFileIcon(anexo.mime_type || anexo.tipo)} text-lg`} />
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-700">{anexo.nome || anexo.nome_original}</p>
-                                                        {anexo.tamanho && <p className="text-xs text-gray-400">{formatBytes(anexo.tamanho)}</p>}
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-3 shrink-0">
-                                                    {anexo.id && anexo.documento_id ? (
-                                                        <Link href={`/documentos/${anexo.documento_id}?aba=assinaturas`}
-                                                            className="text-xs text-emerald-700 hover:underline">
-                                                            <i className="fas fa-file-signature mr-1" />Ver assinaturas
-                                                        </Link>
-                                                    ) : anexo.id && (anexo.mime_type || '').includes('pdf') && (
-                                                        <button type="button"
-                                                            onClick={() => router.post(`/processos/anexos/${anexo.id}/enviar-assinatura`)}
-                                                            className="text-xs text-blue-600 hover:underline"
-                                                            title="Arquiva o anexo no GED e escolhe quem assina (servidores e externos por link)">
-                                                            <i className="fas fa-pen-nib mr-1" />Enviar para assinatura
-                                                        </button>
-                                                    )}
-                                                    <a
-                                                        href={anexo.url || `/processos/anexos/${anexo.id}/download`}
-                                                        className="text-blue-600 hover:text-blue-800 transition-colors"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                    >
-                                                        <i className="fas fa-download" />
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </Card>
+                            <AnexosDoProcesso processoId={proc.id} anexos={anexos} podeOrganizar={pode_despachar} abrirDireto={verAnexos} requerenteEmail={proc.requerente_email} />
                         </div>
                     </div>
                 )}
@@ -570,6 +742,10 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                 {/* ── Tab: Tramitacao (Timeline + Acoes) ── */}
                 {activeTab === 'tramitacao' && (
                     <div className="space-y-4">
+                    {fluxo && <FluxoDoAssunto fluxo={fluxo} />}
+                    <PrazosDoProcesso processoId={proc.id} prazos={prazos} unidades={unidadesTree}
+                        podeIncluir={! ['concluido', 'cancelado'].includes(proc.status)} />
+                    {frentes && <SituacaoSetores frentes={frentes} statusProcesso={proc.status} />}
                     <Card title="Histórico de Tramitação">
                         {tramitacoes.length === 0 ? (
                             <div className="py-8 text-center text-gray-400">
@@ -613,10 +789,23 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                                 }`}>
                                                                     {tram.status}
                                                                 </span>
+                                                                {tram.manifestacao && (
+                                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${tram.manifestacao === 'deferido' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                                        {tram.manifestacao === 'deferido' ? 'Setor deferiu' : 'Setor indeferiu'}
+                                                                    </span>
+                                                                )}
+                                                                {tram.modo === 'copia' && (
+                                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-sky-100 text-sky-700">cópia</span>
+                                                                )}
+                                                                {tram.estagio && isPending && (
+                                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-violet-100 text-violet-700">{tram.estagio}</span>
+                                                                )}
                                                             </div>
-                                                            <p className="text-xs text-gray-500">
+                                                            <p className="text-xs text-gray-500 flex items-center flex-wrap gap-1.5">
+                                                                <Avatar usuario={tram.remetente} nome={tram.remetente_nome} tamanho="sm" />
                                                                 {tram.remetente?.name || tram.remetente_nome || '-'}
-                                                                <i className="fas fa-arrow-right mx-1.5 text-[8px]" />
+                                                                <i className="fas fa-arrow-right mx-1 text-[8px]" />
+                                                                {(tram.destinatario || tram.destinatario_nome) && <Avatar usuario={tram.destinatario} nome={tram.destinatario_nome} tamanho="sm" />}
                                                                 {tram.destinatario?.name || tram.destinatario_nome || '-'}
                                                             </p>
                                                         </div>
@@ -627,12 +816,29 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                                                     {sla.label}
                                                                 </span>
                                                             )}
+                                                            {isPending && tram.sla_horas && (
+                                                                <p className="text-[11px] text-gray-500 mt-0.5" title="Tempo na etapa contra o prazo ideal dela">
+                                                                    {tempoNaEtapa(tram.created_at, tram.sla_horas)}
+                                                                </p>
+                                                            )}
                                                         </div>
                                                     </div>
 
                                                     {tram.despacho && (
                                                         <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                                                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{tram.despacho}</p>
+                                                            <div className="texto-rico" dangerouslySetInnerHTML={{ __html: tram.despacho_html }} />
+                                                        </div>
+                                                    )}
+
+                                                    {/* Parte do setor resolvida (multissetorial) */}
+                                                    {tram.status === 'resolvido' && (
+                                                        <div className="mt-3 p-3 bg-green-50 border border-green-100 rounded-lg">
+                                                            <p className="text-xs font-semibold text-green-800 mb-1">
+                                                                <i className="fas fa-check-double mr-1" />
+                                                                Parte do setor resolvida por {tram.resolvedor?.name || '-'}
+                                                                {tram.resolvido_em && <> em {formatDate(tram.resolvido_em)}</>}
+                                                            </p>
+                                                            {tram.parecer && <p className="text-sm text-gray-700 whitespace-pre-wrap">{tram.parecer}</p>}
                                                         </div>
                                                     )}
 
@@ -657,14 +863,49 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                     </Card>
 
                     {/* Painel de acao unificado */}
-                    {pode_concluir && ! ['concluido', 'cancelado', 'aguardando_assinatura'].includes(proc.status) && (
+                    {(pode_despachar || pode_concluir) && ! ['concluido', 'cancelado', 'aguardando_assinatura'].includes(proc.status) && (
                     <Card title="O que você deseja fazer?" className="overflow-visible">
+                        {/* Quem age em mais de um setor do processo escolhe em qual */}
+                        {minhas_etapas.length > 1 && (
+                            <div className="mb-4 pb-4 border-b border-gray-100">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Agir como</label>
+                                <select value={etapaAtual?.id || ''} className="ds-input md:w-1/2"
+                                    onChange={(e) => router.get(`/processos/${proc.id}`, { etapa: e.target.value }, { preserveScroll: true, preserveState: false })}>
+                                    {minhas_etapas.map(m => (
+                                        <option key={m.id} value={m.id}>{m.setor}{m.principal ? ' (fluxo principal)' : ''}</option>
+                                    ))}
+                                </select>
+                                <p className="mt-1 text-[10px] text-gray-400">Você atua em mais de um setor deste processo. O fluxo principal decide e encerra; os outros setores resolvem a parte deles.</p>
+                            </div>
+                        )}
+                        {/* Estágio da etapa no setor (TR 4.9.4) */}
+                        {pode_despachar && etapaAtual && (
+                            <div className="flex flex-wrap items-end gap-2 mb-4 pb-4 border-b border-gray-100">
+                                <div className="flex-1 min-w-[240px]">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Estágio no setor <span className="text-gray-400 text-xs">({etapaAtual.setor_destino})</span>
+                                    </label>
+                                    <input list="estagios-processo" value={estagio} onChange={(e) => setEstagio(e.target.value)}
+                                        maxLength={60} placeholder="Ex.: Em análise" className="ds-input" />
+                                    <datalist id="estagios-processo">{estagios.map(e => <option key={e} value={e} />)}</datalist>
+                                </div>
+                                <Button type="button" variant="secondary" disabled={(estagio || '') === (etapaAtual.estagio || '')}
+                                    onClick={() => router.post(`/tramitacoes/${etapaAtual.id}/estagio`, { estagio }, { preserveScroll: true })}>
+                                    Salvar estágio
+                                </Button>
+                            </div>
+                        )}
                         {/* Mode picker */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
                             {[
                                 { v: 'encaminhar', icone: 'fa-paper-plane', cor: 'blue',    titulo: 'Encaminhar',         desc: 'Mandar para outro setor/pessoa' },
+                                ...(pode_resolver ? [
+                                { v: 'resolver',   icone: 'fa-check-double', cor: 'emerald', titulo: 'Resolver a parte do setor', desc: 'O processo segue nos outros setores' },
+                                ] : []),
+                                ...(pode_cancelar ? [
                                 { v: 'decidir',    icone: 'fa-gavel',       cor: 'emerald', titulo: 'Decidir e Encerrar', desc: 'Deferir/Indeferir/Parcial' },
                                 { v: 'arquivar',   icone: 'fa-archive',     cor: 'gray',    titulo: 'Arquivar',           desc: 'Encerrar sem decisão formal' },
+                                ] : []),
                             ].map(op => {
                                 const ativo = acaoMode === op.v;
                                 const corMap = { blue: 'border-blue-500 bg-blue-50', emerald: 'border-emerald-500 bg-emerald-50', gray: 'border-gray-500 bg-gray-50' };
@@ -698,6 +939,42 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                         <i className="fas fa-info-circle mt-0.5" />
                                         <p>Despache para um <strong>setor</strong> (qualquer pessoa do setor pode receber) e, opcionalmente, indique uma <strong>pessoa específica</strong> daquele setor.</p>
                                     </div>
+                                    {noFluxo && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Etapa do fluxo</label>
+                                                <select value={etapaDestino} onChange={(e) => setEtapaDestino(e.target.value)} className="ds-input">
+                                                    {fluxo.etapas.filter(e => fluxo.permitidas.includes(e.id)).map(e => (
+                                                        <option key={e.id} value={String(e.id)}>
+                                                            {e.ordem}. {e.nome}{e.obrigatorio ? '' : ' (opcional)'}
+                                                        </option>
+                                                    ))}
+                                                    <option value="manter">Continuar na etapa atual{etapaAtualFluxo ? ` (${etapaAtualFluxo.nome})` : ''}</option>
+                                                </select>
+                                                <p className="mt-1 text-[10px] text-gray-400">
+                                                    {etapaDestino === 'manter'
+                                                        ? 'Movimento interno: o processo não avança no fluxo e pode ir para qualquer setor.'
+                                                        : setoresPermitidos ? `Esta etapa é feita por: ${setoresDaEtapa.map(s => s.nome).join(', ')}.`
+                                                        : 'Etapa livre: escolha qualquer setor.'}
+                                                </p>
+                                            </div>
+                                            {etapaAtualFluxo?.modelo && (
+                                                <div className="flex items-end">
+                                                    <button type="button" onClick={() => despacharForm.setData('despacho', textoParaHtml(etapaAtualFluxo.modelo))}
+                                                        className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100">
+                                                        <i className="fas fa-file-alt mr-1" />Usar o modelo de texto da etapa "{etapaAtualFluxo.nome}"
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {setoresDaEtapa.length > 1 && (
+                                        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                            <input type="checkbox" checked={todosDaEtapa} onChange={(e) => setTodosDaEtapa(e.target.checked)}
+                                                className="rounded border-gray-300 text-blue-600" />
+                                            Enviar a todos os setores da etapa ({setoresDaEtapa.length}) — cada um trata a sua parte em paralelo
+                                        </label>
+                                    )}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="relative">
                                             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -777,6 +1054,20 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                         </div>
                                     </div>
 
+                                    <ManifestacaoSetor valor={manifestacao} onChange={setManifestacao} />
+
+                                    {/* Outros setores em paralelo e cópias (TR 4.9.4, 4.9.14) */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <SetoresMulti titulo="Outros setores que também vão tratar"
+                                            ajuda="Cada um tramita e resolve a sua parte; o processo só é concluído quando todos resolverem."
+                                            unidades={unidadesTree} valor={outrosSetores} onChange={setOutrosSetores}
+                                            excluir={[despacharForm.data.setor_destino, ...copiasSetores]} />
+                                        <SetoresMulti titulo="Com cópia para"
+                                            ajuda="Só para ciência: o setor recebe na caixa e marca como ciente; o processo não espera por ele."
+                                            unidades={unidadesTree} valor={copiasSetores} onChange={setCopiasSetores}
+                                            excluir={[despacharForm.data.setor_destino, ...outrosSetores]} />
+                                    </div>
+
                                     {/* Templates de despacho */}
                                     {templatesDespacho.length > 0 && (
                                         <div>
@@ -798,16 +1089,15 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                     )}
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Despacho <span className="text-red-500">*</span>
-                                        </label>
-                                        <textarea
-                                            value={despacharForm.data.despacho}
-                                            onChange={(e) => despacharForm.setData('despacho', e.target.value)}
-                                            className="ds-input !h-auto"
-                                            rows={6}
-                                            placeholder="Texto do despacho..."
-                                        />
+                                        <div className="flex flex-wrap items-end justify-between gap-2 mb-1">
+                                            <label className="block text-sm font-medium text-gray-700">
+                                                Despacho <span className="text-red-500">*</span>
+                                            </label>
+                                            <FerramentasDoTexto modulo="despacho" conteudo={despacharForm.data.despacho} onAplicar={(html) => despacharForm.setData('despacho', html)} />
+                                        </div>
+                                        <RichEditor html={despacharForm.data.despacho} onChange={(v) => despacharForm.setData('despacho', v)}
+                                            minHeight={160} compacto variaveis={variaveis_despacho} marcadores={['mencao', 'referencia']} erro={despacharForm.errors.despacho}
+                                            placeholder="Texto do despacho…" />
                                         {despacharForm.errors.despacho && (
                                             <p className="mt-1 text-xs text-red-600">{despacharForm.errors.despacho}</p>
                                         )}
@@ -863,13 +1153,67 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             </form>
                         ))}
 
+                        {/* Multissetorial: só encerra depois que todos os setores resolveram (TR 4.9.5) */}
+                        {(acaoMode === 'decidir' || acaoMode === 'arquivar') && ! pode_concluir && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800 flex items-start gap-2">
+                                <i className="fas fa-hourglass-half mt-0.5" />
+                                <p>O processo só pode ser encerrado depois que todos os setores resolverem a parte deles. Falta: <strong>{aguardando_setores.join(', ')}</strong>.</p>
+                            </div>
+                        )}
+
+                        {/* Modo: Resolver a parte do setor (frente que não é a principal) */}
+                        {acaoMode === 'resolver' && pode_resolver && etapaAtual && (
+                            <div className="space-y-4">
+                                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 flex items-start gap-2">
+                                    <i className="fas fa-info-circle mt-0.5" />
+                                    <p>Encerra só a parte de <strong>{etapaAtual.setor_destino}</strong>. O processo continua com os outros setores e é concluído pelo fluxo principal quando todos tiverem resolvido.</p>
+                                </div>
+                                <div>
+                                    <ManifestacaoSetor valor={manifestacao} onChange={setManifestacao} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">O que o setor fez <span className="text-red-500">*</span></label>
+                                    <textarea value={parecerSetor} onChange={(e) => setParecerSetor(e.target.value)} rows={4}
+                                        className="ds-input !h-auto" placeholder="Parecer, providências tomadas, resultado..." />
+                                </div>
+                                <Button type="button" variant="primary" icon="fas fa-check-double" disabled={! parecerSetor.trim()}
+                                    onClick={() => router.post(`/tramitacoes/${etapaAtual.id}/resolver`, { parecer: parecerSetor, manifestacao: manifestacao || null }, {
+                                        preserveScroll: true, onSuccess: () => setParecerSetor(''),
+                                    })}>
+                                    Resolver a parte do setor
+                                </Button>
+                            </div>
+                        )}
+
+                        {/* Sem pular etapas (TR 4.38.19): decisão formal só depois das obrigatórias */}
+                        {acaoMode === 'decidir' && pode_concluir && fluxo?.pendentes?.length > 0 && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800 flex items-start gap-2">
+                                <i className="fas fa-route mt-0.5" />
+                                <p>Para decidir, o processo precisa passar pelas etapas obrigatórias que faltam: <strong>{fluxo.pendentes.join(', ')}</strong>. Arquivar (sem decisão) continua disponível.</p>
+                            </div>
+                        )}
+
                         {/* Modo: Decidir e Encerrar */}
-                        {acaoMode === 'decidir' && (
+                        {acaoMode === 'decidir' && pode_concluir && ! (fluxo?.pendentes?.length > 0) && (
                             <div className="space-y-4">
                                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 flex items-start gap-2">
                                     <i className="fas fa-info-circle mt-0.5" />
                                     <p>Registre a <strong>decisão final</strong> sobre o pedido. O processo será <strong>encerrado</strong> após a decisão.</p>
                                 </div>
+                                {manifestacoes.length > 0 && (
+                                    <div className="rounded-xl border border-gray-200 p-3">
+                                        <p className="text-xs font-semibold text-gray-600 mb-1.5">Manifestações dos setores</p>
+                                        <ul className="space-y-1">
+                                            {manifestacoes.map(t => (
+                                                <li key={t.id} className="text-sm flex items-center gap-2">
+                                                    <i className={`fas ${t.manifestacao === 'deferido' ? 'fa-check-circle text-green-600' : 'fa-times-circle text-red-600'}`} />
+                                                    <span className="text-gray-800">{t.setor_destino}</span>
+                                                    <span className="text-gray-500">— {t.manifestacao}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Parecer / Justificativa <span className="text-red-500">*</span>
@@ -969,7 +1313,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                         )}
 
                         {/* Modo: Arquivar */}
-                        {acaoMode === 'arquivar' && (
+                        {acaoMode === 'arquivar' && pode_concluir && (
                             <div className="space-y-4">
                                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-start gap-2">
                                     <i className="fas fa-exclamation-triangle mt-0.5" />
@@ -996,7 +1340,12 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                 )}
 
                 {/* ── Tab: Comentarios ── */}
+                {activeTab === 'arvore' && (
+                    <ArvoreDoProcesso processoId={proc.id} arvores={arvores} configuracoes={arvore_configuracoes} secoes={arvore_secoes} />
+                )}
+
                 {activeTab === 'historico' && (
+                    <>
                     <Card title="Histórico do processo">
                         {(proc.historico || []).length === 0 ? (
                             <div className="py-8 text-center text-gray-400">
@@ -1017,7 +1366,11 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                     {[...proc.historico].sort((a, b) => b.id - a.id).map(h => (
                                         <tr key={h.id} className="hover:bg-gray-50">
                                             <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(h.created_at)}</td>
-                                            <td className="px-4 py-3 text-gray-700">{h.usuario?.name || '-'}</td>
+                                            <td className="px-4 py-3 text-gray-700">
+                                                <span className="inline-flex items-center gap-2">
+                                                    {h.usuario && <Avatar usuario={h.usuario} tamanho="xs" />}{h.usuario?.name || '-'}
+                                                </span>
+                                            </td>
                                             <td className="px-4 py-3">
                                                 <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{ACOES_HISTORICO[h.acao] || h.acao}</span>
                                             </td>
@@ -1028,6 +1381,8 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                             </table>
                         )}
                     </Card>
+                    <QuemAcessou acessos={acessos} />
+                    </>
                 )}
 
                 {activeTab === 'comentarios' && (
@@ -1077,9 +1432,7 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                                         <div key={com.id || idx} className={`p-4 rounded-xl ${com.interno ? 'bg-yellow-50 border border-yellow-100' : 'bg-gray-50'}`}>
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center">
-                                                        <i className="fas fa-user text-blue-600 text-xs" />
-                                                    </div>
+                                                    <Avatar usuario={com.usuario} nome={com.usuario_nome || 'Usuário'} tamanho="sm" />
                                                     <span className="text-sm font-medium text-gray-700">
                                                         {com.usuario?.name || com.usuario_nome || 'Usuário'}
                                                     </span>
@@ -1100,6 +1453,73 @@ export default function Show({ processo, usuarios, unidades = [], pode_receber, 
                     </div>
                 )}
             </div>
+
+            {/* Modal: Alterar assunto / recategorizar (TR 4.32.24, 4.33.15) */}
+            {pode_alterar_assunto && (
+                <Modal show={showAssunto} onClose={() => setShowAssunto(false)} title="Alterar o assunto">
+                    <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); assuntoForm.post(`/processos/${proc.id}/assunto`, { preserveScroll: true, onSuccess: () => { setShowAssunto(false); assuntoForm.setData('motivo', ''); } }); }}>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de processo (assunto)</label>
+                            <select value={assuntoForm.data.tipo_processo_id} onChange={(e) => assuntoForm.setData('tipo_processo_id', e.target.value)} className="ds-input">
+                                {tipos_processo.map(t => <option key={t.id} value={String(t.id)}>{t.nome}{t.sigla ? ` (${t.sigla})` : ''}</option>)}
+                            </select>
+                            {String(proc.tipo_processo_id) !== assuntoForm.data.tipo_processo_id && (
+                                <p className="mt-1 text-xs text-amber-700"><i className="fas fa-route mr-1" />Recategorizar recomeça o fluxo na 1ª etapa do novo assunto. O número do protocolo não muda.</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Assunto</label>
+                            <input value={assuntoForm.data.assunto} onChange={(e) => assuntoForm.setData('assunto', e.target.value)} maxLength={500} className="ds-input" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Motivo <span className="text-red-500">*</span></label>
+                            <textarea value={assuntoForm.data.motivo} onChange={(e) => assuntoForm.setData('motivo', e.target.value)} rows={3} className="ds-input !h-auto" />
+                            {assuntoForm.errors.motivo && <p className="mt-1 text-xs text-red-600">{assuntoForm.errors.motivo}</p>}
+                        </div>
+                        <p className="text-xs text-gray-500">O assunto anterior, a data e a hora ficam registrados no processo.</p>
+                        <div className="flex justify-end gap-2">
+                            <Button type="button" variant="secondary" onClick={() => setShowAssunto(false)}>Cancelar</Button>
+                            <Button type="submit" variant="primary" loading={assuntoForm.processing} disabled={! assuntoForm.data.motivo.trim()}>Salvar</Button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+
+            {/* Modal: Aos cuidados (TR 4.9.13) */}
+            {cuidados && etapaAtual && (
+                <Modal show={showCuidados} onClose={() => setShowCuidados(false)} title="Aos cuidados">
+                    <div className="space-y-4">
+                        <p className="text-sm text-gray-600">
+                            {cuidados.responsavel
+                                ? <>Está aos cuidados de <b>{cuidados.responsavel.name}</b>.</>
+                                : <>Está na caixa do setor <b>{etapaAtual.setor_destino}</b>, sem responsável.</>}
+                            {' '}Passar não tramita: o processo continua no setor e vai para a caixa pessoal de quem ficar com ele.
+                        </p>
+                        {cuidados.responsavel?.id !== auth?.user?.id && (
+                            <Button variant="primary" icon="fas fa-hand-paper" onClick={() => passarCuidados(auth?.user?.id)}>
+                                Ficar comigo
+                            </Button>
+                        )}
+                        <div>
+                            <label className="block text-sm font-medium text-navy-900 mb-1">Passar para um colega do setor</label>
+                            <div className="flex gap-2">
+                                <select value={cuidadosPara} onChange={(e) => setCuidadosPara(e.target.value)} className="ds-input flex-1">
+                                    <option value="">Escolha…</option>
+                                    {cuidados.colegas.filter(c => c.id !== auth?.user?.id && c.id !== cuidados.responsavel?.id)
+                                        .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                                <Button variant="secondary" disabled={! cuidadosPara} onClick={() => passarCuidados(cuidadosPara)}>Passar</Button>
+                            </div>
+                        </div>
+                        {cuidados.responsavel && (
+                            <button type="button" onClick={() => passarCuidados(null)}
+                                className="text-sm text-gray-600 hover:text-red-600">
+                                <i className="fas fa-undo mr-1" /> Devolver para a caixa do setor
+                            </button>
+                        )}
+                    </div>
+                </Modal>
+            )}
 
             {/* Modal: Concluir */}
             <Modal show={showConcluirModal} onClose={() => setShowConcluirModal(false)} title="Concluir Processo">
@@ -1167,10 +1587,146 @@ function getFileIcon(mime) {
     return 'fas fa-file text-gray-400';
 }
 
+/** Valor do formulário do assunto como texto legível (endereço, sim/não, CPF/CNPJ, cálculo). */
+function valorDoCampo(tipo, v) {
+    if (v === null || v === undefined || v === '') return '-';
+    if (tipo === 'checkbox' || typeof v === 'boolean') return v ? 'Sim' : 'Não';
+    if (tipo === 'cep' || typeof v === 'object') {
+        const cep = String(v.cep || '').replace(/^(\d{5})(\d{3})$/, '$1-$2');
+        return [[v.logradouro, v.numero].filter(Boolean).join(', '), v.complemento, v.bairro,
+            [v.cidade, v.uf].filter(Boolean).join('/'), cep && `CEP ${cep}`].filter(Boolean).join(' — ');
+    }
+    if (tipo === 'cpf_cnpj') {
+        const d = String(v);
+        return d.length === 11 ? d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+            : d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+    }
+    if (tipo === 'calculo' || tipo === 'money') return Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 6, minimumFractionDigits: tipo === 'money' ? 2 : 0 });
+    return String(v);
+}
+
+/** Manifestação do setor (TR 4.38.14): deferir ou indeferir na sua etapa; a decisão final é do fluxo principal. */
+function ManifestacaoSetor({ valor, onChange }) {
+    const opcoes = [['', 'Sem manifestação'], ['deferido', 'Deferido'], ['indeferido', 'Indeferido']];
+    return (
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Manifestação do setor <span className="text-gray-400 text-xs">(opcional)</span></label>
+            <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+                {opcoes.map(([v, r]) => (
+                    <button key={v || 'nenhuma'} type="button" onClick={() => onChange(v)}
+                        className={`px-3 py-1.5 text-sm border-r last:border-r-0 border-gray-200 ${valor === v
+                            ? (v === 'deferido' ? 'bg-green-600 text-white' : v === 'indeferido' ? 'bg-red-600 text-white' : 'bg-gray-700 text-white')
+                            : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                        {r}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+/** "Decorrido 1d 6h de 2d (63%)" — tempo na etapa contra o prazo ideal (TR 4.38.23). */
+function tempoNaEtapa(desde, slaHoras) {
+    const horas = Math.max(0, (Date.now() - new Date(desde).getTime()) / 36e5);
+    const fmt = (h) => {
+        const d = Math.floor(h / 24), r = Math.round(h % 24);
+        return d ? `${d}d${r ? ` ${r}h` : ''}` : `${Math.round(h)}h`;
+    };
+    return `Decorrido ${fmt(horas)} de ${fmt(slaHoras)} (${Math.round((horas / slaHoras) * 100)}%)`;
+}
+
+/** Etapas do assunto (TR 4.38.19–23): feitas, atual e a fazer, com setores e prazo ideal. */
+function FluxoDoAssunto({ fluxo }) {
+    const cor = { feita: 'bg-green-500 text-white', atual: 'bg-blue-600 text-white', a_fazer: 'bg-gray-200 text-gray-600', pulada: 'bg-gray-100 text-gray-400 line-through' };
+    return (
+        <Card title="Fluxo do assunto">
+            <ol className="space-y-2">
+                {fluxo.etapas.map(e => (
+                    <li key={e.id} className="flex items-start gap-3">
+                        <span className={`w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${cor[e.situacao]}`}>
+                            {e.situacao === 'feita' ? <i className="fas fa-check text-[10px]" /> : e.ordem}
+                        </span>
+                        <div className="min-w-0">
+                            <p className={`text-sm ${e.situacao === 'atual' ? 'font-semibold text-blue-800' : 'text-gray-800'}`}>
+                                {e.nome}
+                                {! e.obrigatorio && <span className="ml-2 text-[10px] text-gray-500">(opcional{e.situacao === 'pulada' ? ' — não utilizada' : ''})</span>}
+                                {e.situacao === 'atual' && <span className="ml-2 text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">etapa atual</span>}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                                {e.setores.length ? e.setores.map(s => s.nome).join(', ') : 'Qualquer setor'}
+                                {e.sla_horas && <> · prazo ideal {e.sla_horas >= 24 && e.sla_horas % 24 === 0 ? `${e.sla_horas / 24} dia(s)` : `${e.sla_horas}h`}</>}
+                            </p>
+                        </div>
+                    </li>
+                ))}
+            </ol>
+        </Card>
+    );
+}
+
+/**
+ * Situação geral do processo multissetorial (TR 4.9.4, 4.9.5): cada setor que trata a sua
+ * parte, em que estágio está, se já resolveu; e as cópias com ou sem ciência.
+ */
+function SituacaoSetores({ frentes, statusProcesso }) {
+    const setores = frentes.setores || [];
+    const resolvidos = setores.filter(s => s.frente !== 1 && s.situacao === 'resolvido').length;
+    const outros = setores.filter(s => s.frente !== 1).length;
+    const final = ['concluido', 'cancelado'].includes(statusProcesso);
+    const geral = final ? (statusProcesso === 'concluido' ? 'Concluído' : 'Cancelado')
+        : outros > 0 && resolvidos === outros ? 'Todos os setores resolveram — falta concluir'
+        : resolvidos > 0 ? 'Parcialmente resolvido' : 'Em andamento';
+    const rotulo = { em_andamento: 'Em andamento', resolvido: 'Resolvido', concluido: 'Concluído', cancelado: 'Cancelado', despachado: 'Despachado', devolvido: 'Devolvido' };
+    const cor = { em_andamento: 'bg-blue-100 text-blue-700', resolvido: 'bg-green-100 text-green-700', concluido: 'bg-green-100 text-green-700', cancelado: 'bg-gray-100 text-gray-600' };
+
+    return (
+        <Card title="Situação por setor">
+            <p className="text-sm text-gray-700 mb-3">
+                <b>Situação geral:</b> {geral}
+                {outros > 0 && <span className="text-gray-500"> · {resolvidos} de {outros} setor(es) em paralelo resolveram</span>}
+            </p>
+            <div className="divide-y divide-gray-100">
+                {setores.map(s => (
+                    <div key={s.frente} className="py-2 flex items-start justify-between gap-3 flex-wrap">
+                        <div>
+                            <p className="text-sm font-semibold text-gray-800">
+                                {s.setor}
+                                {s.frente === 1 && <span className="ml-2 text-[10px] font-medium text-cyan-700 bg-cyan-50 border border-cyan-200 rounded-full px-2 py-0.5">principal</span>}
+                            </p>
+                            {s.estagio && <p className="text-xs text-gray-500"><i className="fas fa-flag mr-1" />{s.estagio}</p>}
+                            {s.parecer && <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{s.parecer}</p>}
+                        </div>
+                        <span className={`text-[11px] font-medium rounded-full px-2 py-0.5 ${cor[s.situacao] || 'bg-gray-100 text-gray-600'}`}>
+                            {rotulo[s.situacao] || s.situacao}{s.resolvido_em && ` em ${formatDate(s.resolvido_em)}`}
+                        </span>
+                    </div>
+                ))}
+            </div>
+            {frentes.copias?.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                    <p className="text-xs font-semibold text-gray-500 mb-1"><i className="fas fa-copy mr-1" />Cópias para ciência</p>
+                    <div className="flex flex-wrap gap-1.5">
+                        {frentes.copias.map((c, i) => (
+                            <span key={i} className={`text-xs rounded-full px-2.5 py-1 border ${c.ciente ? 'bg-green-50 border-green-200 text-green-800' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+                                {c.setor} — {c.ciente ? `ciente em ${formatDate(c.ciente_em)}` : 'aguardando ciência'}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </Card>
+    );
+}
+
 const ACOES_HISTORICO = {
     abertura: 'Abertura', recebimento: 'Recebimento', despacho: 'Despacho', devolucao: 'Devolucao',
     comentario: 'Comentário', anexo: 'Anexo', conclusao: 'Conclusão', cancelamento: 'Cancelamento',
     assinatura_decisao: 'Decisão assinada', arquivado_no_ged: 'Arquivado no repositório',
+    aos_cuidados: 'Aos cuidados', resolucao_setor: 'Setor resolveu a parte dele', estagio: 'Estágio',
+    ciencia_copia: 'Ciência da cópia', decisao: 'Decisão', alteracao_assunto: 'Assunto alterado',
+    prazo_criado: 'Prazo incluído', prazo_alterado: 'Prazo alterado', prazo_realizado: 'Prazo realizado', prazo_excluido: 'Prazo excluído',
+    anexos_reordenados: 'Anexos reordenados', anexo_avaliado: 'Anexo avaliado', link_anexo: 'Link seguro de anexo', arvore_solicitada: 'Árvore do processo pedida',
+    reclassificacao: 'Reclassificado', localizacao: 'Localização alterada', avaliacao: 'Avaliação', reabertura: 'Reaberto',
 };
 
 function formatDate(dateStr) {

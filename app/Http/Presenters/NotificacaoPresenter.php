@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Presenters;
 
 use App\Models\Notificacao;
+use App\Support\Notificacoes;
 
 /**
- * Forma da notificação para a tela de notificações e para a prévia do sino.
+ * Forma da notificação para a tela de notificações e para a prévia do sino — um formato só.
  *
- * `href` já vem pronto: o link que marca como lida e leva ao assunto, ou null quando a
- * notificação não tem assunto — o frontend não monta a URL.
+ * `href` já vem pronto: o link que marca como lida e leva ao assunto (Notificacao::destino),
+ * ou null quando a notificação não tem assunto — o frontend não monta a URL.
  */
 final class NotificacaoPresenter
 {
@@ -21,26 +22,13 @@ final class NotificacaoPresenter
             'titulo'     => $n->titulo,
             'mensagem'   => $n->mensagem,
             'tipo'       => $n->tipo,
+            'categoria'  => $n->categoria,
+            'icone'      => Notificacoes::CATEGORIAS[$n->categoria][1] ?? 'fa-bell',
+            'urgente'    => (bool) $n->urgente,
+            'setor'      => $n->alcance === 'setor',
             'lida'       => (bool) $n->lida,
             'created_at' => $n->created_at,
-            'href'       => self::destino($n) !== null ? "/notificacoes/{$n->id}/abrir" : null,
+            'href'       => $n->destino() !== null ? "/notificacoes/{$n->id}/abrir" : null,
         ];
-    }
-
-    /** Tela do assunto a que a notificação se refere, ou null. */
-    public static function destino(Notificacao $n): ?string
-    {
-        if (! $n->referencia_id) {
-            return null;
-        }
-
-        return match ($n->referencia_tipo) {
-            'documento' => "/documentos/{$n->referencia_id}",
-            'processo'  => "/processos/{$n->referencia_id}",
-            'memorando' => "/memorandos/{$n->referencia_id}",
-            'oficio'    => "/oficios/{$n->referencia_id}",
-            'circular'  => "/circulares/{$n->referencia_id}",
-            default     => null,
-        };
     }
 }

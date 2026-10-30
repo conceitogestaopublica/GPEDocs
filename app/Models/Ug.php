@@ -40,6 +40,8 @@ class Ug extends Model
         'telefone',
         'email_institucional',
         'site',
+        'organograma_publico',
+        'organograma_token',
     ];
 
     protected function casts(): array
@@ -47,6 +49,7 @@ class Ug extends Model
         return [
             'ativo'        => 'boolean',
             'banner_ativo' => 'boolean',
+            'organograma_publico' => 'boolean',
         ];
     }
 

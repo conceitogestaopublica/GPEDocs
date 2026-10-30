@@ -2,11 +2,15 @@
  * Sala de Chat Interno — botao flutuante + painel lateral.
  * Polling a cada 10s para contadores; ao abrir conversa, polling de 5s.
  * Notifica via badge, som e toast quando chega mensagem nova.
+ * Aba Suporte: atendimento ao usuário da plataforma (TR 4.26, Components/SuporteChat).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import SuporteChat from './SuporteChat';
 
 export default function ChatFlutuante() {
     const [open, setOpen] = useState(false);
+    const [aba, setAba] = useState('pessoas');
+    const [suporte, setSuporte] = useState(null);
     const [contatos, setContatos] = useState([]);
     const [totalNaoLidas, setTotalNaoLidas] = useState(0);
     const [contatoAtivo, setContatoAtivo] = useState(null); // {id, nome}
@@ -133,6 +137,17 @@ export default function ChatFlutuante() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
+    // Suporte: atendentes on-line, meus atendimentos e não lidas (15s; o atendente fica "visto" enquanto isso)
+    const carregarSuporte = useCallback(async () => {
+        try { setSuporte(await fetchJson('/suporte/api/painel')); } catch (_) { /* silencioso */ }
+    }, [fetchJson]);
+    useEffect(() => {
+        carregarSuporte();
+        const t = setInterval(carregarSuporte, 15000);
+        return () => clearInterval(t);
+    }, [carregarSuporte]);
+    const naoLidasSuporte = suporte?.nao_lidas || 0;
+
     // Polling de mensagens na conversa aberta — 3s
     useEffect(() => {
         contatoAtivoRef.current = contatoAtivo;
@@ -217,9 +232,9 @@ export default function ChatFlutuante() {
                     className="fixed bottom-6 right-6 z-[90] w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-xl flex items-center justify-center transition-all hover:scale-105"
                     title="Chat interno">
                     <i className="fas fa-comment-dots text-xl" />
-                    {totalNaoLidas > 0 && (
+                    {totalNaoLidas + naoLidasSuporte > 0 && (
                         <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1.5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-white animate-pulse">
-                            {totalNaoLidas > 99 ? '99+' : totalNaoLidas}
+                            {totalNaoLidas + naoLidasSuporte > 99 ? '99+' : totalNaoLidas + naoLidasSuporte}
                         </span>
                     )}
                 </button>
@@ -259,8 +274,23 @@ export default function ChatFlutuante() {
                         )}
                     </div>
 
+                    {/* Abas: pessoas (chat interno) e suporte */}
+                    {!contatoAtivo && (
+                        <div className="flex border-b border-gray-100 text-sm">
+                            {[['pessoas', 'Pessoas', 'fa-users', totalNaoLidas], ['suporte', 'Suporte', 'fa-life-ring', naoLidasSuporte]].map(([k, r, ic, n]) => (
+                                <button key={k} type="button" onClick={() => { setAba(k); if (k === 'suporte') carregarSuporte(); }}
+                                    className={`-mb-px flex flex-1 items-center justify-center gap-1.5 border-b-2 py-2 ${aba === k ? 'border-blue-600 font-semibold text-blue-700' : 'border-transparent text-gray-500'}`}>
+                                    <i className={`fas ${ic} text-xs`} />{r}
+                                    {n > 0 && <span className="rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">{n}</span>}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
                     {/* Conteudo */}
-                    {!contatoAtivo ? (
+                    {!contatoAtivo && aba === 'suporte' ? (
+                        <SuporteChat fetchJson={fetchJson} painel={suporte} recarregar={carregarSuporte} />
+                    ) : !contatoAtivo ? (
                         // Lista de contatos
                         <>
                             <div className="px-3 py-2 border-b border-gray-100">

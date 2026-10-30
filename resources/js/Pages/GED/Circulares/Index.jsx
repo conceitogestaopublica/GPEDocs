@@ -83,6 +83,12 @@ export default function CircularesIndex({ circulares, filters }) {
                         <i className="fas fa-paper-plane text-xs" />
                         Enviadas
                     </button>
+                    {tipo === 'recebidas' && (
+                        <button onClick={() => router.get('/circulares', filters?.arquivadas ? {} : { arquivadas: 1 }, { preserveState: false })}
+                            className="ml-auto mr-4 text-xs text-gray-500 hover:text-gray-800">
+                            <i className="fas fa-box-archive mr-1" />{filters?.arquivadas ? 'Voltar às recebidas' : 'Arquivadas por mim'}
+                        </button>
+                    )}
                 </div>
 
                 {/* Barra de pesquisa */}
@@ -135,6 +141,7 @@ export default function CircularesIndex({ circulares, filters }) {
                                                     <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
                                                 )}
                                                 {circular.numero}
+                                                {circular.urgente && <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-600 text-white font-bold">URGENTE</span>}
                                             </div>
                                         </Link>
                                     </td>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from '@inertiajs/react';
+import axios from 'axios';
 import ItemNotificacao from './ItemNotificacao';
 import { haQuantoTempo } from '../utils/datas';
 import useClickFora from '../Hooks/useClickFora';
@@ -11,8 +12,16 @@ const ATRASO_FECHAR_MS = 180;
  * o clique no sino também abre (celular não tem hover). Clicar numa notificação vai direto
  * ao assunto dela por /notificacoes/{id}/abrir, que marca como lida e redireciona.
  */
-export default function NotificacoesDropdown({ count, recentes = [] }) {
+export default function NotificacoesDropdown({ count }) {
     const [open, setOpen] = useState(false);
+    // Os avisos vêm do endpoint só quando o sino abre (null = carregando) — não pesam em
+    // toda navegação.
+    const [recentes, setRecentes] = useState(null);
+    useEffect(() => {
+        if (!open) return;
+        setRecentes(null);
+        axios.get('/notificacoes/recentes').then((r) => setRecentes(r.data)).catch(() => setRecentes([]));
+    }, [open]);
     const ref = useClickFora(setOpen);
     const timer = useRef(null);
 
@@ -51,7 +60,9 @@ export default function NotificacoesDropdown({ count, recentes = [] }) {
                         {count > 0 && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{count} {count === 1 ? 'nova' : 'novas'}</span>}
                     </div>
                     <div className="max-h-96 overflow-y-auto">
-                        {recentes.length === 0 ? (
+                        {recentes === null ? (
+                            <p className="px-4 py-4 text-xs text-gray-400">Carregando…</p>
+                        ) : recentes.length === 0 ? (
                             <div className="px-4 py-6 text-center text-gray-400">
                                 <i className="fas fa-bell-slash text-2xl mb-2 block" />
                                 <p className="text-sm">Nenhuma notificação</p>

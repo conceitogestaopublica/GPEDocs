@@ -15,10 +15,11 @@ use Inertia\Response;
 
 class CidadaoAuthController extends Controller
 {
-    public function showLogin(string $ug): Response
+    public function showLogin(Request $request, string $ug): Response
     {
         return Inertia::render('Portal/Auth/Login', [
-            'ugCodigo' => $ug,
+            'ugCodigo'      => $ug,
+            'exige_captcha' => \App\Support\Captcha::exigidoNaEntrada($request, 'cidadao-entrar'),
         ]);
     }
 
@@ -29,11 +30,19 @@ class CidadaoAuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
+        // Depois de algumas senhas erradas deste IP, pede o código da imagem.
+        if (\App\Support\Captcha::exigidoNaEntrada($request, 'cidadao-entrar')) {
+            \App\Support\Captcha::validar($request, 'cidadao-entrar');
+        }
+
         $cidadao = Cidadao::where('email', $data['email'])->where('ativo', true)->first();
         if (! $cidadao || ! Hash::check($data['password'], $cidadao->senha)) {
+            \App\Support\Captcha::registrarFalha($request, 'cidadao-entrar');
+
             return back()->withErrors(['email' => 'E-mail ou senha incorretos.'])->onlyInput('email');
         }
 
+        \App\Support\Captcha::limparFalhas($request, 'cidadao-entrar');
         Auth::guard('cidadao')->login($cidadao, true);
         $request->session()->regenerate();
 
@@ -56,6 +65,7 @@ class CidadaoAuthController extends Controller
             'telefone' => ['nullable', 'string', 'max:30'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
         ]);
+        \App\Support\Captcha::validar($request, 'cidadao-cadastro');
 
         $cidadao = Cidadao::create([
             'nome'     => $data['nome'],

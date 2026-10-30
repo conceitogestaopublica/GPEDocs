@@ -7,18 +7,25 @@
  * campos login (e-mail OU CPF)/password/remember, POST /login, e "lembrar" guarda
  * o login no localStorage para auto-preencher no próximo acesso.
  */
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import Captcha from '../../Components/Captcha';
+import EntrarComCertificado from '../../Components/EntrarComCertificado';
 import { useState, useEffect } from 'react';
 
 const STORAGE_KEY = 'gpe_remember_email';
 
-export default function Login({ flash = {} }) {
+export default function Login({ flash = {}, exige_captcha = false, provedores = [] }) {
+    const erroEntrada = usePage().props.errors?.login;
+    // Brasão e fundo do município (TR 4.22.1)
+    const identidade = usePage().props.identidade || {};
     const { data, setData, post, processing, errors } = useForm({
         login: '',
         password: '',
         remember: false,
+        captcha: '',
     });
     const [showPass, setShowPass] = useState(false);
+    const [comCertificado, setComCertificado] = useState(false);
 
     useEffect(() => {
         try {
@@ -43,8 +50,10 @@ export default function Login({ flash = {} }) {
 
             <div className="min-h-screen flex bg-white">
                 {/* ═══ ESQUERDA — Boas-vindas ═══ */}
-                <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-center px-16 xl:px-24
-                    bg-gradient-to-br from-cyan-50 via-white to-blue-50">
+                <div className={`hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-center px-16 xl:px-24 ${identidade.fundo_url ? 'bg-cover bg-center' : 'bg-gradient-to-br from-cyan-50 via-white to-blue-50'}`}
+                    style={identidade.fundo_url ? { backgroundImage: `url(${identidade.fundo_url})` } : undefined}>
+                    {/* Com imagem de fundo, uma camada clara mantém o texto legível */}
+                    {identidade.fundo_url && <div className="absolute inset-0 bg-white/75" />}
                     {/* blobs decorativos */}
                     <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-cyan-200/30 blur-3xl" />
                     <div className="absolute -bottom-32 -right-10 w-96 h-96 rounded-full bg-blue-200/30 blur-3xl" />
@@ -52,8 +61,11 @@ export default function Login({ flash = {} }) {
                     <div className="relative">
                         {/* Mesmo arquivo de logo do GPE Cloud usado no gpe2 e no tributário — a
                             nuvem desenhada à mão divergia da marca no primeiro retoque. */}
+                        {identidade.brasao_url && (
+                            <img src={identidade.brasao_url} alt="Brasão do município" className="h-24 xl:h-28 w-auto mb-6 select-none drop-shadow" />
+                        )}
                         <img src="/images/logo-gpe-cloud-full.png" alt="GPE Cloud — Gestão Pública Eficiente"
-                            className="h-24 xl:h-28 w-auto mb-10 select-none" />
+                            className={`w-auto mb-10 select-none ${identidade.brasao_url ? 'h-12 xl:h-14' : 'h-24 xl:h-28'}`} />
 
                         <h1 className="text-4xl font-extrabold leading-tight text-slate-800">Bem-vindo de volta!</h1>
                         <p className="mt-3 text-lg text-slate-500 max-w-md">
@@ -78,7 +90,8 @@ export default function Login({ flash = {} }) {
                 <div className="w-full lg:w-1/2 flex items-center justify-center px-6 sm:px-10 py-12">
                     <div className="w-full max-w-md">
                         {/* Logo + marca */}
-                        <div className="mb-8 lg:hidden">
+                        <div className="mb-8 lg:hidden flex items-center gap-3">
+                            {identidade.brasao_url && <img src={identidade.brasao_url} alt="Brasão do município" className="h-14 w-auto" />}
                             <img src="/images/logo-gpe-cloud-full.png" alt="GPE Cloud" className="h-11 w-auto" />
                         </div>
 
@@ -91,6 +104,18 @@ export default function Login({ flash = {} }) {
                             </div>
                         )}
 
+                        {/* Erro vindo de redirecionamento (gov.br, Google, verificação em duas etapas, suspensão):
+                            chega pelas props da página, não pelo formulário */}
+                        {erroEntrada && !errors.login && (
+                            <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-xl flex items-start gap-2">
+                                <i className="fas fa-exclamation-circle mt-0.5" /> {erroEntrada}
+                            </div>
+                        )}
+
+                        {comCertificado ? (
+                            <EntrarComCertificado lembrar={data.remember} onVoltar={() => setComCertificado(false)} />
+                        ) : (
+                        <>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             {/* E-mail ou CPF */}
                             <div>
@@ -132,6 +157,12 @@ export default function Login({ flash = {} }) {
                                 {errors.password && <p className="mt-1.5 text-sm text-red-600">{errors.password}</p>}
                             </div>
 
+                            {/* Depois de algumas senhas erradas: código da imagem */}
+                            {exige_captcha && (
+                                <Captcha contexto="login" value={data.captcha}
+                                    onChange={(v) => setData('captcha', v)} error={errors.captcha} />
+                            )}
+
                             {/* Lembrar + esqueci */}
                             <div className="flex items-center justify-between">
                                 <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-600 select-none">
@@ -155,6 +186,30 @@ export default function Login({ flash = {} }) {
                                 {processing ? (<><i className="fas fa-spinner fa-spin" /> Acessando...</>) : (<>Entrar <i className="fas fa-right-to-bracket" /></>)}
                             </button>
                         </form>
+
+                        <div className="flex items-center gap-3 my-5">
+                            <span className="flex-1 h-px bg-slate-200" />
+                            <span className="text-xs text-slate-400">ou</span>
+                            <span className="flex-1 h-px bg-slate-200" />
+                        </div>
+                        <button type="button" onClick={() => setComCertificado(true)}
+                            className="w-full py-3 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2">
+                            <i className="fas fa-id-card text-cyan-600" /> Entrar com certificado digital
+                        </button>
+                        {provedores.includes('govbr') && (
+                            <a href={`/login/oidc/govbr${data.remember ? '?lembrar=1' : ''}`}
+                                className="mt-2 w-full py-3 rounded-xl text-sm font-semibold text-white bg-[#1351B4] hover:bg-[#0c326f] flex items-center justify-center gap-2">
+                                Entrar com <span className="font-extrabold">gov.br</span>
+                            </a>
+                        )}
+                        {provedores.includes('google') && (
+                            <a href={`/login/oidc/google${data.remember ? '?lembrar=1' : ''}`}
+                                className="mt-2 w-full py-3 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2">
+                                <i className="fab fa-google text-[#4285F4]" /> Entrar com Google
+                            </a>
+                        )}
+                        </>
+                        )}
 
                         <p className="lg:hidden text-center text-[11px] text-slate-400 mt-8">
                             © {new Date().getFullYear()} Conceito Gestão Pública — Assessoria &amp; Tecnologia

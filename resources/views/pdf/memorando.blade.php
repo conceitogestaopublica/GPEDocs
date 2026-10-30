@@ -18,6 +18,7 @@
         .info-value { display: table-cell; padding: 3px 0; font-size: 11px; }
         .badge-confidencial { display: inline-block; background: #fef2f2; color: #dc2626; font-size: 9px; font-weight: bold; padding: 2px 8px; border-radius: 10px; border: 1px solid #fca5a5; }
         .conteudo { padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; line-height: 1.7; white-space: pre-wrap; word-wrap: break-word; }
+        @include('pdf.partials.estilo-texto-rico')
         .resposta { padding: 10px 15px; margin-bottom: 10px; background: #f1f5f9; border-left: 3px solid #1e40af; border-radius: 0 4px 4px 0; }
         .resposta-header { font-size: 10px; color: #555; margin-bottom: 4px; }
         .resposta-header strong { color: #1e40af; }
@@ -28,21 +29,15 @@
         table.rastreio tr:nth-child(even) { background: #f8fafc; }
         .status-lido { color: #16a34a; font-weight: bold; }
         .status-nao-lido { color: #ca8a04; font-weight: bold; }
-        .footer { margin-top: 30px; padding-top: 15px; border-top: 2px solid #1e40af; text-align: center; font-size: 9px; color: #999; }
+        .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ddd; text-align: center; font-size: 9px; color: #999; }
         .qr-placeholder { text-align: center; margin-top: 15px; }
         .destinatarios-list { font-size: 11px; }
         .destinatarios-list span { display: inline; }
     </style>
 </head>
 <body>
-    @include('pdf.partials.cabecalho-ug', ['ug' => $ug ?? null])
-
-    {{-- Cabecalho --}}
-    <div class="header">
-        <h1>MEMORANDO INTERNO</h1>
-        <div class="numero">{{ $memorando->numero }}</div>
-        <p>Documento gerado em {{ now()->format('d/m/Y H:i:s') }}</p>
-    </div>
+    @include('pdf.partials.cabecalho-ug', ['ug' => $ug ?? null, 'titulo' => 'Memorando Interno',
+        'subtitulo' => $memorando->numero, 'usuario' => $usuario ?? null])
 
     {{-- Folha de Rosto --}}
     <div class="section">
@@ -61,7 +56,7 @@
                 <div class="info-label">Para (Destinatarios):</div>
                 <div class="info-value destinatarios-list">
                     @foreach($memorando->destinatarios as $i => $dest)
-                        <span>{{ $dest->user?->name ?? $dest->name ?? '-' }}{{ !$loop->last ? ', ' : '' }}</span>
+                        <span>{{ $dest->usuario?->name ?? $dest->unidade?->nome ?? $dest->setor_destino ?? '-' }}{{ !$loop->last ? ', ' : '' }}</span>
                     @endforeach
                 </div>
             </div>
@@ -71,7 +66,7 @@
             </div>
             <div class="info-row">
                 <div class="info-label">Data:</div>
-                <div class="info-value">{{ $memorando->created_at?->format('d/m/Y H:i:s') }}</div>
+                <div class="info-value">{{ $memorando->created_at?->copy()->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i:s') }}</div>
             </div>
             @if($memorando->confidencial)
             <div class="info-row">
@@ -85,25 +80,28 @@
     {{-- Conteudo --}}
     <div class="section">
         <div class="section-title">Conteudo</div>
-        <div class="conteudo">{{ $memorando->conteudo }}</div>
+        <div class="conteudo conteudo-html">{!! $memorando->conteudoFinal() !!}</div>
     </div>
 
-    {{-- Respostas --}}
-    @if($memorando->respostas && $memorando->respostas->count() > 0)
+    {{-- Despachos numerados: respostas e encaminhamentos em ordem (TR 4.45.5) --}}
+    @php
+        $despachos = \App\Support\Memorandos::despachos($memorando);
+    @endphp
+    @if(count($despachos))
     <div class="section">
-        <div class="section-title">Respostas ({{ $memorando->respostas->count() }})</div>
-        @foreach($memorando->respostas as $resposta)
+        <div class="section-title">Despachos ({{ count($despachos) }})</div>
+        @foreach($despachos as $d)
         <div class="resposta">
             <div class="resposta-header">
-                <strong>{{ $resposta->user?->name ?? 'Usuario' }}</strong>
-                — {{ $resposta->created_at?->format('d/m/Y H:i:s') }}
+                <strong>Despacho nº {{ $d['n'] }} — {{ $d['tipo'] }}</strong>
+                · {{ $d['autor'] ?? '-' }}{{ $d['para'] ? ' para ' . $d['para'] : '' }}
+                — {{ $d['em'] ? \Carbon\Carbon::parse($d['em'])->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i') : '' }}
             </div>
-            <div class="resposta-body">{{ $resposta->conteudo }}</div>
+            @if($d['html'] !== '')<div class="resposta-body conteudo-html">{!! $d['html'] !!}</div>@endif
         </div>
         @endforeach
     </div>
     @endif
-
     {{-- Rastreio de Leitura --}}
     <div class="section">
         <div class="section-title">Rastreio de Leitura</div>
@@ -120,19 +118,19 @@
             <tbody>
                 @foreach($memorando->destinatarios as $i => $dest)
                 @php
-                    $lido = $dest->pivot->lido ?? false;
-                    $lidoEm = $dest->pivot->lido_em ?? null;
+                    $lido = (bool) $dest->lido;
+                    $lidoEm = $dest->lido_em;
                 @endphp
                 <tr>
                     <td>{{ $i + 1 }}</td>
-                    <td>{{ $dest->user?->name ?? $dest->name ?? '-' }}</td>
-                    <td>{{ $dest->user?->email ?? $dest->email ?? '-' }}</td>
+                    <td>{{ $dest->usuario?->name ?? $dest->unidade?->nome ?? $dest->setor_destino ?? '-' }}</td>
+                    <td>{{ $dest->usuario?->email ?? '-' }}</td>
                     <td class="{{ $lido ? 'status-lido' : 'status-nao-lido' }}">
                         {{ $lido ? 'Lido' : 'Nao lido' }}
                     </td>
                     <td>
                         @if($lido && $lidoEm)
-                            {{ \Carbon\Carbon::parse($lidoEm)->format('d/m/Y H:i:s') }}
+                            {{ \Carbon\Carbon::parse($lidoEm)->setTimezone('America/Sao_Paulo')->format('d/m/Y H:i:s') }}
                         @else
                             -
                         @endif
@@ -150,8 +148,7 @@
             <p style="margin-bottom: 5px;"><strong>Verificacao:</strong> {{ config('app.url') }}/verificar/{{ $memorando->qr_code_token }}</p>
         </div>
         @endif
-        <p style="margin-top: 10px;"><strong>Conceito Gestao Publica</strong> — Plataforma Digital Integrada</p>
-        <p>Documento gerado automaticamente em {{ now()->format('d/m/Y H:i:s') }}</p>
+        <p>Documento gerado automaticamente em {{ now('America/Sao_Paulo')->format('d/m/Y H:i:s') }}</p>
     </div>
 </body>
 </html>

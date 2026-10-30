@@ -582,6 +582,9 @@ class IntegracaoDocumentoController extends Controller
             'todas_assinadas' => $assinaturas->where('status', 'pendente')->isEmpty(),
             'callback_executado' => (bool) $documento->callback_executado,
             'pdf_assinado_url'   => url("/documentos/{$documento->id}/download"),
+            // Dois arquivos: cópia com carimbos e original com as assinaturas digitais
+            'pdf_impressao_url'  => url("/documentos/{$documento->id}/download?copia=impressao"),
+            'pdf_original_url'   => url("/documentos/{$documento->id}/download"),
             'visualizacao_url'   => url("/documentos/{$documento->id}"),
         ]);
     }
@@ -620,31 +623,43 @@ class IntegracaoDocumentoController extends Controller
             ], 409);
         }
 
-        // Pega o PDF cumulativamente assinado da ULTIMA assinatura (com ?parcial=1 e ninguém assinou: 404)
-        $ultimaAssinatura = \App\Models\Assinatura::where('documento_id', $documento->id)
-            ->where('status', 'assinado')
-            ->whereNotNull('arquivo_assinado_path')
-            ->orderByDesc('assinado_em')
-            ->first();
+        // Dois arquivos (com ?parcial=1 e ninguém assinou: 404):
+        //  - padrão / ?arquivo=impressao: cópia para impressão — com os quadros de
+        //    assinatura desenhados, como o sistema de origem sempre recebeu;
+        //  - ?arquivo=original: o original com as assinaturas digitais (o que se
+        //    confere no validar.iti.gov.br).
+        $original = $request->input('arquivo') === 'original';
+        $relativo = $original ? $this->originalAssinado($documento) : $documento->caminhoImpressao();
+        if (! $relativo && ! $original) {
+            $relativo = $this->originalAssinado($documento); // assinaturas anteriores à cópia para impressão
+        }
 
-        if (! $ultimaAssinatura) {
+        if (! $relativo) {
             return response()->json([
                 'erro' => 'PDF assinado não encontrado (assinaturas sem arquivo).',
             ], 404);
         }
 
-        $path = Storage::disk('documentos')->path($ultimaAssinatura->arquivo_assinado_path);
+        $path = Storage::disk('documentos')->path($relativo);
         if (! is_file($path)) {
             return response()->json([
-                'erro' => 'Arquivo assinado não encontrado no storage: ' . $ultimaAssinatura->arquivo_assinado_path,
+                'erro' => 'Arquivo assinado não encontrado no storage: ' . $relativo,
             ], 404);
         }
 
-        $filename = 'empenho-assinado-' . str_replace(['/', '\\'], '-', $numeroExterno) . '.pdf';
+        $filename = 'empenho-' . ($original ? 'original-assinado-' : 'assinado-') . str_replace(['/', '\\'], '-', $numeroExterno) . '.pdf';
         return response()->file($path, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . $filename . '"',
         ]);
+    }
+
+    /** Original assinado mais recente, só se alguém já assinou (senão null). */
+    private function originalAssinado(Documento $documento): ?string
+    {
+        $caminho = $documento->caminhoOficial();
+
+        return $caminho && $caminho !== $documento->versaoAtual?->arquivo_path ? $caminho : null;
     }
 
     /**

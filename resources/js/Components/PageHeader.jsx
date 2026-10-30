@@ -9,7 +9,12 @@ import { ROTINAS, rotinaDaUrl } from '../menus';
  * Ícone e trilha vêm do menu (menus.js), então as telas não precisam informar nada.
  * Detalhe/formulário herdam da rotina-mãe pelo caminho (/processos/12 → Processos).
  */
-function rotinaDaTela(url) {
+function rotinaDaTela(url, menuUrl) {
+    // Tela que diz a que item do menu pertence: herda a trilha dele
+    if (menuUrl) {
+        const r = rotinaDaUrl(menuUrl);
+        if (r) return { rotina: r, propria: false };
+    }
     const exata = rotinaDaUrl(url);
     if (exata) return { rotina: exata, propria: true };
     const caminho = url.split('?')[0];
@@ -22,8 +27,8 @@ function rotinaDaTela(url) {
 }
 
 export default function PageHeader({ title, subtitle, icon, children }) {
-    const { url } = usePage();
-    const { rotina, propria } = rotinaDaTela(url);
+    const { url, props } = usePage();
+    const { rotina, propria } = rotinaDaTela(url, props.menu_url);
     const trilha = rotina
         ? [rotina.modulo, rotina.grupo, propria ? null : rotina.label].filter(Boolean)
         : [];

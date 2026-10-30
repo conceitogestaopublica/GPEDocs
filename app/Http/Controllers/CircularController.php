@@ -9,12 +9,13 @@ use App\Models\Processo\Circular;
 use App\Models\Processo\CircularAnexo;
 use App\Models\Processo\CircularDestinatario;
 use App\Models\User;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Relatorio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Support\EmNomeDe;
 
 class CircularController extends Controller
 {
@@ -23,11 +24,11 @@ class CircularController extends Controller
         $tipo = $request->input('tipo', 'recebidas');
 
         if ($tipo === 'enviadas') {
-            $query = Circular::where('remetente_id', Auth::id());
+            $query = Circular::where(fn ($q) => $q->where('remetente_id', Auth::id())->orWhere('digitador_id', Auth::id()));
         } else {
-            $query = Circular::whereHas('destinatarios', function ($q) {
-                $q->where('usuario_id', Auth::id());
-            });
+            // Recebidas; as que arquivei para mim só com ?arquivadas=1 (TR 4.46.9)
+            $query = Circular::whereHas('destinatarios', fn ($q) => $q->where('usuario_id', Auth::id())
+                ->when($request->boolean('arquivadas'), fn ($w) => $w->whereNotNull('arquivado_em'), fn ($w) => $w->whereNull('arquivado_em')));
         }
 
         $circulares = $query->with(['remetente', 'destinatarios.usuario'])
@@ -46,19 +47,41 @@ class CircularController extends Controller
 
         return Inertia::render('GED/Circulares/Index', [
             'circulares' => $circulares,
-            'filters'    => ['tipo' => $tipo],
+            'filters'    => ['tipo' => $tipo, 'arquivadas' => $request->boolean('arquivadas')],
         ]);
     }
 
     public function create(): Response
     {
-        $usuarios = User::where('id', '!=', Auth::id())
+        $usuarios = User::where('id', '!=', Auth::id())->where('tipo', 'interno')->whereNull('suspenso_em')
             ->orderBy('name')
             ->get(['id', 'name', 'email']);
 
         return Inertia::render('GED/Circulares/Create', [
+            'variaveis'    => Circular::variaveisParaEditor(),
+            'rascunho'     => \App\Support\Rascunhos::abrir(request()->integer('rascunho') ?: null, Auth::user(), 'circular'),
+            'autorizacoes' => EmNomeDe::autorizacoes(),
             'usuarios' => $usuarios,
+            'unidades' => $this->unidades(),
+            'opcoes_respostas' => \App\Support\Circulares::RESPOSTAS,
         ]);
+    }
+
+    /** Setores ativos da UG, em ordem de árvore, para escolher o destino (TR 4.46.3). */
+    private function unidades(): array
+    {
+        $nos = \App\Models\UgOrganograma::where('ug_id', session('ug_id'))->where('ativo', true)->orderBy('codigo')->orderBy('nome')->get(['id', 'nome', 'sigla', 'nivel', 'parent_id']);
+        $porPai = $nos->groupBy(fn ($n) => $n->parent_id ?? 0);
+        $saida = [];
+        $visitar = function (int $pai) use (&$visitar, &$saida, $porPai) {
+            foreach ($porPai[$pai] ?? [] as $n) {
+                $saida[] = ['id' => $n->id, 'nome' => $n->sigla ? "{$n->nome} ({$n->sigla})" : $n->nome, 'nivel' => $n->nivel];
+                $visitar($n->id);
+            }
+        };
+        $visitar(0);
+
+        return $saida;
     }
 
     public function store(Request $request)
@@ -70,15 +93,22 @@ class CircularController extends Controller
             'destinatarios'         => ['required_if:destino_tipo,usuarios', 'nullable', 'array', 'min:1'],
             'destinatarios.*'       => ['integer', 'exists:users,id'],
             'destino_setores'       => ['required_if:destino_tipo,setores', 'nullable', 'array', 'min:1'],
-            'destino_setores.*'     => ['string', 'max:150'],
+            'destino_setores.*'     => ['integer', 'exists:ug_organograma,id'],
             'setor_origem'          => ['nullable', 'string', 'max:150'],
-            'data_arquivamento_auto'=> ['nullable', 'date'],
+            'data_arquivamento_auto'=> ['nullable', 'date', 'after_or_equal:today'],
             'files'                 => ['nullable', 'array'],
             'files.*'               => ['file', 'max:51200'],
+            'urgente'               => ['nullable', 'boolean'],
+            'respostas'             => ['required', \Illuminate\Validation\Rule::in(array_keys(\App\Support\Circulares::RESPOSTAS))],
         ]);
+        $unidadesDestino = array_map('intval', (array) $request->input('destino_setores', []));
+
+        // Em nome de outro servidor, por contrassenha (TR 4.18)
+        $contrassenha = \App\Support\EmNomeDe::conferir($request);
 
         try {
             DB::beginTransaction();
+            $origem = \App\Support\EmNomeDe::consumir($contrassenha);
 
             $year = date('Y');
 
@@ -92,33 +122,26 @@ class CircularController extends Controller
                 'numero'                => $numero,
                 'assunto'               => $request->input('assunto'),
                 'conteudo'              => $request->input('conteudo'),
-                'remetente_id'          => Auth::id(),
+                'remetente_id'          => $origem['remetente_id'],
+                'digitador_id'          => $origem['digitador_id'],
+                'contrassenha_id'       => $origem['contrassenha_id'],
                 'setor_origem'          => $request->input('setor_origem'),
                 'destino_tipo'          => $request->input('destino_tipo'),
-                'destino_setores'       => $request->input('destino_setores'),
+                // Nomes para exibir e imprimir; ids para encaminhar e conferir
+                'destino_setores'       => $unidadesDestino ? \App\Models\UgOrganograma::whereIn('id', $unidadesDestino)->pluck('nome')->all() : null,
+                'destino_unidades'      => $unidadesDestino ?: null,
+                'urgente'               => $request->boolean('urgente'),
+                'respostas'             => $request->input('respostas'),
                 'status'                => 'enviado',
                 'enviado_em'            => now(),
                 'data_arquivamento_auto'=> $request->input('data_arquivamento_auto'),
             ]);
+            \App\Support\EmNomeDe::avisarAutorizador($origem, 'circular', $circular->id, "Circular {$numero} — {$circular->assunto}");
 
-            // Determine recipients based on destino_tipo
-            $destinoTipo = $request->input('destino_tipo');
-
-            if ($destinoTipo === 'todos') {
-                $userIds = User::where('id', '!=', Auth::id())->pluck('id');
-            } elseif ($destinoTipo === 'usuarios') {
-                $userIds = collect($request->input('destinatarios', []));
-            } else {
-                // setores: all users (except sender)
-                $userIds = User::where('id', '!=', Auth::id())->pluck('id');
-            }
-
-            foreach ($userIds as $usuarioId) {
-                CircularDestinatario::create([
-                    'circular_id' => $circular->id,
-                    'usuario_id'  => (int) $usuarioId,
-                    'lido'        => false,
-                ]);
+            // Quem recebe: toda a UG, os setores escolhidos (com os subsetores) ou as pessoas (TR 4.46.3)
+            $userIds = \App\Support\Circulares::destinatarios($request->input('destino_tipo'), $unidadesDestino, (array) $request->input('destinatarios', []), (int) $origem['remetente_id']);
+            if ($userIds->isEmpty()) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['destino_setores' => 'Ninguém atende os setores escolhidos.']);
             }
 
             if ($request->hasFile('files')) {
@@ -136,20 +159,19 @@ class CircularController extends Controller
                 }
             }
 
-            // Notifications
-            foreach ($userIds as $usuarioId) {
-                Notificacao::create([
-                    'usuario_id'      => (int) $usuarioId,
-                    'tipo'            => 'circular_recebida',
-                    'titulo'          => 'Nova circular recebida',
-                    'mensagem'        => "Circular {$numero} - {$circular->assunto} recebida.",
-                    'referencia_tipo' => 'circular',
-                    'referencia_id'   => $circular->id,
-                    'lida'            => false,
-                ]);
+            // Anexos guardados no rascunho automático (TR 4.16.8)
+            foreach (\App\Support\Rascunhos::entregarAnexos($request->integer('rascunho_id') ?: null, 'circulares', Auth::user()) as $anexo) {
+                CircularAnexo::create(['circular_id' => $circular->id] + $anexo);
             }
 
+            \App\Support\Circulares::incluir($circular, $userIds, 'Nova circular recebida');
+
             DB::commit();
+            \App\Support\Rascunhos::concluir($request->integer('rascunho_id') ?: null, Auth::user());
+            // @ menções, # citações e ! assinaturas do texto (TR 4.16.13–4.16.18)
+            if ($avisos = \App\Support\Marcadores::aposSalvar('circular', $circular->id, $circular->conteudo, Auth::user(), $circular)) {
+                session()->flash('warning', implode(' ', $avisos));
+            }
 
             return redirect("/circulares/{$circular->id}")->with('success', 'Circular enviada com sucesso. Número: ' . $numero);
         } catch (\Exception $e) {
@@ -175,16 +197,17 @@ class CircularController extends Controller
     public function show($id): Response
     {
         $circular = Circular::with([
-            'remetente',
+            'remetente', 'digitador:id,name',
             'destinatarios.usuario',
             'anexos.enviadoPor',
         ])->findOrFail($id);
 
         $userId = Auth::id();
-        $isRemetente    = $circular->remetente_id === $userId;
+        $isRemetente    = \App\Support\Circulares::ehRemetente($circular, $userId);
         $isDestinatario = $circular->destinatarios->contains('usuario_id', $userId);
 
-        if (! $isRemetente && ! $isDestinatario) {
+        // Mencionado no texto (@) ou chamado a assinar (!) também vê — TR 4.16.16
+        if (! $isRemetente && ! $isDestinatario && ! \App\Support\Marcadores::temAcesso('circular', $circular->id, $userId)) {
             abort(403, 'Você não tem permissão para visualizar esta circular.');
         }
 
@@ -198,14 +221,87 @@ class CircularController extends Controller
                 ]);
         }
 
+        \App\Support\Acessos::registrar('circular', $circular->id, Auth::user());
+
         return Inertia::render('GED/Circulares/Show', [
+            'classificacao' => \App\Support\Classificacao::doItem('circular', $circular->id),
             'circular' => $circular,
+            'conteudo_html' => $circular->conteudoFinal(),
+            'marcadores'      => ['citado_em' => \App\Support\Marcadores::citadoEm('circular', $circular->id), 'pessoas' => \App\Support\Marcadores::doDocumento('circular', $circular->id)],
+            'acessos'  => \App\Support\Acessos::de('circular', $circular->id),
+            'respostas_lista' => \App\Support\Circulares::respostasVisiveis($circular, $userId)->map(fn ($r) => [
+                'id' => $r->id, 'autor' => $r->usuario?->name, 'conteudo_html' => $r->conteudo_html,
+                'em' => $r->created_at?->toIso8601String(), 'meu' => $r->usuario_id === $userId,
+            ]),
+            'eu' => [
+                'remetente'    => $isRemetente,
+                'destinatario' => $isDestinatario,
+                'arquivada'    => (bool) $circular->destinatarios->firstWhere('usuario_id', $userId)?->arquivado_em,
+                'silenciada'   => (bool) $circular->destinatarios->firstWhere('usuario_id', $userId)?->silenciado,
+                'pode_responder' => $circular->respostas !== 'nenhuma' && $circular->status !== 'arquivado' && ($isRemetente || $isDestinatario),
+            ],
+            'unidades' => $isRemetente ? $this->unidades() : [],
         ]);
     }
 
+    /** Resposta à circular (TR 4.46.6): abertas, todos veem; restritas, só o remetente. */
+    public function responder(Request $request, int $id)
+    {
+        $d = $request->validate(['conteudo' => ['required', 'string']]);
+        $circular = Circular::findOrFail($id);
+        $user = Auth::user();
+        abort_if($circular->respostas === 'nenhuma', 422, 'Esta circular é meramente informativa: não recebe respostas.');
+        abort_if($circular->status === 'arquivado', 422, 'Circular arquivada.');
+        abort_unless(\App\Support\Circulares::ehRemetente($circular, $user->id) || $circular->destinatarios()->where('usuario_id', $user->id)->exists(), 403);
+        if (trim(strip_tags($d['conteudo'], '<img>')) === '') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['conteudo' => 'Escreva a resposta.']);
+        }
+        $circular->respostasLista()->create(['usuario_id' => $user->id, 'conteudo' => \App\Support\HtmlSeguro::limpar($d['conteudo'])]);
+        \App\Support\Circulares::avisarResposta($circular, $user);
+
+        return back()->with('success', $circular->respostas === 'restritas' ? 'Resposta enviada ao remetente.' : 'Resposta publicada.');
+    }
+
+    /** Arquivar só para mim / desarquivar (TR 4.46.9). */
+    public function arquivarParaMim(int $id)
+    {
+        $dest = CircularDestinatario::where('circular_id', $id)->where('usuario_id', Auth::id())->firstOrFail();
+        $dest->update(['arquivado_em' => $dest->arquivado_em ? null : now()]);
+
+        return back()->with('success', $dest->arquivado_em ? 'Circular arquivada para você.' : 'Circular de volta às recebidas.');
+    }
+
+    /** Silenciar os avisos de respostas (TR 4.46.9). */
+    public function silenciar(int $id)
+    {
+        $dest = CircularDestinatario::where('circular_id', $id)->where('usuario_id', Auth::id())->firstOrFail();
+        $dest->update(['silenciado' => ! $dest->silenciado]);
+
+        return back()->with('success', $dest->silenciado ? 'Você não será avisado das respostas.' : 'Avisos de respostas ligados.');
+    }
+
+    /** Encaminhar a setores que não estavam na circular (TR 4.46.10) — só quem enviou. */
+    public function encaminhar(Request $request, int $id)
+    {
+        $d = $request->validate(['setores' => ['required', 'array', 'min:1'], 'setores.*' => ['integer', 'exists:ug_organograma,id']]);
+        $circular = Circular::findOrFail($id);
+        abort_unless(\App\Support\Circulares::ehRemetente($circular, Auth::id()), 403, 'Só quem enviou encaminha a circular.');
+        $ids = \App\Support\Circulares::destinatarios('setores', $d['setores'], [], (int) $circular->remetente_id);
+        $n = \App\Support\Circulares::incluir($circular, $ids, 'Circular encaminhada ao seu setor');
+        $nomes = \App\Models\UgOrganograma::whereIn('id', $d['setores'])->pluck('nome')->all();
+        $circular->update([
+            'destino_setores'  => array_values(array_unique(array_merge((array) $circular->destino_setores, $nomes))),
+            'destino_unidades' => array_values(array_unique(array_merge((array) $circular->destino_unidades, array_map('intval', $d['setores'])))),
+        ]);
+
+        return back()->with('success', "Circular encaminhada: {$n} servidor(es) novo(s).");
+    }
+
+    /** Arquivar a circular para todos — só quem enviou (antes qualquer um arquivava). */
     public function arquivar($id)
     {
         $circular = Circular::findOrFail($id);
+        abort_unless(\App\Support\Circulares::ehRemetente($circular, Auth::id()), 403, 'Só quem enviou arquiva a circular para todos.');
 
         $circular->update([
             'status'       => 'arquivado',
@@ -238,12 +334,11 @@ class CircularController extends Controller
                 }
             }
 
-            $pdf = Pdf::loadView('pdf.circular', [
+            $pdf = Relatorio::pdf('pdf.circular', [
                 'circular'  => $circular,
                 'qrCodeUrl' => url("/circulares/verificar/{$circular->qr_code_token}"),
                 'ug'        => \App\Models\Ug::find($circular->ug_id),
             ]);
-            $pdf->setPaper('A4', 'portrait');
             $pdfBytes = $pdf->output();
 
             $filename = 'circular-' . str_replace(['/', '\\'], '-', $circular->numero) . '.pdf';
@@ -251,7 +346,7 @@ class CircularController extends Controller
             \Illuminate\Support\Facades\Storage::disk('documentos')->put($path, $pdfBytes);
 
             $textoPesquisavel = collect([
-                'Circular', $circular->numero, $circular->assunto, $circular->conteudo,
+                'Circular', $circular->numero, $circular->assunto, \App\Support\Variaveis::textoPuro($circular->conteudoFinal()),
                 $circular->setor_origem, $circular->remetente?->name,
             ])->filter()->implode(' | ');
 
@@ -303,8 +398,7 @@ class CircularController extends Controller
             'ug'        => \App\Models\Ug::find($circular->ug_id),
         ];
 
-        $pdf = Pdf::loadView('pdf.circular', $data);
-        $pdf->setPaper('A4', 'portrait');
+        $pdf = Relatorio::pdf('pdf.circular', $data);
 
         $filename = "circular-{$circular->numero}.pdf";
         $filename = str_replace('/', '-', $filename);

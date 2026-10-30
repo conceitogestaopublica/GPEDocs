@@ -9,7 +9,9 @@ import { QRCodeSVG } from 'qrcode.react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import ClassificacaoDoItem from '../../../Components/ClassificacaoDoItem';
 import StatusPill from '../../../Components/StatusPill';
+import ListaSignatarios from '../../../Components/ListaSignatarios';
 import { useConfirm } from '../../../Components/ConfirmProvider';
 import { exclusao } from '../../../utils/confirmacoes';
 
@@ -21,7 +23,7 @@ const TABS = [
     { key: 'auditoria', label: 'Auditoria', icon: 'fas fa-shield-alt' },
 ];
 
-export default function Show({ documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito, usuarios, versao_assinada, pode_nova_versao }) {
+export default function Show({ classificacao = null, documento, versoes, metadados, audit_logs, fluxo_instancias, compartilhamentos, tags, is_favorito, usuarios, versao_assinada, pode_nova_versao }) {
     const confirmar = useConfirm();
     // ?aba=assinaturas abre direto na aba (ex.: anexo de processo enviado para assinatura).
     const [activeTab, setActiveTab] = useState(() => {
@@ -152,9 +154,22 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
                         </div>
 
                         <Button variant="secondary" icon="fas fa-share-alt">Compartilhar</Button>
-                        <a href={`/documentos/${doc.id}/download`} className="ds-btn ds-btn-primary">
-                            <i className="fas fa-download mr-1" /> Download
-                        </a>
+                        {versao_assinada ? (
+                            <>
+                                <a href={`/documentos/${doc.id}/download?copia=impressao`} className="ds-btn ds-btn-outline"
+                                    title="Com carimbos, tarja e termo de assinatura — para imprimir e anexar">
+                                    <i className="fas fa-print mr-1" /> Cópia para impressão
+                                </a>
+                                <a href={`/documentos/${doc.id}/download`} className="ds-btn ds-btn-primary"
+                                    title="O arquivo com as assinaturas digitais — é o que se confere no validar.iti.gov.br">
+                                    <i className="fas fa-file-signature mr-1" /> Original assinado
+                                </a>
+                            </>
+                        ) : (
+                            <a href={`/documentos/${doc.id}/download`} className="ds-btn ds-btn-primary">
+                                <i className="fas fa-download mr-1" /> Download
+                            </a>
+                        )}
                         <Button variant="danger" icon="fas fa-trash" onClick={async () => {
                             if (await confirmar(exclusao('Excluir este documento?', 'O documento e suas versões saem do repositório.'))) {
                                 router.delete(`/documentos/${doc.id}`);
@@ -185,7 +200,7 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
 
                 <div className="p-6">
                     {activeTab === 'visualizar' && <TabVisualizar documento={doc} versaoAssinada={versao_assinada} />}
-                    {activeTab === 'metadados' && <TabMetadados metadados={metadados} documento={doc} />}
+                    {activeTab === 'metadados' && <><ClassificacaoDoItem classificacao={classificacao} className="mb-6" /><TabMetadados metadados={metadados} documento={doc} /></>}
                     {activeTab === 'assinaturas' && <TabAssinaturas documento={doc} usuarios={usuarios || []} />}
                     {activeTab === 'versoes' && <TabVersoes versoes={versoes} documentoId={doc.id} podeNovaVersao={pode_nova_versao} />}
                     {activeTab === 'auditoria' && <TabAuditoria logs={audit_logs} />}
@@ -198,41 +213,49 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
 function TabVisualizar({ documento, versaoAssinada }) {
     const isPdf = documento.mime_type?.includes('pdf');
     const isImage = documento.mime_type?.includes('image');
-    const [verOriginal, setVerOriginal] = useState(false);
+    // impressao (padrão: com carimbos) | assinado (original com as assinaturas) | antes (sem assinaturas)
+    const [modo, setModo] = useState('impressao');
+    const consulta = { impressao: '', assinado: '?copia=original', antes: '?original=1' }[modo];
+    const descricao = {
+        impressao: 'Cópia para impressão — com os carimbos, a tarja e o termo de assinatura',
+        assinado: 'Original assinado — o arquivo com as assinaturas digitais (confira em validar.iti.gov.br)',
+        antes: 'Versão anterior às assinaturas',
+    }[modo];
 
     return (
         <div className="space-y-3">
             {versaoAssinada && (
-                <div className="flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
                     <div className="flex items-start gap-2 text-xs text-emerald-800">
                         <i className="fas fa-shield-alt text-emerald-600 mt-0.5" />
                         <div>
-                            <p className="font-semibold">
-                                {verOriginal ? 'Visualizando versão ORIGINAL (sem assinatura)' : 'Visualizando versão ASSINADA digitalmente (ICP-Brasil PAdES-BES)'}
-                            </p>
+                            <p className="font-semibold">{descricao}</p>
                             <p className="text-emerald-700">
-                                Assinada em {versaoAssinada.assinado_em}
+                                Última assinatura em {versaoAssinada.assinado_em}
                                 {versaoAssinada.tipo && <> · {versaoAssinada.tipo}</>}
                             </p>
                         </div>
                     </div>
-                    <button onClick={() => setVerOriginal(! verOriginal)}
-                        className="text-[11px] px-3 py-1.5 rounded-lg bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 whitespace-nowrap">
-                        <i className={`fas fa-${verOriginal ? 'shield-alt' : 'history'} mr-1`} />
-                        {verOriginal ? 'Ver versão assinada' : 'Ver versão original'}
-                    </button>
+                    <div className="flex rounded-lg border border-emerald-300 overflow-hidden text-[11px]">
+                        {[['impressao', 'fa-print', 'Para impressão'], ['assinado', 'fa-file-signature', 'Original assinado'], ['antes', 'fa-history', 'Antes das assinaturas']].map(([m, icone, rotulo]) => (
+                            <button key={m} onClick={() => setModo(m)}
+                                className={`px-3 py-1.5 whitespace-nowrap ${modo === m ? 'bg-emerald-600 text-white' : 'bg-white text-emerald-700 hover:bg-emerald-50'}`}>
+                                <i className={`fas ${icone} mr-1`} />{rotulo}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
             <div className="flex items-center justify-center min-h-[400px] bg-gray-50 rounded-xl">
             {isPdf ? (
                 <iframe
-                    src={`/documentos/${documento.id}/preview${verOriginal ? '?original=1' : ''}`}
+                    src={`/documentos/${documento.id}/preview${consulta}`}
                     className="w-full h-[600px] rounded-lg"
                     title="Visualizador PDF"
                 />
             ) : isImage ? (
                 <img
-                    src={`/documentos/${documento.id}/preview${verOriginal ? '?original=1' : ''}`}
+                    src={`/documentos/${documento.id}/preview${consulta}`}
                     alt={documento.nome}
                     className="max-w-full max-h-[600px] rounded-lg shadow-lg"
                 />
@@ -387,7 +410,7 @@ function TabAuditoria({ logs }) {
                     {items.map(log => (
                         <tr key={log.id} className="hover:bg-gray-50">
                             <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(log.created_at)}</td>
-                            <td className="px-4 py-3 text-gray-700 font-medium">{log.usuario_nome || '-'}</td>
+                            <td className="px-4 py-3 text-gray-700 font-medium">{log.usuario_nome || (log.detalhes?.nome ? `${log.detalhes.nome} (externo)` : '-')}</td>
                             <td className="px-4 py-3">
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{ACOES_AUDITORIA[log.acao] || log.acao}</span>
                             </td>
@@ -489,22 +512,8 @@ function TabAssinaturas({ documento, usuarios }) {
             {showSolicitar && (
                 <form onSubmit={submitSolicitar} className="bg-blue-50 rounded-xl p-4 space-y-3">
                     <p className="text-sm font-medium text-blue-800">Selecione os signatários</p>
-                    <div className="max-h-40 overflow-y-auto space-y-1">
-                        {usuarios.map(u => (
-                            <label key={u.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-blue-100 rounded px-2 py-1">
-                                <input type="checkbox" checked={data.signatarios.includes(u.id)}
-                                    onChange={() => toggleUser(u.id)}
-                                    className="rounded border-gray-300 text-blue-600 w-3.5 h-3.5" />
-                                <span className="text-gray-700">{u.name}</span>
-                                <span className="text-xs text-gray-400">{u.email}</span>
-                                {data.sequencial && data.signatarios.includes(u.id) && (
-                                    <span className="ml-auto text-[10px] font-bold text-blue-700 bg-blue-100 rounded px-1.5">
-                                        {data.signatarios.indexOf(u.id) + 1}º
-                                    </span>
-                                )}
-                            </label>
-                        ))}
-                    </div>
+                    <ListaSignatarios usuarios={usuarios} selecionados={data.signatarios} onToggle={toggleUser}
+                        mostrarOrdem={data.sequencial} alturaMaxima="max-h-48" />
                     {/* Externos: assinam por link, com cadastro (CPF) — só PDF */}
                     <div className="border-t border-blue-100 pt-3">
                         <div className="flex items-center justify-between">
@@ -790,7 +799,7 @@ const ACOES_AUDITORIA = {
     edicao: 'Edição', alteracao_status: 'Situação alterada', movimentacao: 'Mudança de pasta',
     exclusao: 'Exclusão', nova_versao: 'Nova versão', solicitacao_assinatura: 'Assinatura solicitada',
     assinatura: 'Assinatura', assinatura_qualificada_icp: 'Assinatura ICP-Brasil', recusa_assinatura: 'Assinatura recusada',
-    assinatura_externa: 'Assinatura por link (externo)',
+    assinatura_externa: 'Assinatura por link (externo)', visualizacao_externa: 'Acesso pelo link (externo)',
     cancelado_via_integracao: 'Cancelado pela origem', restauracao: 'Restaurado da lixeira',
 };
 

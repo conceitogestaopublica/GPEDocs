@@ -17,6 +17,8 @@ class CircularDestinatario extends Model
         'usuario_id',
         'lido',
         'lido_em',
+        'arquivado_em',
+        'silenciado',
     ];
 
     protected function casts(): array
@@ -24,6 +26,8 @@ class CircularDestinatario extends Model
         return [
             'lido'    => 'boolean',
             'lido_em' => 'datetime',
+            'arquivado_em' => 'datetime',
+            'silenciado' => 'boolean',
         ];
     }
 

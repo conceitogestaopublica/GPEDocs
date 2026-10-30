@@ -9,6 +9,7 @@ use App\Models\Logradouro;
 use App\Models\Ug;
 use App\Models\UgOrganograma;
 use App\Models\User;
+use App\Support\Organograma;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -44,11 +45,8 @@ class UgOrganogramaController extends Controller
     {
         $parentId = $request->integer('parent_id') ?: null;
         $parent = $parentId ? UgOrganograma::where('ug_id', $ug->id)->findOrFail($parentId) : null;
+        // Sem limite de níveis (TR 4.9.1): do 4º para baixo são subsetores do setor.
         $nivel = $parent ? ($parent->nivel + 1) : 1;
-
-        if ($nivel > 3) {
-            abort(422, 'Não é possível adicionar abaixo do nível 3.');
-        }
 
         return Inertia::render('Configuracao/Ugs/OrganogramaForm', [
             'ug'             => $ug->only(['id','codigo','nome','nivel_1_label','nivel_2_label','nivel_3_label']),
@@ -76,6 +74,10 @@ class UgOrganogramaController extends Controller
                 'id'                => $node->id,
                 'codigo'            => $node->codigo,
                 'nome'              => $node->nome,
+                'sigla'             => $node->sigla,
+                'telefone'          => $node->telefone,
+                'ramal'             => $node->ramal,
+                'email'             => $node->email,
                 'ativo'             => $node->ativo,
                 'dt_inicio'         => $node->dt_inicio?->format('Y-m-d'),
                 'dt_encerramento'   => $node->dt_encerramento?->format('Y-m-d'),
@@ -127,9 +129,6 @@ class UgOrganogramaController extends Controller
         $nivel = 1;
         if (! empty($validated['parent_id'])) {
             $parent = UgOrganograma::where('ug_id', $ug->id)->findOrFail($validated['parent_id']);
-            if ($parent->nivel >= 3) {
-                return back()->with('error', 'Não é possível adicionar mais um nível abaixo do nível 3.');
-            }
             $nivel = $parent->nivel + 1;
         }
 
@@ -158,6 +157,10 @@ class UgOrganogramaController extends Controller
         $regras = [
             'codigo'            => ['nullable', 'string', 'max:20'],
             'nome'              => ['required', 'string', 'max:200'],
+            'sigla'             => ['nullable', 'string', 'max:20'],
+            'telefone'          => ['nullable', 'string', 'max:30'],
+            'ramal'             => ['nullable', 'string', 'max:10'],
+            'email'             => ['nullable', 'email', 'max:150'],
             'dt_inicio'         => ['nullable', 'date'],
             'dt_encerramento'   => ['nullable', 'date', 'after_or_equal:dt_inicio'],
             'tipo_orgao'        => ['nullable', 'string', 'max:50'],
@@ -209,6 +212,10 @@ class UgOrganogramaController extends Controller
         $base = [
             'codigo'            => $validated['codigo'] ?? null,
             'nome'              => $validated['nome'],
+            'sigla'             => $validated['sigla'] ?? null,
+            'telefone'          => $validated['telefone'] ?? null,
+            'ramal'             => $validated['ramal'] ?? null,
+            'email'             => $validated['email'] ?? null,
             'dt_inicio'         => $validated['dt_inicio'] ?? null,
             'dt_encerramento'   => $validated['dt_encerramento'] ?? null,
             'tipo_orgao'        => $nivel === 1 ? ($validated['tipo_orgao'] ?? null) : null,
@@ -216,7 +223,7 @@ class UgOrganogramaController extends Controller
             'codigo_tce'        => $validated['codigo_tce'] ?? null,
             'suprimir_tce'      => (bool) ($validated['suprimir_tce'] ?? false),
             'responsavel_id'    => $validated['responsavel_id'] ?? null,
-            'protocolo_externo' => $nivel === 3 ? (bool) ($validated['protocolo_externo'] ?? false) : false,
+            'protocolo_externo' => $nivel >= 3 ?(bool) ($validated['protocolo_externo'] ?? false) : false,
             'endereco_proprio'  => $proprio,
             'logradouro_id'     => $logradouroId,
             'numero'            => $proprio ? ($validated['numero']      ?? null) : null,
@@ -255,13 +262,19 @@ class UgOrganogramaController extends Controller
         return back()->with('success', 'Unidade excluída.');
     }
 
-    public function toggleAtivoNode(Ug $ug, UgOrganograma $node)
+    /** Inativar exige realocar antes os servidores do setor (TR 4.12.10) — mesma regra do organograma. */
+    public function toggleAtivoNode(Request $request, Ug $ug, UgOrganograma $node)
     {
         $this->validarPertence($ug, $node);
 
-        $node->update(['ativo' => ! $node->ativo]);
+        if (! $node->ativo) {
+            Organograma::reativar($node);
 
-        return back()->with('success', 'Unidade ' . ($node->ativo ? 'reativada' : 'inativada') . '.');
+            return back()->with('success', 'Unidade reativada.');
+        }
+        $r = Organograma::desativar($node, $request->integer('destino_id') ?: null);
+
+        return back()->with($r['pendentes'] ? 'warning' : 'success', Organograma::mensagem($node, $r));
     }
 
     private function validarPertence(Ug $ug, UgOrganograma $node): void

@@ -14,6 +14,7 @@ use Illuminate\Queue\SerializesModels;
 class NotificacaoSolicitacaoCidadao extends Mailable
 {
     use Queueable, SerializesModels;
+    use Concerns\ComDescadastro, Concerns\ComRastreio;
 
     public function __construct(
         public Solicitacao $solicitacao,
@@ -27,12 +28,20 @@ class NotificacaoSolicitacaoCidadao extends Mailable
 
     public function build(): self
     {
+        $this->comDescadastro();   // link "deixar de receber" + List-Unsubscribe
+
         $assunto = match ($this->evento) {
             'criada'           => "[{$this->ug->nome}] Solicitacao {$this->solicitacao->codigo} registrada",
             'status_alterado'  => "[{$this->ug->nome}] Atualizacao na solicitacao {$this->solicitacao->codigo}",
             'comentario'       => "[{$this->ug->nome}] Nova mensagem na solicitacao {$this->solicitacao->codigo}",
             default            => "[{$this->ug->nome}] Solicitacao {$this->solicitacao->codigo}",
         };
+
+        // Responder este e-mail vira mensagem do cidadão na solicitação (TR 4.47.3)
+        $email = $this->solicitacao->email_contato ?: $this->solicitacao->cidadao?->email;
+        if ($resp = \App\Support\RespostaPorEmail::endereco('solicitacao', $this->solicitacao->id, $email)) {
+            $this->replyTo($resp);
+        }
 
         $mail = $this->subject($assunto)
             ->view('emails.solicitacao_cidadao')
@@ -43,7 +52,9 @@ class NotificacaoSolicitacaoCidadao extends Mailable
                 'evento'         => $this->evento,
                 'mensagemExtra'  => $this->mensagemExtra,
                 'statusLabel'    => Solicitacao::STATUS[$this->solicitacao->status] ?? $this->solicitacao->status,
-                'urlPortal'      => 'http://'.$this->ug->portal_slug.'.'.parse_url(config('app.url'), PHP_URL_HOST),
+                'urlPortal'      => $urlPortal = 'http://'.$this->ug->portal_slug.'.'.parse_url(config('app.url'), PHP_URL_HOST),
+                // Link da solicitação rastreado (TR 4.11.12)
+                ...(fn ($r) => ['linkSolicitacao' => $r['link'], 'pixel' => $r['pixel']])($this->aplicarRastreio($urlPortal . '/minhas-solicitacoes/' . $this->solicitacao->id)),
                 'temPdfAssinado' => $this->pdfAssinado !== null,
             ]);
 

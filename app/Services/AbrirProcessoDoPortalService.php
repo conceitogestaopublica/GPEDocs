@@ -60,6 +60,8 @@ class AbrirProcessoDoPortalService
                 'Origem'                  => 'Portal do Cidadao',
                 'Tipo de solicitacao'     => $solicitacao->anonima ? 'Anonima' : 'Identificada',
                 'Descricao do solicitante' => $solicitacao->descricao,
+                // Formulário do assunto preenchido no portal (chaves = identificadores do esquema)
+                ...($solicitacao->dados_formulario ?? []),
             ];
 
             $processo = Processo::query()->withoutGlobalScope('ug')->create([
@@ -77,6 +79,10 @@ class AbrirProcessoDoPortalService
                 'status'            => 'aberto',
                 'prioridade'        => 'normal',
                 'aberto_por'        => $abertoPor,
+                // Ouvidoria: canal, tipo e identificação vêm do portal (TR 4.33.3, 4.33.8, 4.33.27)
+                'canal'             => 'portal',
+                'manifestacao_tipo' => $tipo->modalidade === 'ouvidoria' ? $solicitacao->manifestacao_tipo : null,
+                'identificacao'     => $tipo->modalidade === 'ouvidoria' ? ($solicitacao->identificacao ?: ($solicitacao->anonima ? 'anonima' : 'aberta')) : 'aberta',
             ]);
 
             $tramitacao = Tramitacao::create([
@@ -91,7 +97,7 @@ class AbrirProcessoDoPortalService
                 'status'             => 'pendente',
                 'despachado_em'      => now(),
                 'sla_horas'          => $primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas,
-                'prazo'              => now()->addHours($primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas ?? 72),
+                'prazo'              => \App\Support\Expediente::prazo($tipo, $primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas ?? 72),
             ]);
 
             $processo->update(['etapa_atual_id' => $tramitacao->id]);

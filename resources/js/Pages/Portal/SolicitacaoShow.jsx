@@ -127,6 +127,16 @@ export default function SolicitacaoShow({ ug, solicitacao, anexos = [], decisaoP
                                         </div>
                                         <i className="fas fa-download text-gray-400 group-hover:text-gray-600 text-lg" />
                                     </a>
+                                    {decisaoPdf.tem_original && (
+                                        <p className="text-xs text-gray-500 mt-2">
+                                            Este é o documento para impressão, com os carimbos de assinatura.{' '}
+                                            <a href={`/minhas-solicitacoes/${solicitacao.id}/decisao?arquivo=original`} target="_blank" rel="noreferrer"
+                                                className="text-blue-700 hover:underline font-medium">
+                                                <i className="fas fa-file-signature mr-1" />Baixar o original assinado digitalmente
+                                            </a>{' '}
+                                            — confira em <a href="https://validar.iti.gov.br" target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">validar.iti.gov.br</a>.
+                                        </p>
+                                    )}
                                 </div>
                             )}
 

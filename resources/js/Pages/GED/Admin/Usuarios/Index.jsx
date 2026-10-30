@@ -11,9 +11,18 @@ import PageHeader from '../../../../Components/PageHeader';
 import Button from '../../../../Components/Button';
 import DataTable from '../../../../Components/DataTable';
 import { useConfirm } from '../../../../Components/ConfirmProvider';
-import { exclusao } from '../../../../utils/confirmacoes';
 
-export default function Usuarios({ usuarios, filtros = {} }) {
+const ONLINE_MS = (min) => min * 60 * 1000;
+
+function ultimoAcesso(row, minutosOnline) {
+    if (!row.suspenso_em && row.ultima_atividade_em && Date.now() - new Date(row.ultima_atividade_em).getTime() < ONLINE_MS(minutosOnline)) {
+        return <span className="inline-flex items-center gap-1.5 text-xs text-green-700"><span className="w-2 h-2 rounded-full bg-green-500" />Online agora</span>;
+    }
+    if (!row.ultimo_acesso_em) return <span className="text-xs text-gray-400">Nunca acessou</span>;
+    return <span className="text-xs text-gray-600">{new Date(row.ultimo_acesso_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>;
+}
+
+export default function Usuarios({ usuarios, filtros = {}, online = 0, minutos_online = 5 }) {
     const confirmar = useConfirm();
     const data = usuarios?.data || usuarios || [];
     const [busca, setBusca] = useState(filtros.busca || '');
@@ -47,8 +56,20 @@ export default function Usuarios({ usuarios, filtros = {} }) {
                     <span className="text-white text-xs font-bold">{(row.name || 'U').substring(0, 2).toUpperCase()}</span>
                 </div>
                 <div>
-                    <p className="text-sm font-medium text-gray-700">{row.name}</p>
-                    <p className="text-xs text-gray-400">{row.email}{row.cpf && ' · ' + mascararCpf(row.cpf)}</p>
+                    <p className="text-sm font-medium text-gray-700">
+                        {row.name}
+                        {row.suspenso_em && (
+                            <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium"
+                                title={row.suspenso_motivo || ''}>Suspenso</span>
+                        )}
+                        {row.ausencia && (
+                            <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">
+                                <i className="fas fa-umbrella-beach mr-1" />{row.ausencia}
+                            </span>
+                        )}
+                    </p>
+                    {/* CPF já chega mascarado do servidor (LGPD). */}
+                    <p className="text-xs text-gray-400">{row.email}{row.cpf && ' · ' + row.cpf}</p>
                 </div>
             </div>
         )},
@@ -73,6 +94,7 @@ export default function Usuarios({ usuarios, filtros = {} }) {
                 )}
             </div>
         )},
+        { key: 'ultimo_acesso_em', label: 'Último acesso', render: (row) => ultimoAcesso(row, minutos_online) },
         { key: 'roles', label: 'Perfil', render: (row) => (
             <div className="flex gap-1 flex-wrap">
                 {(row.roles || []).map(r => (
@@ -116,6 +138,10 @@ export default function Usuarios({ usuarios, filtros = {} }) {
                         </button>
                     )}
                     <span className="text-xs text-gray-400 ml-auto">
+                        <span className="inline-flex items-center gap-1.5 text-green-700 mr-3"
+                            title={`Com atividade nos últimos ${minutos_online} minutos`}>
+                            <span className="w-2 h-2 rounded-full bg-green-500" />{online} online agora
+                        </span>
                         {usuarios?.total ?? data.length} usuário(s)
                     </span>
                 </form>
@@ -132,21 +158,28 @@ export default function Usuarios({ usuarios, filtros = {} }) {
                             <Button variant="secondary" size="sm" icon="fas fa-pen text-xs" href={`/configuracoes/usuarios/${row.id}/edit`}>
                                 Editar
                             </Button>
-                            <button onClick={async () => {
-                                if (await confirmar(exclusao(`Excluir o usuário "${row.name}"?`))) router.delete(`/configuracoes/usuarios/${row.id}`);
-                            }} className="ds-btn ds-btn-sm ds-btn-danger" title="Excluir">
-                                <i className="fas fa-trash text-xs" />
-                            </button>
+                            {row.suspenso_em ? (
+                                <button onClick={async () => {
+                                    if (await confirmar({ titulo: `Reativar o acesso de "${row.name}"?`, rotuloConfirmar: 'Reativar' }))
+                                        router.post(`/configuracoes/usuarios/${row.id}/reativar`, {}, { preserveScroll: true });
+                                }} className="ds-btn ds-btn-sm ds-btn-outline" title="Reativar o acesso">
+                                    <i className="fas fa-user-check text-xs" />
+                                </button>
+                            ) : (
+                                <button onClick={async () => {
+                                    if (await confirmar({
+                                        titulo: `Suspender o acesso de "${row.name}"?`,
+                                        descricao: 'O usuário não é excluído: o histórico de tramitações e assinaturas fica preservado e o acesso pode ser reativado.',
+                                        tom: 'perigo', rotuloConfirmar: 'Suspender',
+                                    })) router.delete(`/configuracoes/usuarios/${row.id}`, { preserveScroll: true });
+                                }} className="ds-btn ds-btn-sm ds-btn-danger" title="Suspender o acesso">
+                                    <i className="fas fa-user-slash text-xs" />
+                                </button>
+                            )}
                         </>
                     )}
                 />
             </div>
         </AdminLayout>
     );
-}
-
-function mascararCpf(cpf) {
-    const d = (cpf || '').replace(/\D/g, '');
-    if (d.length !== 11) return cpf;
-    return `${d.slice(0,3)}.***.***-${d.slice(-2)}`;
 }

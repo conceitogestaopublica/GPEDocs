@@ -21,15 +21,20 @@ class Solicitacao extends Model
         'ug_id',
         'servico_id',
         'cidadao_id',
+        'procurador_cidadao_id',
         'anonima',
         'status',
         'descricao',
         'telefone_contato',
+        'manifestacao_tipo',
+        'identificacao',
+        'chave_acesso',
         'email_contato',
         'atendente_id',
         'processo_id',
         'resposta',
         'respondida_em',
+        'dados_formulario',
     ];
 
     protected function casts(): array
@@ -37,6 +42,7 @@ class Solicitacao extends Model
         return [
             'respondida_em' => 'datetime',
             'anonima'       => 'boolean',
+            'dados_formulario' => 'array',
         ];
     }
 
@@ -60,6 +66,12 @@ class Solicitacao extends Model
         return $this->belongsTo(Cidadao::class, 'cidadao_id');
     }
 
+    /** Quem protocolou em nome do titular (cidadao_id), por procuração. */
+    public function procurador(): BelongsTo
+    {
+        return $this->belongsTo(Cidadao::class, 'procurador_cidadao_id');
+    }
+
     public function atendente(): BelongsTo
     {
         return $this->belongsTo(User::class, 'atendente_id');
@@ -68,6 +80,12 @@ class Solicitacao extends Model
     public function anexos(): HasMany
     {
         return $this->hasMany(SolicitacaoAnexo::class, 'solicitacao_id')->orderBy('id');
+    }
+
+    /** Pessoas envolvidas que acompanham pela Central (TR 4.23.9). */
+    public function envolvidos(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(SolicitacaoEnvolvido::class, 'solicitacao_id')->orderBy('id');
     }
 
     public function eventos(): HasMany

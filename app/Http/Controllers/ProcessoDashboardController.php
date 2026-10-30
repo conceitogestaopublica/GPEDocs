@@ -33,7 +33,7 @@ class ProcessoDashboardController extends Controller
             ->whereIn('status', ['pendente', 'recebido', 'em_analise'])
             ->count();
 
-        $processosRecentes = Processo::with(['tipoProcesso', 'abertoPor'])
+        $processosRecentes = \App\Support\RequerimentoServidor::restringir(Processo::with(['tipoProcesso', 'abertoPor']), Auth::user())
             ->orderByDesc('created_at')
             ->limit(10)
             ->get();
@@ -47,6 +47,8 @@ class ProcessoDashboardController extends Controller
                 'inbox_count'        => $inboxCount,
             ],
             'processos_recentes' => $processosRecentes,
+            // Satisfação (TR 4.32.26): média das avaliações por estrelas, geral e por assunto, nos últimos 12 meses
+            'avaliacoes'         => \App\Support\Avaliacoes::indicadores(now()->subYear()->toDateString()),
         ]);
     }
 }

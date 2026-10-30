@@ -14,6 +14,7 @@ use Illuminate\Queue\SerializesModels;
 class ConviteAssinaturaExterna extends Mailable
 {
     use Queueable, SerializesModels;
+    use Concerns\ComDescadastro, Concerns\ComRastreio;
 
     public function __construct(public Assinatura $assinatura)
     {
@@ -21,8 +22,11 @@ class ConviteAssinaturaExterna extends Mailable
 
     public function build(): self
     {
+        $this->comDescadastro();   // link "deixar de receber" + List-Unsubscribe
+
         $documento = $this->assinatura->documento;
         $orgao = Ug::withoutGlobalScopes()->find($documento?->ug_id)?->nome ?? config('app.name');
+        $r = $this->aplicarRastreio($this->assinatura->linkConvite());   // TR 4.11.12
 
         return $this->subject("[{$orgao}] Documento para sua assinatura: {$documento?->nome}")
             ->view('emails.convite_assinatura')
@@ -31,7 +35,8 @@ class ConviteAssinaturaExterna extends Mailable
                 'orgao'     => $orgao,
                 'documento' => $documento?->nome,
                 'mensagem'  => $this->assinatura->solicitacao?->mensagem,
-                'link'      => $this->assinatura->linkConvite(),
+                'link'      => $r['link'],
+                'pixel'     => $r['pixel'],
                 'expira_em' => $this->assinatura->convite_expira_em?->format('d/m/Y'),
             ]);
     }

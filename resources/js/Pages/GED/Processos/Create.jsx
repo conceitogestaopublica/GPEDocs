@@ -3,22 +3,36 @@
  *
  * Formulario com campos dinamicos baseados no tipo de processo selecionado.
  */
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import EnderecoForm from '../../../Components/EnderecoForm';
+import LocalizacaoDemanda from '../../../Components/LocalizacaoDemanda';
+import RichEditor from '../../../Components/RichEditor';
 
-export default function Create({ tipos_processo, unidades = [], usuarios = [] }) {
+export default function Create({ tipos_processo, unidades = [], usuarios = [], cidade = '', ouvidoria = { manifestacoes: {}, identificacoes: {}, canais: {} }, legislativo = { proposicoes: {}, vereadores: [] }, pad_infracoes = [] }) {
     const tipos = tipos_processo || [];
+    const [local, setLocal] = useState({ latitude: null, longitude: null, endereco: '' });
     const [files, setFiles] = useState([]);
+    const [exigidos, setExigidos] = useState({});   // índice do documento exigido → arquivo
 
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors: errosDoForm } = useForm({
         tipo_processo_id: '',
         assunto: '',
         descricao: '',
+        descricao_html: '',
         prioridade: 'normal',
+        // Chamado técnico (TR 4.35.4, 4.35.7)
+        patrimonio: '',
+        solicitante_user_id: '',
+        pad_infracao_id: '',
+        // Protocolo legislativo (TR 4.37.1)
+        vereador_id: '',
+        proposicao_tipo: '',
+        proposicao_numero: '',
         dados_formulario: {},
         requerente_nome: '',
         requerente_cpf: '',
@@ -26,7 +40,14 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
         requerente_telefone: '',
         setor_destino_inicial: '',
         destinatario_inicial: '',
+        // Ouvidoria (TR 4.33.4, 4.33.8, 4.33.27)
+        canal: 'balcao',
+        manifestacao_tipo: '',
+        identificacao: 'aberta',
     });
+    // O envio é por router.post (FormData com arquivos): os erros de validação chegam nas
+    // props da página, não no useForm — antes nenhum erro aparecia na tela.
+    const errors = { ...errosDoForm, ...(usePage().props.errors || {}) };
 
     // Combobox setor
     const [setorSearch, setSetorSearch] = useState('');
@@ -49,22 +70,39 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
         visit(null);
         return out;
     }, [unidades]);
+    const tipoSelecionado = tipos.find(t => String(t.id) === String(data.tipo_processo_id));
+    const schemaCampos = tipoSelecionado?.schema_formulario || [];
+
+    // Setor inicial pelo assunto (TR 4.38.2): a 1ª etapa obrigatória com setores limita a escolha
+    const setoresIniciaisDe = (tipo) => {
+        const primeira = [...(tipo?.etapas || [])].sort((a, b) => a.ordem - b.ordem)[0];
+        if (! primeira?.obrigatorio) return null;
+        const ids = (primeira.unidades || []).map(Number).filter(id => unidadesTree.some(u => Number(u.id) === id));
+        return ids.length ? ids : null;
+    };
+    const setoresIniciais = setoresIniciaisDe(tipoSelecionado);
+
     const unidadesFiltradas = useMemo(() => {
-        if (! setorSearch.trim()) return unidadesTree;
+        const base = setoresIniciais ? unidadesTree.filter(u => setoresIniciais.includes(Number(u.id))) : unidadesTree;
+        if (! setorSearch.trim()) return base;
         const t = setorSearch.toLowerCase();
-        return unidadesTree.filter(u => u.nome.toLowerCase().includes(t));
-    }, [unidadesTree, setorSearch]);
+        return base.filter(u => u.nome.toLowerCase().includes(t));
+    }, [unidadesTree, setorSearch, setoresIniciais?.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
     const setorSelecionado = unidadesTree.find(u => String(u.id) === String(data.setor_destino_inicial));
     const usuariosFiltrados = useMemo(() => {
         if (! data.setor_destino_inicial) return usuarios;
         return usuarios.filter(u => Number(u.unidade_id) === Number(data.setor_destino_inicial));
     }, [usuarios, data.setor_destino_inicial]);
 
-    const tipoSelecionado = tipos.find(t => String(t.id) === String(data.tipo_processo_id));
-    const schemaCampos = tipoSelecionado?.schema_formulario || [];
-
     const handleTipoChange = (tipoId) => {
-        setData(prev => ({ ...prev, tipo_processo_id: tipoId, dados_formulario: {} }));
+        const iniciais = setoresIniciaisDe(tipos.find(t => String(t.id) === String(tipoId)));
+        setData(prev => ({
+            ...prev, tipo_processo_id: tipoId, dados_formulario: {},
+            // Um setor só: já vem escolhido. Vários: limpa se o escolhido não serve.
+            setor_destino_inicial: iniciais?.length === 1 ? iniciais[0]
+                : (iniciais && ! iniciais.includes(Number(prev.setor_destino_inicial)) ? '' : prev.setor_destino_inicial),
+            destinatario_inicial: '',
+        }));
     };
 
     const setDadoFormulario = (campo, valor) => {
@@ -87,21 +125,46 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
 
         formData.append('tipo_processo_id', data.tipo_processo_id);
         formData.append('assunto', data.assunto);
-        formData.append('descricao', data.descricao);
+        // Descrição com formatação e tabelas (TR 4.35.10); o servidor guarda também o texto simples
+        if (data.descricao_html) formData.append('descricao_html', data.descricao_html);
+        if (tipoSelecionado?.modalidade === 'pad' && data.pad_infracao_id) formData.append('pad_infracao_id', data.pad_infracao_id);
+        if (tipoSelecionado?.modalidade === 'legislativo') {
+            ['vereador_id', 'proposicao_tipo', 'proposicao_numero'].forEach((c) => { if (data[c]) formData.append(c, data[c]); });
+        }
+        if (tipoSelecionado?.modalidade === 'chamado') {
+            if (data.patrimonio) formData.append('patrimonio', data.patrimonio);
+            if (data.solicitante_user_id) formData.append('solicitante_user_id', data.solicitante_user_id);
+        }
         formData.append('prioridade', data.prioridade);
 
         // Dados dinamicos do formulario
         Object.entries(data.dados_formulario).forEach(([chave, valor]) => {
-            if (valor !== '' && valor !== null && valor !== undefined) {
+            if (valor === '' || valor === null || valor === undefined) return;
+            if (typeof valor === 'boolean') {
+                formData.append(`dados_formulario[${chave}]`, valor ? '1' : '0');
+            } else if (typeof valor === 'object') {
+                // Endereço do campo CEP
+                Object.entries(valor).forEach(([parte, v]) => v && formData.append(`dados_formulario[${chave}][${parte}]`, v));
+            } else {
                 formData.append(`dados_formulario[${chave}]`, valor);
             }
         });
 
-        // Requerente
-        if (data.requerente_nome) formData.append('requerente_nome', data.requerente_nome);
-        if (data.requerente_cpf) formData.append('requerente_cpf', data.requerente_cpf);
-        if (data.requerente_email) formData.append('requerente_email', data.requerente_email);
-        if (data.requerente_telefone) formData.append('requerente_telefone', data.requerente_telefone);
+        formData.append('canal', data.canal);
+        if (tipoSelecionado?.modalidade === 'ouvidoria') {
+            formData.append('manifestacao_tipo', data.manifestacao_tipo);
+            formData.append('identificacao', data.identificacao);
+        }
+
+        // Requerente — manifestação anônima não leva identificação nenhuma (TR 4.33.27)
+        const anonima = tipoSelecionado?.modalidade === 'ouvidoria' && data.identificacao === 'anonima';
+        if (! anonima) {
+            ['requerente_nome', 'requerente_cpf', 'requerente_email', 'requerente_telefone'].forEach((c) => { if (data[c]) formData.append(c, data[c]); });
+        }
+
+        // Onde fica a demanda (TR 4.32.21)
+        if (local.latitude != null) { formData.append('localizacao[latitude]', local.latitude); formData.append('localizacao[longitude]', local.longitude); }
+        if (local.endereco) formData.append('localizacao[endereco]', local.endereco);
 
         // Destino inicial
         if (data.setor_destino_inicial) formData.append('setor_destino_inicial', data.setor_destino_inicial);
@@ -109,6 +172,7 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
 
         // Arquivos
         files.forEach((file, i) => formData.append(`files[${i}]`, file));
+        Object.entries(exigidos).forEach(([i, file]) => file && formData.append(`anexos_exigidos[${i}]`, file));
 
         router.post('/processos', formData, { forceFormData: true });
     };
@@ -163,13 +227,8 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-                                    <textarea
-                                        value={data.descricao}
-                                        onChange={(e) => setData('descricao', e.target.value)}
-                                        className="ds-input !h-auto"
-                                        rows={4}
-                                        placeholder="Detalhes adicionais sobre o processo..."
-                                    />
+                                    <RichEditor html={data.descricao_html} onChange={(v) => setData('descricao_html', v)} minHeight={160}
+                                        placeholder="Detalhes adicionais sobre o processo…" />
                                     {errors.descricao && <p className="mt-1 text-xs text-red-600">{errors.descricao}</p>}
                                 </div>
 
@@ -194,12 +253,24 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                             <Card title={`Formulário - ${tipoSelecionado.nome}`}>
                                 <div className="space-y-4">
                                     {schemaCampos.map((campo) => (
-                                        <div key={campo.campo}>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                {campo.label}
-                                                {campo.obrigatorio && <span className="text-red-500 ml-0.5">*</span>}
-                                            </label>
-                                            {renderDynamicField(campo, data.dados_formulario[campo.campo] || '', (val) => setDadoFormulario(campo.campo, val))}
+                                        <div key={campo.campo} className={campo.tipo === 'cep' ? 'md:col-span-2' : ''}>
+                                            {campo.tipo !== 'checkbox' && (
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    {campo.label}
+                                                    {campo.obrigatorio && <span className="text-red-500 ml-0.5">*</span>}
+                                                </label>
+                                            )}
+                                            {campo.tipo === 'calculo'
+                                                ? <input readOnly value={formatarCalculo(calcular(campo.formula, data.dados_formulario))} className="ds-input bg-gray-50" title={`Calculado: ${campo.formula}`} />
+                                                : renderDynamicField(campo, data.dados_formulario[campo.campo] ?? '', (val) => setDadoFormulario(campo.campo, val),
+                                                    (parte) => errors[`dados_formulario.${campo.campo}.${parte}`])}
+                                            {/* Ajuda do campo (TR 4.38.6) */}
+                                            {campo.ajuda && <p className="mt-1 text-[11px] text-gray-500"><i className="fas fa-circle-info mr-1" />{campo.ajuda}</p>}
+                                            {campo.ajuda_imagem && (
+                                                <a href={campo.ajuda_imagem} target="_blank" rel="noreferrer" className="inline-block mt-1">
+                                                    <img src={campo.ajuda_imagem} alt={`Ajuda: ${campo.label}`} className="max-h-24 rounded border border-gray-200" />
+                                                </a>
+                                            )}
                                             {errors[`dados_formulario.${campo.campo}`] && (
                                                 <p className="mt-1 text-xs text-red-600">{errors[`dados_formulario.${campo.campo}`]}</p>
                                             )}
@@ -209,8 +280,116 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                             </Card>
                         )}
 
+                        {tipoSelecionado && (tipoSelecionado.localizacao || 'nao') !== 'nao' && (
+                            <Card title="Onde fica a demanda" subtitle={tipoSelecionado.localizacao === 'obrigatoria' ? 'Obrigatório marcar no mapa' : 'Opcional'}>
+                                <LocalizacaoDemanda value={local} onChange={setLocal} cidade={cidade} erro={errors.localizacao} obrigatoria={tipoSelecionado.localizacao === 'obrigatoria'} />
+                            </Card>
+                        )}
+
+                        {/* Ouvidoria: tipo, identificação e canal (TR 4.33.4, 4.33.8, 4.33.27) */}
+                        {tipoSelecionado?.modalidade === 'ouvidoria' && (
+                            <Card title="Manifestação de ouvidoria" subtitle="Lei 13.460/2017 — resposta em até 30 dias úteis, prorrogáveis por mais 30">
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tipo da manifestação <span className="text-red-500">*</span></label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {Object.entries(ouvidoria.manifestacoes).map(([v, r]) => (
+                                                <button key={v} type="button" onClick={() => setData('manifestacao_tipo', v)}
+                                                    className={`px-3 py-1.5 rounded-lg border text-sm ${data.manifestacao_tipo === v ? 'border-cyan-600 bg-cyan-600 text-white' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}>{r}</button>
+                                            ))}
+                                        </div>
+                                        {errors.manifestacao_tipo && <p className="mt-1 text-xs text-red-600">{errors.manifestacao_tipo}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Identificação do manifestante</label>
+                                        <div className="space-y-1">
+                                            {Object.entries(ouvidoria.identificacoes).map(([v, r]) => (
+                                                <label key={v} className="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="radio" name="identificacao" checked={data.identificacao === v} onChange={() => setData('identificacao', v)} /> {r}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
+                        )}
+
+                        {/* PAD: o tipo de infração define o setor que recebe (TR 4.40.2) */}
+                        {tipoSelecionado?.modalidade === 'pad' && (
+                            <Card title="Processo administrativo disciplinar" subtitle="Sigiloso: só a comissão, quem conduz PADs e os setores por onde tramitar">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de infração <span className="text-red-500">*</span></label>
+                                <select value={data.pad_infracao_id} className="ds-input"
+                                    onChange={(e) => {
+                                        const inf = pad_infracoes.find(i => String(i.id) === e.target.value);
+                                        setData((d) => ({ ...d, pad_infracao_id: e.target.value, setor_destino_inicial: inf?.unidade_id ? String(inf.unidade_id) : d.setor_destino_inicial }));
+                                    }}>
+                                    <option value="">Selecione…</option>
+                                    {pad_infracoes.map(i => <option key={i.id} value={i.id}>{i.nome} ({{ leve: 'leve', media: 'média', grave: 'grave' }[i.gravidade]})</option>)}
+                                </select>
+                                {errors.pad_infracao_id && <p className="mt-1 text-xs text-red-600">{errors.pad_infracao_id}</p>}
+                                {(() => { const inf = pad_infracoes.find(i => String(i.id) === String(data.pad_infracao_id)); return inf?.base_legal ? <p className="mt-1 text-[11px] text-gray-500">Base legal: {inf.base_legal}</p> : null; })()}
+                                <p className="mt-1 text-[11px] text-gray-500">O setor de destino é preenchido pelo tipo de infração; os campos exigidos pela lei municipal ficam no formulário do assunto.</p>
+                            </Card>
+                        )}
+
+                        {/* Protocolo legislativo: vereador, tipo e número da proposição (TR 4.37.1) */}
+                        {tipoSelecionado?.modalidade === 'legislativo' && (
+                            <Card title="Proposição legislativa" subtitle={`Prazo de resposta: ${tipoSelecionado.prazo_resposta_dias || 15} dias${tipoSelecionado.prazo_dias_uteis ? ' úteis' : ''}`}>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Vereador <span className="text-red-500">*</span></label>
+                                        <select value={data.vereador_id} onChange={(e) => setData('vereador_id', e.target.value)} className="ds-input">
+                                            <option value="">Selecione…</option>
+                                            {legislativo.vereadores.map(v => <option key={v.id} value={v.id}>{v.nome}{v.partido ? ` (${v.partido})` : ''}</option>)}
+                                        </select>
+                                        {errors.vereador_id && <p className="mt-1 text-xs text-red-600">{errors.vereador_id}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tipo <span className="text-red-500">*</span></label>
+                                        <select value={data.proposicao_tipo} onChange={(e) => setData('proposicao_tipo', e.target.value)} className="ds-input">
+                                            <option value="">Selecione…</option>
+                                            {Object.entries(legislativo.proposicoes).map(([v, r]) => <option key={v} value={v}>{r}</option>)}
+                                        </select>
+                                        {errors.proposicao_tipo && <p className="mt-1 text-xs text-red-600">{errors.proposicao_tipo}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Número na Câmara</label>
+                                        <input value={data.proposicao_numero} onChange={(e) => setData('proposicao_numero', e.target.value)} className="ds-input" placeholder="Ex.: 123/2026" maxLength={30} />
+                                    </div>
+                                </div>
+                            </Card>
+                        )}
+
+                        {/* Chamado técnico: bem do patrimônio e servidor em nome de quem se abre (TR 4.35.4, 4.35.7) */}
+                        {tipoSelecionado?.modalidade === 'chamado' && (
+                            <Card title="Chamado técnico" subtitle="Consertos e manutenções">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Número de patrimônio</label>
+                                        <input value={data.patrimonio} onChange={(e) => setData('patrimonio', e.target.value)} className="ds-input" placeholder="Ex.: 012345" maxLength={60} />
+                                        {errors.patrimonio && <p className="mt-1 text-xs text-red-600">{errors.patrimonio}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Abrir em nome de</label>
+                                        <select value={data.solicitante_user_id} onChange={(e) => setData('solicitante_user_id', e.target.value)} className="ds-input">
+                                            <option value="">Eu mesmo</option>
+                                            {usuarios.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                        </select>
+                                        <p className="mt-1 text-[11px] text-gray-500">O servidor escolhido vira o requerente e acompanha o chamado.</p>
+                                    </div>
+                                </div>
+                            </Card>
+                        )}
+
+                        <Card title="Canal de entrada">
+                            <select value={data.canal} onChange={(e) => setData('canal', e.target.value)} className="ds-input">
+                                {Object.entries(ouvidoria.canais).map(([v, r]) => <option key={v} value={v}>{r}</option>)}
+                            </select>
+                            <p className="mt-1 text-[11px] text-gray-500">Por onde o pedido chegou: balcão, telefone, e-mail ou redes sociais.</p>
+                        </Card>
+
                         {/* Requerente */}
-                        <Card title="Requerente" subtitle="Informações do solicitante (opcional)">
+                        {! (tipoSelecionado?.modalidade === 'ouvidoria' && data.identificacao === 'anonima') && <Card title="Requerente" subtitle="Informações do solicitante (opcional)">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
@@ -253,7 +432,7 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                                     />
                                 </div>
                             </div>
-                        </Card>
+                        </Card>}
 
                         {/* Destino inicial — para onde o processo vai */}
                         <Card title="Para qual setor enviar" subtitle="Setor que vai receber o processo na Caixa de Entrada (obrigatório)" className="overflow-visible">
@@ -305,6 +484,11 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                                             </div>
                                         </>
                                     )}
+                                    {setoresIniciais && (
+                                        <p className="mt-1 text-[10px] text-gray-500">
+                                            <i className="fas fa-route mr-1" />Este assunto começa em: {unidadesTree.filter(u => setoresIniciais.includes(Number(u.id))).map(u => u.nome).join(', ')}.
+                                        </p>
+                                    )}
                                     {errors.setor_destino_inicial && (
                                         <p className="mt-1 text-xs text-red-600">{errors.setor_destino_inicial}</p>
                                     )}
@@ -330,6 +514,29 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
                                 </div>
                             </div>
                         </Card>
+
+                        {/* Documentos exigidos pelo assunto (TR 4.32.14, 4.38.18) */}
+                        {(tipoSelecionado?.anexos_exigidos || []).length > 0 && (
+                            <Card title="Documentos exigidos">
+                                <div className="space-y-3">
+                                    {tipoSelecionado.anexos_exigidos.map((ax, i) => {
+                                        const exts = (ax.extensoes || '').split(',').map(e => e.trim().replace(/^\./, '')).filter(Boolean);
+                                        return (
+                                            <div key={i}>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    {ax.nome}{ax.obrigatorio !== false && <span className="text-red-500 ml-0.5">*</span>}
+                                                    {exts.length > 0 && <span className="ml-2 text-[10px] text-gray-400 uppercase">{exts.join(', ')}</span>}
+                                                </label>
+                                                <input type="file" accept={exts.map(e => `.${e}`).join(',') || undefined}
+                                                    onChange={(e) => setExigidos(prev => ({ ...prev, [i]: e.target.files[0] || null }))}
+                                                    className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700" />
+                                                {errors[`anexos_exigidos.${i}`] && <p className="mt-1 text-xs text-red-600">{errors[`anexos_exigidos.${i}`]}</p>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </Card>
+                        )}
 
                         {/* Anexos */}
                         <Card title="Anexos">
@@ -456,8 +663,55 @@ export default function Create({ tipos_processo, unidades = [], usuarios = [] })
     );
 }
 
-function renderDynamicField(campo, value, onChange) {
+/** Mesmo cálculo do servidor (App\Support\Formula): só números, + − * / ( ) e {campo}. */
+function calcular(formula, valores) {
+    const expr = (formula || '').replace(/\{\s*([A-Za-z0-9_]+)\s*\}/g, (_, c) => {
+        const n = parseFloat(String(valores[c] ?? '').replace(',', '.'));
+        return `(${Number.isFinite(n) ? n : 0})`;
+    });
+    if (! expr.trim() || ! /^[\d\s.+\-*/()eE]+$/.test(expr)) return null;
+    try {
+        const v = Function(`"use strict"; return (${expr});`)();
+        return Number.isFinite(v) ? v : null;
+    } catch {
+        return null;
+    }
+}
+const formatarCalculo = (v) => v === null ? '' : v.toLocaleString('pt-BR', { maximumFractionDigits: 6 });
+
+const mascaraCpfCnpj = (v) => {
+    const d = v.replace(/\D/g, '').slice(0, 14);
+    return d.length <= 11
+        ? d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+        : d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
+};
+const mascaraTelefone = (v) => {
+    const d = v.replace(/\D/g, '').slice(0, 11);
+    return d.length > 10 ? d.replace(/^(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3') : d.replace(/^(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3').replace(/-$/, '');
+};
+
+function renderDynamicField(campo, value, onChange, erroParte = () => null) {
     switch (campo.tipo) {
+        case 'cpf_cnpj':
+            return <input type="text" inputMode="numeric" value={value} onChange={(e) => onChange(mascaraCpfCnpj(e.target.value))}
+                className="ds-input" placeholder="000.000.000-00" maxLength={18} />;
+        case 'email':
+            return <input type="email" value={value} onChange={(e) => onChange(e.target.value)} className="ds-input" placeholder="nome@exemplo.com" />;
+        case 'telefone':
+            return <input type="tel" value={value} onChange={(e) => onChange(mascaraTelefone(e.target.value))} className="ds-input" placeholder="(31) 99999-9999" />;
+        case 'checkbox':
+            return (
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer pt-6">
+                    <input type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} className="rounded border-gray-300 text-blue-600" />
+                    {campo.label}{campo.obrigatorio && <span className="text-red-500">*</span>}
+                </label>
+            );
+        case 'cep': {
+            // Endereço completo; o CEP preenche logradouro, bairro, cidade e UF (TR 4.38.7)
+            const end = value && typeof value === 'object' ? value : {};
+            const setEnd = (k, v) => onChange(typeof k === 'object' ? k : { ...end, [k]: v });
+            return <EnderecoForm data={end} setData={setEnd} errors={{ cep: erroParte('cep') }} />;
+        }
         case 'text':
             return (
                 <input

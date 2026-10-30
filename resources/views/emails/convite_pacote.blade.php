@@ -37,5 +37,6 @@
             <p style="font-size:12px; color:#6b7280; word-break:break-all;">Se o botão não abrir, copie este endereço: {{ $link }}</p>
         </div>
     </div>
+    @include('emails.partials.rodape-descadastro')
 </body>
 </html>

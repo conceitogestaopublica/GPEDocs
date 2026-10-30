@@ -67,7 +67,7 @@ class SincronizarPortalCidadaoService
         }
 
         $email = $solicitacao->email_contato ?? $solicitacao->cidadao?->email;
-        if (! $email) {
+        if (! $email || \App\Support\DescadastroEmail::descadastrado($email)) {   // pediu para não receber avisos
             return;
         }
 
@@ -77,38 +77,38 @@ class SincronizarPortalCidadaoService
             $pdfAssinado = $this->localizarPdfAssinado($processo->documento_decisao_id);
         }
 
-        Mail::to($email)->send(new NotificacaoSolicitacaoCidadao(
+        // Rastreado (TR 4.11.12)
+        \App\Support\RastreioEmail::enviar(new NotificacaoSolicitacaoCidadao(
             $solicitacao->fresh(),
             $solicitacao->servico,
             $solicitacao->ug,
             'status_alterado',
             null,
             $pdfAssinado,
-        ));
+        ), $email, 'cidadao', "Solicitação {$solicitacao->codigo}", 'solicitacao', $solicitacao->id, null);
     }
 
     /**
-     * Devolve [path_temporario_local, nome_amigavel] do PDF ASSINADO digitalmente.
-     * Le de ged_assinaturas.arquivo_assinado_path — onde o servico de assinatura ICP-Brasil
-     * armazena o PDF carimbado com o certificado.
+     * Devolve [path_temporario_local, nome_amigavel] do PDF da decisão assinada para o
+     * e-mail do cidadão: a cópia para impressão (com os carimbos); o original com as
+     * assinaturas digitais fica no portal. Sem cópia (assinaturas antigas), o original.
      */
     private function localizarPdfAssinado(int $documentoId): ?array
     {
-        $assinada = \App\Models\Assinatura::query()
-            ->where('documento_id', $documentoId)
-            ->where('status', 'assinado')
-            ->whereNotNull('arquivo_assinado_path')
-            ->orderByDesc('assinado_em')
-            ->first();
+        $documento = \App\Models\Documento::query()->withoutGlobalScopes()->with('versaoAtual')->find($documentoId);
+        $caminho = $documento?->caminhoImpressao();
+        if (! $caminho) {
+            $oficial = $documento?->caminhoOficial();
+            $caminho = $oficial !== $documento?->versaoAtual?->arquivo_path ? $oficial : null;
+        }
 
-        if (! $assinada || ! Storage::disk('documentos')->exists($assinada->arquivo_assinado_path)) {
+        if (! $caminho || ! Storage::disk('documentos')->exists($caminho)) {
             return null;
         }
 
         $tmp = tempnam(sys_get_temp_dir(), 'sig_').'.pdf';
-        file_put_contents($tmp, Storage::disk('documentos')->get($assinada->arquivo_assinado_path));
+        file_put_contents($tmp, Storage::disk('documentos')->get($caminho));
 
-        $documento = \App\Models\Documento::find($documentoId);
         $nome = ($documento?->nome ?? 'decisao').'-assinado.pdf';
 
         return [$tmp, $nome];

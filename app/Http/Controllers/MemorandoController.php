@@ -11,13 +11,16 @@ use App\Models\Processo\MemorandoDestinatario;
 use App\Models\Processo\MemorandoResposta;
 use App\Models\Processo\MemorandoTramitacao;
 use App\Models\User;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Acessos;
+use App\Support\Setores;
+use App\Support\Relatorio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Support\EmNomeDe;
 
 class MemorandoController extends Controller
 {
@@ -26,11 +29,16 @@ class MemorandoController extends Controller
         $tipo = $request->input('tipo', 'recebidos');
 
         if ($tipo === 'enviados') {
-            $query = Memorando::where('remetente_id', Auth::id());
+            $query = Memorando::where(fn ($q) => $q->where('remetente_id', Auth::id())->orWhere('digitador_id', Auth::id()));
         } else {
-            $query = Memorando::whereHas('destinatarios', function ($q) {
-                $q->where('usuario_id', Auth::id());
-            });
+            // Recebidos: para mim, para os setores que atendo (inclui "todos os setores") ou tramitados a eles
+            $setores = Setores::doUsuario(Auth::user()) ?: [-1];
+            $query = Memorando::where(fn ($p) => $p->where('confidencial', false)->orWhere('remetente_id', Auth::id())
+                    ->orWhereHas('destinatarios', fn ($q) => $q->where('usuario_id', Auth::id()))
+                    ->orWhereHas('tramitacoes', fn ($q) => $q->where('destino_usuario_id', Auth::id())))
+                ->where(fn ($m) => $m
+                ->whereHas('destinatarios', fn ($q) => $q->where('usuario_id', Auth::id())->orWhereIn('unidade_id', $setores))
+                ->orWhereHas('tramitacoes', fn ($q) => $q->where('destino_usuario_id', Auth::id())->orWhereIn('destino_unidade_id', $setores)));
         }
 
         $memorandos = $query->with(['remetente', 'destinatarios.usuario'])
@@ -64,9 +72,12 @@ class MemorandoController extends Controller
             ->where('ativo', true)
             ->orderBy('nivel')
             ->orderBy('nome')
-            ->get(['id', 'nome', 'codigo', 'nivel', 'parent_id']);
+            ->get(['id', 'nome', 'sigla', 'codigo', 'nivel', 'parent_id']);
 
         return Inertia::render('GED/Memorandos/Create', [
+            'variaveis'    => Memorando::variaveisParaEditor(),
+            'rascunho'     => \App\Support\Rascunhos::abrir(request()->integer('rascunho') ?: null, Auth::user(), 'memorando'),
+            'autorizacoes' => EmNomeDe::autorizacoes(),
             'usuarios' => $usuarios,
             'unidades' => $unidades,
         ]);
@@ -81,15 +92,23 @@ class MemorandoController extends Controller
             'unidade_id'            => ['nullable', 'integer', 'exists:ug_organograma,id', 'required_if:tipo_destino,setor'],
             'destinatarios'         => ['nullable', 'array', 'required_if:tipo_destino,usuario'],
             'destinatarios.*'       => ['integer', 'exists:users,id'],
-            'confidencial'          => ['nullable', 'boolean'],
+            'confidencial'          => ['nullable', 'boolean', function ($a, $v, $falha) use ($request) {
+                if ($v && $request->input('tipo_destino') !== 'usuario') {
+                    $falha('Memorando privado vai só para pessoas: escolha "Setor + Usuário".');
+                }
+            }],
             'setor_origem'          => ['nullable', 'string', 'max:150'],
             'data_arquivamento_auto'=> ['nullable', 'date'],
             'files'                 => ['nullable', 'array'],
             'files.*'               => ['file', 'max:51200'],
         ]);
 
+        // Em nome de outro servidor, por contrassenha (TR 4.18)
+        $contrassenha = \App\Support\EmNomeDe::conferir($request);
+
         try {
             DB::beginTransaction();
+            $origem = \App\Support\EmNomeDe::consumir($contrassenha);
 
             $year = date('Y');
 
@@ -103,13 +122,16 @@ class MemorandoController extends Controller
                 'numero'                => $numero,
                 'assunto'               => $request->input('assunto'),
                 'conteudo'              => $request->input('conteudo'),
-                'remetente_id'          => Auth::id(),
+                'remetente_id'          => $origem['remetente_id'],
+                'digitador_id'          => $origem['digitador_id'],
+                'contrassenha_id'       => $origem['contrassenha_id'],
                 'setor_origem'          => $request->input('setor_origem'),
                 'confidencial'          => $request->boolean('confidencial'),
                 'status'                => 'enviado',
                 'enviado_em'            => now(),
                 'data_arquivamento_auto'=> $request->input('data_arquivamento_auto'),
             ]);
+            \App\Support\EmNomeDe::avisarAutorizador($origem, 'memorando', $memorando->id, "Memorando {$numero} — {$memorando->assunto}");
 
             $tipoDestino = $request->input('tipo_destino');
             $usuariosNotificar = [];
@@ -132,7 +154,7 @@ class MemorandoController extends Controller
                     'unidade_id'   => $unidadeId,
                     'lido'         => false,
                 ]);
-                $usuariosNotificar = User::where('unidade_id', $unidadeId)->pluck('id')->all();
+                $usuariosNotificar = Setores::servidores((int) $unidadeId);
             } else { // usuario
                 foreach ((array) $request->input('destinatarios') as $usuarioId) {
                     MemorandoDestinatario::create([
@@ -159,10 +181,16 @@ class MemorandoController extends Controller
                 }
             }
 
+            // Anexos guardados no rascunho automático (TR 4.16.8)
+            foreach (\App\Support\Rascunhos::entregarAnexos($request->integer('rascunho_id') ?: null, 'memorandos', Auth::user()) as $anexo) {
+                MemorandoAnexo::create(['memorando_id' => $memorando->id] + $anexo);
+            }
+
             foreach (array_unique($usuariosNotificar) as $usuarioId) {
                 Notificacao::create([
                     'usuario_id'      => (int) $usuarioId,
                     'tipo'            => 'memorando_recebido',
+                    'alcance'         => $tipoDestino === 'usuario' ? 'pessoal' : 'setor',
                     'titulo'          => 'Novo memorando recebido',
                     'mensagem'        => "Memorando {$numero} - {$memorando->assunto} recebido.",
                     'referencia_tipo' => 'memorando',
@@ -172,6 +200,11 @@ class MemorandoController extends Controller
             }
 
             DB::commit();
+            \App\Support\Rascunhos::concluir($request->integer('rascunho_id') ?: null, Auth::user());
+            // @ menções, # citações e ! assinaturas do texto (TR 4.16.13–4.16.18)
+            if ($avisos = \App\Support\Marcadores::aposSalvar('memorando', $memorando->id, $memorando->conteudo, Auth::user(), $memorando)) {
+                session()->flash('warning', implode(' ', $avisos));
+            }
 
             return redirect("/memorandos/{$memorando->id}")->with('success', 'Memorando enviado com sucesso. Número: ' . $numero);
         } catch (\Exception $e) {
@@ -188,19 +221,28 @@ class MemorandoController extends Controller
     private function podeVer(Memorando $memorando, \App\Models\User $user): bool
     {
         $memorando->loadMissing(['destinatarios', 'tramitacoes']);
-        $unidadeId = $user->unidade_id;
         $acessoGeral = (bool) $user->acesso_geral_ug;
+
+        // Privado (TR 4.45.6): só remetente, quem digitou e as pessoas a quem foi endereçado ou tramitado
+        if ($memorando->confidencial) {
+            return in_array($user->id, [$memorando->remetente_id, $memorando->digitador_id], true)
+                || $memorando->destinatarios->contains('usuario_id', $user->id)
+                || $memorando->tramitacoes->contains(fn ($t) => $t->destino_usuario_id === $user->id || $t->origem_usuario_id === $user->id)
+                || \App\Support\Marcadores::temAcesso('memorando', $memorando->id, $user->id);
+        }
 
         return $memorando->remetente_id === $user->id
             || $memorando->destinatarios->contains(fn ($d) =>
                 $d->usuario_id === $user->id
-                || ($unidadeId && $d->unidade_id === $unidadeId)
+                || Setores::atende($user, $d->unidade_id)
                 || ($acessoGeral && $d->unidade_id !== null))
             || $memorando->tramitacoes->contains(fn ($t) =>
                 $t->destino_usuario_id === $user->id
-                || ($unidadeId && $t->destino_unidade_id === $unidadeId)
+                || Setores::atende($user, $t->destino_unidade_id)
                 || ($acessoGeral && $t->destino_unidade_id !== null))
-            || $memorando->tramitacoes->contains('origem_usuario_id', $user->id);
+            || $memorando->tramitacoes->contains('origem_usuario_id', $user->id)
+            // Mencionado no texto (@) ou chamado a assinar (!) — TR 4.16.16
+            || \App\Support\Marcadores::temAcesso('memorando', $memorando->id, $user->id);
     }
 
     /** Download de anexo — a rota que a tela usava não existia (404). */
@@ -218,21 +260,24 @@ class MemorandoController extends Controller
     public function show($id): Response
     {
         $memorando = Memorando::with([
-            'remetente',
+            'remetente', 'digitador:id,name',
             'destinatarios.usuario',
             'destinatarios.unidade',
             'anexos.enviadoPor',
             'respostas.usuario',
-            'tramitacoes.origemUsuario:id,name',
+            'tramitacoes.origemUsuario:id,name,foto_path',
             'tramitacoes.origemUnidade:id,nome,codigo',
-            'tramitacoes.destinoUsuario:id,name',
+            'tramitacoes.destinoUsuario:id,name,foto_path',
             'tramitacoes.destinoUnidade:id,nome,codigo',
         ])->findOrFail($id);
 
         $user = Auth::user();
         $userId = $user->id;
-        $unidadeId = $user->unidade_id;
         $acessoGeral = (bool) $user->acesso_geral_ug;
+        // Usada no banner abaixo e nunca definida: toda tela de memorando dava erro 500.
+        $isRemetente = $memorando->remetente_id === $userId;
+        // Também usada no banner e nunca definida (erro 500 para quem só tramitou adiante)
+        $isTramiteOrigem = $memorando->tramitacoes->contains('origem_usuario_id', $userId);
 
         if (! $this->podeVer($memorando, $user)) {
             abort(403, 'Você não tem permissão para visualizar este memorando.');
@@ -244,7 +289,7 @@ class MemorandoController extends Controller
             ->sortByDesc('id')
             ->first(fn ($t) =>
                 $t->destino_usuario_id === $userId
-                || ($unidadeId && $t->destino_unidade_id === $unidadeId)
+                || Setores::atende($user, $t->destino_unidade_id)
                 || ($acessoGeral && $t->destino_unidade_id !== null)
             );
 
@@ -252,7 +297,7 @@ class MemorandoController extends Controller
         $destinatarioAtivo = $memorando->tramitacoes->isEmpty()
             ? $memorando->destinatarios->first(fn ($d) =>
                 $d->usuario_id === $userId
-                || ($unidadeId && $d->unidade_id === $unidadeId)
+                || Setores::atende($user, $d->unidade_id)
                 || ($acessoGeral && $d->unidade_id !== null)
             )
             : null;
@@ -299,8 +344,16 @@ class MemorandoController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'unidade_id']);
 
+        Acessos::registrar('memorando', $memorando->id, $user);
+
         return Inertia::render('GED/Memorandos/Show', [
+            'classificacao'   => \App\Support\Classificacao::doItem('memorando', $memorando->id),
+            'acessos'         => Acessos::de('memorando', $memorando->id),
             'memorando'       => $memorando,
+            'conteudo_html'   => $memorando->conteudoFinal(),
+            'marcadores'      => ['citado_em' => \App\Support\Marcadores::citadoEm('memorando', $memorando->id), 'pessoas' => \App\Support\Marcadores::doDocumento('memorando', $memorando->id)],
+            'despachos'       => \App\Support\Memorandos::despachos($memorando),
+            'envolvidos'      => \App\Support\Memorandos::envolvidos($memorando),
             'pode_receber'    => $podeReceber,
             'pode_tramitar'   => $podeTramitar,
             'meu_status'      => $meuStatus,
@@ -316,11 +369,13 @@ class MemorandoController extends Controller
         ]);
 
         $memorando = Memorando::findOrFail($id);
+        abort_unless($this->podeVer($memorando, Auth::user()), 403);
+        abort_if($memorando->status === 'arquivado', 422, 'Memorando arquivado.');
 
         MemorandoResposta::create([
             'memorando_id' => $memorando->id,
             'usuario_id'   => Auth::id(),
-            'conteudo'     => $request->input('conteudo'),
+            'conteudo'     => \App\Support\HtmlSeguro::limpar($request->input('conteudo')),
         ]);
 
         Notificacao::create([
@@ -351,9 +406,7 @@ class MemorandoController extends Controller
             ->where('em_uso', true)
             ->where(function ($q) use ($user) {
                 $q->where('destino_usuario_id', $user->id);
-                if ($user->unidade_id) {
-                    $q->orWhere('destino_unidade_id', $user->unidade_id);
-                }
+                $q->orWhereIn('destino_unidade_id', Setores::doUsuario($user));
                 if ($user->acesso_geral_ug) {
                     $q->orWhereNotNull('destino_unidade_id');
                 }
@@ -371,9 +424,7 @@ class MemorandoController extends Controller
                 ->where('lido', false)
                 ->where(function ($q) use ($user) {
                     $q->where('usuario_id', $user->id);
-                    if ($user->unidade_id) {
-                        $q->orWhere('unidade_id', $user->unidade_id);
-                    }
+                    $q->orWhereIn('unidade_id', Setores::doUsuario($user));
                     if ($user->acesso_geral_ug) {
                         $q->orWhereNotNull('unidade_id');
                     }
@@ -401,6 +452,10 @@ class MemorandoController extends Controller
 
         $memorando = Memorando::findOrFail($id);
         $user = Auth::user();
+        abort_unless($this->podeVer($memorando, $user), 403);
+        if ($memorando->confidencial && $request->input('tipo_destino') !== 'usuario') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['tipo_destino' => 'Memorando privado só pode ser tramitado a uma pessoa.']);
+        }
 
         try {
             DB::beginTransaction();
@@ -410,9 +465,7 @@ class MemorandoController extends Controller
                 ->where('em_uso', true)
                 ->where(function ($q) use ($user) {
                     $q->where('destino_usuario_id', $user->id);
-                    if ($user->unidade_id) {
-                        $q->orWhere('destino_unidade_id', $user->unidade_id);
-                    }
+                    $q->orWhereIn('destino_unidade_id', Setores::doUsuario($user));
                     if ($user->acesso_geral_ug) {
                         $q->orWhereNotNull('destino_unidade_id');
                     }
@@ -473,7 +526,7 @@ class MemorandoController extends Controller
             if ($destinoUsuarioId) {
                 $usuariosNotificar[] = $destinoUsuarioId;
             } elseif ($destinoUnidadeId) {
-                $usuariosNotificar = User::where('unidade_id', $destinoUnidadeId)->pluck('id')->all();
+                $usuariosNotificar = Setores::servidores((int) $destinoUnidadeId);
             }
             foreach (array_unique($usuariosNotificar) as $uid) {
                 Notificacao::create([
@@ -498,6 +551,7 @@ class MemorandoController extends Controller
     public function arquivar($id)
     {
         $memorando = Memorando::findOrFail($id);
+        abort_unless($this->podeVer($memorando, Auth::user()), 403);
 
         $memorando->update([
             'status'       => 'arquivado',
@@ -537,12 +591,11 @@ class MemorandoController extends Controller
             }
 
             // Gera o PDF do memorando
-            $pdf = Pdf::loadView('pdf.memorando', [
+            $pdf = Relatorio::pdf('pdf.memorando', [
                 'memorando' => $memorando,
                 'qrCodeUrl' => url("/memorandos/verificar/{$memorando->qr_code_token}"),
                 'ug'        => \App\Models\Ug::find($memorando->ug_id),
             ]);
-            $pdf->setPaper('A4', 'portrait');
             $pdfBytes = $pdf->output();
 
             $filename = 'memorando-' . str_replace(['/', '\\'], '-', $memorando->numero) . '.pdf';
@@ -551,7 +604,7 @@ class MemorandoController extends Controller
 
             $textoPesquisavel = collect([
                 'Memorando', $memorando->numero, $memorando->assunto,
-                $memorando->conteudo, $memorando->setor_origem,
+                \App\Support\Variaveis::textoPuro($memorando->conteudoFinal()), $memorando->setor_origem,
                 $memorando->remetente?->name,
             ])->filter()->implode(' | ');
 
@@ -593,8 +646,10 @@ class MemorandoController extends Controller
         $memorando = Memorando::with([
             'remetente',
             'destinatarios.usuario',
+            'destinatarios.unidade',
             'respostas.usuario',
         ])->findOrFail($id);
+        abort_unless($this->podeVer($memorando, Auth::user()), 403);
 
         $qrCodeUrl = url("/memorandos/verificar/{$memorando->qr_code_token}");
 
@@ -604,12 +659,24 @@ class MemorandoController extends Controller
             'ug'         => \App\Models\Ug::find($memorando->ug_id),
         ];
 
-        $pdf = Pdf::loadView('pdf.memorando', $data);
-        $pdf->setPaper('A4', 'portrait');
+        $pdf = Relatorio::pdf('pdf.memorando', $data);
 
         $filename = "memorando-{$memorando->numero}.pdf";
         $filename = str_replace('/', '-', $filename);
 
         return $pdf->download($filename);
+    }
+
+    /** Folha de rosto (TR 4.45.7): capa de uma página para o processo físico ou o arquivo. */
+    public function folhaDeRosto($id)
+    {
+        $memorando = Memorando::with(['remetente', 'destinatarios.usuario', 'destinatarios.unidade', 'anexos', 'respostas', 'tramitacoes'])->findOrFail($id);
+        abort_unless($this->podeVer($memorando, Auth::user()), 403);
+
+        return Relatorio::pdf('pdf.memorando-folha-rosto', [
+            'memorando' => $memorando,
+            'despachos' => $memorando->respostas->count() + $memorando->tramitacoes->count(),
+            'ug'        => \App\Models\Ug::find($memorando->ug_id),
+        ])->stream('folha-de-rosto-' . str_replace('/', '-', $memorando->numero) . '.pdf');
     }
 }

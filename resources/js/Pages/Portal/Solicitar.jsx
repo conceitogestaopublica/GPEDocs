@@ -3,6 +3,7 @@
  */
 import { Head, Link, useForm } from '@inertiajs/react';
 import PortalLayout from '../../Layouts/PortalLayout';
+import Captcha from '../../Components/Captcha';
 
 export default function PortalSolicitar({ ug, servico, cidadao }) {
     const { data, setData, post, processing, errors } = useForm({
@@ -10,6 +11,7 @@ export default function PortalSolicitar({ ug, servico, cidadao }) {
         telefone_contato: cidadao?.telefone || '',
         email_contato: cidadao?.email || '',
         anonima: ! cidadao && servico.permite_anonimo, // padrao anonimo se nao logado
+        captcha: '',
     });
 
     const submit = (e) => {
@@ -86,6 +88,11 @@ export default function PortalSolicitar({ ug, servico, cidadao }) {
                                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm" />
                             </div>
                         </div>
+                    )}
+
+                    {/* Anônima sem login: única entrada sem conta, pede o código da imagem. */}
+                    {isAnonimo && ! cidadao && (
+                        <Captcha contexto="solicitacao" value={data.captcha} onChange={(v) => setData('captcha', v)} error={errors.captcha} />
                     )}
 
                     <div className="flex gap-2 pt-4 border-t border-gray-100">

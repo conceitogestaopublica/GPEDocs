@@ -9,8 +9,9 @@ import useFillViewportHeight from '../Hooks/useFillViewportHeight';
  *
  *   <TabelaRolavel total={itens.length}><table>…</table></TabelaRolavel>
  */
-export default function TabelaRolavel({ total = null, paginado = false, className = '', children }) {
-    const ref = useFillViewportHeight();
+export default function TabelaRolavel({ total = null, paginado = false, alturaMinima, className = '', children }) {
+    // alturaMinima: listas que não podem encolher demais em tela baixa (ex.: processos).
+    const ref = useFillViewportHeight(alturaMinima ? { minima: alturaMinima } : undefined);
 
     return (
         <div ref={ref} className={`tabela-rolavel overflow-auto ${className}`}>

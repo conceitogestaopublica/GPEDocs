@@ -5,8 +5,9 @@ import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import CadastroLayout, { CadastroSecao } from '../../../Components/CadastroLayout';
+import HistoricoCadastro from '../../../Components/HistoricoCadastro';
 
-export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = [] }) {
+export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = [], registro = null, historico = [] }) {
     const isEdit = !! usuario;
     // Só super admin concede o privilégio (o servidor ignora o campo vindo de outro usuário)
     const podeConcederSuperAdmin = !! usePage().props.auth?.user?.super_admin;
@@ -16,13 +17,18 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
         email:           usuario?.email || '',
         cpf:             usuario?.cpf || '',
         telefone:        usuario?.telefone || '',
+        matricula:       usuario?.matricula || '',
+        cargo:           usuario?.cargo || '',
+        sexo:            usuario?.sexo || '',
+        data_nascimento: usuario?.data_nascimento || '',
         password:        '',
         tipo:            usuario?.tipo || 'interno',
         super_admin:     !! usuario?.super_admin,
         acesso_geral_ug: !! usuario?.acesso_geral_ug,
         ug_ids:          usuario?.ug_ids || [],
         unidade_id:      usuario?.unidade_id || '',
-        roles:           usuario?.roles || [],
+        setores_secundarios: usuario?.setores_secundarios || [],
+        roles:          usuario?.roles || [],
     });
 
     // UG "principal" para o dropdown de unidade = primeira do array
@@ -69,7 +75,6 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
     const obrigatoriosFaltando =
         ! data.name.trim() ||
         ! data.email.trim() ||
-        (! isEdit && ! data.password.trim()) ||
         ! data.tipo;
 
     const toggleUg = (id) => {
@@ -118,12 +123,24 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
         { icone: 'fa-id-card',      label: 'CPF',      valor: formatarCpf(data.cpf), vazio: ! data.cpf },
         { icone: 'fa-envelope',     label: 'E-mail',   valor: data.email,   vazio: ! data.email },
         { icone: 'fa-phone',        label: 'Telefone', valor: data.telefone, vazio: ! data.telefone },
-        { icone: 'fa-key',          label: 'Senha',    valor: data.password ? '••••••••' : (isEdit ? 'manter atual' : ''), vazio: ! isEdit && ! data.password },
+        { icone: 'fa-key',          label: 'Senha',    valor: data.password ? '••••••••' : (isEdit ? 'manter atual' : 'link por e-mail') },
+        { icone: 'fa-briefcase',    label: 'Cargo',    valor: data.cargo, vazio: ! data.cargo },
         { icone: 'fa-building',     label: 'UGs',
           valor: ugsSel.length === 0 ? '' : ugsSel.map(u => u.codigo).join(', ') + (ugsSel.length === 1 ? ` · ${ugsSel[0].nome}` : ''),
           vazio: ugsSel.length === 0 },
         { icone: 'fa-sitemap',      label: 'Unidade',  valor: unidadeSel?.nome, vazio: ! unidadeSel },
         { icone: 'fa-shield-alt',   label: 'Perfis',   valor: rolesSel.map(r => r.nome).join(', '), vazio: rolesSel.length === 0 },
+        // Registro do cadastro e situação do acesso (só leitura).
+        ...(registro ? [
+            { icone: 'fa-user-plus', label: 'Cadastrado',
+              valor: [registro.criado_em, registro.criado_por && `por ${registro.criado_por}`].filter(Boolean).join(' ') || 'sem registro' },
+            ...(registro.criado_ip ? [{ icone: 'fa-network-wired', label: 'Origem do cadastro',
+              valor: `IP ${registro.criado_ip}${registro.criado_navegador ? ' · ' + resumirNavegador(registro.criado_navegador) : ''}` }] : []),
+            { icone: 'fa-clock', label: 'Último acesso', valor: registro.ultimo_acesso_em || 'nunca acessou' },
+            { icone: 'fa-mobile-alt', label: 'Duas etapas', valor: registro.dois_fatores ? 'ativada' : 'desativada' },
+            ...(registro.suspenso_em ? [{ icone: 'fa-user-slash', label: 'Suspenso',
+              valor: `desde ${registro.suspenso_em}${registro.suspenso_motivo ? ' · ' + registro.suspenso_motivo : ''}` }] : []),
+        ] : []),
     ];
 
     return (
@@ -211,15 +228,46 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Matrícula</label>
+                            <input type="text" value={data.matricula} onChange={(e) => setData('matricula', e.target.value)}
+                                className="ds-input" maxLength={30} />
+                            {errors.matricula && <p className="mt-1 text-xs text-red-600">{errors.matricula}</p>}
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Cargo / função</label>
+                            <input type="text" value={data.cargo} onChange={(e) => setData('cargo', e.target.value)}
+                                className="ds-input" maxLength={120} placeholder="Ex.: Agente Administrativo" />
+                            {errors.cargo && <p className="mt-1 text-xs text-red-600">{errors.cargo}</p>}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Sexo</label>
+                            <select value={data.sexo} onChange={(e) => setData('sexo', e.target.value)} className="ds-input">
+                                <option value="">—</option>
+                                <option value="F">Feminino</option>
+                                <option value="M">Masculino</option>
+                                <option value="O">Outro / prefere não informar</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Data de nascimento</label>
+                            <input type="date" value={data.data_nascimento} onChange={(e) => setData('data_nascimento', e.target.value)} className="ds-input" />
+                            {errors.data_nascimento && <p className="mt-1 text-xs text-red-600">{errors.data_nascimento}</p>}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Senha {! isEdit && <span className="text-red-500">*</span>}
-                                {isEdit && <span className="text-gray-400 font-normal"> (deixe vazio para manter)</span>}
+                                Senha
+                                <span className="text-gray-400 font-normal">{isEdit ? ' (deixe vazio para manter)' : ' (vazia: o servidor recebe por e-mail o link para criar a dele)'}</span>
                             </label>
                             <input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)}
                                 className="ds-input" autoComplete="new-password"
                                 placeholder={isEdit ? '••••••••' : 'Mínimo 8 caracteres'} />
                             {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
                         </div>
+                        {isEdit && <FotoAdmin usuario={usuario} />}
                     </div>
                 </CadastroSecao>
 
@@ -288,6 +336,37 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                                 Esta UG ainda não possui organograma cadastrado.
                             </p>
                         )}
+                    </CadastroSecao>
+                )}
+
+                {/* Setores secundários: também atende a caixa deles (TR 4.9.2) */}
+                {data.tipo === 'interno' && ugPrincipalId && unidadesDaUg.length > 0 && (
+                    <CadastroSecao
+                        icone="fa-layer-group"
+                        titulo="Setores secundários"
+                        descricao="Outros setores em que o servidor também atende: ele vê a caixa desses setores e pode receber e despachar o que chega neles."
+                    >
+                        {data.setores_secundarios.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mb-2">
+                                {data.setores_secundarios.map(id => (
+                                    <span key={id} className="inline-flex items-center gap-1.5 text-xs bg-cyan-50 border border-cyan-200 text-cyan-800 rounded-full px-2.5 py-1">
+                                        {unidades.find(u => u.id === id)?.nome || `#${id}`}
+                                        <button type="button" title="Remover"
+                                            onClick={() => setData('setores_secundarios', data.setores_secundarios.filter(x => x !== id))}
+                                            className="text-cyan-600 hover:text-red-600">
+                                            <i className="fas fa-times text-[10px]" />
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                        <UnidadeCombo
+                            value=""
+                            onChange={(id) => id && Number(id) !== Number(data.unidade_id) && ! data.setores_secundarios.includes(Number(id))
+                                && setData('setores_secundarios', [...data.setores_secundarios, Number(id)])}
+                            unidades={unidadesDaUg}
+                            ugPrincipal={ugPrincipal}
+                        />
                     </CadastroSecao>
                 )}
 
@@ -372,9 +451,40 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                         </div>
                     )}
                 </CadastroSecao>
+
+                {registro?.dois_fatores && (
+                    <CadastroSecao icone="fa-mobile-alt" titulo="Verificação em duas etapas"
+                        descricao="O usuário entra com senha e código do aplicativo autenticador">
+                        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                            <p className="text-gray-600">Ativada. Se o servidor perdeu o celular <b>e</b> os códigos de recuperação, remova para ele entrar só com a senha e ativar de novo.</p>
+                            <button type="button" className="ds-btn ds-btn-sm ds-btn-danger"
+                                onClick={() => {
+                                    if (window.confirm(`Remover a verificação em duas etapas de ${usuario.name}?`)) {
+                                        router.post(`/configuracoes/usuarios/${usuario.id}/dois-fatores/remover`, {}, { preserveScroll: true });
+                                    }
+                                }}>
+                                <i className="fas fa-times mr-1" />Remover
+                            </button>
+                        </div>
+                    </CadastroSecao>
+                )}
+                {usuario?.id && (
+                    <CadastroSecao icone="fa-history" titulo="Histórico do cadastro"
+                        descricao="Alterações no cadastro deste usuário: o quê, quando e quem alterou">
+                        <HistoricoCadastro historico={historico} />
+                    </CadastroSecao>
+                )}
             </CadastroLayout>
         </AdminLayout>
     );
+}
+
+/** "Chrome 130 · Windows" a partir do user agent gravado no cadastro. */
+function resumirNavegador(ua) {
+    const nav = (ua.match(/(Edg|OPR|Firefox|Chrome|Safari)\/(\d+)/) || []);
+    const nome = { Edg: 'Edge', OPR: 'Opera' }[nav[1]] || nav[1];
+    const so = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac OS/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
+    return [nome && `${nome} ${nav[2]}`, so].filter(Boolean).join(' · ') || ua.slice(0, 60);
 }
 
 function formatarCpf(cpf) {
@@ -480,6 +590,35 @@ function UnidadeCombo({ value, onChange, unidades, ugPrincipal }) {
                     </ul>
                 </div>
             )}
+        </div>
+    );
+}
+
+/** Foto do servidor: sobe ao escolher o arquivo (recorte quadrado no servidor). */
+function FotoAdmin({ usuario }) {
+    const { errors } = usePage().props;
+    const enviar = (e) => {
+        const arquivo = e.target.files?.[0];
+        if (arquivo) router.post(`/configuracoes/usuarios/${usuario.id}/foto`, { foto: arquivo }, { forceFormData: true, preserveScroll: true });
+        e.target.value = '';
+    };
+    return (
+        <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Foto (aparece na tramitação)</label>
+            <div className="flex items-center gap-3">
+                {usuario.foto_url
+                    ? <img src={usuario.foto_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                    : <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center"><i className="fas fa-user" /></div>}
+                <label className="ds-btn ds-btn-sm ds-btn-outline cursor-pointer">
+                    <i className="fas fa-camera mr-1" />{usuario.foto_url ? 'Trocar' : 'Enviar'}
+                    <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={enviar} />
+                </label>
+                {usuario.foto_url && (
+                    <button type="button" className="text-xs text-red-600 hover:underline"
+                        onClick={() => router.post(`/configuracoes/usuarios/${usuario.id}/foto/remover`, {}, { preserveScroll: true })}>Remover</button>
+                )}
+            </div>
+            {errors.foto && <p className="mt-1 text-xs text-red-600">{errors.foto}</p>}
         </div>
     );
 }

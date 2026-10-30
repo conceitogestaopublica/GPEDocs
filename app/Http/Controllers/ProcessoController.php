@@ -17,7 +17,7 @@ use App\Models\Processo\Tramitacao;
 use App\Models\SolicitacaoAssinatura;
 use App\Models\User;
 use App\Models\Versao;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Relatorio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +32,8 @@ class ProcessoController extends Controller
     {
         $query = Processo::with(['tipoProcesso', 'abertoPor', 'etapaAtual'])
             ->whereNull('deleted_at');
+        // Requerimento do servidor: só quem participa (TR 4.36.1)
+        \App\Support\RequerimentoServidor::restringir($query, Auth::user());
 
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
@@ -49,7 +51,8 @@ class ProcessoController extends Controller
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('numero_protocolo', 'ilike', "%{$search}%")
-                  ->orWhere('assunto', 'ilike', "%{$search}%");
+                  ->orWhere('assunto', 'ilike', "%{$search}%")
+                  ->orWhere('patrimonio', 'ilike', "%{$search}%");
             });
         }
 
@@ -91,11 +94,24 @@ class ProcessoController extends Controller
             'tipos_processo' => $tiposProcesso,
             'unidades'       => $unidades,
             'usuarios'       => $usuarios,
+            'cidade'         => \App\Http\Controllers\Flow\MapaAvaliacaoController::cidade(),
+            // Ouvidoria (TR 4.33.4, 4.33.8, 4.33.27): tipo, identificação e canal de quem registrou
+            'ouvidoria'      => ['manifestacoes' => \App\Support\Ouvidoria::MANIFESTACOES, 'identificacoes' => \App\Support\Ouvidoria::IDENTIFICACOES,
+                'canais' => array_diff_key(\App\Support\Ouvidoria::CANAIS, ['portal' => 1])],
+            // PAD: tipo de infração define o setor que recebe (TR 4.40.2)
+            'pad_infracoes'  => \App\Models\Processo\PadInfracao::where('ativo', true)->orderBy('nome')->get(['id', 'nome', 'gravidade', 'unidade_id', 'base_legal']),
+            // Protocolo legislativo (TR 4.37.1)
+            'legislativo'    => ['proposicoes' => \App\Support\Legislativo::PROPOSICOES,
+                'vereadores' => \App\Models\Processo\Vereador::where('ativo', true)->orderBy('nome')->get(['id', 'nome', 'partido'])],
         ]);
     }
 
     public function store(Request $request)
     {
+        // PAD: sem setor escolhido, vai para o setor do tipo de infração (TR 4.40.2)
+        if (! $request->filled('setor_destino_inicial') && $request->integer('pad_infracao_id')) {
+            $request->merge(['setor_destino_inicial' => \App\Models\Processo\PadInfracao::whereKey($request->integer('pad_infracao_id'))->value('unidade_id')]);
+        }
         $request->validate([
             'assunto'            => ['required', 'string', 'max:255'],
             'tipo_processo_id'   => ['required', 'integer', 'exists:proc_tipos_processo,id'],
@@ -106,7 +122,19 @@ class ProcessoController extends Controller
             'requerente_cpf'     => ['nullable', 'string', 'max:20'],
             'requerente_email'   => ['nullable', 'string', 'email', 'max:255'],
             'requerente_telefone'=> ['nullable', 'string', 'max:20'],
+            'canal'              => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\Ouvidoria::CANAIS))],
+            'manifestacao_tipo'  => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\Ouvidoria::MANIFESTACOES))],
+            'identificacao'      => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\Ouvidoria::IDENTIFICACOES))],
             'setor_origem'       => ['nullable', 'string', 'max:150'],
+            // Chamado técnico (TR 4.35.4, 4.35.7, 4.35.10)
+            'patrimonio'         => ['nullable', 'string', 'max:60'],
+            'solicitante_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'descricao_html'     => ['nullable', 'string', 'max:200000'],
+            'pad_infracao_id'    => ['nullable', 'integer', 'exists:proc_pad_infracoes,id'],
+            // Protocolo legislativo (TR 4.37.1)
+            'vereador_id'        => ['nullable', 'integer', 'exists:proc_vereadores,id'],
+            'proposicao_tipo'    => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\Legislativo::PROPOSICOES))],
+            'proposicao_numero'  => ['nullable', 'string', 'max:30'],
             'setor_destino_inicial' => ['required', 'integer', 'exists:ug_organograma,id'],
             'destinatario_inicial'  => ['nullable', 'integer', 'exists:users,id'],
             'files'              => ['nullable', 'array'],
@@ -115,8 +143,28 @@ class ProcessoController extends Controller
 
         // Campos do formulário de abertura definidos no tipo de processo (obrigatoriedade e tipo).
         $tipoProcesso = TipoProcesso::find($request->input('tipo_processo_id'));
+        if ($tipoProcesso?->modalidade === 'ouvidoria') {
+            $request->validate(['manifestacao_tipo' => ['required']], ['manifestacao_tipo.required' => 'Escolha o tipo da manifestação.']);
+        }
+        if ($tipoProcesso?->modalidade === 'pad') {
+            $request->validate(['pad_infracao_id' => ['required']], ['pad_infracao_id.required' => 'Escolha o tipo de infração.']);
+        }
+        if ($tipoProcesso?->modalidade === 'legislativo') {
+            $request->validate(['vereador_id' => ['required'], 'proposicao_tipo' => ['required']],
+                ['vereador_id.required' => 'Escolha o vereador.', 'proposicao_tipo.required' => 'Escolha o tipo da proposição.']);
+        }
         [$regras, $nomes] = \App\Support\CamposDinamicos::regras($tipoProcesso?->schema_formulario, 'dados_formulario');
+        // Documentos exigidos pelo assunto: obrigatórios e extensões (TR 4.32.14, 4.38.18)
+        foreach ($tipoProcesso?->anexos_exigidos ?? [] as $i => $ax) {
+            $extensoes = array_values(array_filter(array_map(fn ($e) => strtolower(trim($e, " .\t")), explode(',', (string) ($ax['extensoes'] ?? '')))));
+            $regras["anexos_exigidos.{$i}"] = [($ax['obrigatorio'] ?? true) ? 'required' : 'nullable', 'file', 'max:51200',
+                // extensions confere o nome; mimes confere o conteúdo (PNG renomeado para .pdf não passa)
+                ...($extensoes ? ['extensions:' . implode(',', $extensoes), 'mimes:' . implode(',', $extensoes)] : [])];
+            $nomes["anexos_exigidos.{$i}"] = (string) ($ax['nome'] ?? 'Documento');
+        }
         $request->validate($regras, [], $nomes);
+        // Onde fica a demanda, conforme o assunto pede (TR 4.32.21) — antes da transação, para o erro ir ao campo
+        $local = \App\Support\Avaliacoes::localizacao($request->input('localizacao'), (string) (TipoProcesso::find((int) $request->input('tipo_processo_id'))?->localizacao ?? 'nao'));
 
         try {
             DB::beginTransaction();
@@ -133,24 +181,40 @@ class ProcessoController extends Controller
             $protocolo = $tipo->sigla . '-' . $year . '/' . str_pad((string) $nextNum, 6, '0', STR_PAD_LEFT);
 
             $primeiraEtapa = TipoEtapa::where('tipo_processo_id', $tipoId)
+                ->where('ativo', true)
                 ->orderBy('ordem')
                 ->first();
 
-            $processo = Processo::create([
+            // Setor inicial pelo assunto (TR 4.38.2): 1ª etapa obrigatória com setores só vai para um deles
+            $setoresIniciais = \App\Services\FluxoDoProcesso::setoresDaEtapa($primeiraEtapa, session('ug_id') ? (int) session('ug_id') : null);
+            if ($primeiraEtapa?->obrigatorio && $setoresIniciais
+                && ! in_array((int) $request->input('setor_destino_inicial'), $setoresIniciais, true)) {
+                DB::rollBack();
+                $nomes = \App\Models\UgOrganograma::whereIn('id', $setoresIniciais)->orderBy('nome')->pluck('nome')->implode(', ');
+
+                return redirect()->back()->withInput()
+                    ->withErrors(['setor_destino_inicial' => "Este assunto começa em: {$nomes}."]);
+            }
+
+            $processo = Processo::create(array_merge($local + [
                 'numero_protocolo'  => $protocolo,
                 'tipo_processo_id'  => $tipoId,
                 'assunto'           => $request->input('assunto'),
                 'descricao'         => $request->input('descricao'),
-                'dados_formulario'  => $request->input('dados_formulario'),
+                // Cálculos feitos aqui, CPF/CNPJ e CEP só com dígitos (TR 4.38.4–4.38.9)
+                'dados_formulario'  => \App\Support\CamposDinamicos::normalizar($tipo->schema_formulario, $request->input('dados_formulario')),
                 'prioridade'        => $request->input('prioridade', 'normal'),
                 'requerente_nome'   => $request->input('requerente_nome'),
                 'requerente_cpf'    => $request->input('requerente_cpf'),
                 'requerente_email'  => $request->input('requerente_email'),
                 'requerente_telefone' => $request->input('requerente_telefone'),
+                'canal'             => $request->input('canal') ?: 'balcao',
+                'manifestacao_tipo' => $tipoProcesso?->modalidade === 'ouvidoria' ? $request->input('manifestacao_tipo') : null,
+                'identificacao'     => $tipoProcesso?->modalidade === 'ouvidoria' ? ($request->input('identificacao') ?: 'aberta') : 'aberta',
                 'setor_origem'      => $request->input('setor_origem'),
                 'status'            => 'aberto',
                 'aberto_por'        => Auth::id(),
-            ]);
+            ], self::dadosChamado($request)));
 
             // Primeira tramitacao ja vai despachada para o setor escolhido na abertura
             $unidadeDestino = \App\Models\UgOrganograma::find((int) $request->input('setor_destino_inicial'));
@@ -167,20 +231,26 @@ class ProcessoController extends Controller
                 'status'             => 'pendente',
                 'despachado_em'      => now(),
                 'sla_horas'          => $primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas,
-                'prazo'              => now()->addHours($primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas),
+                'prazo'              => \App\Support\Expediente::prazo($tipo, $primeiraEtapa?->sla_horas ?? $tipo->sla_padrao_horas),
             ]);
 
             $processo->update(['etapa_atual_id' => $tramitacao->id]);
 
             // Armazenar anexos
-            if ($request->hasFile('files')) {
-                foreach ($request->file('files') as $file) {
+            // Documentos exigidos pelo assunto vêm com o nome do documento na frente
+            $exigidos = [];
+            foreach ((array) $request->file('anexos_exigidos', []) as $i => $file) {
+                $exigidos[] = [$file, ($tipo->anexos_exigidos[$i]['nome'] ?? 'Documento') . ' — '];
+            }
+            $avulsos = array_map(fn ($f) => [$f, ''], (array) $request->file('files', []));
+            if ($exigidos || $avulsos) {
+                foreach ([...$exigidos, ...$avulsos] as [$file, $rotulo]) {
                     $path = $file->store(\App\Tenant\TenantStorage::pasta('processos'), 'documentos');
 
                     ProcessoAnexo::create([
                         'processo_id'   => $processo->id,
                         'tramitacao_id' => $tramitacao->id,
-                        'nome'          => $file->getClientOriginalName(),
+                        'nome'          => mb_substr($rotulo . $file->getClientOriginalName(), 0, 255),
                         'arquivo_path'  => $path,
                         'tamanho'       => $file->getSize(),
                         'mime_type'     => $file->getMimeType(),
@@ -208,7 +278,7 @@ class ProcessoController extends Controller
             if ($request->filled('destinatario_inicial')) {
                 $usuariosNotificar[] = (int) $request->input('destinatario_inicial');
             } elseif ($unidadeDestino) {
-                $usuariosNotificar = User::where('unidade_id', $unidadeDestino->id)->pluck('id')->all();
+                $usuariosNotificar = \App\Support\Setores::servidores((int) $unidadeDestino->id);
             }
             foreach (array_unique($usuariosNotificar) as $uid) {
                 Notificacao::create([
@@ -224,7 +294,13 @@ class ProcessoController extends Controller
 
             DB::commit();
 
-            return redirect("/processos/{$processo->id}")->with('success', 'Processo aberto com sucesso. Protocolo: ' . $protocolo);
+            // Confirmação ao requerente com cópia dos anexos (TR 4.48.33)
+            $confirmou = $processo->requerente_email && filter_var($processo->requerente_email, FILTER_VALIDATE_EMAIL) && $request->boolean('enviar_confirmacao', true)
+                && \App\Support\RastreioEmail::enviar(new \App\Mail\ConfirmacaoProtocolo($processo->fresh()), $processo->requerente_email, 'cidadao',
+                    "Protocolo {$protocolo}", 'processo', $processo->id, Auth::id());
+
+            return redirect("/processos/{$processo->id}")->with('success', 'Processo aberto com sucesso. Protocolo: ' . $protocolo
+                . ($confirmou ? " · confirmação enviada a {$processo->requerente_email}" : ''));
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -232,19 +308,21 @@ class ProcessoController extends Controller
         }
     }
 
-    public function show($id): Response
+    public function show(Request $request, $id): Response
     {
         $processo = Processo::with([
             'tramitacoes.remetente',
             'tramitacoes.destinatario',
             'tramitacoes.recebedor',
-            'anexos.enviadoPor',
+            'tramitacoes.resolvedor:id,name,foto_path',
+            'anexos.enviadoPor', 'anexos.avaliador:id,name',
             'comentarios.usuario',
             'historico.usuario',
             'tipoProcesso.etapas',
             'abertoPor',
             'concluidoPor',
         ])->findOrFail($id);
+        abort_unless(\App\Support\RequerimentoServidor::podeVer(Auth::user(), $processo), 403, 'Requerimento pessoal de servidor: acesso restrito a Gestão de Pessoas e aos setores envolvidos.');
 
         $ugId = session('ug_id');
         $usuarios = User::where('id', '!=', Auth::id())
@@ -268,7 +346,13 @@ class ProcessoController extends Controller
         $acessoGeral = (bool) $user->acesso_geral_ug;
 
         // Mesma regra que o servidor confere em cada ação (App\Services\AcaoNoProcesso).
-        $acoes = \App\Services\AcaoNoProcesso::avaliar($processo, $user);
+        $acoes = \App\Services\AcaoNoProcesso::avaliar($processo, $user, $request->integer('etapa') ?: null);
+        \App\Support\Acessos::registrar('processo', $processo->id, $user);
+        // Lido no setor: a primeira pessoa do destino que abre marca as etapas abertas para ela
+        $processo->tramitacoes
+            ->filter(fn ($t) => $t->lida_em === null && in_array($t->status, ['pendente', 'recebido'], true)
+                && \App\Services\AcaoNoProcesso::ativoNaEtapa($t, $user) && ! $user->super_admin)
+            ->each(fn ($t) => $t->forceFill(['lida_em' => now()])->saveQuietly());
         $podeReceber = $acoes['receber'];
         $podeDespachar = $acoes['despachar'];
         $podeConcluir = $acoes['concluir'];
@@ -316,14 +400,14 @@ class ProcessoController extends Controller
                 if ($processo->solicitacao_assinatura_id) {
                     $assinada = \App\Models\Assinatura::where('solicitacao_id', $processo->solicitacao_assinatura_id)
                         ->where('status', 'assinado')
-                        ->orderByDesc('arquivo_assinado_path')
+                        ->orderByDesc('assinado_em')
                         ->first();
                 }
 
                 $decisaoAssinada = [
                     'assinatura_id'    => $assinada?->id,
                     'documento_id'     => $documentoId,
-                    'tem_pdf_assinado' => $assinada && ! empty($assinada->arquivo_assinado_path),
+                    'tem_pdf_assinado' => $assinada && ($assinada->arquivo_assinado_path || $assinada->arquivo_impressao_path),
                     'tipo_assinatura'  => $assinada?->tipo_assinatura,
                     'assinado_em'      => $assinada?->assinado_em?->format('d/m/Y H:i'),
                     'pasta_id'         => $documento?->pasta_id,
@@ -345,7 +429,41 @@ class ProcessoController extends Controller
             ->where('processo_id', $processo->id)
             ->first(['id', 'codigo', 'cidadao_id', 'anonima', 'email_contato']);
 
+        // Manifestante sigiloso: só a ouvidoria vê os dados (TR 4.33.27)
+        $verManifestante = \App\Support\Ouvidoria::podeVerManifestante(Auth::user(), $processo);
+        if (! $verManifestante) {
+            \App\Support\Ouvidoria::ocultarManifestante($processo);
+            $processo->setRelation('requerente', null);
+        }
+        // CPF do requerente só em parte na tela (LGPD); o registro no banco não muda.
+        $processo->setAttribute('requerente_cpf', \App\Support\DocumentoPessoa::mascarar($processo->requerente_cpf));
+        if ($processo->relationLoaded('requerente') && $processo->requerente) {
+            $processo->requerente->setAttribute('cpf', \App\Support\DocumentoPessoa::mascarar($processo->requerente->cpf));
+        }
+
         return Inertia::render('GED/Processos/Show', [
+            'variaveis_despacho'   => \App\Support\Variaveis::paraEditor(\App\Models\Processo\Processo::ROTULOS_VARIAVEIS_DESPACHO),
+            'recebimentos_fisicos' => \App\Http\Controllers\RecebimentoFisicoController::doProcesso($processo->id),
+            'ouvidoria'       => self::dadosOuvidoria($processo),
+            'menu_url'        => self::menuDoProcesso($request, $processo),
+            // Pareceres do processo e se o usuário pode emitir (TR 4.39)
+            'pareceres'       => \App\Http\Controllers\ParecerController::doProcesso($processo->id),
+            'pode_emitir_parecer' => \App\Support\Pareceres::podeEmitir(Auth::user()),
+            'pad'             => \App\Http\Controllers\Flow\PadController::doProcesso($processo),
+            // Participantes e o que o externo recebeu, viu e baixou (TR 4.48.20, 4.48.28, 4.48.30)
+            'externo'         => \App\Http\Controllers\ParticipanteController::doProcesso($processo),
+            // Fiscalização: origem, fiscalizações geradas e diligências (TR 4.49)
+            'fiscalizacao'    => \App\Http\Controllers\FiscalizacaoController::doProcesso($processo),
+            'tramita'         => \App\Http\Controllers\TramitaController::doDocumento('processo_id', $processo->id),
+            // Sistema tributário: imóvel, guias, alvará/habite-se, fiscalização (TR 4.48, 4.49)
+            'tributario'      => \App\Http\Controllers\ProcessoTributarioController::doProcesso($processo),
+            'legislativo'     => $processo->vereador_id || $processo->proposicao_tipo ? [
+                'vereador' => $processo->vereador?->only(['nome', 'partido']), 'proposicao' => \App\Support\Legislativo::PROPOSICOES[$processo->proposicao_tipo] ?? null,
+                'numero' => $processo->proposicao_numero, 'prazo' => \App\Support\Ouvidoria::situacaoPrazo($processo)] : null,
+            'solicitante'     => $processo->solicitante_user_id ? User::find($processo->solicitante_user_id, ['id', 'name']) : null,
+            'marcadores'      => ['citado_em' => \App\Support\Marcadores::citadoEm('processo', $processo->id), 'pessoas' => \App\Support\Marcadores::doDocumento('processo', $processo->id)],
+            'classificacao'        => \App\Support\Classificacao::doItem('processo', $processo->id),
+            'mapa_avaliacao'       => \App\Http\Controllers\Flow\MapaAvaliacaoController::paraTela($processo),
             'processo'             => $processo,
             'usuarios'             => $usuarios,
             'unidades'             => $unidades,
@@ -356,7 +474,163 @@ class ProcessoController extends Controller
             'decisao_assinada'     => $decisaoAssinada,
             'pastas'               => $pastas,
             'solicitacao_portal'   => $solicitacaoPortal,
+            'cuidados'             => $this->cuidados($acoes),
+            // Multissetorial (TR 4.9.4, 4.9.5, 4.9.14)
+            'etapa_acao'           => $acoes['etapa'],
+            'minhas_etapas'        => \App\Services\AcaoNoProcesso::etapasDoUsuario($processo, $user)
+                ->map(fn ($t) => ['id' => $t->id, 'setor' => $t->setor_destino, 'principal' => $t->frente === 1])->values(),
+            'pode_cancelar'        => $acoes['cancelar'],
+            'pode_resolver'        => $acoes['resolver'],
+            'aguardando_setores'   => $acoes['aguardando'],
+            'copia_pendente'       => \App\Services\AcaoNoProcesso::copiaDoUsuario($processo, $user),
+            'frentes'              => $this->frentes($processo),
+            'estagios'             => Tramitacao::ESTAGIOS,
+            'acessos'              => \App\Support\Acessos::de('processo', $processo->id),
+            // Etiquetas do setor (TR 4.19.4): as do processo e as que o usuário pode aplicar
+            'etiquetas_processo'   => \App\Support\Etiquetas::dosItens($user, [['processo', $processo->id]])["processo-{$processo->id}"] ?? [],
+            'minhas_etiquetas'     => \App\Support\Etiquetas::doUsuario($user)->values(),
+            // Árvores geradas (TR 4.38.37, 4.38.38): a mais recente primeiro
+            'arvores'              => \App\Models\Processo\Arvore::where('processo_id', $processo->id)->with('solicitante:id,name')
+                ->orderByDesc('id')->limit(30)->get()
+                ->map(fn ($a) => $a->only(['id', 'configuracao', 'status', 'arquivo_tipo', 'tamanho', 'paginas', 'partes', 'observacao', 'erro'])
+                    + ['opcoes' => $a->opcoes, 'solicitante' => $a->solicitante?->name, 'criada_em' => $a->created_at?->toIso8601String(),
+                        'gerada_em' => $a->gerada_em?->toIso8601String()]),
+            'arvore_configuracoes' => \App\Models\Processo\Arvore::CONFIGURACOES,
+            'arvore_secoes'        => \App\Models\Processo\Arvore::SECOES,
+            // Prazos lançados à mão que este usuário enxerga (TR 4.13)
+            'prazos'               => \App\Models\Processo\Prazo::visiveisPara($user)->where('processo_id', $processo->id)
+                ->with(['unidade:id,nome', 'criador:id,name', 'concluidor:id,name'])->orderByRaw('concluido_em is not null')->orderBy('vence_em')->get()
+                ->map(fn ($p) => $p->only(['id', 'titulo', 'descricao', 'escopo', 'unidade_id', 'alerta_dias', 'alerta_email'])
+                    + ['vence_em' => $p->vence_em->toIso8601String(), 'concluido_em' => $p->concluido_em?->toIso8601String(),
+                        'situacao' => $p->situacao(), 'setor' => $p->unidade?->nome, 'criador' => $p->criador?->name,
+                        'concluidor' => $p->concluidor?->name]),
+            // Alterar / recategorizar o assunto (TR 4.32.24, 4.33.15)
+            'pode_alterar_assunto' => ! in_array($processo->status, ['concluido', 'cancelado'], true)
+                && ($user->super_admin || ($acoes['despachar'] && ($acoes['etapa']?->frente ?? 1) === 1)),
+            'tipos_processo'       => TipoProcesso::where('ativo', true)->orderBy('nome')->get(['id', 'nome', 'sigla']),
+            'fluxo'                => \App\Services\FluxoDoProcesso::paraTela($processo,
+                \App\Services\AcaoNoProcesso::etapaAtual($processo)?->tipo_etapa_id),
         ]);
+    }
+
+    /**
+     * Situação de cada setor que trata o processo: a última etapa de cada frente (setor,
+     * estágio, se já resolveu) e as cópias. Só interessa quando há mais de uma frente ou cópia.
+     *
+     * @return array{setores: list<array>, copias: list<array>}|null
+     */
+    private function frentes(Processo $processo): ?array
+    {
+        $tramites = $processo->tramitacoes->where('modo', 'tramite');
+        $copias = $processo->tramitacoes->where('modo', 'copia');
+        if ($tramites->pluck('frente')->unique()->count() < 2 && $copias->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'setores' => $tramites->groupBy('frente')->sortKeys()->map(function ($etapas, $frente) {
+                $ultima = $etapas->sortByDesc('id')->first();
+
+                return [
+                    'frente'       => (int) $frente,
+                    'setor'        => $ultima->setor_destino,
+                    'situacao'     => match (true) {
+                        in_array($ultima->status, ['pendente', 'recebido'], true) => 'em_andamento',
+                        $ultima->status === 'resolvido' => 'resolvido',
+                        default => $ultima->status,
+                    },
+                    'estagio'      => $ultima->estagio,
+                    'resolvido_em' => $ultima->resolvido_em?->toIso8601String(),
+                    'parecer'      => $ultima->status === 'resolvido' ? $ultima->parecer : null,
+                ];
+            })->values()->all(),
+            'copias' => $copias->sortBy('id')->map(fn ($c) => [
+                'setor'     => $c->setor_destino,
+                'ciente'    => $c->status === 'ciente',
+                'ciente_em' => $c->recebido_em?->toIso8601String(),
+            ])->values()->all(),
+        ];
+    }
+
+    /**
+     * Alterar o assunto ou recategorizar (trocar o tipo de processo) — TR 4.32.24, 4.33.15.
+     * Quem está no fluxo principal (ou o super admin). Fica no histórico com o anterior,
+     * data e hora. Trocando o tipo, o fluxo recomeça na 1ª etapa do novo assunto.
+     */
+    public function alterarAssunto(Request $request, $id)
+    {
+        $dados = $request->validate([
+            'assunto'          => ['required', 'string', 'max:500'],
+            'tipo_processo_id' => ['required', 'integer', 'exists:proc_tipos_processo,id'],
+            'motivo'           => ['required', 'string', 'max:1000'],
+        ]);
+
+        return DB::transaction(function () use ($request, $dados, $id) {
+            $processo = Processo::with('tipoProcesso')->lockForUpdate()->findOrFail($id);
+            $user = Auth::user();
+            $acoes = \App\Services\AcaoNoProcesso::avaliar($processo, $user);
+            $noPrincipal = $acoes['despachar'] && ($acoes['etapa']?->frente ?? 1) === 1;
+            if (! $user->super_admin && ! $noPrincipal) {
+                abort(403, 'Só quem está com o processo no fluxo principal altera o assunto.');
+            }
+
+            $tipoNovo = TipoProcesso::findOrFail((int) $dados['tipo_processo_id']);
+            $mudouTipo = $tipoNovo->id !== $processo->tipo_processo_id;
+            $mudouTexto = trim($dados['assunto']) !== $processo->assunto;
+            if (! $mudouTipo && ! $mudouTexto) {
+                return redirect()->back()->with('error', 'Nada foi alterado.');
+            }
+
+            ProcessoHistorico::create([
+                'processo_id' => $processo->id,
+                'usuario_id'  => $user->id,
+                'acao'        => 'alteracao_assunto',
+                'detalhes'    => [
+                    'assunto_anterior' => $processo->assunto,
+                    'assunto_novo'     => trim($dados['assunto']),
+                    'tipo_anterior'    => $processo->tipoProcesso?->nome,
+                    'tipo_novo'        => $tipoNovo->nome,
+                    'motivo'           => $dados['motivo'],
+                ],
+                'ip'         => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
+            $processo->update(['assunto' => trim($dados['assunto']), 'tipo_processo_id' => $tipoNovo->id]);
+
+            // O novo assunto traz a classificação dele (TR 4.27.6–8)
+            if ($mudouTipo && ($classe = \App\Support\Classificacao::paraNovo('processo', $tipoNovo->id))) {
+                \App\Support\Classificacao::reclassificar('processo', $processo->id, $classe, "Assunto recategorizado para \"{$tipoNovo->nome}\"", true);
+            }
+
+            // Recategorizado: a etapa principal em andamento passa a ser a 1ª do novo assunto
+            if ($mudouTipo) {
+                $principal = \App\Services\AcaoNoProcesso::etapaAtual($processo);
+                $primeira = $tipoNovo->etapas()->first();
+                if ($principal && $principal->frente === 1) {
+                    $principal->update(['tipo_etapa_id' => $primeira?->id]);
+                }
+            }
+
+            return redirect()->back()->with('success', $mudouTipo
+                ? "Assunto recategorizado para \"{$tipoNovo->nome}\"."
+                : 'Assunto alterado.');
+        });
+    }
+
+    /** "Aos cuidados" da etapa do setor: quem está com ela e para quem pode passar. */
+    private function cuidados(array $acoes): ?array
+    {
+        $etapa = $acoes['etapa'];
+        if (! $acoes['despachar'] || ! $etapa?->destino_unidade_id) {
+            return null;
+        }
+
+        return [
+            'responsavel' => $etapa->destinatario_id ? User::whereKey($etapa->destinatario_id)->first(['id', 'name']) : null,
+            'colegas'     => User::whereIn('id', \App\Support\Setores::servidores($etapa->destino_unidade_id))
+                ->whereNull('suspenso_em')->orderBy('name')->get(['id', 'name']),
+        ];
     }
 
     public function concluir(Request $request, $id)
@@ -371,12 +645,23 @@ class ProcessoController extends Controller
         try {
             DB::beginTransaction();
 
-            $processo = Processo::with(['tipoProcesso', 'abertoPor', 'tramitacoes.remetente'])->findOrFail($id);
-            if (! \App\Services\AcaoNoProcesso::avaliar($processo, Auth::user())['concluir']) {
+            $processo = Processo::with(['tipoProcesso', 'abertoPor', 'tramitacoes.remetente'])->lockForUpdate()->findOrFail($id);
+            $acoes = \App\Services\AcaoNoProcesso::avaliar($processo, Auth::user());
+            if (! $acoes['concluir']) {
                 DB::rollBack();
-                abort(403, 'Só quem está na etapa ativa (ou o autor, antes do primeiro despacho) encerra o processo.');
+                // Multissetorial: só conclui quando todos os setores resolveram a parte deles (TR 4.9.5)
+                abort(403, $acoes['cancelar'] && $acoes['aguardando']
+                    ? 'Ainda falta resolver a parte de: ' . implode(', ', $acoes['aguardando']) . '.'
+                    : 'Só quem está na etapa ativa (ou o autor, antes do primeiro despacho) encerra o processo.');
             }
             $decisao = $request->input('decisao');
+            // Sem pular etapas (TR 4.38.19): decisão formal só depois das obrigatórias.
+            // Arquivar (desistência, perda de objeto) continua valendo a qualquer momento.
+            $pendentes = \App\Services\FluxoDoProcesso::obrigatoriasPendentes($processo);
+            if ($decisao !== 'arquivado' && $pendentes->isNotEmpty()) {
+                DB::rollBack();
+                abort(403, 'Ainda faltam as etapas obrigatórias: ' . $pendentes->pluck('nome')->implode(', ') . '.');
+            }
             $pularAssinatura = (bool) $request->input('pular_assinatura', false);
             // So permite pular assinatura se processo for do Portal Cidadao (resposta informal)
             if ($pularAssinatura && $processo->setor_origem !== 'Portal do Cidadao') {
@@ -404,12 +689,11 @@ class ProcessoController extends Controller
             // parcial) criam SolicitacaoAssinatura+Assinatura para exigir ICP-Brasil.
             $autor = User::find(Auth::id());
             $ug = \App\Models\Ug::find($processo->ug_id);
-            $pdf = Pdf::loadView('pdf.processo-decisao', [
+            $pdf = Relatorio::pdf('pdf.processo-decisao', [
                 'processo' => $processo->refresh()->load(['tipoProcesso', 'abertoPor', 'tramitacoes.remetente']),
                 'autor'    => $autor,
                 'ug'       => $ug,
             ]);
-            $pdf->setPaper('A4', 'portrait');
             $pdfBytes = $pdf->output();
 
             $filename = 'decisao-' . str_replace(['/', '\\'], '-', $processo->numero_protocolo) . '.pdf';
@@ -577,6 +861,9 @@ class ProcessoController extends Controller
     {
         $anexo = ProcessoAnexo::findOrFail($anexoId);
         Processo::findOrFail($anexo->processo_id); // escopo de UG: anexo de processo de outra UG dá 404
+        if (! request()->boolean('inline')) {
+            ProcessoAnexo::whereKey($anexo->id)->increment('downloads');   // TR 4.14.5 (abrir para ver não conta)
+        }
 
         return \App\Support\Anexos::baixar($anexo->arquivo_path, $anexo->nome);
     }
@@ -736,14 +1023,18 @@ class ProcessoController extends Controller
         try {
             DB::beginTransaction();
 
-            $processo = Processo::findOrFail($id);
-            if (! \App\Services\AcaoNoProcesso::avaliar($processo, Auth::user())['concluir']) {
+            $processo = Processo::lockForUpdate()->findOrFail($id);
+            if (! \App\Services\AcaoNoProcesso::avaliar($processo, Auth::user())['cancelar']) {
                 DB::rollBack();
                 abort(403, 'Só quem está na etapa ativa (ou o autor, antes do primeiro despacho) cancela o processo.');
             }
             $processo->update([
                 'status' => 'cancelado',
             ]);
+            // Encerra todas as frentes e cópias ainda abertas
+            Tramitacao::where('processo_id', $processo->id)
+                ->whereIn('status', ['pendente', 'recebido'])
+                ->update(['status' => 'cancelado']);
 
             ProcessoHistorico::create([
                 'processo_id' => $processo->id,
@@ -766,4 +1057,120 @@ class ProcessoController extends Controller
         }
     }
 
+    /** Cartão de ouvidoria/e-SIC na tela do processo (TR 4.33, 4.34). */
+    /**
+     * Item do menu em que o processo fica aceso: ouvidoria e e-SIC nos painéis próprios, o que veio
+     * do portal em Solicitações; os demais ficam onde o usuário estava ao abrir (Atendimento ou
+     * Processos), lembrado na sessão para valer nas abas e recargas da tela.
+     */
+    /**
+     * Descrição formatada (texto simples fica em descricao para a busca), patrimônio e o servidor
+     * em nome de quem foi aberto, que vira o requerente quando ele não foi informado (TR 4.35).
+     */
+    private static function dadosChamado(Request $request): array
+    {
+        $dados = ['patrimonio' => trim((string) $request->input('patrimonio')) ?: null,
+            'vereador_id' => $request->integer('vereador_id') ?: null, 'pad_infracao_id' => $request->integer('pad_infracao_id') ?: null, 'proposicao_tipo' => $request->input('proposicao_tipo') ?: null,
+            'proposicao_numero' => trim((string) $request->input('proposicao_numero')) ?: null];
+        $html = \App\Support\HtmlSeguro::limpar($request->input('descricao_html'));
+        if (trim(strip_tags($html)) !== '' || str_contains($html, '<table')) {
+            $dados['descricao_html'] = $html;
+            $dados['descricao'] = trim(html_entity_decode(strip_tags(preg_replace(['/<\/(p|div|li|tr|h\d)>|<br\s*\/?>/i', '/<\/(td|th)>/i'], ["\n", ' '], $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        }
+        if ($sol = $request->integer('solicitante_user_id') ? User::find($request->integer('solicitante_user_id')) : null) {
+            $dados['solicitante_user_id'] = $sol->id;
+            $dados['requerente_nome'] = $request->input('requerente_nome') ?: $sol->name;
+            $dados['requerente_email'] = $request->input('requerente_email') ?: $sol->email;
+        }
+
+        return $dados;
+    }
+
+    /** Folha de rosto do processo (TR 4.35.8): capa de uma página para a pasta física ou o arquivo. */
+    public function folhaDeRosto(int $id)
+    {
+        $p = Processo::with(['tipoProcesso:id,nome,modalidade', 'abertoPor:id,name', 'anexos:id,processo_id,nome', 'etapaAtual'])->findOrFail($id);
+        abort_unless(\App\Support\RequerimentoServidor::podeVer(Auth::user(), $p), 403);
+        if (! \App\Support\Ouvidoria::podeVerManifestante(Auth::user(), $p)) {
+            \App\Support\Ouvidoria::ocultarManifestante($p);
+        }
+        $solicitante = $p->solicitante_user_id ? User::find($p->solicitante_user_id, ['id', 'name']) : null;
+
+        return \App\Support\Relatorio::pdf('pdf.processo-folha-rosto', [
+            'p' => $p, 'solicitante' => $solicitante, 'ug' => \App\Models\Ug::find($p->ug_id),
+            'setor_atual' => $p->etapaAtual?->setor_destino,
+            'tramitacoes' => \App\Models\Processo\Tramitacao::where('processo_id', $p->id)->count(),
+        ])->stream('folha-de-rosto-' . str_replace('/', '-', $p->numero_protocolo) . '.pdf');
+    }
+
+    private static function menuDoProcesso(Request $request, Processo $p): ?string
+    {
+        $mod = \App\Support\Ouvidoria::modalidade($p);
+        if ($mod) {
+            return $mod === 'esic' ? '/flow/esic' : '/flow/ouvidoria';
+        }
+        if ($p->tipoProcesso?->modalidade === 'legislativo') {
+            return '/flow/legislativo';
+        }
+        if ($p->tipoProcesso?->modalidade === 'pad') {
+            return '/flow/pad';
+        }
+        if ($p->canal === 'portal' || $p->setor_origem === 'Portal do Cidadao') {
+            return '/flow/portal/solicitacoes';
+        }
+        $chave = "menu_processo.{$p->id}";
+        $veio = (string) parse_url((string) $request->headers->get('referer'), PHP_URL_PATH) . '?' . (string) parse_url((string) $request->headers->get('referer'), PHP_URL_QUERY);
+        $atendimento = match (true) {
+            str_starts_with($veio, '/flow/atendimento/') => '/flow/atendimento/consultar',
+            str_starts_with($veio, '/processos/create?origem=balcao') => '/processos/create?origem=balcao',
+            str_starts_with($veio, '/flow/mapa') => '/flow/mapa',
+            str_starts_with($veio, '/processos'), str_starts_with($veio, '/flow/') => false,
+            default => null,
+        };
+        if ($atendimento !== null) {
+            session([$chave => $atendimento ?: null]);
+        }
+
+        return session($chave);
+    }
+
+    private static function dadosOuvidoria(Processo $p): ?array
+    {
+        $mod = \App\Support\Ouvidoria::modalidade($p->loadMissing('tipoProcesso'));
+        if (! $mod) {
+            return null;
+        }
+        $u = Auth::user();
+        $aberto = ! in_array($p->status, ['concluido', 'arquivado', 'cancelado'], true);
+        $gere = $u->super_admin || $u->can($mod === 'esic' ? 'esic.gerir' : 'ouvidoria.gerir');
+
+        return [
+            'modalidade'      => $mod,
+            'manifestacao'    => \App\Support\Ouvidoria::MANIFESTACOES[$p->manifestacao_tipo] ?? null,
+            'identificacao'   => $p->identificacao,
+            'identificacao_rotulo' => \App\Support\Ouvidoria::IDENTIFICACOES[$p->identificacao] ?? $p->identificacao,
+            'canal'           => \App\Support\Ouvidoria::CANAIS[$p->canal] ?? $p->canal,
+            'prazo'           => \App\Support\Ouvidoria::situacaoPrazo($p),
+            'prorrogacao'     => $p->prorrogado_em ? ['em' => $p->prorrogado_em->toIso8601String(), 'motivo' => $p->prorrogacao_motivo] : null,
+            'decisao_final'   => $p->decisao_final ? ['texto' => $p->decisao_final, 'em' => $p->decisao_final_em?->toIso8601String()] : null,
+            'pode_prorrogar'  => $gere && $aberto && ! $p->prorrogado_em,
+            'pode_resolver'   => $mod === 'ouvidoria' && $gere && $aberto,
+        ];
+    }
+
+    public function prorrogarPrazo(Request $request, int $id)
+    {
+        $d = $request->validate(['motivo' => ['required', 'string', 'max:2000']]);
+        \App\Support\Ouvidoria::prorrogar(Processo::with('tipoProcesso')->findOrFail($id), $d['motivo'], Auth::user());
+
+        return back()->with('success', 'Prazo prorrogado. O manifestante vê o novo prazo e o motivo.');
+    }
+
+    public function resolverOuvidoria(Request $request, int $id)
+    {
+        $d = $request->validate(['decisao' => ['required', 'string', 'max:20000']]);
+        \App\Support\Ouvidoria::resolverEmTodos(Processo::with('tipoProcesso')->findOrFail($id), $d['decisao'], Auth::user());
+
+        return back()->with('success', 'Manifestação resolvida em todos os setores e decisão final enviada ao manifestante.');
+    }
 }
