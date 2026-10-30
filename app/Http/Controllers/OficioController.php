@@ -240,7 +240,8 @@ class OficioController extends Controller
         }
 
         return Inertia::render('GED/Oficios/Show', [
-            'oficio' => $oficio,
+            'oficio'        => $oficio,
+            'conteudo_html' => $oficio->conteudoFinal(),
         ]);
     }
 
@@ -324,7 +325,7 @@ class OficioController extends Controller
             \Illuminate\Support\Facades\Storage::disk('documentos')->put($path, $pdfBytes);
 
             $textoPesquisavel = collect([
-                'Oficio', $oficio->numero, $oficio->assunto, $oficio->conteudo,
+                'Oficio', $oficio->numero, $oficio->assunto, html_entity_decode(strip_tags($oficio->conteudoFinal())),
                 $oficio->setor_origem, $oficio->remetente?->name,
                 $oficio->destinatario_nome, $oficio->destinatario_orgao, $oficio->destinatario_email,
             ])->filter()->implode(' | ');

@@ -23,7 +23,7 @@ const STATUS_MAP = {
 
 const TIMELINE_STEPS = ['enviado', 'entregue', 'lido', 'respondido'];
 
-export default function OficiosShow({ oficio }) {
+export default function OficiosShow({ oficio, conteudo_html = '' }) {
     const confirmar = useConfirm();
     const of = oficio || {};
     const respostas = of.respostas || [];
@@ -167,9 +167,9 @@ export default function OficiosShow({ oficio }) {
                 <div className="lg:col-span-2 space-y-6">
                     {/* Conteudo */}
                     <Card title="Conteúdo">
-                        <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                            {of.conteudo}
-                        </div>
+                        {/* HTML limpo no servidor e com as variáveis trocadas (Oficio::conteudoFinal). */}
+                        <div className="conteudo-oficio text-sm text-gray-700 leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: conteudo_html }} />
                     </Card>
 
                     {/* Anexos */}

@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Oficio Eletronico - {{ $oficio->numero }}</title>
+    <title>Ofício Eletrônico - {{ $oficio->numero }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 11px; color: #333; line-height: 1.5; padding: 30px 40px; }
@@ -17,6 +17,13 @@
         .info-label { display: table-cell; font-weight: bold; color: #555; padding: 3px 10px 3px 0; width: 160px; font-size: 10px; }
         .info-value { display: table-cell; padding: 3px 0; font-size: 11px; }
         .conteudo { padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11px; line-height: 1.7; white-space: pre-wrap; word-wrap: break-word; }
+        .conteudo-html { white-space: normal; }
+        .conteudo-html p { margin: 0 0 8px; }
+        .conteudo-html ul, .conteudo-html ol { margin: 0 0 8px 20px; }
+        .conteudo-html h1, .conteudo-html h2, .conteudo-html h3 { margin: 8px 0 6px; color: #333; }
+        .conteudo-html h1 { font-size: 15px; } .conteudo-html h2 { font-size: 13px; } .conteudo-html h3 { font-size: 12px; }
+        .conteudo-html blockquote { border-left: 3px solid #cbd5e1; padding-left: 8px; color: #555; }
+        .conteudo-html hr { border: 0; border-top: 1px solid #cbd5e1; margin: 8px 0; }
         .resposta { padding: 10px 15px; margin-bottom: 10px; background: #f1f5f9; border-left: 3px solid #1e40af; border-radius: 0 4px 4px 0; }
         .resposta.externo { border-left-color: #7c3aed; background: #f5f3ff; }
         .resposta-header { font-size: 10px; color: #555; margin-bottom: 4px; }
@@ -39,14 +46,14 @@
 
     {{-- Cabecalho --}}
     <div class="header">
-        <h1>OFICIO ELETRONICO</h1>
+        <h1>OFÍCIO ELETRÔNICO</h1>
         <div class="numero">{{ $oficio->numero }}</div>
         <p>Documento gerado em {{ now()->format('d/m/Y H:i:s') }}</p>
     </div>
 
     {{-- Identificacao --}}
     <div class="section">
-        <div class="section-title">Identificacao do Oficio</div>
+        <div class="section-title">Identificação do Ofício</div>
         <div class="info-grid">
             <div class="info-row">
                 <div class="info-label">De (Remetente):</div>
@@ -58,7 +65,7 @@
                 </div>
             </div>
             <div class="info-row">
-                <div class="info-label">Para (Destinatario):</div>
+                <div class="info-label">Para (Destinatário):</div>
                 <div class="info-value">
                     {{ $oficio->destinatario_nome }}
                     @if($oficio->destinatario_cargo)
@@ -68,7 +75,7 @@
             </div>
             @if($oficio->destinatario_orgao)
             <div class="info-row">
-                <div class="info-label">Orgao/Instituicao:</div>
+                <div class="info-label">Órgão/Instituição:</div>
                 <div class="info-value">{{ $oficio->destinatario_orgao }}</div>
             </div>
             @endif
@@ -89,8 +96,9 @@
 
     {{-- Conteudo --}}
     <div class="section">
-        <div class="section-title">Conteudo</div>
-        <div class="conteudo">{{ $oficio->conteudo }}</div>
+        <div class="section-title">Conteúdo</div>
+        {{-- HTML do editor, já limpo e com as variáveis trocadas (Oficio::conteudoFinal). --}}
+        <div class="conteudo conteudo-html">{!! $oficio->conteudoFinal() !!}</div>
     </div>
 
     {{-- Respostas --}}
@@ -137,7 +145,7 @@
                     <td>{{ $oficio->entregue_em?->format('d/m/Y H:i:s') ?? '-' }}</td>
                 </tr>
                 <tr>
-                    <td>Lido pelo Destinatario</td>
+                    <td>Lido pelo Destinatário</td>
                     <td class="{{ $oficio->lido_em ? 'status-sim' : 'status-nao' }}">
                         {{ $oficio->lido_em ? 'Sim' : 'Aguardando' }}
                     </td>
@@ -151,10 +159,10 @@
     <div class="footer">
         @if($oficio->qr_code_token)
         <div class="qr-placeholder">
-            <p style="margin-bottom: 5px;"><strong>Verificacao:</strong> {{ $qrCodeUrl }}</p>
+            <p style="margin-bottom: 5px;"><strong>Verificação:</strong> {{ $qrCodeUrl }}</p>
         </div>
         @endif
-        <p style="margin-top: 10px;"><strong>Conceito Gestao Publica</strong> — Plataforma Digital Integrada</p>
+        <p style="margin-top: 10px;"><strong>Conceito Gestão Pública</strong> — Plataforma Digital Integrada</p>
         <p>Documento gerado automaticamente em {{ now()->format('d/m/Y H:i:s') }}</p>
     </div>
 </body>
