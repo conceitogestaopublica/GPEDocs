@@ -206,7 +206,7 @@ export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes
                                     onChange={(e) => setData('unidade_id', e.target.value)}
                                     className="ds-input">
                                     <option value="">— Selecione o setor —</option>
-                                    {unidadesOrdenadas.filter(u => ! buscaSetor || ` `.toLowerCase().includes(buscaSetor.toLowerCase()) || String(u.id) === String(data.unidade_id)).map(u => {
+                                    {unidadesOrdenadas.filter(u => ! buscaSetor || `${u.nome} ${u.sigla || ''}`.toLowerCase().includes(buscaSetor.toLowerCase()) || String(u.id) === String(data.unidade_id)).map(u => {
                                         const indent = buscaSetor ? '' : '— '.repeat(Math.max(0, u.nivel - 1));
                                         return (
                                             <option key={u.id} value={u.id}>{indent}[N{u.nivel}] {u.nome}{u.sigla ? ` (${u.sigla})` : ''}</option>
