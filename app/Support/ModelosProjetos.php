@@ -19,11 +19,12 @@ final class ModelosProjetos
     {
         $criados = [];
         foreach (self::modelos() as $sigla => $m) {
+            $m += ['localizacao' => 'opcional'];
             if (TipoProcesso::withoutGlobalScopes()->where('sigla', $sigla)->exists()) {
                 continue;
             }
             TipoProcesso::withoutGlobalScopes()->create($m + ['sigla' => $sigla, 'categoria' => 'administrativo', 'ativo' => true, 'criado_por' => $userId,
-                'avaliacao' => true, 'localizacao' => 'opcional']);
+                'avaliacao' => true]);
             $criados[] = $m['nome'];
         }
 
@@ -61,6 +62,17 @@ final class ModelosProjetos
                 ],
                 'anexos_exigidos' => $docs([['nome' => 'Projeto arquitetônico', 'extensoes' => 'pdf,dwg', 'obrigatorio' => true],
                     ['nome' => 'Memorial descritivo', 'extensoes' => 'pdf', 'obrigatorio' => false]]),
+            ],
+            'FOP' => [
+                'nome' => 'Fiscalização de obras e posturas', 'sla_padrao_horas' => 360, 'modalidade' => 'fiscalizacao',
+                'descricao' => 'Fiscalização de obras, posturas e meio ambiente, inclusive a partir de denúncia da ouvidoria (TR 4.49).',
+                'schema_formulario' => [
+                    ['campo' => 'area_fiscalizacao', 'label' => 'Área', 'tipo' => 'select', 'opcoes' => 'Obras,Posturas,Meio ambiente,Vigilância sanitária', 'obrigatorio' => true],
+                    ['campo' => 'inscricao', 'label' => 'Inscrição imobiliária', 'tipo' => 'text', 'obrigatorio' => false],
+                    ['campo' => 'endereco_fato', 'label' => 'Endereço do fato', 'tipo' => 'cep', 'obrigatorio' => true],
+                    ['campo' => 'fato', 'label' => 'Fato a apurar', 'tipo' => 'textarea', 'obrigatorio' => true],
+                ],
+                'anexos_exigidos' => [],
             ],
             'PSO' => [
                 'nome' => 'Parcelamento do solo', 'sla_padrao_horas' => 1440,

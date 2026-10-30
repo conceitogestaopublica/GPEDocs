@@ -822,6 +822,12 @@ Route::middleware('auth')->group(function () {
         Route::post('processos/anexos/{anexo}/externo', 'visibilidade')->whereNumber('anexo')->name('processos.anexos.externo');
         Route::post('processos/{id}/consulta-link', [\App\Http\Controllers\ConsultaPublicaController::class, 'link'])->whereNumber('id')->name('processos.consulta-link');
     });
+    // Fiscalização de obras e posturas (TR 4.49)
+    Route::controller(\App\Http\Controllers\FiscalizacaoController::class)->group(function () {
+        Route::post('processos/{id}/fiscalizacao-interna', 'gerar')->whereNumber('id')->name('processos.fiscalizacao-interna');
+        Route::post('processos/{id}/diligencias', 'diligencia')->whereNumber('id')->name('processos.diligencias');
+        Route::post('processos/anexos/{anexo}/copia', 'enviarCopia')->whereNumber('anexo')->middleware('throttle:20,1')->name('processos.anexos.copia');
+    });
     // Sistema tributário no processo (TR 4.48.22, 4.48.42, 4.49)
     Route::controller(\App\Http\Controllers\ProcessoTributarioController::class)->prefix('processos/{id}/tributario')->whereNumber('id')->name('processos.tributario.')->group(function () {
         Route::post('imovel', 'imovel')->name('imovel');

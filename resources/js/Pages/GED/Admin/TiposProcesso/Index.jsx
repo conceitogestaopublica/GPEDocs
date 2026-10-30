@@ -465,6 +465,7 @@ export default function Index({ tipos, unidades = [] }) {
                                         <option value="servidor">Requerimento do servidor (só Gestão de Pessoas e setores envolvidos; fora das buscas)</option>
                                         <option value="legislativo">Protocolo legislativo (vereador, proposição, prazo de resposta)</option>
                                         <option value="pad">PAD — processo disciplinar (sigiloso, comissão, tipo de infração)</option>
+                                        <option value="fiscalizacao">Fiscalização de obras e posturas (diligências com fotos e GPS)</option>
                                     </select>
                                     {data.modalidade === 'legislativo' && (
                                         <div className="mb-3 -mt-1">

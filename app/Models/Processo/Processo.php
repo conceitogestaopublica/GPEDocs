@@ -47,6 +47,7 @@ class Processo extends Model
         'vereador_id',
         'pad_infracao_id',
         'consulta_token',
+        'processo_origem_id',
         'proposicao_tipo',
         'proposicao_numero',
         'solicitante_user_id',

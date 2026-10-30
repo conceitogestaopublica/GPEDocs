@@ -16,7 +16,8 @@ const icone = (a) => ehPdf(a) ? 'fas fa-file-pdf text-red-500' : ehImagem(a) ? '
     : /word|document/.test(a.mime_type || '') ? 'fas fa-file-word text-blue-500' : /sheet|excel/.test(a.mime_type || '') ? 'fas fa-file-excel text-green-600' : 'fas fa-file text-gray-400';
 const url = (a, inline) => `/processos/anexos/${a.id}/download${inline ? '?inline=1' : ''}`;
 
-export default function AnexosDoProcesso({ processoId, anexos = [], podeOrganizar = false, abrirDireto = false }) {
+export default function AnexosDoProcesso({ processoId, anexos = [], podeOrganizar = false, abrirDireto = false, requerenteEmail = null }) {
+    const [copia, setCopia] = useState(null);         // { anexo, email, mensagem } — cópia por e-mail (TR 4.49.8)
     const [vendo, setVendo] = useState(null);          // anexo na pré-visualização
     const [avaliando, setAvaliando] = useState(null);  // { anexo, avaliacao }
     const [motivo, setMotivo] = useState('');
@@ -99,6 +100,7 @@ export default function AnexosDoProcesso({ processoId, anexos = [], podeOrganiza
                                             {a.avaliacao && <button type="button" className="text-gray-500 hover:underline" onClick={() => avaliar(a, 'pendente')} title="Retirar a avaliação">Desfazer</button>}
                                         </>
                                     )}
+                                    <button type="button" className="text-gray-600 hover:text-blue-700" title="Enviar cópia por e-mail ao requerente ou a terceiro" onClick={() => setCopia({ anexo: a, email: requerenteEmail || '', mensagem: '' })}><i className="fas fa-envelope" /></button>
                                     <button type="button" className="text-gray-600 hover:text-blue-700" title="Link seguro com validade" onClick={() => setLink({ anexo: a, horas: 24 })}><i className="fas fa-link" /></button>
                                     <a href={url(a, abrirDireto)} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800" title="Baixar"><i className="fas fa-download" /></a>
                                 </div>
@@ -165,6 +167,20 @@ export default function AnexosDoProcesso({ processoId, anexos = [], podeOrganiza
                                 <Button variant="secondary" icon="fas fa-copy" onClick={() => navigator.clipboard?.writeText(link.url)}>Copiar</Button>
                             </div>
                         )}
+                    </div>
+                )}
+            </Modal>
+            {/* Cópia do anexo por e-mail ao requerente ou a terceiro (TR 4.49.8) */}
+            <Modal show={!! copia} onClose={() => setCopia(null)} title="Enviar cópia por e-mail">
+                {copia && (
+                    <div className="space-y-3">
+                        <p className="text-sm text-gray-600">Arquivo: <b>{copia.anexo.nome}</b></p>
+                        <label className="block text-sm text-gray-700">Para<input type="email" value={copia.email} onChange={(e) => setCopia({ ...copia, email: e.target.value })} className="ds-input mt-1" placeholder="e-mail do requerente ou de terceiro" /></label>
+                        <textarea value={copia.mensagem} onChange={(e) => setCopia({ ...copia, mensagem: e.target.value })} rows={3} className="ds-input !h-auto" placeholder="Mensagem (opcional)" />
+                        <div className="flex justify-end gap-2">
+                            <Button variant="secondary" onClick={() => setCopia(null)}>Cancelar</Button>
+                            <Button icon="fas fa-paper-plane" disabled={! copia.email.trim()} onClick={() => router.post(`/processos/anexos/${copia.anexo.id}/copia`, { email: copia.email, mensagem: copia.mensagem }, { preserveScroll: true, onSuccess: () => setCopia(null) })}>Enviar</Button>
+                        </div>
                     </div>
                 )}
             </Modal>
