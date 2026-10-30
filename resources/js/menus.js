@@ -119,6 +119,8 @@ export const MENU_GEPSP = [
         // Auditoria e uso do sistema (TR 4.25)
         title: 'Relatórios', icon: 'fas fa-chart-line', color: 'text-rose-600 bg-rose-100',
         children: [
+            { title: 'Painel de indicadores', icon: 'fas fa-chart-pie',       href: '/relatorios/indicadores', color: 'text-violet-600 bg-violet-100', permissao: 'relatorio.indicadores' },
+            { title: 'Mapa das demandas',    icon: 'fas fa-map-location-dot', href: '/flow/mapa', color: 'text-emerald-600 bg-emerald-100', permissao: 'processo.visualizar' },
             { title: 'Relatório de eventos', icon: 'fas fa-list-check',       href: '/relatorios/eventos', color: 'text-rose-600 bg-rose-100', permissao: 'relatorio.eventos' },
             { title: 'Acessos diários',      icon: 'fas fa-right-to-bracket', href: '/relatorios/acessos', color: 'text-sky-600 bg-sky-100', permissao: 'relatorio.eventos' },
         ],

@@ -40,7 +40,9 @@ class IndexarTextoArquivo extends TenantAwareJob
                 return;
             }
             $texto = $ocr->texto($disco->path($a->arquivo_path), (string) $a->mime_type);
-            DB::table('proc_anexos')->where('id', $a->id)->update(['texto_indexado' => $texto, 'indexado_em' => now()]);
+            // páginas para os indicadores (TR 4.29.23): 0 = formato sem páginas
+            DB::table('proc_anexos')->where('id', $a->id)->update(['texto_indexado' => $texto, 'indexado_em' => now(),
+                'paginas' => \App\Support\Paginas::contar($disco->path($a->arquivo_path), (string) $a->mime_type) ?? 0]);
 
             return;
         }

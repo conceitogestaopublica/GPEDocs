@@ -862,7 +862,11 @@ Route::middleware('auth')->group(function () {
         Route::post('processos/anexos/{anexo}/externo', 'visibilidade')->whereNumber('anexo')->name('processos.anexos.externo');
         Route::post('processos/{id}/consulta-link', [\App\Http\Controllers\ConsultaPublicaController::class, 'link'])->whereNumber('id')->name('processos.consulta-link');
     });
-    // Trilha de eventos e relatórios (TR 4.25.4–6, 4.25.12–16): servidores com a permissão delegada
+    // Painel de indicadores (TR 4.25.1, 4.25.3, 4.25.7, 4.25.17–20, 4.29)
+    Route::controller(\App\Http\Controllers\IndicadorController::class)->prefix('relatorios/indicadores')->name('relatorios.indicadores')->middleware('can:relatorio.indicadores')->group(function () {
+        Route::get('/', 'index');
+        Route::post('planilha', 'planilha')->middleware('throttle:60,1')->name('.planilha');
+    });
     Route::controller(\App\Http\Controllers\RelatorioController::class)->prefix('relatorios')->name('relatorios.')->middleware('can:relatorio.eventos')->group(function () {
         Route::get('eventos', 'eventos')->name('eventos');
         Route::get('acessos', 'acessos')->name('acessos');
