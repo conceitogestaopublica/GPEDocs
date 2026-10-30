@@ -212,8 +212,9 @@ Route::prefix('api/portal')
         // Ouvidoria anônima/sigilosa sem login (código + chave) e estatísticas do e-SIC (TR 4.33.27, 4.34)
         Route::get('acompanhar/{codigo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'acompanhar'])->where('codigo', '[^/]+')->middleware('throttle:30,1')->name('acompanhar');
         Route::get('esic/estatisticas', [\App\Http\Controllers\Api\Portal\EsicController::class, 'estatisticas'])->name('esic.estatisticas');
-        Route::get('processos/{numero}/anexos/{anexo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'anexoProcesso'])->where('numero', '[^/]+')->whereNumber('anexo')->name('processos.anexo');
-        Route::get('processos/{numero}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'processo'])->where('numero', '[^/]+')->name('processos.show');
+        // o número tem barra (REQ-2026/000001): o portal manda %2F, que chega decodificado — por isso '.+'
+        Route::get('processos/{numero}/anexos/{anexo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'anexoProcesso'])->where('numero', '.+')->whereNumber('anexo')->name('processos.anexo');
+        Route::get('processos/{numero}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'processo'])->where('numero', '.+')->name('processos.show');
     });
 
 // Portal Cidadao — Carta de Servicos (publico, sem auth)
@@ -427,9 +428,9 @@ Route::middleware('auth')->group(function () {
     // Pastas / Repositorio
     Route::get('repositorio', [PastaController::class, 'index'])->name('repositorio')->middleware('can:documento.visualizar');
     Route::get('pastas/tree', [PastaController::class, 'tree'])->name('pastas.tree')->middleware('can:pasta.visualizar');
-    Route::resource('pastas', PastaController::class)->except(['index', 'show'])
-        ->middlewareFor(['create', 'store'], 'can:pasta.criar')
-        ->middlewareFor(['edit', 'update'], 'can:pasta.editar')
+    Route::resource('pastas', PastaController::class)->except(['index', 'show', 'create', 'edit'])   // criar e editar pasta é por janela no repositório
+        ->middlewareFor('store', 'can:pasta.criar')
+        ->middlewareFor('update', 'can:pasta.editar')
         ->middlewareFor('destroy', 'can:pasta.excluir');
     Route::post('pastas/{id}/inativar', [PastaController::class, 'inativar'])->name('pastas.inativar')->middleware('can:pasta.editar');
 
