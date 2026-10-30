@@ -22,7 +22,12 @@ use Illuminate\Support\Facades\DB;
  * - Servidor novo: usuário interno da UG da gestora, lotado no departamento da matrícula,
  *   com a MESMA senha (hash bcrypt) do cadastro de RH do gpe2 e o perfil "Servidor" (sem
  *   acesso aos módulos internos). Sem e-mail válido e único na origem, recebe um e-mail
- *   provisório srv-{cpf}@servidor.local, trocado pelo real quando a origem tiver um.
+ *   provisório srv-{código aleatório}@servidor.local (nunca o CPF: o e-mail aparece em listas e na
+ *   busca), trocado pelo real quando a origem tiver um.
+ * - Cargo (rh_matricula → rh_cargo_progressao → rh_cargo), sexo e data de nascimento
+ *   (pessoa): o RH é a fonte, atualizam a cada execução.
+ * - Foto: o RH do gpe2 guarda a foto do funcionário no próprio GED (path_perfil_img = id do
+ *   documento aqui); é ligada ao usuário, sem trocar a que o servidor enviou no GED.
  *
  * Idempotente: rodar de novo atualiza pelo funcionário de origem, sem duplicar. A origem é
  * só lida (gpe_legado); --legado troca o nome do banco.
@@ -77,11 +82,16 @@ class ImportarServidores extends Command
                 throw $e;
             }
 
+            // Fotos depois do commit: mexem em arquivos, que um rollback não desfaz
+            $fotos = $this->option('simular') ? ['trazidas' => 0, 'mantidas' => 0, 'sem_arquivo' => 0] : $this->trazerFotos($servidores);
+
             $this->newLine();
             $this->table(
                 ['Servidores ativos', 'Já eram usuários (marcados)', 'Novos usuários', 'Atualizados', 'Com e-mail provisório', 'Sem CPF (ignorados)', 'Sem UG (ignorados)'],
                 [[$servidores->count(), $resumo['marcados'], $resumo['criados'], $resumo['atualizados'], $resumo['email_provisorio'], $resumo['sem_cpf'], $resumo['sem_ug']]],
             );
+            $this->line(sprintf('Fotos do RH: %d trazidas, %d mantidas (já iguais ou enviadas pelo próprio servidor), %d sem arquivo no GED.',
+                $fotos['trazidas'], $fotos['mantidas'], $fotos['sem_arquivo']));
 
             return self::SUCCESS;
         } finally {
@@ -100,8 +110,12 @@ class ImportarServidores extends Command
             ->orderBy('f.id')
             ->orderByDesc('m.dt_admissao')
             ->orderByDesc('m.id')
+            // Cargo pela progressão da matrícula (rh_matricula → rh_cargo_progressao → rh_cargo)
+            ->leftJoin('rh_cargo_progressao as cp', 'cp.id', '=', 'm.progressao_id')
+            ->leftJoin('rh_cargo as c', 'c.id', '=', 'cp.cargo_id')
             ->get(['f.id as funcionario_id', 'f.password', 'm.matricula', 'm.matricula_dig', 'm.gestora_id',
-                'm.departamento_id', 'p.nome', 'p.doc', 'p.email', 'p.celular', 'p.fone'])
+                'm.departamento_id', 'p.nome', 'p.doc', 'p.email', 'p.celular', 'p.fone',
+                'p.sexo', 'p.dt_nascimento', 'c.descricao as cargo', 'f.disk', 'f.path_perfil_img'])
             ->unique('funcionario_id')
             ->values();
     }
@@ -128,6 +142,8 @@ class ImportarServidores extends Command
                 }
 
                 $matricula = $s->matricula_dig !== null ? "{$s->matricula}-{$s->matricula_dig}" : (string) $s->matricula;
+                // Cargo, sexo e nascimento: o RH é a fonte — atualiza sempre que tiver valor
+                $doRh = $this->dadosDoRh($s);
                 $telefone = $this->texto($s->celular ?: $s->fone) ?: null;
                 $unidadeId = $s->departamento_id ? DB::table('ug_organograma')
                     ->where(['ug_id' => $ugId, 'legado_tipo' => 'departamento', 'legado_id' => $s->departamento_id])->value('id') : null;
@@ -146,7 +162,7 @@ class ImportarServidores extends Command
                         'matricula'             => $matricula,
                         'telefone'              => $usuario->telefone ?: $telefone,
                         'updated_at'            => now(),
-                    ], fn ($v) => $v !== null));
+                    ] + $doRh, fn ($v) => $v !== null));
                     $resumo['marcados']++;
                     continue;
                 }
@@ -158,7 +174,7 @@ class ImportarServidores extends Command
                         'matricula'  => $matricula,
                         'telefone'   => $usuario->telefone ?: $telefone,
                         'updated_at' => now(),
-                    ];
+                    ] + $doRh;
                     if ($emailLivre && str_ends_with((string) $usuario->email, '@' . self::DOMINIO_PROVISORIO)) {
                         $dados['email'] = $email;
                     }
@@ -171,7 +187,8 @@ class ImportarServidores extends Command
                 }
 
                 if (! $emailLivre) {
-                    $email = 'srv-' . $digitos . '@' . self::DOMINIO_PROVISORIO;
+                    // Código aleatório, não o CPF: o e-mail aparece em listas e entra na busca (LGPD).
+                    $email = 'srv-' . \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(16)) . '@' . self::DOMINIO_PROVISORIO;
                     $resumo['email_provisorio']++;
                 }
                 $userId = (int) DB::table('users')->insertGetId([
@@ -189,7 +206,7 @@ class ImportarServidores extends Command
                     'matricula'             => $matricula,
                     'created_at'            => now(),
                     'updated_at'            => now(),
-                ]);
+                ] + $doRh);
                 DB::table('user_ugs')->updateOrInsert(['user_id' => $userId, 'ug_id' => $ugId],
                     ['principal' => true, 'created_at' => now(), 'updated_at' => now()]);
                 DB::table('ged_user_roles')->insertOrIgnore(['user_id' => $userId, 'role_id' => $perfilId]);
@@ -200,16 +217,85 @@ class ImportarServidores extends Command
         });
     }
 
-    /** Perfil "Servidor": sem nenhuma permissão — não enxerga os módulos internos do GPEDocs. */
+    /** Permissões do perfil "Servidor": os processos do setor (abrir, ver e tramitar). */
+    private const PERMISSOES_SERVIDOR = ['processo.visualizar', 'processo.criar', 'processo.tramitar'];
+
+    /** Perfil "Servidor": área do servidor no Portal e processos do setor; nada de administração. */
     private function perfilServidor(): int
     {
-        return (int) (DB::table('ged_roles')->where('nome', self::PERFIL_SERVIDOR)->value('id')
-            ?? DB::table('ged_roles')->insertGetId([
-                'nome'       => self::PERFIL_SERVIDOR,
-                'descricao'  => 'Servidor municipal: usa a área do servidor no Portal do Cidadão, sem acesso aos módulos internos',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]));
+        $id = DB::table('ged_roles')->where('nome', self::PERFIL_SERVIDOR)->value('id');
+        if ($id) {
+            return (int) $id;
+        }
+        $id = DB::table('ged_roles')->insertGetId([
+            'nome'       => self::PERFIL_SERVIDOR,
+            'descricao'  => 'Servidor municipal: área do servidor no Portal e processos do setor (abrir, ver e tramitar)',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        foreach (DB::table('ged_permissions')->whereIn('nome', self::PERMISSOES_SERVIDOR)->pluck('id') as $perm) {
+            DB::table('ged_role_permissions')->insertOrIgnore(['role_id' => $id, 'permission_id' => $perm]);
+        }
+
+        return (int) $id;
+    }
+
+    /**
+     * Cargo, sexo e data de nascimento do RH (só os que vierem preenchidos).
+     *
+     * @return array<string, string>
+     */
+    private function dadosDoRh(object $s): array
+    {
+        $sexo = mb_strtoupper(trim((string) ($s->sexo ?? '')));
+
+        return array_filter([
+            'cargo'           => mb_substr($this->texto($s->cargo ?? null), 0, 120) ?: null,
+            'sexo'            => in_array($sexo, ['F', 'M'], true) ? $sexo : null,
+            'data_nascimento' => ! empty($s->dt_nascimento) ? substr((string) $s->dt_nascimento, 0, 10) : null,
+        ], fn ($v) => $v !== null);
+    }
+
+    /**
+     * A foto do funcionário o RH do gpe2 guarda no próprio GED (POST
+     * /api/integracoes/arquivos): rh_funcionario.path_perfil_img é o id do
+     * documento aqui. Liga esse documento ao usuário — sem trocar foto que o
+     * servidor enviou no GED (foto_origem nula com foto) nem a já trazida.
+     *
+     * @return array{trazidas: int, mantidas: int, sem_arquivo: int}
+     */
+    public function trazerFotos(iterable $servidores): array
+    {
+        $r = ['trazidas' => 0, 'mantidas' => 0, 'sem_arquivo' => 0];
+        $disco = \Illuminate\Support\Facades\Storage::disk('documentos');
+
+        foreach ($servidores as $s) {
+            if (($s->disk ?? null) !== 'ged' || ! ctype_digit((string) ($s->path_perfil_img ?? ''))) {
+                continue;
+            }
+            $usuario = \App\Models\User::where('legado_funcionario_id', $s->funcionario_id)->first();
+            if (! $usuario) {
+                continue;
+            }
+            $origem = 'rh:' . $s->path_perfil_img;
+            if ($usuario->foto_origem === $origem || ($usuario->foto_path && $usuario->foto_origem === null)) {
+                $r['mantidas']++;
+                continue;
+            }
+            $caminho = \App\Models\Documento::withoutGlobalScopes()->with('versaoAtual')->find((int) $s->path_perfil_img)?->versaoAtual?->arquivo_path;
+            if (! $caminho || ! $disco->exists($caminho)) {
+                $r['sem_arquivo']++;
+                continue;
+            }
+            try {
+                \App\Support\FotoUsuario::salvarDeBytes($usuario, (string) $disco->get($caminho), $origem);
+                $r['trazidas']++;
+            } catch (\RuntimeException $e) {
+                $r['sem_arquivo']++;   // arquivo que não é imagem
+            }
+        }
+
+        return $r;
     }
 
     private function email(?string $s): ?string

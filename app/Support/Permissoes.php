@@ -40,6 +40,29 @@ final class Permissoes
         // Portal do Cidadão
         'portal.atendimento'   => 'Atender solicitações do portal do cidadão',
         'portal.carta_servicos' => 'Manter a carta de serviços',
+        'contato.gerenciar'    => 'Consultar e manter contatos (cadastro, listas, procurações, unificação e CSV)',
+        'urbanismo.gerir'      => 'Consulta prévia: zonas e parâmetros urbanísticos, camadas e lotes do mapa',
+        'ead.gerir'            => 'Treinamento EAD: cursos, aulas, avaliações e progresso dos servidores',
+        'admin.portabilidade'  => 'Backup, integridade do acervo, exportação completa e modo somente leitura',
+        'tramita.usar'         => 'Tramita GOV.BR: enviar ofícios e processos a outros entes, aceitar ou recusar os recebidos',
+        'tramita.configurar'   => 'Tramita GOV.BR: adesão, certificado, estrutura do ente e destino dos recebidos',
+        'suporte.atender'      => 'Suporte: atender, responder, escalar e resolver atendimentos dos usuários',
+        'suporte.gerir'        => 'Suporte: central de ajuda (assuntos e artigos), atendentes e configuração',
+        'relatorio.indicadores' => 'Painel de indicadores: uso, setores, processos e assinaturas de todos os setores',
+        'relatorio.eventos'    => 'Relatórios de eventos (auditoria) e de acessos diários, com exportação e agendamento',
+        'fiscalizacao.campo'   => 'App da fiscalização: fazer vistorias no celular (offline) e sincronizar',
+        'fiscalizacao.formularios' => 'App da fiscalização: formulários de checklist, campos e objetos fiscalizados',
+        'tributario.usar'      => 'Sistema tributário: consultar imóvel, emitir guia, pedir alvará/habite-se e fiscalização a partir do processo',
+        'diario.gerir'         => 'Diário Oficial: estrutura (cadernos, seções), responsáveis e montagem das edições',
+        'ato.elaborar'         => 'Atos oficiais: elaborar, gerar PDF/A, enviar à assinatura e publicar',
+        'ato.tipos'            => 'Atos oficiais: tipos de ato, numeração, modelos .docx e quem assina',
+        'pss.gerir'            => 'Processo seletivo simplificado: editais, inscrições, respostas e exportação',
+        'pad.gerir'            => 'PAD: ver todos os processos disciplinares, comissão e tipos de infração',
+        'parecer.emitir'       => 'Emitir pareceres (numerados, com conclusão e anexos)',
+        'legislativo.gerir'    => 'Protocolo legislativo: painel, relatórios e cadastro de vereadores',
+        'rh.requerimentos'     => 'Gestão de Pessoas: ver todos os requerimentos pessoais de servidores',
+        'ouvidoria.gerir'      => 'Ouvidoria: painel, dados de manifestante sigiloso, resolver em todos os setores e decisão final',
+        'esic.gerir'           => 'e-SIC: painel de pedidos de acesso à informação e prorrogação de prazo (LAI)',
 
         // Administração
         'admin.configuracoes'       => 'Acessar o módulo de configurações',
@@ -48,6 +71,8 @@ final class Permissoes
         'admin.ugs'                 => 'Gerenciar unidades gestoras, organograma e banners do portal',
         'admin.sistemas_integrados' => 'Gerenciar sistemas integrados (credenciais de API e webhooks)',
         'admin.tipos_documentais'   => 'Gerenciar tipos documentais',
+        'admin.contatos'            => 'Configurar contatos (campos complementares e regras de preenchimento)',
+        'admin.classificacao'       =>'Manter o plano de classificação e reclassificar documentos e processos',
         'admin.tipos_processo'      => 'Gerenciar tipos de processo e modelos de ofício',
     ];
 

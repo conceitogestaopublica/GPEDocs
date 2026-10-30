@@ -6,6 +6,7 @@
  * notificações e perfil; avisos como toast no canto e rodapé com a marca GPE Cloud.
  */
 import { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 import { Link, usePage, router } from '@inertiajs/react';
 import FlashMessage from '../Components/FlashMessage';
 import Sidebar from '../Components/Sidebar';
@@ -15,13 +16,13 @@ import { rotinasDe } from '../menus';
 
 // Detectar modulo pela URL
 function getModulo(url) {
-    if (url.startsWith('/configuracoes') || url.startsWith('/perfil/certificados')) return 'configuracoes';
-    if (url.startsWith('/flow') || url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url.startsWith('/oficios') || url === '/admin/tipos-processo' || url.startsWith('/admin/oficios-modelos')) return 'gepsp';
+    if (url.startsWith('/configuracoes') || url.startsWith('/perfil/')) return 'configuracoes';
+    if (url.startsWith('/flow') || url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url.startsWith('/oficios') || url.startsWith('/pareceres') || url.startsWith('/atos') || url.startsWith('/diario') || url.startsWith('/relatorios') || url.startsWith('/suporte') || url.startsWith('/tramita') || url.startsWith('/ead') || url === '/admin/tipos-processo' || url.startsWith('/admin/oficios-modelos')) return 'gepsp';
     return 'ged';
 }
 
 export default function AdminLayout({ children }) {
-    const { auth, flash, notificacoes_pendentes, tenant, favoritos } = usePage().props;
+    const { auth, flash, notificacoes_pendentes, tenant, favoritos, somente_leitura } = usePage().props;
     const { url } = usePage();
     const modulo = getModulo(url);
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -110,6 +111,13 @@ export default function AdminLayout({ children }) {
                         {flash?.success && <FlashMessage type="success" message={flash.success} />}
                         {flash?.error && <FlashMessage type="error" message={flash.error} />}
                         {flash?.warning && <FlashMessage type="warning" message={flash.warning} />}
+                    </div>
+                )}
+
+                {/* Ambiente somente leitura (TR 4.26.17) */}
+                {somente_leitura && (
+                    <div className="bg-amber-100 border-b border-amber-300 px-4 sm:px-5 lg:px-8 py-2 text-sm text-amber-900 no-print">
+                        <i className="fas fa-lock mr-2" />Ambiente <b>somente leitura</b>: consulte e baixe documentos e processos; nada pode ser alterado.
                     </div>
                 )}
 
@@ -224,7 +232,13 @@ function FavoritosMenu({ favoritos }) {
  */
 function NotificacoesDropdown({ count }) {
     const [open, setOpen] = useState(false);
+    const [itens, setItens] = useState(null);
     const ref = useFora(setOpen);
+    useEffect(() => {
+        if (! open) return;
+        setItens(null);
+        axios.get('/notificacoes/recentes').then((r) => setItens(r.data)).catch(() => setItens([]));
+    }, [open]);
 
     return (
         <div className="relative" ref={ref}>
@@ -244,13 +258,26 @@ function NotificacoesDropdown({ count }) {
                         <p className="text-sm font-semibold text-gray-800">Notificações</p>
                         {count > 0 && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{count} novas</span>}
                     </div>
-                    <div className="max-h-64 overflow-y-auto">
-                        {count === 0 && (
+                    <div className="max-h-96 overflow-y-auto">
+                        {itens === null && <p className="px-4 py-4 text-xs text-gray-400">Carregando…</p>}
+                        {itens?.length === 0 && (
                             <div className="px-4 py-6 text-center text-gray-400">
                                 <i className="fas fa-bell-slash text-2xl mb-2 block" />
-                                <p className="text-sm">Nenhuma notificação nova</p>
+                                <p className="text-sm">Nenhuma notificação</p>
                             </div>
                         )}
+                        {/* Últimos avisos no próprio sino (TR 4.11.2) */}
+                        {itens?.map((n) => (
+                            <Link key={n.id} href={n.tem_link ? `/notificacoes/${n.id}/abrir` : '/notificacoes'}
+                                className={`flex items-start gap-2 px-4 py-2.5 hover:bg-gray-50 ${n.lida ? '' : 'bg-blue-50/50'}`}>
+                                <i className={`fas ${n.icone} text-xs mt-1 ${n.lida ? 'text-gray-300' : 'text-blue-600'}`} />
+                                <span className="flex-1 min-w-0">
+                                    <span className={`block text-xs truncate ${n.lida ? 'text-gray-600' : 'text-gray-900 font-semibold'}`}>{n.urgente && <b className="text-red-600">URGENTE · </b>}{n.titulo}</span>
+                                    {n.mensagem && <span className="block text-[11px] text-gray-500 truncate">{n.mensagem}</span>}
+                                    <span className="block text-[10px] text-gray-400">{new Date(n.em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                                </span>
+                            </Link>
+                        ))}
                         <Link href={count > 0 ? '/notificacoes?nao_lidas=1' : '/notificacoes'}
                             className="block px-4 py-3 text-sm text-primary-600 hover:bg-primary-50 text-center font-medium">
                             {count > 0 ? 'Ver notificações novas' : 'Ver todas as notificações'}
@@ -274,9 +301,13 @@ function UserMenu({ user }) {
         <div className="relative" ref={ref}>
             <button onClick={() => setOpen(!open)}
                 className="flex items-center gap-3 pl-1 pr-3 py-1 rounded-xl hover:bg-gray-50 transition-colors">
-                <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-md shadow-cyan-200">
-                    <span className="text-white font-bold text-sm">{initials}</span>
-                </div>
+                {user?.foto_url ? (
+                    <img src={user.foto_url} alt="" className="w-10 h-10 rounded-xl object-cover shadow-md shadow-cyan-200" />
+                ) : (
+                    <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-md shadow-cyan-200">
+                        <span className="text-white font-bold text-sm">{initials}</span>
+                    </div>
+                )}
                 <div className="hidden md:block text-left">
                     <p className="text-sm font-semibold text-gray-800 leading-tight">{user?.name || 'Usuário'}</p>
                     <p className="text-[11px] text-gray-400 leading-tight">{user?.perfil_nome || 'Usuário'}</p>
@@ -291,12 +322,26 @@ function UserMenu({ user }) {
                         <p className="text-xs text-gray-400">{user?.email}</p>
                     </div>
                     <div className="py-1">
+                        <Link href="/perfil"
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                            <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center">
+                                <i className="fas fa-user text-xs text-gray-400" />
+                            </div>
+                            <span className="font-medium">Meu perfil</span>
+                        </Link>
                         <Link href="/perfil/certificados"
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
                             <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center">
                                 <i className="fas fa-id-card text-xs text-gray-400" />
                             </div>
                             <span className="font-medium">Meus certificados</span>
+                        </Link>
+                        <Link href="/perfil/seguranca"
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                            <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center">
+                                <i className="fas fa-shield-alt text-xs text-gray-400" />
+                            </div>
+                            <span className="font-medium">Segurança</span>
                         </Link>
                     </div>
                     <div className="border-t border-gray-100 py-1">

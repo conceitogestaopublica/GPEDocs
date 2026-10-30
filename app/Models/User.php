@@ -15,12 +15,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'cpf', 'telefone', 'password', 'tipo', 'ug_id', 'unidade_id', 'legado_usuario_id', 'legado_funcionario_id', 'matricula', 'super_admin', 'acesso_geral_ug'])]
-#[Hidden(['password', 'remember_token'])]
+#[Fillable(['name', 'email', 'cpf', 'telefone', 'password', 'tipo', 'ug_id', 'unidade_id', 'legado_usuario_id', 'legado_funcionario_id', 'matricula', 'super_admin', 'acesso_geral_ug',
+    'cargo', 'sexo', 'data_nascimento', 'email_secundario'])]
+#[Hidden(['password', 'remember_token', 'dois_fatores_segredo', 'dois_fatores_recuperacao', 'dois_fatores_ultimo_passo'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    /** A foto acompanha o usuário em toda tela que o mostra (tramitação, histórico…). */
+    protected $appends = ['foto_url'];
 
     /**
      * Get the attributes that should be cast.
@@ -34,7 +38,60 @@ class User extends Authenticatable
             'password' => 'hashed',
             'super_admin'     => 'boolean',
             'acesso_geral_ug' => 'boolean',
+            'suspenso_em'         => 'datetime',
+            'ultimo_acesso_em'    => 'datetime',
+            'ultima_atividade_em' => 'datetime',
+            'dois_fatores_segredo'     => 'encrypted',
+            'dois_fatores_recuperacao' => 'encrypted:array',
+            'dois_fatores_ativado_em'  => 'datetime',
+            'data_nascimento'          => 'date',
+            'preferencias'             => 'array',
         ];
+    }
+
+    /** Endereço da foto do servidor (servida por rota autenticada) — null sem foto. */
+    /** Troca do setor principal vira aviso para o servidor (TR 4.11.3). */
+    protected static function booted(): void
+    {
+        static::updated(function (User $u) {
+            if ($u->wasChanged('unidade_id') && $u->unidade_id && $u->tipo === 'interno') {
+                Notificacao::create([
+                    'usuario_id' => $u->id, 'tipo' => 'troca_setor', 'titulo' => 'Seu setor principal mudou',
+                    'mensagem' => 'Agora: ' . UgOrganograma::whereKey($u->unidade_id)->value('nome'), 'lida' => false,
+                ]);
+            }
+        });
+    }
+    public function getFotoUrlAttribute(): ?string
+    {
+        // Lido cru: em consultas com colunas escolhidas (id, name) a coluna não vem
+        $caminho = $this->attributes['foto_path'] ?? null;
+
+        return $caminho ? url("/usuarios/{$this->id}/foto?v=" . substr(md5((string) $caminho), 0, 8)) : null;
+    }
+
+    public function ausencias(): HasMany
+    {
+        return $this->hasMany(UsuarioAusencia::class)->orderByDesc('inicio');
+    }
+
+    /**
+     * Ausência vigente hoje de cada usuário, em uma consulta: [user_id => "Férias até 15/11"].
+     *
+     * @param  iterable<int>  $ids
+     * @return array<int, string>
+     */
+    public static function ausentesHoje(iterable $ids): array
+    {
+        return UsuarioAusencia::vigentes()->whereIn('user_id', collect($ids)->all())
+            ->orderBy('fim')->get()->keyBy('user_id')
+            ->map(fn (UsuarioAusencia $a) => $a->rotulo())->all();
+    }
+
+    /** Verificação em duas etapas (aplicativo autenticador) ativa. */
+    public function temDoisFatores(): bool
+    {
+        return $this->dois_fatores_ativado_em !== null && ! empty($this->dois_fatores_segredo);
     }
 
     public function documentos(): HasMany
@@ -75,6 +132,12 @@ class User extends Authenticatable
     public function unidade(): BelongsTo
     {
         return $this->belongsTo(UgOrganograma::class, 'unidade_id');
+    }
+
+    /** Setores em que também atende, além do principal (unidade_id) — TR 4.9.2. */
+    public function setoresSecundarios(): BelongsToMany
+    {
+        return $this->belongsToMany(UgOrganograma::class, 'user_setores', 'user_id', 'unidade_id')->withTimestamps();
     }
 
     /**
@@ -150,5 +213,27 @@ class User extends Authenticatable
     public function ehExterno(): bool
     {
         return $this->tipo === 'externo';
+    }
+
+    /**
+     * Servidores que podem ser escolhidos como signatários: ativos, com quem
+     * está pedindo no topo ("você" — o autor costuma assinar o próprio documento).
+     *
+     * @return \Illuminate\Support\Collection<int, array{id: int, name: string, email: string, voce: bool}>
+     */
+    public static function paraAssinatura(?int $atualId, bool $soInternos = true)
+    {
+        $usuarios = static::query()
+            ->whereNull('suspenso_em')
+            ->when($soInternos, fn ($q) => $q->where('tipo', 'interno'))
+            ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [(int) $atualId])
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
+        $ausentes = static::ausentesHoje($usuarios->pluck('id'));
+
+        return $usuarios->map(fn ($u) => [
+            'id' => $u->id, 'name' => $u->name, 'email' => $u->email, 'voce' => $u->id === $atualId,
+            'ausencia' => $ausentes[$u->id] ?? null,
+        ]);
     }
 }

@@ -24,11 +24,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Provedor de e-mail (entrega/falha e respostas) chama sem sessão: sem CSRF, protegido pelo segredo na URL.
+        // Aqui e não em bootstrap/app.php: o bootstrap vai na imagem, e isto precisa valer sem reconstruí-la.
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::except(['webhooks/*']);
+
         // Limites contra força bruta, separados por rota (o throttle sem nome soma tudo do IP).
         \Illuminate\Support\Facades\RateLimiter::for('login', fn ($request) =>
             \Illuminate\Cache\RateLimiting\Limit::perMinute(10)->by($request->ip() . '|' . mb_strtolower((string) $request->input('login'))));
         \Illuminate\Support\Facades\RateLimiter::for('senha', fn ($request) =>
             \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by($request->ip()));
+
+        // Registro de cada entrada (senha e SSO) e do último acesso.
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Auth\Events\Login::class, [\App\Listeners\RegistrarAcesso::class, 'login']);
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Auth\Events\Failed::class, [\App\Listeners\RegistrarAcesso::class, 'falha']);
 
         // RBAC: super admin passa em tudo; as habilidades do catálogo (módulo.ação) vêm
         // dos perfis do usuário. Habilidade fora do catálogo segue o fluxo normal do Gate.

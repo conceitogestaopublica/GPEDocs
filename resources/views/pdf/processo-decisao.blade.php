@@ -31,7 +31,7 @@
         table.tramitacoes td { padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px; }
         table.tramitacoes tr:nth-child(even) { background: #f8fafc; }
 
-        .footer { margin-top: 30px; padding-top: 15px; border-top: 2px solid #1e40af; text-align: center; font-size: 9px; color: #999; }
+        .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ddd; text-align: center; font-size: 9px; color: #999; }
         .lei { background: #eef2ff; padding: 10px; border-left: 3px solid #6366f1; font-size: 10px; color: #4338ca; margin-top: 16px; }
         .assinatura-area { margin-top: 30px; padding-top: 20px; border-top: 1px dashed #999; text-align: center; }
         .assinatura-area p { font-size: 10px; color: #888; margin-bottom: 50px; }
@@ -40,13 +40,8 @@
     </style>
 </head>
 <body>
-    @include('pdf.partials.cabecalho-ug', ['ug' => $ug])
-
-    <div class="header">
-        <h1>DECISAO ADMINISTRATIVA</h1>
-        <div class="numero">Processo {{ $processo->numero_protocolo }}</div>
-        <p>Documento gerado em {{ now()->format('d/m/Y H:i:s') }}</p>
-    </div>
+    @include('pdf.partials.cabecalho-ug', ['ug' => $ug, 'titulo' => 'Decisão Administrativa',
+        'subtitulo' => 'Processo ' . $processo->numero_protocolo, 'usuario' => $usuario ?? null])
 
     <div class="section">
         <div class="section-title">Identificacao do Processo</div>
@@ -163,7 +158,7 @@
     </div>
 
     <div class="footer">
-        Documento gerado automaticamente pelo Sistema GPE Fluxos e Processos / Conceito Gestao Publica<br>
+        Documento gerado automaticamente em {{ now()->format('d/m/Y H:i:s') }}<br>
         A validade juridica deste documento esta condicionada a assinatura digital ICP-Brasil
     </div>
 </body>

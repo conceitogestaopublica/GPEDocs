@@ -30,6 +30,11 @@ class HandleInertiaRequests extends Middleware
                     'id'          => $user->id,
                     'name'        => $user->name,
                     'email'       => $user->email,
+                    'foto_url'    => $user->foto_url,
+                    // Responde por algum setor: mostra "Minha equipe" no perfil
+                    'responsavel_setor' => \App\Http\Controllers\Perfil\EquipeController::ehResponsavel($user->id),
+                    // Editor e anexos seguem as preferências (os avisos ficam no servidor)
+                    'preferencias' => array_intersect_key(\App\Support\PreferenciasUsuario::de($user), ['editor' => 1, 'anexos' => 1]),
                     'super_admin' => (bool) $user->super_admin,
                     // Subtítulo do menu do usuário na topbar (como no gpe2).
                     'perfil_nome' => $user->super_admin ? 'Super Admin' : ($user->roles()->orderBy('nome')->value('nome') ?? 'Usuário'),
@@ -37,6 +42,8 @@ class HandleInertiaRequests extends Middleware
                     'permissoes'  => $user->super_admin ? ['*'] : $user->permissoes(),
                 ] : null,
             ],
+            // Brasão e fundo da tela de acesso e cor do município (TR 4.22.1) — também antes do login
+            'identidade' => fn () => \App\Support\IdentidadeVisual::paraTela(),
             'flash' => [
                 'success'       => $request->session()->get('success'),
                 'error'         => $request->session()->get('error'),
@@ -45,6 +52,8 @@ class HandleInertiaRequests extends Middleware
                 'token_gerado'  => $request->session()->get('token_gerado'),
             ],
             'notificacoes_pendentes' => $notificacoesPendentes,
+            // Ambiente somente leitura (TR 4.26.17): faixa no topo de todas as telas
+            'somente_leitura' => fn () => $user ? \App\Http\Middleware\SomenteLeitura::ativo() : false,
             // Rotinas favoritas do usuário (Ctrl+K → estrela) — pessoais e por UG da sessão.
             'favoritos' => $this->favoritos($user, $request),
             'tenant' => $tenant,

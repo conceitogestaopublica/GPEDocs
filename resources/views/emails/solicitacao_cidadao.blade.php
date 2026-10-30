@@ -59,7 +59,7 @@
             @endif
 
             <div style="text-align:center; margin:24px 0 8px;">
-                <a href="{{ $urlPortal }}/minhas-solicitacoes/{{ $solicitacao->id }}"
+                <a href="{{ $linkSolicitacao ?? $urlPortal . '/minhas-solicitacoes/' . $solicitacao->id }}"
                    style="display:inline-block; background:#2563eb; color:#fff; padding:12px 28px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:14px;">
                     Ver detalhes no portal
                 </a>
@@ -70,5 +70,7 @@
             </p>
         </div>
     </div>
+    @include('emails.partials.rodape-descadastro')
+@if (! empty($pixel))<img src="{{ $pixel }}" width="1" height="1" alt="" style="display:block;border:0">@endif
 </body>
 </html>

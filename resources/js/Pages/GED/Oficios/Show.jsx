@@ -4,13 +4,18 @@
  * Visualizacao completa com timeline de rastreio e respostas.
  */
 import { Head, router, useForm } from '@inertiajs/react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
+import ClassificacaoDoItem from '../../../Components/ClassificacaoDoItem';
+import MarcadoresDoDocumento from '../../../Components/MarcadoresDoDocumento';
+import QuemAcessou from '../../../Components/QuemAcessou';
+import TramitaDoDocumento from '../../../Components/TramitaDoDocumento';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import EmitidoPorContrassenha from '../../../Components/EmitidoPorContrassenha';
 
 const STATUS_MAP = {
     rascunho:   { label: 'Rascunho',   color: 'bg-gray-100 text-gray-600',   icon: 'fas fa-edit' },
@@ -23,7 +28,7 @@ const STATUS_MAP = {
 
 const TIMELINE_STEPS = ['enviado', 'entregue', 'lido', 'respondido'];
 
-export default function OficiosShow({ oficio, conteudo_html = '' }) {
+export default function OficiosShow({ tramita = null, marcadores = null, classificacao = null, acessos = [], oficio, conteudo_html = '' }) {
     const confirmar = useConfirm();
     const of = oficio || {};
     const respostas = of.respostas || [];
@@ -80,6 +85,7 @@ export default function OficiosShow({ oficio, conteudo_html = '' }) {
     return (
         <AdminLayout>
             <Head title={`Ofício ${of.numero || ''}`} />
+            <EmitidoPorContrassenha documento={of} />
 
             {/* Cabecalho */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
@@ -168,7 +174,7 @@ export default function OficiosShow({ oficio, conteudo_html = '' }) {
                     {/* Conteudo */}
                     <Card title="Conteúdo">
                         {/* HTML limpo no servidor e com as variáveis trocadas (Oficio::conteudoFinal). */}
-                        <div className="conteudo-oficio text-sm text-gray-700 leading-relaxed"
+                        <div className="conteudo-oficio texto-rico"
                             dangerouslySetInnerHTML={{ __html: conteudo_html }} />
                     </Card>
 
@@ -288,7 +294,7 @@ export default function OficiosShow({ oficio, conteudo_html = '' }) {
                                 <InfoRow label="Cargo" value={of.destinatario_cargo} />
                             )}
                             {of.destinatario_orgao && (
-                                <InfoRow label="Orgao/Instituicao" value={of.destinatario_orgao} />
+                                <InfoRow label="Órgão/Instituição" value={of.destinatario_orgao} />
                             )}
                         </div>
                     </Card>
@@ -327,25 +333,84 @@ export default function OficiosShow({ oficio, conteudo_html = '' }) {
                         </div>
                     </Card>
 
-                    {/* Rastreio */}
-                    <Card title="Rastreio de Entrega">
-                        <div className="text-xs text-gray-500 space-y-2">
-                            <p>
-                                <i className="fas fa-link text-gray-400 mr-1" />
-                                O link de rastreio foi enviado junto ao ofício. Quando o destinatário abrir,
-                                a data/hora será registrada automaticamente.
-                            </p>
-                            {of.rastreio_token && (
-                                <div className="bg-gray-50 rounded-lg p-3 mt-2">
-                                    <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wide mb-1">Token de Rastreio</p>
-                                    <p className="text-[10px] text-gray-600 font-mono break-all">{of.rastreio_token}</p>
-                                </div>
-                            )}
-                        </div>
-                    </Card>
+                    {/* Rastreio do e-mail */}
+                    <RastreioEmail of={of} />
                 </div>
             </div>
+            <TramitaDoDocumento dados={tramita} url={`/tramita/oficios/${oficio.id}`} rotulo="ofício" className="mt-6" />
+            <MarcadoresDoDocumento dados={marcadores} className="mt-6" />
+            <ClassificacaoDoItem classificacao={classificacao} className="mt-6" />
+            <QuemAcessou acessos={acessos} />
         </AdminLayout>
+    );
+}
+
+const dataHora = (d) => d ? new Date(d).toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+}) : null;
+
+/** Situação do envio por e-mail: enviado, aberto, link acessado — ou a falha com o motivo e o reenvio. */
+function RastreioEmail({ of }) {
+    const confirmar = useConfirm();
+    const [enviando, setEnviando] = useState(false);
+    const fisico = !of.email_status && of.modo_envio !== 'eletronico';
+
+    const reenviar = async () => {
+        if (!await confirmar({
+            titulo: 'Reenviar o ofício por e-mail?',
+            descricao: `Será enviado para ${of.destinatario_email || '(sem e-mail)'}.`,
+            rotuloConfirmar: 'Reenviar',
+        })) return;
+        router.post(`/oficios/${of.id}/reenviar-email`, {}, {
+            preserveScroll: true,
+            onStart: () => setEnviando(true),
+            onFinish: () => setEnviando(false),
+        });
+    };
+
+    const etapas = [
+        { rotulo: 'E-mail enviado', quando: of.email_enviado_em, icone: 'fas fa-paper-plane' },
+        { rotulo: 'E-mail aberto', quando: of.email_aberto_em, icone: 'fas fa-envelope-open' },
+        { rotulo: 'Link acessado (recebimento confirmado)', quando: of.lido_em, icone: 'fas fa-check-double' },
+    ];
+
+    return (
+        <Card title="Rastreio do e-mail">
+            {fisico ? (
+                <p className="text-xs text-gray-500">
+                    <i className="fas fa-book text-gray-400 mr-1" />
+                    Ofício registrado como envio físico (livro de controle): não houve envio por e-mail.
+                </p>
+            ) : (
+                <div className="space-y-3 text-xs">
+                    {of.email_status === 'falhou' && (
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
+                            <p className="font-semibold"><i className="fas fa-exclamation-triangle mr-1" />E-mail não enviado</p>
+                            <p className="mt-1 first-letter:uppercase">{of.email_falha_motivo}</p>
+                        </div>
+                    )}
+                    <ul className="space-y-2">
+                        {etapas.map(e => (
+                            <li key={e.rotulo} className="flex items-start gap-2">
+                                <i className={`${e.icone} mt-0.5 w-4 text-center ${e.quando ? 'text-green-600' : 'text-gray-300'}`} />
+                                <div>
+                                    <p className={e.quando ? 'text-gray-700' : 'text-gray-400'}>{e.rotulo}</p>
+                                    <p className="text-[10px] text-gray-400">{dataHora(e.quando) || 'aguardando'}</p>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                    <p className="text-[10px] text-gray-400 leading-relaxed">
+                        "Aberto" depende de o leitor de e-mail carregar imagens; o acesso ao link confirma o recebimento.
+                        {of.email_tentativas > 1 && ` Tentativas de envio: ${of.email_tentativas}.`}
+                    </p>
+                    <Button variant="secondary" icon="fas fa-redo" loading={enviando} onClick={reenviar}
+                        disabled={!of.destinatario_email}>
+                        {of.email_status === 'falhou' ? 'Tentar enviar de novo' : 'Reenviar e-mail'}
+                    </Button>
+                </div>
+            )}
+        </Card>
     );
 }
 

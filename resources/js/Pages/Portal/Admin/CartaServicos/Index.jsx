@@ -20,7 +20,7 @@ const COR_BG = {
     pink: 'bg-pink-100 text-pink-600', cyan: 'bg-cyan-100 text-cyan-600',
 };
 
-export default function CartaServicosAdmin({ servicos, categorias, setores, tiposProcesso, filtros, publicos, areas = {}, acoesFiscais = {} }) {
+export default function CartaServicosAdmin({ servicos, categorias, setores, tiposProcesso, filtros, publicos, perfis = {}, areas = {}, acoesFiscais = {} }) {
     const confirmar = useConfirm();
     // Listagem rola só por dentro — a página nunca (padrão gpe2).
     const scrollRef = useFillViewportHeight();
@@ -215,6 +215,7 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
                     setores={setores}
                     tiposProcesso={tiposProcesso}
                     publicos={publicos}
+                    perfis={perfis}
                     acoesFiscais={acoesFiscais}
                     onClose={() => setShowServForm(false)}
                 />
@@ -316,7 +317,7 @@ function CategoriaForm({ categoria, areas, onClose }) {
 }
 
 // ============ Form Servico ============
-function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, acoesFiscais, onClose }) {
+function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, perfis = {}, acoesFiscais, onClose }) {
     const isEdit = !!servico;
     const { data, setData, post, put, processing, errors } = useForm({
         categoria_id: servico?.categoria_id || '',
@@ -339,6 +340,18 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, ac
         icone: servico?.icone || 'fas fa-file-alt',
         publicado: servico?.publicado ?? false,
         ordem: servico?.ordem || 0,
+        // Lei 13.460 (TR 4.30)
+        caracteristicas: servico?.caracteristicas || '',
+        etapas: servico?.etapas || [],
+        perfis: servico?.perfis || [servico?.publico_alvo || 'cidadao'],
+        prioridades: servico?.prioridades || '',
+        tempo_espera: servico?.tempo_espera || '',
+        prazo_dias: servico?.prazo_dias || '',
+        forma_prestacao: servico?.forma_prestacao || '',
+        locais_manifestacao: servico?.locais_manifestacao || '',
+        mecanismos_comunicacao: servico?.mecanismos_comunicacao || '',
+        procedimento_manifestacoes: servico?.procedimento_manifestacoes || '',
+        mecanismos_consulta: servico?.mecanismos_consulta || '',
     });
 
     const [novoDoc, setNovoDoc] = useState('');
@@ -556,6 +569,8 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, ac
                     <p className="text-[10px] text-gray-400 mt-1">Aparece na página pública do serviço. Pode complementar o setor do organograma.</p>
                 </div>
 
+                <CartaLei13460 data={data} setData={setData} perfis={perfis} errors={errors} />
+
                 <div>
                     <label className="text-xs font-semibold text-gray-600 mb-1 block">Legislação de referência</label>
                     <textarea value={data.legislacao} onChange={(e) => setData('legislacao', e.target.value)}
@@ -606,5 +621,90 @@ function ServicoForm({ servico, categorias, setores, tiposProcesso, publicos, ac
                 </div>
             </form>
         </Modal>
+    );
+}
+
+/** Campos da Carta de Serviços exigidos pela Lei 13.460/2017 (TR 4.30.5, 4.30.14–4.30.26). */
+function CartaLei13460({ data, setData, perfis, errors }) {
+    const etapas = data.etapas || [];
+    const mudarEtapa = (i, campo, v) => setData('etapas', etapas.map((e, k) => (k === i ? { ...e, [campo]: v } : e)));
+    const mover = (i, d) => {
+        const j = i + d;
+        if (j < 0 || j >= etapas.length) return;
+        const nova = [...etapas];
+        [nova[i], nova[j]] = [nova[j], nova[i]];
+        setData('etapas', nova);
+    };
+    const alternarPerfil = (p) => setData('perfis', data.perfis.includes(p) ? data.perfis.filter((x) => x !== p) : [...data.perfis, p]);
+    const area = (campo, rotulo, ajuda, linhas = 2) => (
+        <div>
+            <label className="text-xs font-semibold text-gray-600 mb-1 block">{rotulo}</label>
+            <textarea value={data[campo]} onChange={(e) => setData(campo, e.target.value)} rows={linhas}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" placeholder={ajuda} />
+        </div>
+    );
+
+    return (
+        <fieldset className="space-y-3 rounded-xl border border-cyan-100 bg-cyan-50/30 p-3">
+            <legend className="px-1 text-xs font-bold text-cyan-800"><i className="fas fa-scale-balanced mr-1" />Carta de Serviços — Lei 13.460</legend>
+
+            <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">Quem pode pedir (perfis)</label>
+                <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(perfis).map(([v, r]) => (
+                        <button key={v} type="button" onClick={() => alternarPerfil(v)}
+                            className={`text-xs px-2.5 py-1 rounded-full border ${data.perfis.includes(v) ? 'border-cyan-600 bg-cyan-600 text-white' : 'border-gray-200 bg-white text-gray-600'}`}>{r}</button>
+                    ))}
+                </div>
+            </div>
+
+            {area('caracteristicas', 'Características do serviço', 'Ex.: serviço gratuito, atendido em até 3 visitas, válido em todo o município…')}
+
+            <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">Principais etapas do processamento</label>
+                <ol className="space-y-1.5">
+                    {etapas.map((e, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                            <span className="mt-2 w-5 h-5 shrink-0 rounded-full bg-cyan-600 text-white text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
+                            <div className="flex-1 space-y-1">
+                                <input value={e.titulo} onChange={(ev) => mudarEtapa(i, 'titulo', ev.target.value)} placeholder="Etapa (ex.: Análise da documentação)"
+                                    className="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm" />
+                                <input value={e.descricao || ''} onChange={(ev) => mudarEtapa(i, 'descricao', ev.target.value)} placeholder="O que acontece nela (opcional)"
+                                    className="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-xs" />
+                                {errors?.[`etapas.${i}.titulo`] && <p className="text-[11px] text-red-600">{errors[`etapas.${i}.titulo`]}</p>}
+                            </div>
+                            <div className="flex flex-col pt-1.5 text-gray-400">
+                                <button type="button" onClick={() => mover(i, -1)} aria-label="Subir etapa" className="hover:text-gray-700"><i className="fas fa-chevron-up text-[10px]" /></button>
+                                <button type="button" onClick={() => mover(i, 1)} aria-label="Descer etapa" className="hover:text-gray-700"><i className="fas fa-chevron-down text-[10px]" /></button>
+                            </div>
+                            <button type="button" onClick={() => setData('etapas', etapas.filter((_, k) => k !== i))} aria-label="Remover etapa" className="pt-2 text-gray-400 hover:text-red-600"><i className="fas fa-trash-can text-xs" /></button>
+                        </li>
+                    ))}
+                </ol>
+                <button type="button" onClick={() => setData('etapas', [...etapas, { titulo: '', descricao: '' }])} className="mt-1.5 text-xs text-cyan-700 hover:underline">
+                    <i className="fas fa-plus mr-1" />Adicionar etapa
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Prazo máximo (dias)</label>
+                    <input type="number" min={1} value={data.prazo_dias} onChange={(e) => setData('prazo_dias', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+                    {errors?.prazo_dias && <p className="text-[11px] text-red-600">{errors.prazo_dias}</p>}
+                </div>
+                <div>
+                    <label className="text-xs font-semibold text-gray-600 mb-1 block">Tempo de espera previsto</label>
+                    <input value={data.tempo_espera} onChange={(e) => setData('tempo_espera', e.target.value)} placeholder="Ex.: até 30 minutos no balcão"
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+                </div>
+            </div>
+
+            {area('prioridades', 'Prioridades de atendimento', 'Ex.: idosos (60+), gestantes, pessoas com deficiência, lactantes e pessoas com criança de colo (Lei 10.048/2000).')}
+            {area('forma_prestacao', 'Forma de prestação', 'Ex.: entrega do alvará por e-mail e retirada no balcão.')}
+            {area('locais_manifestacao', 'Locais e formas de manifestação sobre o serviço', 'Ex.: Ouvidoria pelo portal, telefone 156 e presencialmente na Prefeitura.')}
+            {area('mecanismos_comunicacao', 'Mecanismos de comunicação com o usuário', 'Ex.: e-mail, SMS e mensagens no portal.')}
+            {area('procedimento_manifestacoes', 'Procedimento para receber e responder manifestações', 'Ex.: resposta em até 30 dias, prorrogáveis por mais 30 (Lei 13.460, art. 16).')}
+            {area('mecanismos_consulta', 'Como consultar o andamento', 'Ex.: pelo código do protocolo no portal ou no app.')}
+        </fieldset>
     );
 }

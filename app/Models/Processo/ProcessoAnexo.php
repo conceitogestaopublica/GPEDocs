@@ -22,7 +22,32 @@ class ProcessoAnexo extends Model
         'hash_sha256',
         'enviado_por',
         'documento_id',
+        'ordem',
+        'avaliacao',
+        'externo',
+        'avaliacao_motivo',
+        'avaliado_por',
+        'avaliado_em',
     ];
+
+    protected function casts(): array
+    {
+        return ['avaliado_em' => 'datetime', 'downloads' => 'integer', 'ordem' => 'integer', 'indexado_em' => 'datetime'];
+    }
+
+    /** O texto não vai para a tela do processo (pode ser grande). */
+    protected $hidden = ['texto_indexado'];
+
+    protected static function booted(): void
+    {
+        // Texto para a busca, com OCR quando é escaneado (TR 4.15.4)
+        static::created(fn (ProcessoAnexo $a) => \App\Jobs\IndexarTextoArquivo::enfileirar('anexo', (int) $a->id));
+    }
+
+    public function avaliador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'avaliado_por');
+    }
 
     /** Documento do GED criado quando o anexo foi enviado para assinatura. */
     public function documento(): BelongsTo

@@ -20,9 +20,17 @@ class TipoProcesso extends Model
         'categoria',
         'schema_formulario',
         'templates_despacho',
+        'anexos_exigidos',
+        'prazo_dias_uteis',
         'sla_padrao_horas',
         'ativo',
         'criado_por',
+        'localizacao',
+        'avaliacao',
+        'modalidade',
+        'email_entrada',
+        'email_unidade_id',
+        'prazo_resposta_dias',
     ];
 
     protected function casts(): array
@@ -30,6 +38,9 @@ class TipoProcesso extends Model
         return [
             'schema_formulario' => 'array',
             'templates_despacho' => 'array',
+            'anexos_exigidos'    => 'array',
+            'prazo_dias_uteis'   => 'boolean',
+            'avaliacao'          => 'boolean',
             'ativo' => 'boolean',
         ];
     }

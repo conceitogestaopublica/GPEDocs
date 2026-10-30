@@ -13,6 +13,9 @@ class Tramitacao extends Model
 {
     protected $table = 'proc_tramitacoes';
 
+    /** Sugestões de estágio que o setor marca na parte dele (TR 4.9.4); aceita outro texto. */
+    public const ESTAGIOS = ['Em análise', 'Aguardando documentos', 'Em execução', 'Aguardando terceiros', 'Em diligência'];
+
     protected $fillable = [
         'processo_id',
         'tipo_etapa_id',
@@ -31,7 +34,21 @@ class Tramitacao extends Model
         'recebido_em',
         'despachado_em',
         'lida_em',
+        'frente',
+        'modo',
+        'estagio',
+        'resolvido_em',
+        'resolvido_por',
+        'manifestacao',
     ];
+
+    /** Despacho escrito no editor (TR 4.16), limpo para exibir; despacho antigo em texto vira parágrafos. */
+    protected $appends = ['despacho_html'];
+
+    public function getDespachoHtmlAttribute(): string
+    {
+        return \App\Support\HtmlSeguro::limpar($this->attributes['despacho'] ?? null);
+    }
 
     protected function casts(): array
     {
@@ -40,6 +57,8 @@ class Tramitacao extends Model
             'recebido_em'   => 'datetime',
             'despachado_em' => 'datetime',
             'lida_em'       => 'datetime',
+            'resolvido_em'  => 'datetime',
+            'frente'        => 'integer',
         ];
     }
 
@@ -66,6 +85,12 @@ class Tramitacao extends Model
     public function destinatario(): BelongsTo
     {
         return $this->belongsTo(User::class, 'destinatario_id');
+    }
+
+    /** Quem resolveu a parte do setor (frente que não é a principal). */
+    public function resolvedor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'resolvido_por');
     }
 
     public function recebedor(): BelongsTo

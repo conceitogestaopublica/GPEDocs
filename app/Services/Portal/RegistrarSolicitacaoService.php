@@ -30,32 +30,41 @@ class RegistrarSolicitacaoService
 
     /**
      * @param  array{descricao:string,telefone_contato?:?string,email_contato?:?string}  $dados
+     * @param  ?Cidadao  $procurador  quem protocola em nome de $cidadao (procuração)
      */
-    public function registrar(Ug $ug, Servico $servico, ?Cidadao $cidadao, array $dados, bool $anonima = false): Solicitacao
+    public function registrar(Ug $ug, Servico $servico, ?Cidadao $cidadao, array $dados, bool $anonima = false, ?Cidadao $procurador = null): Solicitacao
     {
-        $solicitacao = DB::transaction(function () use ($ug, $servico, $cidadao, $dados, $anonima) {
+        $solicitacao = DB::transaction(function () use ($ug, $servico, $cidadao, $dados, $anonima, $procurador) {
             $sol = Solicitacao::query()->withoutGlobalScope('ug')->create([
                 'codigo'           => Solicitacao::gerarCodigo($ug->id),
                 'ug_id'            => $ug->id,
                 'servico_id'       => $servico->id,
                 'cidadao_id'       => $anonima ? null : $cidadao?->id,
+                'procurador_cidadao_id' => $anonima ? null : $procurador?->id,
                 'anonima'          => $anonima,
                 'status'           => 'aberta',
                 'descricao'        => $dados['descricao'],
+                // Ouvidoria (TR 4.33.8, 4.33.27); a chave deixa acompanhar sem login
+                'manifestacao_tipo' => $dados['manifestacao_tipo'] ?? null,
+                'identificacao'    => $anonima ? 'anonima' : ($dados['identificacao'] ?? null),
+                'chave_acesso'     => strtoupper(\Illuminate\Support\Str::random(8)),
                 'telefone_contato' => $anonima ? null : (($dados['telefone_contato'] ?? null) ?: $cidadao?->telefone),
                 'email_contato'    => $anonima ? null : (($dados['email_contato'] ?? null) ?: $cidadao?->email),
+                'dados_formulario' => $dados['dados_formulario'] ?? null,
             ]);
 
             SolicitacaoEvento::create([
                 'solicitacao_id'   => $sol->id,
                 'tipo'             => 'criada',
                 'autor_tipo'       => 'cidadao',
-                'autor_nome'       => $anonima ? 'Anonimo' : ($cidadao?->nome ?? 'Cidadao'),
-                'autor_cidadao_id' => $anonima ? null : $cidadao?->id,
+                'autor_nome'       => $anonima ? 'Anonimo' : (($procurador ?? $cidadao)?->nome ?? 'Cidadao'),
+                'autor_cidadao_id' => $anonima ? null : ($procurador ?? $cidadao)?->id,
                 'status_novo'      => 'aberta',
-                'mensagem'         => $anonima
-                    ? 'Solicitacao registrada anonimamente.'
-                    : 'Solicitacao registrada pelo cidadao.',
+                'mensagem'         => match (true) {
+                    $anonima            => 'Solicitacao registrada anonimamente.',
+                    $procurador !== null => "Solicitação registrada por {$procurador->nome}, procurador(a) de {$cidadao?->nome}.",
+                    default             => 'Solicitacao registrada pelo cidadao.',
+                },
             ]);
 
             // Cria Processo no GPE Flow se servico tem setor + tipo configurados
@@ -69,13 +78,16 @@ class RegistrarSolicitacaoService
 
         // Notifica por e-mail apenas quando identificada. Falha de e-mail não
         // desfaz a solicitação já registrada.
-        if (! $anonima && $solicitacao->email_contato) {
+        if (! $anonima && $solicitacao->email_contato && ! \App\Support\DescadastroEmail::descadastrado($solicitacao->email_contato)) {
             try {
-                Mail::to($solicitacao->email_contato)
-                    ->send(new NotificacaoSolicitacaoCidadao($solicitacao, $servico, $ug, 'criada'));
+                \App\Support\RastreioEmail::enviar(new NotificacaoSolicitacaoCidadao($solicitacao, $servico, $ug, 'criada'),
+                    $solicitacao->email_contato, 'cidadao', "Solicitação {$solicitacao->codigo}", 'solicitacao', $solicitacao->id, null);
             } catch (Throwable $e) {
                 Log::warning('Aviso de solicitação não enviado', ['solicitacao_id' => $solicitacao->id, 'erro' => $e->getMessage()]);
             }
+        }
+        if (! $anonima) {
+            \App\Support\SmsCidadao::solicitacao($solicitacao, 'criada');   // TR 4.11.1
         }
 
         return $solicitacao;

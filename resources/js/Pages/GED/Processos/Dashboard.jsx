@@ -7,6 +7,7 @@ import { Head, Link } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import StatCard from '../../../Components/StatCard';
+import { Estrelas } from '../../../Components/MapaAvaliacaoDoProcesso';
 import Card from '../../../Components/Card';
 
 const statusColors = {
@@ -32,7 +33,7 @@ const prioridadeColors = {
     urgente: 'bg-red-100 text-red-600',
 };
 
-export default function Dashboard({ stats, processos_recentes, inbox_count }) {
+export default function Dashboard({ stats, processos_recentes, inbox_count, avaliacoes = null }) {
     const recentes = processos_recentes || [];
     const s = stats || {};
     const lista = recentes || [];
@@ -50,6 +51,28 @@ export default function Dashboard({ stats, processos_recentes, inbox_count }) {
                 <StatCard title="Concluídos no Mês" value={s.concluidos_mes || 0} icon="fas fa-check-circle" color="green" />
                 <StatCard title="Atrasados" value={s.atrasados || 0} icon="fas fa-exclamation-triangle" color="red" />
             </div>
+
+            {/* Satisfação do cidadão (TR 4.32.26) */}
+            {avaliacoes && avaliacoes.total > 0 && (
+                <div className="mb-6 bg-white rounded-xl border border-gray-200 p-5">
+                    <div className="flex flex-wrap items-start gap-8">
+                        <div>
+                            <p className="text-xs font-semibold uppercase text-gray-500">Satisfação (12 meses)</p>
+                            <p className="mt-1 flex items-center gap-2"><Estrelas nota={Math.round(avaliacoes.media)} tamanho="text-xl" /><span className="text-2xl font-bold text-gray-800">{avaliacoes.media.toFixed(1).replace('.', ',')}</span></p>
+                            <p className="text-xs text-gray-500">{avaliacoes.total} avaliação(ões)</p>
+                        </div>
+                        <div className="text-xs text-gray-600 space-y-0.5">
+                            {[5, 4, 3, 2, 1].map(n => <p key={n}>{n}★ <span className="inline-block h-2 bg-amber-300 rounded align-middle" style={{ width: `${(avaliacoes.por_nota[n] / avaliacoes.total) * 120}px` }} /> {avaliacoes.por_nota[n]}</p>)}
+                        </div>
+                        <div className="flex-1 min-w-[240px]">
+                            <p className="text-xs font-semibold uppercase text-gray-500 mb-1">Por assunto</p>
+                            <ul className="text-sm divide-y divide-gray-100">
+                                {avaliacoes.por_assunto.map(a => <li key={a.assunto} className="py-1 flex justify-between gap-3"><span className="text-gray-700">{a.assunto}</span><span className="text-gray-600">{a.media.toFixed(1).replace('.', ',')} ★ <span className="text-xs text-gray-400">({a.total})</span></span></li>)}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Caixa de Entrada */}
             <div className="mb-6">

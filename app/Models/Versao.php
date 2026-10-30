@@ -21,6 +21,12 @@ class Versao extends Model
         'comentario',
     ];
 
+    protected static function booted(): void
+    {
+        // Versão nova sem texto (PDF escaneado, imagem): OCR na fila para a busca (TR 4.15.4)
+        static::created(fn (Versao $v) => \App\Jobs\IndexarTextoArquivo::enfileirar('documento', (int) $v->documento_id));
+    }
+
     public function documento(): BelongsTo
     {
         return $this->belongsTo(Documento::class, 'documento_id');

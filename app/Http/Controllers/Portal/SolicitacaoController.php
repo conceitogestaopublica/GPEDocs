@@ -55,6 +55,10 @@ class SolicitacaoController extends Controller
         ];
 
         $anonima = $servico->permite_anonimo && (bool) $request->input('anonima', false);
+        // Manifestação anônima sem login é a única entrada sem conta: pede o código da imagem.
+        if ($anonima && ! $cidadao) {
+            \App\Support\Captcha::validar($request, 'solicitacao');
+        }
         if (! $anonima) {
             // Identificada: precisa estar logada
             if (! $cidadao) {
@@ -135,24 +139,21 @@ class SolicitacaoController extends Controller
                 ->orderByDesc('id')
                 ->get(['id', 'nome', 'tamanho', 'mime_type', 'created_at']);
 
-            // PDF da decisao: prefere o ARQUIVO ASSINADO (em ged_assinaturas.arquivo_assinado_path)
-            // Se ainda nao foi assinado, mostra o PDF original (versao 1) com aviso de "Aguardando".
+            // PDF da decisao: assinada, a cópia para impressão (com os carimbos) e
+            // um link para o original com as assinaturas digitais. Se ainda nao foi
+            // assinado, mostra o PDF original (versao 1) com aviso de "Aguardando".
             $processo = \App\Models\Processo\Processo::query()->withoutGlobalScope('ug')
                 ->find($solicitacao->processo_id, ['id', 'numero_protocolo', 'documento_decisao_id', 'status']);
             if ($processo && $processo->documento_decisao_id) {
-                $assinaturaAssinada = \App\Models\Assinatura::query()
-                    ->where('documento_id', $processo->documento_decisao_id)
-                    ->where('status', 'assinado')
-                    ->whereNotNull('arquivo_assinado_path')
-                    ->orderByDesc('assinado_em')
-                    ->first(['id', 'arquivo_assinado_path', 'assinado_em']);
+                [$impressao, $original, $assinadoEm] = $this->arquivosDaDecisao($processo->documento_decisao_id);
 
-                if ($assinaturaAssinada && \Illuminate\Support\Facades\Storage::disk('documentos')->exists($assinaturaAssinada->arquivo_assinado_path)) {
+                if ($impressao || $original) {
                     $decisaoPdf = [
                         'numero'      => $processo->numero_protocolo,
-                        'tamanho'     => \Illuminate\Support\Facades\Storage::disk('documentos')->size($assinaturaAssinada->arquivo_assinado_path),
-                        'criado_em'   => $assinaturaAssinada->assinado_em,
+                        'tamanho'     => Storage::disk('documentos')->size($impressao ?? $original),
+                        'criado_em'   => $assinadoEm,
                         'assinado'    => true,
+                        'tem_original' => (bool) $original && $impressao !== null,
                     ];
                 } else {
                     $versaoAtual = \App\Models\Versao::query()
@@ -206,19 +207,16 @@ class SolicitacaoController extends Controller
             abort(404);
         }
 
-        // Prefere o PDF ASSINADO (ged_assinaturas.arquivo_assinado_path); fallback pro original
-        $assinada = \App\Models\Assinatura::query()
-            ->where('documento_id', $processo->documento_decisao_id)
-            ->where('status', 'assinado')
-            ->whereNotNull('arquivo_assinado_path')
-            ->orderByDesc('assinado_em')
-            ->first();
+        // Assinada: a cópia para impressão (padrão) ou, com ?arquivo=original, o
+        // original com as assinaturas digitais. Sem assinatura: a versão atual.
+        [$impressao, $original] = $this->arquivosDaDecisao($processo->documento_decisao_id);
+        $querOriginal = $request->input('arquivo') === 'original';
 
         $path = null;
         $sufixo = '';
-        if ($assinada && Storage::disk('documentos')->exists($assinada->arquivo_assinado_path)) {
-            $path = $assinada->arquivo_assinado_path;
-            $sufixo = '-assinado';
+        if ($impressao || $original) {
+            $path = $querOriginal ? ($original ?? $impressao) : ($impressao ?? $original);
+            $sufixo = $querOriginal && $original ? '-original-assinado' : '-assinado';
         } else {
             $versao = \App\Models\Versao::query()
                 ->where('documento_id', $processo->documento_decisao_id)
@@ -235,6 +233,28 @@ class SolicitacaoController extends Controller
 
         $nome = 'decisao-'.str_replace(['/', '\\'], '-', $processo->numero_protocolo).$sufixo.'.pdf';
         return Storage::disk('documentos')->download($path, $nome);
+    }
+
+    /**
+     * Arquivos da decisão assinada: [cópia para impressão, original assinado, data da última assinatura].
+     * Cópia null em assinaturas anteriores a ela; original null se ninguém assinou com certificado.
+     *
+     * @return array{0: ?string, 1: ?string, 2: mixed}
+     */
+    private function arquivosDaDecisao(int $documentoId): array
+    {
+        // O cidadão não tem UG de servidor nem passa pelo sigilo: o vínculo já foi conferido
+        $documento = \App\Models\Documento::query()->withoutGlobalScopes()->with('versaoAtual')->find($documentoId);
+        if (! $documento) {
+            return [null, null, null];
+        }
+        $original = $documento->caminhoOficial();
+        if ($original === $documento->versaoAtual?->arquivo_path) {
+            $original = null;
+        }
+        $ultima = $documento->assinaturas()->where('status', 'assinado')->max('assinado_em');
+
+        return [$documento->caminhoImpressao(), $original, $ultima];
     }
 
     /**

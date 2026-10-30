@@ -16,7 +16,9 @@ use Illuminate\Support\Str;
 
 class Documento extends Model
 {
-    use SoftDeletes, BelongsToUg, RespeitaSigilo;
+    use SoftDeletes, BelongsToUg, RespeitaSigilo, Concerns\Classificavel;
+
+    public const MODULO_CLASSIFICACAO = 'documento';
 
     protected $table = 'ged_documentos';
 
@@ -125,5 +127,54 @@ class Documento extends Model
     public function assinaturas(): HasMany
     {
         return $this->hasMany(Assinatura::class, 'documento_id');
+    }
+
+    /**
+     * PDF "oficial" no disco documentos: o original assinado mais recente (cada
+     * assinatura ICP é acrescentada a ele de forma incremental, então o último
+     * contém todas) ou, sem assinatura, a versão atual.
+     */
+    public function caminhoOficial(): ?string
+    {
+        $disk = \Illuminate\Support\Facades\Storage::disk('documentos');
+        $assinada = $this->assinaturas()
+            ->where('status', 'assinado')
+            ->whereNotNull('arquivo_assinado_path')
+            ->orderByDesc('assinado_em')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($assinada && $disk->exists($assinada->arquivo_assinado_path)) {
+            return $assinada->arquivo_assinado_path;
+        }
+
+        return $this->versaoAtual?->arquivo_path;
+    }
+
+    /**
+     * Cópia para impressão mais recente (carimbos, tarja e termo de todas as
+     * assinaturas até ela), ou null se o documento ainda não tem.
+     */
+    public function caminhoImpressao(): ?string
+    {
+        $disk = \Illuminate\Support\Facades\Storage::disk('documentos');
+        $ultima = $this->assinaturas()
+            ->where('status', 'assinado')
+            ->whereNotNull('arquivo_impressao_path')
+            ->orderByDesc('assinado_em')
+            ->orderByDesc('id')
+            ->first();
+
+        return $ultima && $disk->exists($ultima->arquivo_impressao_path) ? $ultima->arquivo_impressao_path : null;
+    }
+
+    /**
+     * Executa $fn com o documento travado para assinatura: duas assinaturas
+     * simultâneas partiriam do mesmo arquivo e uma se perderia.
+     */
+    public function comTravaDeAssinatura(callable $fn): mixed
+    {
+        return \Illuminate\Support\Facades\Cache::lock('assinatura-documento:' . $this->id, 120)
+            ->block(60, $fn);
     }
 }

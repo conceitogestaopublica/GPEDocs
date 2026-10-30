@@ -14,6 +14,7 @@ import { router, useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import Button from './Button';
+import { aguardar } from '../Support/webPki';
 
 export default function AssinarModal({ assinatura, onClose }) {
     const [tipo, setTipo] = useState('simples');
@@ -242,7 +243,7 @@ function FormIcpA3({ assinatura, onClose }) {
                         setPkiRef(pki);
                         setEstado('listando');
                         try {
-                            const lista = await pki.listCertificates();
+                            const lista = await aguardar(pki.listCertificates());
                             if (cancelado) return;
                             setCerts(lista);
                             setEstado('pronto');
@@ -286,7 +287,7 @@ function FormIcpA3({ assinatura, onClose }) {
 
         try {
             setProgresso('Lendo certificado do token...');
-            const certPem = await pkiRef.readCertificate({ thumbprint });
+            const certPem = await aguardar(pkiRef.readCertificate({ thumbprint }));
 
             setProgresso('Preparando assinatura no servidor...');
             const respPrep = await fetch(`/assinaturas/${assinatura.id}/preparar-icp-a3`, {
@@ -298,9 +299,9 @@ function FormIcpA3({ assinatura, onClose }) {
             if (! respPrep.ok) throw new Error(dadosPrep?.erro || 'Falha ao preparar assinatura');
 
             setProgresso('Aguardando PIN do token...');
-            const assinaturaB64 = await pkiRef.signHash({
+            const assinaturaB64 = await aguardar(pkiRef.signHash({
                 thumbprint, hash: dadosPrep.hash_a_assinar, digestAlgorithm: dadosPrep.algoritmo_digest,
-            });
+            }));
 
             setProgresso('Finalizando assinatura no servidor...');
             const geo = await obterGeo();

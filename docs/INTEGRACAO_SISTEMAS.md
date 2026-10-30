@@ -209,7 +209,7 @@ Todas as rotas exigem `Authorization: Bearer <token>` e respondem em JSON.
 | --- | --- |
 | `POST /api/integracoes/documentos` | Enviar documento para assinatura (gpe2) |
 | `GET /api/integracoes/documentos/{numero}` | Consultar situação e assinaturas |
-| `GET /api/integracoes/documentos/{numero}/pdf-assinado` | Baixar o PDF assinado |
+| `GET /api/integracoes/documentos/{numero}/pdf-assinado` | Baixar a cópia para impressão (padrão) ou, com `?arquivo=original`, o original assinado |
 | `POST /api/integracoes/documentos/{numero}/versao` | Substituir o PDF antes de alguém assinar |
 | `POST /api/integracoes/documentos/{numero}/cancelar` | Cancelar o documento |
 | `POST /api/integracoes/documentos/{numero}/reenviar-webhook` | Reenviar o aviso de conclusão |

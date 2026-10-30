@@ -110,6 +110,15 @@ return [
     |
     */
 
+    /*
+     * Resposta por e-mail vira despacho (TR 4.7.23, 4.8.8): domínio que recebe resposta+código@...
+     * (o provedor entrega no webhook POST /webhooks/email-entrada/{segredo}). Vazio = desligado.
+     */
+    'respostas' => [
+        'dominio' => env('MAIL_RESPOSTAS_DOMINIO'),
+        'segredo' => env('EMAIL_ENTRADA_SECRET'),
+    ],
+
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),

@@ -8,18 +8,19 @@ use App\Models\Notificacao;
 use App\Models\Processo\Oficio;
 use App\Models\Processo\OficioAnexo;
 use App\Models\Processo\OficioResposta;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Relatorio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Support\EmNomeDe;
 
 class OficioController extends Controller
 {
     public function index(Request $request): Response
     {
-        $query = Oficio::where('remetente_id', Auth::id());
+        $query = Oficio::where(fn ($q) => $q->where('remetente_id', Auth::id())->orWhere('digitador_id', Auth::id()));
 
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
@@ -53,11 +54,6 @@ class OficioController extends Controller
     {
         $ugId = (int) ($request->session()->get('ug_id') ?? 0);
 
-        $modelos = \App\Models\Processo\OficioModelo::where('ativo', true)
-            ->when($ugId, fn ($q) => $q->where(fn ($w) => $w->where('ug_id', $ugId)->orWhereNull('ug_id')))
-            ->orderBy('nome')
-            ->get(['id', 'nome', 'categoria', 'descricao', 'conteudo']);
-
         // Organograma da UG ativa (orgaos -> unidades -> setores)
         $setores = collect();
         if ($ugId) {
@@ -70,8 +66,11 @@ class OficioController extends Controller
         }
 
         return Inertia::render('GED/Oficios/Create', [
-            'modelos' => $modelos,
+            'variaveis'    => Oficio::variaveisParaEditor(),
+            'rascunho'     => \App\Support\Rascunhos::abrir(request()->integer('rascunho') ?: null, Auth::user(), 'oficio'),
+            'autorizacoes' => EmNomeDe::autorizacoes(),
             'setores' => $setores,
+            'tramitaAtivo' => \App\Support\Tramita::ativo(),
         ]);
     }
 
@@ -134,8 +133,14 @@ class OficioController extends Controller
             'destinatario_email'  => ['nullable', 'email', 'max:255'],
             'destinatario_cargo'  => ['nullable', 'string', 'max:255'],
             'destinatario_orgao'  => ['nullable', 'string', 'max:255'],
+            'destinatario_celular'=> ['nullable', 'string', 'max:20', function ($a, $v, $falha) { if ($v && ! \App\Support\Sms::normalizar($v)) { $falha('Celular inválido (use DDD + 9 dígitos).'); } }],
+            'avisar_sms'          => ['nullable', 'boolean'],
             'setor_origem'        => ['nullable', 'string', 'max:150'],
-            'modo_envio'          => ['nullable', 'string', 'in:eletronico,fisico'],
+            'modo_envio'          => ['nullable', 'string', 'in:eletronico,fisico,tramita'],
+            // Tramita GOV.BR (TR 4.28.5): estrutura de destino escolhida no barramento
+            'tramita_estrutura'   => ['required_if:modo_envio,tramita', 'nullable', 'string', 'max:40'],
+            'tramita_repositorio' => ['nullable', 'string', 'max:40'],
+            'tramita_nome'        => ['required_if:modo_envio,tramita', 'nullable', 'string', 'max:250'],
             'data_envio'          => ['nullable', 'date'],
             'files'               => ['nullable', 'array'],
             'files.*'             => ['file', 'max:51200'],
@@ -146,8 +151,16 @@ class OficioController extends Controller
         $modoEnvio = $request->input('modo_envio')
             ?? ($request->filled('destinatario_email') ? 'eletronico' : 'fisico');
 
+        if ($modoEnvio === 'eletronico' && ! $request->filled('destinatario_email')) {
+            return redirect()->back()->withErrors(['destinatario_email' => 'Informe o e-mail do destinatário para o envio eletrônico.'])->withInput();
+        }
+
+        // Em nome de outro servidor, por contrassenha (TR 4.18)
+        $contrassenha = \App\Support\EmNomeDe::conferir($request);
+
         try {
             DB::beginTransaction();
+            $origem = \App\Support\EmNomeDe::consumir($contrassenha);
 
             $year = date('Y');
 
@@ -165,14 +178,19 @@ class OficioController extends Controller
                 'numero'             => $numero,
                 'assunto'            => $request->input('assunto'),
                 'conteudo'           => $request->input('conteudo'),
-                'remetente_id'       => Auth::id(),
+                'remetente_id'       => $origem['remetente_id'],
+                'digitador_id'       => $origem['digitador_id'],
+                'contrassenha_id'    => $origem['contrassenha_id'],
                 'setor_origem'       => $request->input('setor_origem'),
                 'destinatario_nome'  => $request->input('destinatario_nome'),
                 'destinatario_email' => $request->input('destinatario_email') ?? '',
                 'destinatario_cargo' => $request->input('destinatario_cargo'),
                 'destinatario_orgao' => $request->input('destinatario_orgao'),
+                'destinatario_celular' => $request->input('destinatario_celular'),
+                'avisar_sms'         => $request->boolean('avisar_sms') && $request->filled('destinatario_celular'),
                 'status'             => 'enviado',
                 'enviado_em'         => $dataEnvio,
+                'modo_envio'         => $modoEnvio,
             ]);
 
             if ($request->hasFile('files')) {
@@ -191,6 +209,11 @@ class OficioController extends Controller
                 }
             }
 
+            // Anexos guardados no rascunho automático (TR 4.16.8)
+            foreach (\App\Support\Rascunhos::entregarAnexos($request->integer('rascunho_id') ?: null, 'oficios', Auth::user()) as $anexo) {
+                OficioAnexo::create(['oficio_id' => $oficio->id, 'solicitar_assinatura' => false,] + $anexo);
+            }
+
             Notificacao::create([
                 'usuario_id'      => Auth::id(),
                 'tipo'            => 'oficio_enviado',
@@ -200,26 +223,69 @@ class OficioController extends Controller
                 'referencia_id'   => $oficio->id,
                 'lida'            => false,
             ]);
+            \App\Support\EmNomeDe::avisarAutorizador($origem, 'oficio', $oficio->id, "Ofício {$numero} — {$oficio->assunto}");
 
             DB::commit();
-
-            $msg = $modoEnvio === 'fisico'
-                ? "Oficio {$numero} registrado no livro de controle."
-                : "Oficio {$numero} enviado eletronicamente.";
-
-            return redirect("/oficios/{$oficio->id}")->with('success', $msg);
+            \App\Support\Rascunhos::concluir($request->integer('rascunho_id') ?: null, Auth::user());
+            // @ menções, # citações e ! assinaturas do texto (TR 4.16.13–4.16.18)
+            if ($avisos = \App\Support\Marcadores::aposSalvar('oficio', $oficio->id, $oficio->conteudo, Auth::user(), $oficio)) {
+                session()->flash('warning', implode(' ', $avisos));
+            }
         } catch (\Exception $e) {
             DB::rollBack();
 
             return redirect()->back()->with('error', 'Erro ao enviar ofício: ' . $e->getMessage());
         }
+
+        if ($modoEnvio === 'fisico') {
+            return redirect("/oficios/{$oficio->id}")->with('success', "Ofício {$numero} registrado no livro de controle.");
+        }
+        if ($modoEnvio === 'tramita') {
+            try {
+                $t = \App\Support\Tramita::enviarOficio($oficio, ['repositorio' => $request->input('tramita_repositorio'), 'estrutura' => $request->input('tramita_estrutura'),
+                    'nome' => $request->input('tramita_nome')], Auth::user());
+
+                return redirect("/oficios/{$oficio->id}")->with('success', "Ofício {$numero} enviado pelo Tramita GOV.BR a {$t->outro_nome}: NRE {$t->nre}, IDT {$t->idt}.");
+            } catch (\App\Integracoes\Tramita\FalhaTramita $e) {
+                return redirect("/oficios/{$oficio->id}")->with('error', "Ofício {$numero} registrado, mas não foi enviado pelo Tramita GOV.BR: {$e->getMessage()} Tente de novo pelo bloco Tramita GOV.BR desta tela.");
+            }
+        }
+
+        // Depois do commit: falha no e-mail não desfaz o ofício; fica registrada e pode ser reenviada.
+        $servico = app(\App\Services\OficioEmailService::class);
+        if ($servico->enviar($oficio)) {
+            return redirect("/oficios/{$oficio->id}")->with('success', "Ofício {$numero} enviado por e-mail para {$oficio->destinatario_email}.");
+        }
+
+        return redirect("/oficios/{$oficio->id}")->with('error', "Ofício {$numero} registrado, mas o e-mail não foi enviado: {$oficio->email_falha_motivo}");
+    }
+
+    /** Reenvia o e-mail do ofício eletrônico (após falha ou a pedido do remetente). */
+    public function reenviarEmail(Request $request, $id)
+    {
+        $oficio = Oficio::findOrFail($id);
+        if (! $oficio->eDoUsuario(Auth::id())) {
+            abort(403, 'Você não tem permissão para reenviar este ofício.');
+        }
+
+        $data = $request->validate(['destinatario_email' => ['nullable', 'email', 'max:255']]);
+        if (! empty($data['destinatario_email']) && $data['destinatario_email'] !== $oficio->destinatario_email) {
+            $oficio->forceFill(['destinatario_email' => $data['destinatario_email']])->save();
+        }
+        if ($oficio->modo_envio === 'fisico' || ! $oficio->modo_envio) {
+            $oficio->forceFill(['modo_envio' => 'eletronico'])->save();
+        }
+
+        return app(\App\Services\OficioEmailService::class)->enviar($oficio)
+            ? redirect()->back()->with('success', "E-mail do ofício {$oficio->numero} enviado para {$oficio->destinatario_email}.")
+            : redirect()->back()->with('error', "O e-mail não foi enviado: {$oficio->email_falha_motivo}");
     }
 
     /** Download de anexo (a rota que a tela usava não existia). Mesma regra de ver o ofício. */
     public function downloadAnexo($id, $anexoId)
     {
         $oficio = Oficio::findOrFail($id);
-        if ($oficio->remetente_id !== Auth::id()) {
+        if (! $oficio->eDoUsuario(Auth::id()) && ! \App\Support\Marcadores::temAcesso('oficio', $oficio->id, Auth::id())) {
             abort(403);
         }
         $anexo = \App\Models\Processo\OficioAnexo::where('oficio_id', $oficio->id)->findOrFail($anexoId);
@@ -230,18 +296,24 @@ class OficioController extends Controller
     public function show($id): Response
     {
         $oficio = Oficio::with([
-            'remetente',
+            'remetente', 'digitador:id,name',
             'anexos.enviadoPor',
             'respostas.usuario',
         ])->findOrFail($id);
 
-        if ($oficio->remetente_id !== Auth::id()) {
+        if (! $oficio->eDoUsuario(Auth::id()) && ! \App\Support\Marcadores::temAcesso('oficio', $oficio->id, Auth::id())) {
             abort(403, 'Você não tem permissão para visualizar este ofício.');
         }
 
+        \App\Support\Acessos::registrar('oficio', $oficio->id, Auth::user());
+
         return Inertia::render('GED/Oficios/Show', [
+            'classificacao' => \App\Support\Classificacao::doItem('oficio', $oficio->id),
             'oficio'        => $oficio,
             'conteudo_html' => $oficio->conteudoFinal(),
+            'marcadores'    => ['citado_em' => \App\Support\Marcadores::citadoEm('oficio', $oficio->id), 'pessoas' => \App\Support\Marcadores::doDocumento('oficio', $oficio->id)],
+            'acessos'       => \App\Support\Acessos::de('oficio', $oficio->id),
+            'tramita'       => \App\Http\Controllers\TramitaController::doDocumento('oficio_id', $oficio->id),
         ]);
     }
 
@@ -253,7 +325,7 @@ class OficioController extends Controller
 
         $oficio = Oficio::findOrFail($id);
 
-        if ($oficio->remetente_id !== Auth::id()) {
+        if (! $oficio->eDoUsuario(Auth::id())) {
             abort(403, 'Você não tem permissão para responder a este ofício.');
         }
 
@@ -277,7 +349,7 @@ class OficioController extends Controller
     {
         $oficio = Oficio::findOrFail($id);
 
-        if ($oficio->remetente_id !== Auth::id()) {
+        if (! $oficio->eDoUsuario(Auth::id())) {
             abort(403, 'Você não tem permissão para arquivar este ofício.');
         }
 
@@ -312,12 +384,11 @@ class OficioController extends Controller
                 }
             }
 
-            $pdf = Pdf::loadView('pdf.oficio', [
+            $pdf = Relatorio::pdf('pdf.oficio', [
                 'oficio'    => $oficio,
                 'qrCodeUrl' => url("/oficios/verificar/{$oficio->qr_code_token}"),
                 'ug'        => \App\Models\Ug::find($oficio->ug_id),
             ]);
-            $pdf->setPaper('A4', 'portrait');
             $pdfBytes = $pdf->output();
 
             $filename = 'oficio-' . str_replace(['/', '\\'], '-', $oficio->numero) . '.pdf';
@@ -370,7 +441,7 @@ class OficioController extends Controller
             'respostas.usuario',
         ])->findOrFail($id);
 
-        if ($oficio->remetente_id !== Auth::id()) {
+        if (! $oficio->eDoUsuario(Auth::id()) && ! \App\Support\Marcadores::temAcesso('oficio', $oficio->id, Auth::id())) {
             abort(403, 'Você não tem permissão para baixar este ofício.');
         }
 
@@ -382,8 +453,7 @@ class OficioController extends Controller
             'ug'        => \App\Models\Ug::find($oficio->ug_id),
         ];
 
-        $pdf = Pdf::loadView('pdf.oficio', $data);
-        $pdf->setPaper('A4', 'portrait');
+        $pdf = Relatorio::pdf('pdf.oficio', $data);
 
         $filename = "oficio-{$oficio->numero}.pdf";
         $filename = str_replace('/', '-', $filename);
@@ -391,9 +461,23 @@ class OficioController extends Controller
         return $pdf->download($filename);
     }
 
+    /**
+     * Ofício pelo token de rastreio (páginas públicas). Quem abre o link pode estar logado no GED em
+     * outra UG, ou em nenhuma: a autorização é o próprio token, não o escopo da sessão.
+     */
+    private function porToken(string $token): ?Oficio
+    {
+        if (strlen($token) < 32) {
+            return null;
+        }
+
+        return Oficio::withoutGlobalScopes()->where('rastreio_token', $token)->first();
+    }
+
+    /** Página do destinatário: registra a leitura e mostra o ofício, com o PDF para baixar. */
     public function rastrear($token)
     {
-        $oficio = Oficio::where('rastreio_token', $token)->first();
+        $oficio = $this->porToken($token);
 
         if (! $oficio) {
             return Inertia::render('GED/Oficios/Rastreio', [
@@ -402,26 +486,55 @@ class OficioController extends Controller
             ]);
         }
 
-        if (is_null($oficio->lido_em)) {
-            $oficio->update([
-                'lido_em' => now(),
-                'status'  => 'lido',
-            ]);
-        }
-
-        if (is_null($oficio->entregue_em)) {
-            $oficio->update([
-                'entregue_em' => now(),
-            ]);
-        }
+        app(\App\Services\OficioEmailService::class)->registrarLeitura($oficio);
+        // Acesso do externo pelo link (TR 4.14.3)
+        \App\Support\Acessos::registrar('oficio', $oficio->id, null, ($oficio->destinatario_nome ?: 'Destinatário') . ' (link do ofício)');
+        $ug =\App\Models\Ug::withoutGlobalScopes()->find($oficio->ug_id);
 
         return Inertia::render('GED/Oficios/Rastreio', [
             'valido' => true,
             'oficio' => [
-                'numero'  => $oficio->numero,
-                'assunto' => $oficio->assunto,
-                'lido_em' => $oficio->lido_em?->format('d/m/Y H:i:s'),
+                'numero'       => $oficio->numero,
+                'assunto'      => $oficio->assunto,
+                'orgao'        => $ug?->nome,
+                'destinatario' => $oficio->destinatario_nome,
+                'enviado_em'   => $oficio->enviado_em?->format('d/m/Y'),
+                'lido_em'      => $oficio->lido_em?->format('d/m/Y H:i:s'),
+                'conteudo'     => $oficio->conteudoFinal(),
+                'pdf_url'      => url("/oficios/rastrear/{$token}/pdf"),
             ],
+        ]);
+    }
+
+    /** PDF do ofício para o destinatário (link da página de rastreio). */
+    public function pdfPublico($token)
+    {
+        $oficio = $this->porToken($token);
+        abort_unless($oficio, 404);
+
+        $arquivo = 'oficio-' . str_replace(['/', '\\'], '-', $oficio->numero) . '.pdf';
+
+        return response(app(\App\Services\OficioEmailService::class)->pdf($oficio), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => "inline; filename=\"{$arquivo}\"",
+        ]);
+    }
+
+    /**
+     * Imagem de 1x1 do e-mail: carregada quando o destinatário abre a mensagem. Leitores que bloqueiam
+     * imagens não a carregam (aí a abertura só aparece no acesso ao link); responde a imagem mesmo com
+     * token inválido, para não revelar quais tokens existem.
+     */
+    public function pixelAbertura($token)
+    {
+        if ($oficio = $this->porToken($token)) {
+            app(\App\Services\OficioEmailService::class)->registrarAbertura($oficio);
+        }
+
+        return response(base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'), 200, [
+            'Content-Type'  => 'image/gif',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma'        => 'no-cache',
         ]);
     }
 }

@@ -9,6 +9,7 @@ import { Head, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
+import PerfilAbas from '../../../Components/PerfilAbas';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
@@ -24,6 +25,7 @@ export default function MeusCertificados({ certificados, usuario_cpf }) {
                 title="Meus Certificados ICP-Brasil"
                 subtitle="Gerencie os certificados digitais vinculados ao seu perfil"
             />
+            <PerfilAbas />
 
             {/* Aviso CPF */}
             {!usuario_cpf && (

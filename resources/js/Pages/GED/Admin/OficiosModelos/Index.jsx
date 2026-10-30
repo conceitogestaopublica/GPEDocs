@@ -12,7 +12,7 @@ import Modal from '../../../../Components/Modal';
 import RichEditor from '../../../../Components/RichEditor';
 import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
 
-export default function ModelosOficio({ modelos = [] }) {
+export default function ModelosOficio({ modelos = [], variaveis = [], modulos = {} }) {
     // Listagem rola só por dentro — a página nunca (padrão gpe2).
     const scrollRef = useFillViewportHeight();
     const [editando, setEditando] = useState(null); // null | 'novo' | objeto modelo
@@ -20,8 +20,8 @@ export default function ModelosOficio({ modelos = [] }) {
 
     return (
         <AdminLayout>
-            <Head title="Modelos de Ofício" />
-            <PageHeader title="Modelos de Ofício" subtitle="Templates reutilizáveis ao criar novos ofícios">
+            <Head title="Modelos de texto" />
+            <PageHeader title="Modelos de texto" subtitle="Textos prontos para ofício, memorando, circular e despacho — os da administração valem para todos; os do setor são salvos por quem escreve">
                 <Button icon="fas fa-plus" onClick={() => setEditando('novo')}>Novo Modelo</Button>
             </PageHeader>
 
@@ -38,6 +38,8 @@ export default function ModelosOficio({ modelos = [] }) {
                             <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
                                 <tr>
                                     <th className="px-4 py-3 text-left">Nome</th>
+                                    <th className="px-4 py-3 text-left">Para</th>
+                                    <th className="px-4 py-3 text-left">De</th>
                                     <th className="px-4 py-3 text-left">Categoria</th>
                                     <th className="px-4 py-3 text-left">Descrição</th>
                                     <th className="px-4 py-3 text-left">Status</th>
@@ -48,6 +50,8 @@ export default function ModelosOficio({ modelos = [] }) {
                                 {modelos.map(m => (
                                     <tr key={m.id} className="hover:bg-gray-50">
                                         <td className="px-4 py-3 font-medium text-gray-800">{m.nome}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{modulos[m.modulo] || m.modulo}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{m.unidade ? <span title="Modelo salvo por um setor"><i className="fas fa-users mr-1 text-gray-400" />{m.unidade.nome}</span> : 'Administração'}</td>
                                         <td className="px-4 py-3 text-xs text-gray-600">{m.categoria || '-'}</td>
                                         <td className="px-4 py-3 text-xs text-gray-500 max-w-md truncate">{m.descricao || '-'}</td>
                                         <td className="px-4 py-3">
@@ -77,7 +81,7 @@ export default function ModelosOficio({ modelos = [] }) {
             </Card>
 
             {editando && (
-                <ModeloModal modelo={editando === 'novo' ? null : editando}
+                <ModeloModal variaveis={variaveis} modulos={modulos} modelo={editando === 'novo' ? null : editando}
                     onClose={() => setEditando(null)} />
             )}
 
@@ -88,7 +92,7 @@ export default function ModelosOficio({ modelos = [] }) {
     );
 }
 
-function ModeloModal({ modelo, onClose }) {
+function ModeloModal({ modelo, onClose, variaveis = [], modulos = {} }) {
     const isEdit = !!modelo;
     const { data, setData, post, put, processing, errors, reset } = useForm({
         nome: modelo?.nome || '',
@@ -96,6 +100,7 @@ function ModeloModal({ modelo, onClose }) {
         descricao: modelo?.descricao || '',
         conteudo: modelo?.conteudo || '',
         ativo: modelo?.ativo ?? true,
+        modulo: modelo?.modulo || 'oficio',
     });
 
     const submit = (e) => {
@@ -141,14 +146,20 @@ function ModeloModal({ modelo, onClose }) {
     };
 
     return (
-        <Modal show onClose={onClose} title={isEdit ? `Editar: ${modelo.nome}` : 'Novo Modelo de Ofício'} maxWidth="4xl">
+        <Modal show onClose={onClose} title={isEdit ? `Editar: ${modelo.nome}` : 'Novo modelo de texto'} maxWidth="4xl">
             <form onSubmit={submit} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Nome *</label>
                         <input type="text" value={data.nome} onChange={e => setData('nome', e.target.value)}
                             className="ds-input" placeholder="Ex: Encaminhamento Padrão" />
                         {errors.nome && <p className="text-xs text-red-600 mt-1">{errors.nome}</p>}
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Para</label>
+                        <select value={data.modulo} onChange={e => setData('modulo', e.target.value)} className="ds-input">
+                            {Object.entries(modulos).map(([v, r]) => <option key={v} value={v}>{r}</option>)}
+                        </select>
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Categoria</label>
@@ -197,6 +208,7 @@ function ModeloModal({ modelo, onClose }) {
                         <RichEditor
                             html={data.conteudo}
                             onChange={(html) => setData('conteudo', html)}
+                            variaveis={variaveis}
                         />
                     ) : (
                         <textarea value={data.conteudo} onChange={e => setData('conteudo', e.target.value)}

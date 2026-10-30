@@ -58,6 +58,7 @@ return [
         'string'  => 'O campo :attribute não pode ter mais de :max caracteres.',
     ],
     'mimes'           => 'O arquivo :attribute deve ser do tipo: :values.',
+    'extensions'      => 'O arquivo :attribute deve ter uma destas extensões: :values.',
     'mimetypes'       => 'O arquivo :attribute deve ser do tipo: :values.',
     'min'             => [
         'array'   => 'O campo :attribute deve ter pelo menos :min itens.',

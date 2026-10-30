@@ -2,9 +2,10 @@
  * Recuperação de senha — pede o e-mail e envia o link de redefinição.
  */
 import { Head, Link, useForm } from '@inertiajs/react';
+import Captcha from '../../Components/Captcha';
 
 export default function EsqueciSenha({ status }) {
-    const { data, setData, post, processing, errors } = useForm({ email: '' });
+    const { data, setData, post, processing, errors } = useForm({ email: '', captcha: '' });
 
     const enviar = (e) => {
         e.preventDefault();
@@ -26,6 +27,7 @@ export default function EsqueciSenha({ status }) {
                         className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400" />
                     {errors.email && <p className="mt-1.5 text-sm text-red-600">{errors.email}</p>}
                 </div>
+                <Captcha contexto="senha" value={data.captcha} onChange={(v) => setData('captcha', v)} error={errors.captcha} />
                 <button type="submit" disabled={processing}
                     className="w-full py-3 rounded-xl text-white text-sm font-semibold bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 disabled:opacity-60">
                     Enviar link

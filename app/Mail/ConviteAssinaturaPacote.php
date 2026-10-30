@@ -15,6 +15,7 @@ use Illuminate\Queue\SerializesModels;
 class ConviteAssinaturaPacote extends Mailable
 {
     use Queueable, SerializesModels;
+    use Concerns\ComDescadastro;
 
     public function __construct(public PacoteConvite $convite)
     {
@@ -22,6 +23,8 @@ class ConviteAssinaturaPacote extends Mailable
 
     public function build(): self
     {
+        $this->comDescadastro();   // link "deixar de receber" + List-Unsubscribe
+
         $assinaturas = Assinatura::with(['documento' => fn ($q) => $q->withoutGlobalScopes(['ug', 'sigilo'])])
             ->where('pacote_convite_id', $this->convite->id)
             ->where('status', 'pendente')

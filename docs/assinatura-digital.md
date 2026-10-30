@@ -10,9 +10,41 @@ onde
 **Decreto 10.543/2020** define que, para interagir com o poder público, a
 **Qualificada** é o único tipo aceito sem restrição. Por isso o foco do GED.
 
-**Padrão técnico adotado**: PAdES-BES com política **AD-RB v2** (DOC-ICP-15.03
-do ITI), OID `2.16.76.1.7.1.1.2.3`, algoritmo SHA-256 com RSA. Esta política é
-a referência básica para assinaturas em PDF aceitas em órgãos brasileiros.
+**Padrão técnico adotado**: PAdES com a política **PA_PAdES_AD_RB v1.3**
+(DOC-ICP-15.03 do ITI), OID `2.16.76.1.7.1.11.1.3`, algoritmo SHA-256 com RSA.
+É a política de referência básica do ITI para assinaturas em PDF (a v1.2 foi
+revogada em 23/07/2025). O CMS leva exatamente os atributos que ela exige:
+contentType, messageDigest, signingCertificateV2 e sigPolicyId (`CmsAdRb`,
+configuração em `icp_brasil.politica_pades`).
+
+> O hash do sigPolicyId é o campo `signPolicyHash` do próprio arquivo da
+> política (SHA-256 de algoritmo + SignPolicyInfo), **não** o SHA-256 do
+> arquivo publicado na LPA. Com o da LPA o validar.iti.gov.br reprova:
+> "O resumo criptográfico da política está incorreto".
+
+**Vários signatários e os dois arquivos.** Cada assinatura ICP (A1, A3) e o
+selo da prefeitura sobre assinaturas por link são **acrescentados ao fim do
+PDF** (`PadesIncremental`, atualização incremental — ISO 32000-1 §7.5.6): os
+bytes já assinados não mudam e todas as assinaturas continuam válidas no
+validar.iti.gov.br e no Adobe. O documento tem então dois arquivos:
+
+| Arquivo | Coluna | O que é |
+|---|---|---|
+| Original assinado | `arquivo_assinado_path` | a versão com todas as assinaturas; o que vale juridicamente |
+| Cópia para impressão | `arquivo_impressao_path` | a versão remontada com carimbos, tarja e termo; selada com o e-CNPJ da prefeitura, se houver |
+
+Carimbo visual nunca vai no original: desenhar na página depois de assinada é
+alteração não permitida e invalidaria as assinaturas anteriores. A tela mostra
+a cópia para impressão; o download padrão é o original assinado.
+`Documento::caminhoOficial()` / `caminhoImpressao()` dão o arquivo mais recente
+de cada tipo, e `comTravaDeAssinatura()` impede duas assinaturas simultâneas
+partindo do mesmo arquivo (no A3, a finalização recusa se o documento mudou
+desde o preparo).
+
+> Configuração Adobe Reader: a ICP-Brasil não está na AATL. Sem importar a AC
+> Raiz (Preferências → Assinaturas → Identidades e certificados confiáveis →
+> Certificados confiáveis → Importar → selecionar o certificado → Confiar…) o
+> Adobe mostra "inválida" por não montar o caminho — não é defeito da assinatura.
 
 ---
 
@@ -44,7 +76,7 @@ a referência básica para assinaturas em PDF aceitas em órgãos brasileiros.
 ┌─────────────────────────────────────────────────────────────────┐
 │  Services                                                        │
 │  ├── CertificadoService       (parse PFX, valida cadeia, CPF)   │
-│  ├── AssinaturaIcpService     (A1: openssl_pkcs7_sign + TCPDF)  │
+│  ├── AssinaturaIcpService     (A1: PadesIncremental + CmsAdRb)  │
 │  ├── AssinaturaIcpA3Service   (A3: ASN.1 manual + external sig) │
 │  ├── AssinaturaValidadorService (re-abre PDF e valida)          │
 │  └── AsnDer                   (helpers ASN.1 DER)               │
@@ -59,7 +91,7 @@ a referência básica para assinaturas em PDF aceitas em órgãos brasileiros.
 │  └── storage/app/private/                                       │
 │      ├── icp-brasil/raiz/*.pem        (truststore ITI)          │
 │      ├── icp-brasil/intermediarias/*  (ACs intermediárias)      │
-│      ├── icp-brasil-internal/         (cert dummy do A3)        │
+│      ├── assinaturas/impressao/      (cópias para impressão)   │
 │      └── assinaturas/icp/             (PDFs assinados)          │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -92,8 +124,9 @@ Browser ──[PFX + senha]──→ Server
                            ├── valida cadeia ICP-Brasil contra truststore
                            ├── confere CPF do cert × CPF do usuário
                            ├── extrai metadados via openssl_x509_parse
-                           ├── TCPDF + FPDI montam PDF com /AcroForm + /Sig
-                           └── openssl_pkcs7_sign embute o envelope
+                           ├── PadesIncremental acrescenta /Sig e /Contents ao fim do PDF oficial
+                           ├── CmsAdRb monta os atributos AD-RB e assina com a chave do PFX
+                           └── PadesPlaceholder grava o CMS no /Contents
                            
 Server ──[PDF assinado]──→ Browser
 ```
@@ -116,14 +149,15 @@ deve ser assinado, o token assina, o servidor monta o envelope.
 [Server]  AssinaturaIcpA3Service::preparar()
           ├── valida cert ICP-Brasil
           ├── confere CPF cert × user
-          ├── gera PDF com placeholder via TCPDF (cert dummy descartável)
+          ├── PadesIncremental acrescenta o espaço da assinatura ao PDF oficial
           ├── extrai /ByteRange
           ├── content_hash = SHA-256(byteRange)
-          ├── monta SignedAttributes ASN.1:
+          ├── monta SignedAttributes ASN.1 (CmsAdRb — mesmos do A1):
           │     ├── contentType (1.2.840.113549.1.9.3) → id-data
           │     ├── messageDigest (1.2.840.113549.1.9.4) → content_hash
-          │     ├── signingTime (1.2.840.113549.1.9.5) → UTCTime now
-          │     └── signingCertV2 (1.2.840.113549.1.9.16.2.47) → SHA-256(cert)
+          │     ├── signingCertV2 (1.2.840.113549.1.9.16.2.47) → SHA-256(cert) + emissor/serial
+          │     └── sigPolicyId (1.2.840.113549.1.9.16.2.15) → OID + hash da PA_PAdES_AD_RB
+          │     (sem signing-time: no PAdES a hora vai no /M do dicionário)
           ├── hash_a_assinar = SHA-256(DER de SignedAttributes)
           └── cacheia { pdf_placeholder, signed_attrs, byte_range, cert } por 10min
 [Server → Browser] { sessao_id, hash_a_assinar (b64), algoritmo_digest }
@@ -173,7 +207,7 @@ Windows/Mac/Linux cert store.
 | Arquivo | Responsabilidade |
 |---|---|
 | `CertificadoService` | Abre PFX, valida cadeia ICP-Brasil contra truststore, extrai CPF (OID 2.16.76.1.3.1) e CNPJ (OID 2.16.76.1.3.3), persiste cert público |
-| `AssinaturaIcpService` | Assinatura A1: TCPDF/FPDI + `openssl_pkcs7_sign` |
+| `AssinaturaIcpService` | Assinatura A1: `PadesIncremental` + `CmsAdRb` |
 | `AssinaturaIcpA3Service` | Assinatura A3: external signing two-step com ASN.1 manual |
 | `AssinaturaValidadorService` | Re-abre PDF, extrai `/ByteRange`/`/Contents`, valida via `openssl smime -verify` (CLI), valida cadeia, decodifica metadados PAdES |
 | `AsnDer` | Helpers ASN.1 DER puros: `seq()`, `set()`, `oid()`, `octet()`, `intFromBytes()`, `utcTime()`, `ctxExplicit()`, `reTag()` |
@@ -240,7 +274,7 @@ Validador (público, sem auth):
 | `hash_documento` | string(64) | SHA-256 |
 | `assinatura_pkcs7` | longblob | envelope CMS detached |
 | `cadeia_certificados` | json | resumo da cadeia |
-| `politica_assinatura` | string(120) | ex: "AD-RB v2 (OID 2.16.76.1.7.1.1.2.3)" |
+| `politica_assinatura` | string(120) | ex: "PA_PAdES_AD_RB v1.3 (OID 2.16.76.1.7.1.11.1.3)" |
 | `algoritmo_hash` | string(20) | SHA-256 |
 | `arquivo_assinado_path` | string(500) | em storage/app/private |
 | `hash_assinatura_sha256` | string(64) | hash do envelope |
@@ -284,7 +318,7 @@ para cada uma reporta:
 - ✅/❌ **Integridade criptográfica** — hash do `/ByteRange` confere com o
   `messageDigest` do PKCS#7 e a assinatura RSA do cert valida o hash do
   `SignedAttributes` (executado por `openssl smime -verify` via shell)
-- ✅/❌ **Cadeia ICP-Brasil** — `openssl_x509_checkpurpose` contra a
+- ✅/❌ **Cadeia ICP-Brasil** — `openssl verify` (âncora só nas raízes fixadas, LCR) contra a
   truststore de `storage/app/private/icp-brasil/`
 - ✅/❌ **Validade temporal** — `valido_de ≤ now ≤ valido_ate`
 
@@ -317,25 +351,33 @@ Template: `resources/views/assinaturas/manifesto.blade.php`.
 
 ---
 
-## 8. Truststore ICP-Brasil
+## 8. Truststore ICP-Brasil e validação da cadeia
 
-A validação de cadeia depende de ter os certificados raiz e intermediários
-da ICP-Brasil em `storage/app/private/icp-brasil/`.
+A validação (`CertificadoService::verificarCadeia`) roda `openssl verify` com:
 
-### Instalação
+- **âncora**: só as ACs Raiz em `storage/app/private/icp-brasil/raiz/` cuja
+  SHA-256 está fixada em `config/icp_brasil.php` (v2, v4, v5, v6, v7, v12,
+  v13). A v10 (SSL) e a v11 (código) ficam de fora de propósito;
+- **caminho**: intermediárias do PFX, da pasta `intermediarias/` e baixadas
+  por AIA entram como `-untrusted` — montam o caminho, nunca o encerram. Uma
+  "AC" incluída no PFX pelo próprio titular não valida nada;
+- **revogação**: LCR de cada nível emitido (`-crl_check_all -crl_download`).
+  Sem acesso à LCR a assinatura é recusada (`ICP_BRASIL_EXIGIR_LCR=false`
+  relaxa). No validador de documentos, a cadeia é conferida na data da
+  assinatura (`/M`) e a revogação com a LCR atual.
 
-```bash
-php artisan icp-brasil:install-truststore
-```
+`ehIcpBrasil()` agora significa "o caminho fecha numa raiz ICP-Brasil" — nome
+do emissor ("AC ...") ou OID não contam.
 
-Baixa do servidor oficial `acraiz.icpbrasil.gov.br` os certs configurados
-em `config/icp_brasil.php`. Por padrão a AC Raiz V10 (válida até 2032-07-01).
+### Instalação (obrigatória em cada ambiente)
 
 ```bash
 php artisan icp-brasil:install-truststore --force
 ```
 
-Sobrescreve certs existentes (use após o ITI publicar nova versão).
+Baixa as raízes de `acraiz.icpbrasil.gov.br`, confere a SHA-256 fixada e
+remove de `raiz/` o que saiu da lista. Rodar após cada deploy que mude
+`config/icp_brasil.php`.
 
 ### Verificação
 
@@ -343,18 +385,12 @@ Sobrescreve certs existentes (use após o ITI publicar nova versão).
 php artisan icp-brasil:verify-truststore
 ```
 
-Lista os certs instalados, valida formato X.509 e mostra validade. Sai com
-`exit code 1` se a truststore estiver vazia ou se a AC Raiz estiver
-faltando.
+Lista os certs instalados, valida formato X.509 e mostra validade.
 
 ### ACs intermediárias
 
-O comando hoje só baixa a AC Raiz. As intermediárias (Serasa, Caixa,
-Certisign, Valid, Soluti, etc.) precisam ser baixadas manualmente do
-repositório do ITI e colocadas em `storage/app/private/icp-brasil/intermediarias/`.
-
-Para acrescentar uma URL de download ao comando, edite a chave
-`'intermediarias'` em `config/icp_brasil.php`.
+Não precisam ser instaladas: vêm no PFX ou são baixadas pela extensão AIA do
+certificado e guardadas em `intermediarias/` para a próxima vez.
 
 ---
 
@@ -362,7 +398,7 @@ Para acrescentar uma URL de download ao comando, edite a chave
 
 | Comando | Função |
 |---|---|
-| `icp-brasil:install-truststore` | Baixa AC Raiz V10 e intermediárias configuradas |
+| `icp-brasil:install-truststore` | Baixa as ACs Raiz aceitas e confere a SHA-256 |
 | `icp-brasil:verify-truststore` | Lista e valida certs instalados |
 
 ---
@@ -372,8 +408,10 @@ Para acrescentar uma URL de download ao comando, edite a chave
 ### `.env`
 
 ```env
-# Opcional — sobrescreve URLs do ITI caso mudem
-ICP_BRASIL_RAIZ_V10_URL=https://acraiz.icpbrasil.gov.br/credenciadas/RAIZ/ICP-Brasilv10.crt
+# Revogação (LCR): consultar e exigir; timeout do download em segundos
+ICP_BRASIL_VERIFICAR_LCR=true
+ICP_BRASIL_EXIGIR_LCR=true
+ICP_BRASIL_TIMEOUT_LCR=45
 ```
 
 ### `config/icp_brasil.php`
@@ -527,14 +565,14 @@ openssl smime -verify -in pkcs7.bin -inform DER -content covered.bin -noverify -
 | `1.2.840.113549.1.7.2` | id-signedData |
 | `1.2.840.113549.1.9.3` | content-type |
 | `1.2.840.113549.1.9.4` | message-digest |
-| `1.2.840.113549.1.9.5` | signing-time |
+| `1.2.840.113549.1.9.16.2.15` | signature-policy-identifier (sigPolicyId) |
 | `1.2.840.113549.1.9.16.2.47` | signing-certificate-v2 (RFC 5035) |
 | `2.16.840.1.101.3.4.2.1` | SHA-256 |
 | `1.2.840.113549.1.1.1` | rsaEncryption |
 | `1.2.840.113549.1.1.11` | sha256WithRSAEncryption |
 | `2.16.76.1.3.1` | ICP-Brasil — CPF do titular (subjectAltName otherName) |
 | `2.16.76.1.3.3` | ICP-Brasil — CNPJ do titular |
-| `2.16.76.1.7.1.1.2.3` | Política AD-RB v2 |
+| `2.16.76.1.7.1.11.1.3` | Política PA_PAdES_AD_RB v1.3 |
 
 ---
 

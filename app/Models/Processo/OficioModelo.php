@@ -23,7 +23,12 @@ class OficioModelo extends Model
         'conteudo',
         'ativo',
         'criado_por',
+        'modulo',
+        'unidade_id',
     ];
+
+    /** Onde o modelo de texto pode ser usado (TR 4.16.11). */
+    public const MODULOS = ['oficio' => 'Ofício', 'memorando' => 'Memorando', 'circular' => 'Circular', 'despacho' => 'Despacho', 'todos' => 'Todos'];
 
     protected function casts(): array
     {
@@ -35,5 +40,11 @@ class OficioModelo extends Model
     public function criador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'criado_por');
+    }
+
+    /** Setor dono do modelo (vazio = modelo da administração). */
+    public function unidade(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\UgOrganograma::class, 'unidade_id');
     }
 }

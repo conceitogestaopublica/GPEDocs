@@ -30,13 +30,20 @@ const TIPOS_ORGAO = [
 export default function OrganogramaForm({ ug, parent, nivel, node, usuarios = [] }) {
     const isEdit = !! node;
 
-    const labels = { 1: ug.nivel_1_label, 2: ug.nivel_2_label, 3: ug.nivel_3_label };
+    // Do 4º nível para baixo: subsetores (sem limite de níveis — TR 4.9.1)
+    const labels = new Proxy({ 1: ug.nivel_1_label, 2: ug.nivel_2_label, 3: ug.nivel_3_label }, { get: (l, n) => l[n] ?? 'Subsetor' });
     const labelAtual = labels[nivel];
 
     const { data, setData, post, put, processing, errors } = useForm({
         // Identificacao
         codigo:            node?.codigo || '',
         nome:              node?.nome || '',
+        sigla:             node?.sigla || '',
+
+        // Contato do setor (lista de telefones e organograma público)
+        telefone:          node?.telefone || '',
+        ramal:             node?.ramal || '',
+        email:             node?.email || '',
 
         // Tipo (contextual)
         tipo_orgao:        node?.tipo_orgao || '',
@@ -91,6 +98,8 @@ export default function OrganogramaForm({ ug, parent, nivel, node, usuarios = []
         ...(parent ? [{ icone: 'fa-arrow-up', label: 'Pai', valor: parent.nome }] : []),
         { icone: 'fa-hashtag',     label: 'Código',   valor: data.codigo, vazio: ! data.codigo },
         { icone: 'fa-tag',         label: 'Nome',     valor: data.nome,   vazio: ! data.nome },
+        { icone: 'fa-font',        label: 'Sigla',    valor: data.sigla,  vazio: ! data.sigla },
+        { icone: 'fa-phone',       label: 'Telefone', valor: [data.telefone, data.ramal && 'ramal ' + data.ramal].filter(Boolean).join(' · '), vazio: ! data.telefone && ! data.ramal },
         ...(nivel === 1 ? [{ icone: 'fa-building',  label: 'Tipo',       valor: data.tipo_orgao, vazio: ! data.tipo_orgao }] : []),
         ...(nivel === 2 ? [{ icone: 'fa-coins',     label: 'Tipo Fundo', valor: data.tipo_fundo, vazio: ! data.tipo_fundo }] : []),
         { icone: 'fa-id-card-alt', label: 'Cód. TCE', valor: data.codigo_tce, vazio: ! data.codigo_tce },
@@ -99,7 +108,7 @@ export default function OrganogramaForm({ ug, parent, nivel, node, usuarios = []
           vazio: ! data.dt_inicio },
         { icone: 'fa-user-tie',    label: 'Responsável', valor: responsavel?.name, vazio: ! responsavel },
         { icone: 'fa-map-marker-alt', label: 'Endereço',  valor: enderecoStr },
-        ...(nivel === 3 ? [{ icone: 'fa-envelope-open-text', label: 'Protocolo Externo', valor: data.protocolo_externo ? 'Sim' : 'Não' }] : []),
+        ...(nivel >= 3 ? [{ icone: 'fa-envelope-open-text', label: 'Protocolo Externo', valor: data.protocolo_externo ? 'Sim' : 'Não' }] : []),
     ];
 
     return (
@@ -142,6 +151,15 @@ export default function OrganogramaForm({ ug, parent, nivel, node, usuarios = []
                             <input type="text" value={data.nome} onChange={(e) => setData('nome', e.target.value)}
                                 className="ds-input" maxLength={200} autoFocus />
                             {errors.nome && <p className="mt-1 text-xs text-red-600">{errors.nome}</p>}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Sigla</label>
+                            <input type="text" value={data.sigla} onChange={(e) => setData('sigla', e.target.value)}
+                                className="ds-input" maxLength={20} placeholder="Ex: SEMAD" />
+                            {errors.sigla && <p className="mt-1 text-xs text-red-600">{errors.sigla}</p>}
                         </div>
                     </div>
 
@@ -201,6 +219,34 @@ export default function OrganogramaForm({ ug, parent, nivel, node, usuarios = []
                     </div>
                 </CadastroSecao>
 
+                {/* Contato */}
+                <CadastroSecao
+                    icone="fa-phone"
+                    titulo="Contato do setor"
+                    descricao="Aparece na lista de telefones e no organograma público"
+                >
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Telefone</label>
+                            <input type="text" value={data.telefone} onChange={(e) => setData('telefone', e.target.value)}
+                                className="ds-input" maxLength={30} placeholder="(31) 3333-0000" />
+                            {errors.telefone && <p className="mt-1 text-xs text-red-600">{errors.telefone}</p>}
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Ramal</label>
+                            <input type="text" value={data.ramal} onChange={(e) => setData('ramal', e.target.value)}
+                                className="ds-input" maxLength={10} />
+                            {errors.ramal && <p className="mt-1 text-xs text-red-600">{errors.ramal}</p>}
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">E-mail</label>
+                            <input type="email" value={data.email} onChange={(e) => setData('email', e.target.value)}
+                                className="ds-input" maxLength={150} />
+                            {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+                        </div>
+                    </div>
+                </CadastroSecao>
+
                 {/* Responsavel */}
                 <CadastroSecao
                     icone="fa-user-tie"
@@ -218,7 +264,7 @@ export default function OrganogramaForm({ ug, parent, nivel, node, usuarios = []
                 </CadastroSecao>
 
                 {/* Protocolo externo (so nivel 3) */}
-                {nivel === 3 && (
+                {nivel >= 3 && (
                     <CadastroSecao
                         icone="fa-envelope-open-text"
                         titulo="Protocolo Externo"

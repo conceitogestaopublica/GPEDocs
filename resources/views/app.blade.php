@@ -10,6 +10,8 @@
     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.jsx'])
     @inertiaHead
+    {{-- Cor predominante do município (TR 4.22.1) --}}
+    {!! \App\Support\IdentidadeVisual::css() !!}
 </head>
 <body class="h-full bg-gray-50 antialiased">
     @inertia

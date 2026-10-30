@@ -54,6 +54,10 @@ class UgOrganograma extends Model
         'logradouro_id',
         'numero',
         'complemento',
+        'sigla',
+        'telefone',
+        'ramal',
+        'email',
     ];
 
     protected function casts(): array

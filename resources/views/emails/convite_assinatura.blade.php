@@ -36,5 +36,7 @@
             <p style="font-size:12px; color:#6b7280;">Se você não esperava este documento, ignore esta mensagem.</p>
         </div>
     </div>
+    @include('emails.partials.rodape-descadastro')
+@if (! empty($pixel))<img src="{{ $pixel }}" width="1" height="1" alt="" style="display:block;border:0">@endif
 </body>
 </html>

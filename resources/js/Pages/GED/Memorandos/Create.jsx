@@ -3,18 +3,24 @@
  *
  * Formulario de criacao de memorando interno.
  */
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import EmNomeDe from '../../../Components/EmNomeDe';
 import { useMemo, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
+import RichEditor from '../../../Components/RichEditor';
+import useRascunho from '../../../Hooks/useRascunho';
+import FerramentasDoTexto from '../../../Components/FerramentasDoTexto';
+import { AnexosRascunho, EstadoRascunho, comRascunho, dadosDoRascunho } from '../../../Components/RascunhoAutomatico';
 
-export default function MemorandosCreate({ usuarios, unidades = [] }) {
+export default function MemorandosCreate({ usuarios, unidades = [], autorizacoes = [], variaveis = [], rascunho = null }) {
     const userList = usuarios || [];
     const unidadeList = unidades || [];
     const [searchUser, setSearchUser] = useState('');
+    const [buscaSetor, setBuscaSetor] = useState('');
 
-    const { data, setData, processing, errors } = useForm({
+    const { data, setData, processing, errors } = useForm(comRascunho(rascunho, {
         assunto: '',
         tipo_destino: 'setor', // todos_setores | setor | usuario
         unidade_id: '',
@@ -22,9 +28,14 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
         conteudo: '',
         confidencial: false,
         setor_origem: '',
+        em_nome_de: '',
+        contrassenha: '',
         data_arquivamento_auto: '',
         files: [],
-    });
+    }));
+
+    // Rascunho automático do setor (TR 4.16.6–4.16.8)
+    const r = useRascunho({ modulo: 'memorando', dados: dadosDoRascunho(data), titulo: data.assunto, inicial: rascunho, temConteudo: !! (data.assunto || data.conteudo) });
 
     // Pra modo "usuario": filtra usuarios pelo setor escolhido (se tiver) + busca por nome/email
     const filteredUsers = useMemo(() => {
@@ -57,8 +68,12 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
         const formData = new FormData();
         formData.append('assunto', data.assunto);
         formData.append('conteudo', data.conteudo);
-        formData.append('confidencial', data.confidencial ? '1' : '0');
+        formData.append('confidencial', data.confidencial && data.tipo_destino === 'usuario' ? '1' : '0');
         formData.append('setor_origem', data.setor_origem);
+        if (data.em_nome_de) {
+            formData.append('em_nome_de', data.em_nome_de);
+            formData.append('contrassenha', data.contrassenha);
+        }
         formData.append('data_arquivamento_auto', data.data_arquivamento_auto);
         formData.append('tipo_destino', data.tipo_destino);
 
@@ -76,6 +91,8 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
                 formData.append(`files[${i}]`, file);
             });
         }
+
+        if (r.id) formData.append('rascunho_id', r.id);
 
         router.post('/memorandos', formData, {
             forceFormData: true,
@@ -122,6 +139,9 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
 
             <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <form onSubmit={submit} className="space-y-6">
+                    <EstadoRascunho r={r} />
+                    <fieldset disabled={!! r.travadoPor} className="space-y-6 min-w-0">
+                            <EmNomeDe autorizacoes={autorizacoes} data={data} setData={setData} errors={usePage().props.errors} />
                     {/* Assunto */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -180,14 +200,16 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
                         {data.tipo_destino === 'setor' && (
                             <div>
                                 <label className="block text-xs font-medium text-gray-600 mb-1">Setor de destino</label>
+                                {/* Busca por nome ou sigla no organograma (TR 4.45.8) */}
+                                <input type="search" value={buscaSetor} onChange={(e) => setBuscaSetor(e.target.value)} placeholder="Buscar setor por nome ou sigla…" className="ds-input mb-2" />
                                 <select value={data.unidade_id}
                                     onChange={(e) => setData('unidade_id', e.target.value)}
                                     className="ds-input">
                                     <option value="">— Selecione o setor —</option>
-                                    {unidadesOrdenadas.map(u => {
-                                        const indent = '— '.repeat(Math.max(0, u.nivel - 1));
+                                    {unidadesOrdenadas.filter(u => ! buscaSetor || ` `.toLowerCase().includes(buscaSetor.toLowerCase()) || String(u.id) === String(data.unidade_id)).map(u => {
+                                        const indent = buscaSetor ? '' : '— '.repeat(Math.max(0, u.nivel - 1));
                                         return (
-                                            <option key={u.id} value={u.id}>{indent}[N{u.nivel}] {u.nome}</option>
+                                            <option key={u.id} value={u.id}>{indent}[N{u.nivel}] {u.nome}{u.sigla ? ` (${u.sigla})` : ''}</option>
                                         );
                                     })}
                                 </select>
@@ -262,17 +284,16 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
 
                     {/* Conteudo */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Conteúdo <span className="text-red-500">*</span>
-                        </label>
-                        <textarea
-                            value={data.conteudo}
-                            onChange={(e) => setData('conteudo', e.target.value)}
-                            className="ds-input !h-auto"
-                            rows={10}
-                            placeholder="Digite o conteúdo do memorando..."
-                            required
-                        />
+                        <div className="flex flex-wrap items-end justify-between gap-2 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">
+                                Conteúdo <span className="text-red-500">*</span>
+                            </label>
+                            <FerramentasDoTexto modulo="memorando" conteudo={data.conteudo} onAplicar={(html) => setData('conteudo', html)}
+                                dadosPrevia={() => dadosDoRascunho(data)} desabilitado={!! r.travadoPor} />
+                        </div>
+                        <RichEditor somenteLeitura={!! r.travadoPor} html={data.conteudo} onChange={(v) => setData('conteudo', v)} minHeight={260}
+                            variaveis={variaveis} marcadores={['mencao', 'referencia', 'assinatura']} erro={errors.conteudo}
+                            placeholder="Digite o conteúdo do memorando…" />
                         {errors.conteudo && <p className="text-xs text-red-500 mt-1">{errors.conteudo}</p>}
                     </div>
 
@@ -306,37 +327,26 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
 
                     {/* Confidencial */}
                     <div>
-                        <label className="flex items-center gap-2 cursor-pointer">
+                        <label className={`flex items-center gap-2 ${data.tipo_destino === 'usuario' ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>
                             <input
                                 type="checkbox"
-                                checked={data.confidencial}
+                                disabled={data.tipo_destino !== 'usuario'}
+                                checked={data.confidencial && data.tipo_destino === 'usuario'}
                                 onChange={(e) => setData('confidencial', e.target.checked)}
                                 className="rounded border-gray-300 text-blue-600 w-4 h-4"
                             />
                             <span className="text-sm font-medium text-gray-700">
                                 <i className="fas fa-lock text-xs text-gray-400 mr-1" />
-                                Memorando Confidencial
+                                Memorando privado
                             </span>
                         </label>
                         <p className="text-xs text-gray-400 mt-1 ml-6">
-                            Memorandos confidenciais só podem ser visualizados pelos destinatários.
+                            Só você e as pessoas escolhidas veem (nem o setor delas). Disponível no envio para pessoas ("Setor + Usuário").
                         </p>
                     </div>
 
                     {/* Anexos */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            <i className="fas fa-paperclip text-xs text-gray-400 mr-1" />
-                            Anexos
-                        </label>
-                        <input
-                            type="file"
-                            multiple
-                            onChange={(e) => setData('files', e.target.files)}
-                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                        />
-                        {errors.files && <p className="text-xs text-red-500 mt-1">{errors.files}</p>}
-                    </div>
+                    <AnexosRascunho r={r} />
 
                     {/* Acoes */}
                     <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
@@ -350,6 +360,7 @@ export default function MemorandosCreate({ usuarios, unidades = [] }) {
                             Enviar Memorando
                         </Button>
                     </div>
+                    </fieldset>
                 </form>
             </div>
         </AdminLayout>

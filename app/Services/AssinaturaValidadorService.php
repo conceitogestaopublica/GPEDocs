@@ -216,8 +216,24 @@ class AssinaturaValidadorService
             $cadeia = [];
         }
 
+        // O -signer acima grava só o certificado do signatário; as ACs que vêm
+        // dentro do CMS entram como material de caminho para a cadeia
+        $todosDoCms = (string) shell_exec(sprintf('openssl pkcs7 -inform DER -in %s -print_certs 2>/dev/null', escapeshellarg($sigP7Der)));
+        if (preg_match_all('/-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----/s', $todosDoCms, $doCms)) {
+            foreach ($doCms[0] as $pem) {
+                if ($signatarioCert === null || openssl_x509_fingerprint($pem, 'sha256') !== openssl_x509_fingerprint($signatarioCert, 'sha256')) {
+                    $cadeia[] = $pem;
+                }
+            }
+        }
+
         if ($signatarioCert) {
             $meta = $this->certificadoService->lerMetadados($signatarioCert);
+
+            // Cadeia e revogação conferidas na data em que o documento foi
+            // assinado (/M): certificado vencido depois disso não invalida.
+            $momento = $relatorio['extras']['modificado'] ? strtotime($relatorio['extras']['modificado'] . 'Z') : null;
+            $cadeiaIcp = $this->certificadoService->verificarCadeia($signatarioCert, $cadeia, ['momento' => $momento ?: null]);
             $relatorio['signatario'] = [
                 'cn'             => $meta['subject_cn'],
                 'cpf'            => $meta['subject_cpf'],
@@ -227,12 +243,15 @@ class AssinaturaValidadorService
                 'valido_de'      => $meta['valido_de'],
                 'valido_ate'     => $meta['valido_ate'],
                 'thumbprint_sha256' => $meta['thumbprint_sha256'],
-                'icp_brasil'     => $this->certificadoService->ehIcpBrasil($signatarioCert),
+                'icp_brasil'     => $cadeiaIcp['ok'] || $cadeiaIcp['revogacao'] !== 'nao_verificada',
             ];
 
             // 3) Cadeia ICP-Brasil
-            $relatorio['cadeia_valida'] = $this->certificadoService
-                ->validarCadeiaIcpBrasil($signatarioCert, $cadeia);
+            $relatorio['cadeia_valida'] = $cadeiaIcp['ok'];
+            $relatorio['revogacao']     = $cadeiaIcp['revogacao'];
+            if (! $cadeiaIcp['ok']) {
+                $relatorio['erros'][] = $cadeiaIcp['motivo'];
+            }
 
             // 4) Validade temporal do cert
             $agora = time();
