@@ -87,10 +87,14 @@ export default function useFillViewportHeight({ gap = 56, minHeight = 240 } = {}
         window.addEventListener('resize', ajustar);
         const ro = new ResizeObserver(ajustar);
         ro.observe(document.body);
+        // Filtro/paginação do Inertia troca as linhas sem mudar o tamanho da página: refaz a contagem
+        const mo = new MutationObserver(ajustar);
+        mo.observe(el, { childList: true, subtree: true });
 
         limpar.current = () => {
             window.removeEventListener('resize', ajustar);
             ro.disconnect();
+            mo.disconnect();
         };
     }, [gap, minHeight]);
 
