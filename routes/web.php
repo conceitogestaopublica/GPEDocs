@@ -189,6 +189,11 @@ Route::prefix('api/portal')
         Route::post('solicitacoes/{codigo}/mensagens', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'mensagem'])->where('codigo', '[^/]+')->middleware('throttle:30,1')->name('solicitacoes.mensagens');
         Route::get('solicitacoes/{codigo}/comprovante', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'comprovante'])->where('codigo', '[^/]+')->name('solicitacoes.comprovante');
         Route::get('processos', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'processos'])->name('processos.index');
+        // Consulta prévia de viabilidade (TR 4.50)
+        Route::get('urbanismo/dados', [\App\Http\Controllers\Api\Portal\UrbanismoController::class, 'dados'])->name('urbanismo.dados');
+        Route::get('urbanismo/lotes', [\App\Http\Controllers\Api\Portal\UrbanismoController::class, 'lotes'])->name('urbanismo.lotes');
+        Route::get('urbanismo/lote', [\App\Http\Controllers\Api\Portal\UrbanismoController::class, 'lote'])->name('urbanismo.lote');
+        Route::get('urbanismo/busca', [\App\Http\Controllers\Api\Portal\UrbanismoController::class, 'busca'])->name('urbanismo.busca');
         // Diário Oficial: área pública (TR 4.43.32–4.43.46)
         Route::get('diario/calendario', [\App\Http\Controllers\Api\Portal\DiarioController::class, 'calendario'])->name('diario.calendario');
         Route::get('diario/dia', [\App\Http\Controllers\Api\Portal\DiarioController::class, 'dia'])->name('diario.dia');
@@ -278,6 +283,15 @@ Route::prefix('assinar/{token}')->where(['token' => '[A-Za-z0-9]{20,64}'])->name
 Route::get('verificar/codigo/{codigo}', [VerificacaoController::class, 'porCodigo'])
     ->where('codigo', '[A-Za-z0-9-]{6,20}')->name('verificar.codigo');
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
+// Mapa público da consulta prévia de viabilidade (TR 4.50)
+Route::controller(\App\Http\Controllers\UrbanismoController::class)->prefix('mapa-urbano')->middleware('throttle:120,1')->group(function () {
+    Route::get('/', 'mapa')->name('mapa-urbano');
+    Route::get('dados', 'dados')->name('mapa-urbano.dados');
+    Route::get('lotes', 'lotes')->name('mapa-urbano.lotes');
+    Route::get('lote', 'lote')->name('mapa-urbano.lote');
+    Route::get('busca', 'busca')->name('mapa-urbano.busca');
+});
+
 // Consulta do processo sem login, pelo link (TR 4.48.27)
 Route::controller(\App\Http\Controllers\ConsultaPublicaController::class)->middleware('throttle:60,1')->group(function () {
     Route::get('consulta/{token}', 'show')->name('consulta.show');
@@ -494,6 +508,18 @@ Route::middleware('auth')->group(function () {
 
         // Sistemas integrados (API tokens para sistemas externos)
         Route::middleware('can:admin.sistemas_integrados')->group(function () {
+        // Consulta prévia: zonas, camadas e lotes do mapa (TR 4.50)
+        Route::controller(\App\Http\Controllers\UrbanismoController::class)->prefix('urbanismo')->name('urbanismo.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('zonas', 'salvarZona')->name('zonas.store');
+            Route::post('zonas/{id}', 'salvarZona')->whereNumber('id')->name('zonas.update');
+            Route::delete('zonas/{id}', 'excluirZona')->whereNumber('id')->name('zonas.destroy');
+            Route::post('camadas', 'salvarCamada')->name('camadas.store');
+            Route::post('camadas/{id}', 'salvarCamada')->whereNumber('id')->name('camadas.update');
+            Route::delete('camadas/{id}', 'excluirCamada')->whereNumber('id')->name('camadas.destroy');
+            Route::post('lotes', 'importarLotes')->name('lotes.importar');
+            Route::post('config', 'salvarConfig')->name('config');
+        });
         // Sistema tributário integrado (GPE Tributário, outro fornecedor por REST ou nenhum)
         Route::controller(\App\Http\Controllers\Configuracao\IntegracaoTributariaController::class)->middleware('can:admin.sistemas_integrados')->group(function () {
             Route::get('integracao-tributaria', 'index')->name('integracao-tributaria.index');

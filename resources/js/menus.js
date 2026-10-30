@@ -35,6 +35,8 @@ export const MENU_CONFIGURACOES = [
     { section: 'label', label: 'Integrações' },
     { title: 'Sistemas Integrados', icon: 'fas fa-plug', href: '/configuracoes/sistemas-integrados', color: 'text-violet-600 bg-violet-100', permissao: 'admin.sistemas_integrados' },
     { title: 'Sistema tributário', icon: 'fas fa-landmark-dome', href: '/configuracoes/integracao-tributaria', color: 'text-emerald-600 bg-emerald-100', permissao: 'admin.sistemas_integrados' },
+    { section: 'label', label: 'Urbanismo' },
+    { title: 'Consulta prévia (mapa)', icon: 'fas fa-map', href: '/configuracoes/urbanismo', color: 'text-teal-600 bg-teal-100', permissao: 'urbanismo.gerir' },
 ];
 
 export const MENU_GEPSP = [
