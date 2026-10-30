@@ -11,6 +11,7 @@ import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import StatusPill from '../../../Components/StatusPill';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import { exclusao } from '../../../utils/confirmacoes';
 
 const TABS = [
     { key: 'visualizar', label: 'Visualizar', icon: 'fas fa-eye' },
@@ -155,7 +156,7 @@ export default function Show({ documento, versoes, metadados, audit_logs, fluxo_
                             <i className="fas fa-download mr-1" /> Download
                         </a>
                         <Button variant="danger" icon="fas fa-trash" onClick={async () => {
-                            if (await confirmar({ titulo: 'Excluir este documento?', descricao: 'O documento e suas versões saem do repositório.', tom: 'perigo', rotuloConfirmar: 'Excluir' })) {
+                            if (await confirmar(exclusao('Excluir este documento?', 'O documento e suas versões saem do repositório.'))) {
                                 router.delete(`/documentos/${doc.id}`);
                             }
                         }}>Excluir</Button>

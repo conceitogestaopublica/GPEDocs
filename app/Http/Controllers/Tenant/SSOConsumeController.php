@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
-use App\Http\Middleware\ResolveTenant;
 use App\Models\Landlord\SuperAdmin;
 use App\Models\Landlord\SuperAdminTenantLink;
 use App\Models\Landlord\TenantSSOToken;
 use App\Models\User;
+use App\Tenant\LandlordUrl;
 use App\Tenant\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -130,7 +130,7 @@ class SSOConsumeController extends Controller
 
         // E_SSO_NO_MIRROR oferece dois caminhos (decisão #3): voltar ao
         // painel landlord, ou tentar login padrão do tenant.
-        $painelUrl = ResolveTenant::$LANDLORD_URL. '/landlord/tenants';
+        $painelUrl = LandlordUrl::de(request()).'/landlord/tenants';
 
         $opcoes = $codigo === 'E_SSO_NO_MIRROR' ? [
             ['label' => 'Voltar ao painel landlord', 'url' => $painelUrl,      'tipo' => 'primary'],

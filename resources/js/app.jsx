@@ -7,6 +7,10 @@ import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 import { ConfirmProvider } from './Components/ConfirmProvider';
 
+// Migração única: a preferência da sidebar saiu do localStorage (permanente) para o
+// sessionStorage (só a sessão do navegador) — apaga a chave antiga uma vez, na carga do app.
+try { localStorage.removeItem('ged_sidebar_collapsed'); } catch (_) { /* sem storage */ }
+
 createInertiaApp({
     title: (title) => title ? `${title} - GPE Docs` : 'GPE Docs - Plataforma Digital Integrada',
 

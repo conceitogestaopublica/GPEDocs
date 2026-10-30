@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import ConfirmDialog from './ConfirmDialog';
 
 /**
@@ -67,8 +67,11 @@ export function ConfirmProvider({ children }) {
         setTimeout(() => fecharToast(id), o.duracao ?? 4000);
     }, [fecharToast]);
 
+    // Objeto estável: sem isto, cada toast/diálogo re-renderizava todo consumidor de useConfirm.
+    const valor = useMemo(() => ({ confirmar, avisar, notificar }), [confirmar, avisar, notificar]);
+
     return (
-        <DialogoContext.Provider value={{ confirmar, avisar, notificar }}>
+        <DialogoContext.Provider value={valor}>
             {children}
             <ConfirmDialog
                 {...(config || {})}

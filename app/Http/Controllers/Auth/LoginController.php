@@ -77,8 +77,8 @@ class LoginController extends Controller
      *   CPF (11 dígitos) → e-mail do usuário com esse CPF; `users.cpf` é texto livre
      *                      (com ou sem máscara), então compara só os dígitos
      *
-     * Retorna null quando não é nem e-mail nem CPF, e false quando o CPF está em mais de
-     * um usuário (ambíguo — não dá para escolher por ele). CPF sem usuário devolve um
+     * Retorna null quando não é nem e-mail nem CPF, e false quando o CPF é ambíguo (regra em
+     * User::emailParaLoginPorCpf: a conta interna vence o externo duplicado). CPF sem usuário devolve um
      * e-mail vazio: o attempt falha com a mesma mensagem de senha errada, sem revelar se
      * o CPF existe.
      */
@@ -93,22 +93,7 @@ class LoginController extends Controller
             return null;
         }
 
-        $conn = User::query()->getConnection();
-        $soDigitos = $conn->getDriverName() === 'pgsql'
-            ? "regexp_replace(cpf, '[^0-9]', '', 'g')"
-            : "regexp_replace(cpf, '[^0-9]', '')";
-
-        $emails = User::query()
-            ->whereNotNull('cpf')
-            ->whereRaw("{$soDigitos} = ?", [$cpf])
-            ->limit(2)
-            ->pluck('email');
-
-        if ($emails->count() > 1) {
-            return false;
-        }
-
-        return (string) ($emails->first() ?? '');
+        return User::emailParaLoginPorCpf($cpf);
     }
 
     public function destroy(Request $request)

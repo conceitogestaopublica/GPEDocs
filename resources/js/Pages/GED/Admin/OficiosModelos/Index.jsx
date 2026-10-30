@@ -10,11 +10,9 @@ import Button from '../../../../Components/Button';
 import Card from '../../../../Components/Card';
 import Modal from '../../../../Components/Modal';
 import RichEditor from '../../../../Components/RichEditor';
-import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
+import TabelaRolavel from '../../../../Components/TabelaRolavel';
 
 export default function ModelosOficio({ modelos = [] }) {
-    // Listagem rola só por dentro — a página nunca (padrão gpe2).
-    const scrollRef = useFillViewportHeight();
     const [editando, setEditando] = useState(null); // null | 'novo' | objeto modelo
     const [confirmExcluir, setConfirmExcluir] = useState(null);
 
@@ -33,9 +31,9 @@ export default function ModelosOficio({ modelos = [] }) {
                         <p className="text-xs mt-1">Crie modelos para agilizar a redação de ofícios recorrentes</p>
                     </div>
                 ) : (
-                    <div ref={scrollRef} className="overflow-auto">
+                    <TabelaRolavel total={modelos.length}>
                         <table className="w-full text-sm">
-                            <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
+                            <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
                                 <tr>
                                     <th className="px-4 py-3 text-left">Nome</th>
                                     <th className="px-4 py-3 text-left">Categoria</th>
@@ -72,7 +70,7 @@ export default function ModelosOficio({ modelos = [] }) {
                                 ))}
                             </tbody>
                         </table>
-                    </div>
+                    </TabelaRolavel>
                 )}
             </Card>
 

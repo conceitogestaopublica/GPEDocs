@@ -45,8 +45,16 @@ class HandleInertiaRequests extends Middleware
                 'token_gerado'  => $request->session()->get('token_gerado'),
             ],
             'notificacoes_pendentes' => $notificacoesPendentes,
+            // Prévia do sino (topbar): as 6 mais recentes, sem precisar abrir a tela.
+            // Lazy (closure): só consulta quando a página de fato recebe a prop — um reload
+            // parcial (`only: [...]`) que não a pede não paga a query.
+            'notificacoes_recentes' => fn () => $user
+                ? \App\Models\Notificacao::where('usuario_id', $user->id)
+                    ->orderByDesc('created_at')->limit(6)->get()
+                    ->map(fn ($n) => \App\Http\Presenters\NotificacaoPresenter::resumo($n))->all()
+                : [],
             // Rotinas favoritas do usuário (Ctrl+K → estrela) — pessoais e por UG da sessão.
-            'favoritos' => $this->favoritos($user, $request),
+            'favoritos' => fn () => $this->favoritos($user, $request),
             'tenant' => $tenant,
             'cidadao' => Auth::guard('cidadao')->check() ? [
                 'id'       => Auth::guard('cidadao')->user()->id,
@@ -58,8 +66,9 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * Uma consulta pequena, por índice. Banco de tenant ainda sem a migration não pode
-     * derrubar TODA tela (a prop vai em todo request) — sem a tabela, sem favoritos.
+     * Banco de tenant ainda sem a migration de favoritos não derruba TODA tela (a prop vai em
+     * todo request): só a tabela ausente (42P01) vira lista vazia — qualquer outra falha de
+     * banco continua aparecendo.
      */
     private function favoritos($user, Request $request): array
     {
@@ -68,13 +77,12 @@ class HandleInertiaRequests extends Middleware
         }
 
         try {
-            return \Illuminate\Support\Facades\DB::table('usuario_favorito')
-                ->where('user_id', $user->id)
-                ->where('ug_id', (int) $request->session()->get('ug_id', 0))
-                ->orderBy('ordem')->orderBy('label')
-                ->get(['href', 'label', 'icon'])->all();
-        } catch (\Illuminate\Database\QueryException) {
-            return [];
+            return \App\Models\UsuarioFavorito::listar($user->id, $request->session()->get('ug_id'));
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->getCode() === '42P01') {
+                return [];
+            }
+            throw $e;
         }
     }
 

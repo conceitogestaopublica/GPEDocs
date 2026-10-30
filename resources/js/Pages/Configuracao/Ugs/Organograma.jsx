@@ -10,6 +10,7 @@ import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import { exclusao } from '../../../utils/confirmacoes';
 
 export default function Organograma({ ug, arvore }) {
     const [labelsModal, setLabelsModal] = useState(false);
@@ -102,7 +103,7 @@ function No({ node, ug, labels, onAdicionarFilho, depth = 0 }) {
     };
 
     const excluir = async () => {
-        if (! await confirmar({ titulo: `Excluir "${node.nome}"?`, descricao: 'Esta ação não pode ser desfeita.', tom: 'perigo', rotuloConfirmar: 'Excluir' })) return;
+        if (! await confirmar(exclusao(`Excluir "${node.nome}"?`, 'Esta ação não pode ser desfeita.'))) return;
         router.delete(`/configuracoes/ugs/${ug.id}/organograma/nodes/${node.id}`);
     };
 

@@ -167,7 +167,7 @@ class IntegracaoDocumentoController extends Controller
                     continue;
                 }
 
-                $user = User::where('cpf', $cpf)->first();
+                $user = User::porCpf($cpf)->first();
 
                 if (! $user) {
                     // Cria user externo (sem senha — precisa setar depois pra logar)
@@ -191,7 +191,7 @@ class IntegracaoDocumentoController extends Controller
             // Autor/solicitante: tem de ser usuário do GED. Por padrão é o 1º signatário
             // interno; só com externos, o sistema informa o servidor que envia (responsavel_cpf).
             $responsavel = ! empty($validated['responsavel_cpf'])
-                ? User::where('cpf', preg_replace('/\D/', '', $validated['responsavel_cpf']))->first()
+                ? User::porCpf($validated['responsavel_cpf'])->first()
                 : collect($assinaturasParaCriar)->pluck('user')->filter()->first();
             if (! $responsavel) {
                 DB::rollBack();
@@ -419,7 +419,7 @@ class IntegracaoDocumentoController extends Controller
                     $assinaturasParaCriar = [];
                     foreach ($novosSigs as $idx => $sig) {
                         $cpf = preg_replace('/\D/', '', $sig['cpf']);
-                        $user = User::where('cpf', $cpf)->first();
+                        $user = User::porCpf($cpf)->first();
                         if (! $user) {
                             $user = User::create([
                                 'name'     => 'Signatario ' . substr($cpf, 0, 3) . '...' . substr($cpf, -2),

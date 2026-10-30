@@ -6,8 +6,14 @@
 # qualquer diretório: o script se localiza sozinho e conserta no fim o dono dos
 # arquivos que o pull/artisan gravaram. Uso:
 #
-#   ./deploy-hml.sh              # deploy normal
-#   MIGRAR=1 ./deploy-hml.sh     # + migrations (filas no landlord e bancos dos tenants)
+#   ./deploy-hml.sh              # deploy normal (com migrations)
+#   MIGRAR=0 ./deploy-hml.sh     # pula as migrations (filas no landlord e bancos dos tenants)
+#
+# Atomicidade: o site entra em manutenção (artisan down) ANTES do pull e só volta (up) no
+# fim, depois de dependências, build, migrations e cache. Se algo falhar no meio, ele FICA
+# em manutenção — código novo sobre vendor/build/banco velhos é pior que fora do ar — e as
+# permissões são corrigidas de qualquer jeito (trap). Dois deploys ao mesmo tempo: o
+# segundo é recusado (flock).
 #
 # Diferenças do gpe2:
 #   - o php84-fpm é COMPARTILHADO e cada instalação fica numa pasta própria dentro dele
@@ -23,6 +29,10 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
 falhar() { echo "ERRO: $*" >&2; exit 1; }
+
+# Um deploy por vez nesta instalação (o lock fica em /tmp: não depende de permissão no projeto).
+exec 9>"/tmp/deploy-gpedocs-$(printf '%s' "$PROJECT_DIR" | md5sum | cut -c1-12).lock"
+flock -n 9 || falhar "já há um deploy rodando para $PROJECT_DIR."
 
 echo "==> verificando ambiente"
 [ -f artisan ] || falhar "$PROJECT_DIR não é a raiz do projeto (artisan não encontrado)."
@@ -54,14 +64,45 @@ docker exec "$PHP_CONTAINER" test -f "$APP_DIR/artisan" \
 
 # Usuário dos workers do php-fpm, lido do próprio pool — não chutar. É quem
 # precisa escrever em storage/ (log, cache, sessões, arquivos dos documentos).
-FPM_USER="$(docker exec "$PHP_CONTAINER" sh -c \
-    "grep -hE '^user *=' /usr/local/etc/php-fpm.d/*.conf | tail -1 | cut -d= -f2 | tr -d ' \r'" \
-    2>/dev/null || true)"
-FPM_USER="${FPM_USER:-www-data}"
+# Pool fora do caminho da imagem oficial: informe FPM_USER=<usuário>.
+if [ -z "${FPM_USER:-}" ]; then
+    FPM_USER="$(docker exec "$PHP_CONTAINER" sh -c \
+        "grep -hE '^user *=' /usr/local/etc/php-fpm.d/*.conf 2>/dev/null | tail -1 | cut -d= -f2 | tr -d ' \r'" \
+        || true)"
+fi
+[ -n "$FPM_USER" ] || falhar "não consegui ler o usuário do php-fpm em '$PHP_CONTAINER'. Informe: FPM_USER=www-data ./deploy-hml.sh"
 echo "    projeto: $PROJECT_DIR | container: $PHP_CONTAINER:$APP_DIR | usuário do fpm: $FPM_USER"
 
 # artisan/composer sempre na pasta desta instalação (o container é compartilhado).
 artisan() { docker exec -w "$APP_DIR" "$PHP_CONTAINER" php artisan "$@"; }
+
+# O `git pull` grava como o usuário do host e o composer/`optimize` gravam como root
+# dentro do container: os arquivos que mudaram deixam de pertencer ao $FPM_USER.
+corrigir_permissoes() {
+    echo "==> ajustando permissões (storage e bootstrap/cache -> $FPM_USER)"
+    docker exec -u root "$PHP_CONTAINER" chown -R "$FPM_USER:$FPM_USER" \
+        "$APP_DIR/storage" "$APP_DIR/bootstrap/cache"
+    docker exec -u root "$PHP_CONTAINER" chmod -R u+rwX,g+rwX \
+        "$APP_DIR/storage" "$APP_DIR/bootstrap/cache"
+}
+
+# Sai de qualquer jeito (erro no meio inclusive): permissões sempre corrigidas. Com erro, o
+# site fica em manutenção de propósito, e a mensagem diz como sair dela.
+concluido=0
+ao_sair() {
+    rc=$?
+    [ "$concluido" = 1 ] && return
+    corrigir_permissoes || true
+    if [ "$rc" -ne 0 ]; then
+        echo "ERRO no deploy (código $rc): o site CONTINUA EM MANUTENÇÃO." >&2
+        echo "  Corrija e rode ./deploy-hml.sh de novo, ou reabra como está:" >&2
+        echo "  docker exec -w $APP_DIR $PHP_CONTAINER php artisan up" >&2
+    fi
+}
+trap ao_sair EXIT
+
+echo "==> entrando em manutenção (artisan down)"
+artisan down --retry=15
 
 echo "==> git pull"
 git pull --ff-only
@@ -78,7 +119,7 @@ docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR":/app -w /app "$NODE
 echo "==> removendo public/hot (força o modo manifest)"
 rm -f public/hot
 
-if [ "${MIGRAR:-0}" = "1" ]; then
+if [ "${MIGRAR:-1}" = "1" ]; then
     # landlord:migrate só cria as filas gpedocs_* (idempotente) — o schema do landlord é do gpe2.
     echo "==> migrations: filas no landlord"
     artisan landlord:migrate
@@ -93,14 +134,12 @@ artisan optimize
 echo "==> reiniciando workers de fila (queue:restart)"
 artisan queue:restart
 
-# O `git pull` grava como o usuário do host e o composer/`optimize` gravam como root
-# dentro do container: os arquivos que mudaram deixam de pertencer ao $FPM_USER. Vem
-# por ÚLTIMO, depois de tudo que escreve.
-echo "==> ajustando permissões (storage e bootstrap/cache -> $FPM_USER)"
-docker exec -u root "$PHP_CONTAINER" chown -R "$FPM_USER:$FPM_USER" \
-    "$APP_DIR/storage" "$APP_DIR/bootstrap/cache"
-docker exec -u root "$PHP_CONTAINER" chmod -R u+rwX,g+rwX \
-    "$APP_DIR/storage" "$APP_DIR/bootstrap/cache"
+# Depois de tudo que escreve (pull, composer, optimize).
+corrigir_permissoes
+
+echo "==> saindo da manutenção (artisan up)"
+artisan up
+concluido=1
 
 echo "==> conferindo escrita em storage/"
 docker exec -u "$FPM_USER" "$PHP_CONTAINER" sh -c \

@@ -8,13 +8,12 @@ import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
-import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
+import TabelaRolavel from '../../../Components/TabelaRolavel';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import { arquivamento } from '../../../utils/confirmacoes';
 
 export default function CircularesIndex({ circulares, filters }) {
     const confirmar = useConfirm();
-    // Listagem rola só por dentro — a página nunca (padrão gpe2).
-    const scrollRef = useFillViewportHeight();
     const data = circulares?.data || circulares || [];
     const tipo = filters?.tipo || 'recebidas';
     const [search, setSearch] = useState(filters?.search || '');
@@ -102,9 +101,9 @@ export default function CircularesIndex({ circulares, filters }) {
                 </div>
 
                 {/* Tabela */}
-                <div ref={scrollRef} className="overflow-auto">
+                <TabelaRolavel total={data.length} paginado={circulares?.last_page > 1}>
                     <table className="w-full text-sm">
-                        <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
+                        <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
                             <tr>
                                 <th className="px-4 py-3 text-left font-semibold">Número</th>
                                 <th className="px-4 py-3 text-left font-semibold">Assunto</th>
@@ -180,7 +179,7 @@ export default function CircularesIndex({ circulares, filters }) {
                                                 onClick={() => router.visit(`/circulares/${circular.id}`)} />
                                             <ActionBtn icon="fas fa-archive" title="Arquivar"
                                                 onClick={async () => {
-                                                    if (await confirmar({ titulo: 'Arquivar esta circular?', rotuloConfirmar: 'Arquivar' }))
+                                                    if (await confirmar(arquivamento('esta circular')))
                                                         router.post(`/circulares/${circular.id}/arquivar`, {}, { preserveState: true, preserveScroll: true });
                                                 }} />
                                             <ActionBtn icon="fas fa-file-pdf" title="PDF"
@@ -191,7 +190,7 @@ export default function CircularesIndex({ circulares, filters }) {
                             ))}
                         </tbody>
                     </table>
-                </div>
+                </TabelaRolavel>
 
                 {/* Paginacao */}
                 {circulares?.links && circulares.last_page > 1 && (

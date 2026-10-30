@@ -11,6 +11,7 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import { arquivamento } from '../../../utils/confirmacoes';
 
 const STATUS_MAP = {
     rascunho:   { label: 'Rascunho',   color: 'bg-gray-100 text-gray-600',   icon: 'fas fa-edit' },
@@ -112,7 +113,7 @@ export default function OficiosShow({ oficio, conteudo_html = '' }) {
                         {of.status !== 'arquivado' && (
                             <Button variant="secondary" icon="fas fa-archive"
                                 onClick={async () => {
-                                    if (await confirmar({ titulo: 'Arquivar este ofício?', rotuloConfirmar: 'Arquivar' }))
+                                    if (await confirmar(arquivamento('este ofício')))
                                         router.post(`/oficios/${of.id}/arquivar`);
                                 }}>
                                 Arquivar

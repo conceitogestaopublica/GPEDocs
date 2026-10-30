@@ -8,8 +8,9 @@ import PageHeader from '../../../../Components/PageHeader';
 import Button from '../../../../Components/Button';
 import Modal from '../../../../Components/Modal';
 import Card from '../../../../Components/Card';
-import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
+import TabelaRolavel from '../../../../Components/TabelaRolavel';
 import { useConfirm } from '../../../../Components/ConfirmProvider';
+import { exclusao } from '../../../../utils/confirmacoes';
 
 const CORES = ['red', 'blue', 'amber', 'indigo', 'orange', 'green', 'pink', 'cyan'];
 
@@ -22,8 +23,6 @@ const COR_BG = {
 
 export default function CartaServicosAdmin({ servicos, categorias, setores, tiposProcesso, filtros, publicos, areas = {}, acoesFiscais = {} }) {
     const confirmar = useConfirm();
-    // Listagem rola só por dentro — a página nunca (padrão gpe2).
-    const scrollRef = useFillViewportHeight();
     const [showCatForm, setShowCatForm] = useState(false);
     const [showServForm, setShowServForm] = useState(false);
     const [editCat, setEditCat] = useState(null);
@@ -46,12 +45,12 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
     };
 
     const excluirServico = async (servico) => {
-        if (! await confirmar({ titulo: `Excluir o serviço "${servico.titulo}"?`, tom: 'perigo', rotuloConfirmar: 'Excluir' })) return;
+        if (! await confirmar(exclusao(`Excluir o serviço "${servico.titulo}"?`))) return;
         router.delete(`/configuracoes/carta-servicos/servicos/${servico.id}`, { preserveScroll: true });
     };
 
     const excluirCategoria = async (cat) => {
-        if (! await confirmar({ titulo: `Excluir a categoria "${cat.nome}"?`, tom: 'perigo', rotuloConfirmar: 'Excluir' })) return;
+        if (! await confirmar(exclusao(`Excluir a categoria "${cat.nome}"?`))) return;
         router.delete(`/configuracoes/carta-servicos/categorias/${cat.id}`, { preserveScroll: true });
     };
 
@@ -127,9 +126,9 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
 
             {/* Lista de servicos */}
             <Card padding={false}>
-                <div ref={scrollRef} className="overflow-auto">
+                <TabelaRolavel total={(servicos.data || []).length}>
                     <table className="w-full text-sm">
-                        <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-xs">
+                        <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
                             <tr>
                                 <th className="px-4 py-3 text-left font-semibold">Serviço</th>
                                 <th className="px-4 py-3 text-left font-semibold">Categoria</th>
@@ -197,7 +196,7 @@ export default function CartaServicosAdmin({ servicos, categorias, setores, tipo
                             )}
                         </tbody>
                     </table>
-                </div>
+                </TabelaRolavel>
             </Card>
 
             {showCatForm && (

@@ -9,6 +9,7 @@ import Button from '../../../../Components/Button';
 import Modal from '../../../../Components/Modal';
 import Card from '../../../../Components/Card';
 import { useConfirm } from '../../../../Components/ConfirmProvider';
+import { exclusao } from '../../../../utils/confirmacoes';
 
 const PERMISSION_GROUPS = [
     {
@@ -71,7 +72,7 @@ export default function Roles({ roles, permissions }) {
                                     <i className="fas fa-edit text-xs" />
                                 </button>
                                 <button onClick={async () => {
-                                    if (await confirmar({ titulo: 'Excluir este perfil?', tom: 'perigo', rotuloConfirmar: 'Excluir' })) router.delete(`/admin/roles/${role.id}`);
+                                    if (await confirmar(exclusao('Excluir este perfil?'))) router.delete(`/admin/roles/${role.id}`);
                                 }} className="text-red-400 hover:text-red-600 p-1">
                                     <i className="fas fa-trash text-xs" />
                                 </button>

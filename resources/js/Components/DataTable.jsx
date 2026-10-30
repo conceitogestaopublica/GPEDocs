@@ -15,7 +15,9 @@
  */
 import { useState } from 'react';
 import { Link, router } from '@inertiajs/react';
-import useFillViewportHeight from '../Hooks/useFillViewportHeight';
+import TabelaRolavel from './TabelaRolavel';
+
+const BORDA = 'rounded-lg border border-[var(--ds-border)]';
 
 export default function DataTable({
     columns = [],
@@ -28,7 +30,6 @@ export default function DataTable({
     fillHeight = true,
 }) {
     const [search, setSearch] = useState('');
-    const scrollRef = useFillViewportHeight();
 
     const handleSearch = (e) => {
         e.preventDefault();
@@ -36,6 +37,48 @@ export default function DataTable({
             onSearch(search);
         }
     };
+
+    const tabela = (
+        <table className="w-full text-sm text-left">
+            <thead className="bg-[var(--ds-surface-muted)]">
+                <tr>
+                    {columns.map((col) => (
+                        <th key={col.key} className={`px-4 py-3 font-semibold ${col.className || ''}`}>
+                            {col.label}
+                        </th>
+                    ))}
+                    {actions && <th className="px-3 py-2.5 text-right">Ações</th>}
+                </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--ds-border)]">
+                {data.length === 0 ? (
+                    <tr>
+                        <td colSpan={columns.length + (actions ? 1 : 0)} className="px-4 py-8 text-center text-gray-400">
+                            <i className="fas fa-inbox text-3xl mb-2 block" />
+                            {emptyMessage}
+                        </td>
+                    </tr>
+                ) : (
+                    data.map((row, idx) => (
+                        <tr key={row.id || idx} className="hover:bg-gray-50 transition-colors">
+                            {columns.map((col) => (
+                                <td key={col.key} className={`px-4 py-3 ${col.className || ''}`}>
+                                    {col.render ? col.render(row) : row[col.key]}
+                                </td>
+                            ))}
+                            {actions && (
+                                <td className="px-3 py-2.5 text-right">
+                                    <div className="inline-flex items-center justify-end gap-2">
+                                        {actions(row)}
+                                    </div>
+                                </td>
+                            )}
+                        </tr>
+                    ))
+                )}
+            </tbody>
+        </table>
+    );
 
     return (
         <div>
@@ -62,48 +105,14 @@ export default function DataTable({
             )}
 
             {/* Tabela */}
-            <div ref={fillHeight ? scrollRef : undefined}
-                className={`${fillHeight ? 'overflow-auto' : 'overflow-x-auto'} rounded-lg border border-[var(--ds-border)]`}>
-                <table className="w-full text-sm text-left">
-                    <thead className={`bg-[var(--ds-surface-muted)]${fillHeight ? ' sticky top-0 z-20' : ''}`}>
-                        <tr>
-                            {columns.map((col) => (
-                                <th key={col.key} className={`px-4 py-3 font-semibold ${col.className || ''}`}>
-                                    {col.label}
-                                </th>
-                            ))}
-                            {actions && <th className="px-3 py-2.5 text-right">Ações</th>}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--ds-border)]">
-                        {data.length === 0 ? (
-                            <tr>
-                                <td colSpan={columns.length + (actions ? 1 : 0)} className="px-4 py-8 text-center text-gray-400">
-                                    <i className="fas fa-inbox text-3xl mb-2 block" />
-                                    {emptyMessage}
-                                </td>
-                            </tr>
-                        ) : (
-                            data.map((row, idx) => (
-                                <tr key={row.id || idx} className="hover:bg-gray-50 transition-colors">
-                                    {columns.map((col) => (
-                                        <td key={col.key} className={`px-4 py-3 ${col.className || ''}`}>
-                                            {col.render ? col.render(row) : row[col.key]}
-                                        </td>
-                                    ))}
-                                    {actions && (
-                                        <td className="px-3 py-2.5 text-right">
-                                            <div className="inline-flex items-center justify-end gap-2">
-                                                {actions(row)}
-                                            </div>
-                                        </td>
-                                    )}
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+            {/* Com fillHeight, rola só por dentro (cabeçalho fixo e pé da TabelaRolavel). */}
+            {fillHeight ? (
+                <TabelaRolavel className={BORDA} total={data.length} paginado={pagination?.last_page > 1}>
+                    {tabela}
+                </TabelaRolavel>
+            ) : (
+                <div className={`overflow-x-auto ${BORDA}`}>{tabela}</div>
+            )}
 
             {/* Paginação */}
             {pagination && pagination.last_page > 1 && (

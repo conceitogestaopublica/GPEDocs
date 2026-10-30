@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\TenantAware;
 use App\Models\Tenant;
+use App\Models\Ug;
 use App\Tenant\TenantContext;
 use Database\Seeders\EnderecosDemoSeeder;
 use Database\Seeders\GedSeeder;
@@ -39,16 +41,23 @@ use Illuminate\Support\Facades\DB;
  *   docker exec -it docs-app php artisan docs:template-restore
  *   docker exec -it docs-app php artisan docs:template-restore --tenant=paraguacu --force
  *
- * Segurança: se o banco alvo já tiver objetos/dados, mostra o que será destruído e exige
- * confirmação (ou --force). Em produção exige --force sempre. A limpeza é feita tabela a
- * tabela e recria o schema public — não toca no banco nem na locale.
+ * Segurança:
+ *   - banco com objetos/dados: mostra o que há e pede confirmação;
+ *   - o schema `public` atual NÃO é apagado: é renomeado para `bkp_restore_<data_hora>`
+ *     (backup dentro do próprio banco, desfazível — renomear de volta). Apagar o backup
+ *     depois é decisão manual: DROP SCHEMA bkp_restore_... CASCADE;
+ *   - em produção exige --producao, e as confirmações valem SEMPRE (lá o --force não pula);
+ *   - --force pula as confirmações apenas fora de produção (dev, scripts de teste).
  */
 class TemplateRestore extends Command
 {
+    use TenantAware;
+
     protected $signature = 'docs:template-restore
         {--tenant= : Tenant alvo: subdomínio, sub.domínio ou ID (vazio = menu)}
         {--legado= : Banco do legado MariaDB de onde vêm os super admins}
-        {--force : Não pedir confirmação ao apagar um banco com dados}';
+        {--force : Não pedir confirmação (só fora de produção)}
+        {--producao : Autoriza rodar em produção — as confirmações continuam valendo}';
 
     protected $description = 'Restaura o banco de um tenant do GPEDocs: migrations + seeders de estrutura + super admins do legado';
 
@@ -57,9 +66,6 @@ class TemplateRestore extends Command
      * elas não rodaram inteiras — e o schema já foi apagado antes.
      */
     private const MIN_TABELAS = 50;
-
-    /** Banco legado de referência para os super admins (o mesmo usuário Maat em todos). */
-    private const LEGADO_ADMINS = 'gpdsantoantoniodoamparo';
 
     /**
      * Seeders de ESTRUTURA, em ordem de dependência. Os de conteúdo demo (documentos,
@@ -78,40 +84,22 @@ class TemplateRestore extends Command
 
     public function handle(): int
     {
-        if (config('app.env') === 'production' && ! $this->option('force')) {
-            $this->error('Este comando NÃO roda em produção sem --force.');
+        if ($this->emProducao() && ! $this->option('producao')) {
+            $this->error('Este comando NÃO roda em produção sem --producao (e lá sempre pede confirmação).');
 
             return self::FAILURE;
         }
 
-        $base = (string) config('multitenancy.dominio_base');
-        $tenants = Tenant::active()
-            ->where('driver', 'pgsql')   // domínio do GPEDocs: escopo global do model
-            ->orderBy('id')
-            ->get();
-        if ($tenants->isEmpty()) {
-            $this->error("Nenhum tenant PostgreSQL (driver='pgsql') ativo do domínio '{$base}' no landlord.");
-
-            return self::FAILURE;
-        }
-
-        $tenant = $this->selecionarTenant($tenants);
+        $tenant = $this->escolherAlvo();
         if (! $tenant) {
             return self::FAILURE;
         }
 
-        $this->line("Alvo: tenant #{$tenant->id} {$tenant->nome} → {$tenant->db_host}:{$tenant->db_port}/{$tenant->db_name} (login: {$tenant->db_username})");
-
         // Lê os admins do legado ANTES de apagar qualquer coisa: se o legado estiver
         // inacessível, o tenant fica como está em vez de sair vazio e sem login.
-        $legado = (string) ($this->option('legado') ?: self::LEGADO_ADMINS);
-        $admins = $this->adminsDoLegado($legado);
-        if ($admins === null) {
-            return self::FAILURE;
-        }
-        if ($admins->isEmpty()) {
-            $this->error("Nenhum super admin ativo com e-mail em '{$legado}' — o tenant ficaria sem login. Abortando.");
-
+        $legado = (string) ($this->option('legado') ?: config('database.connections.gpe_legado.admins_database'));
+        $admins = $this->lerAdminsDoLegado($legado);
+        if (! $admins) {
             return self::FAILURE;
         }
 
@@ -119,81 +107,144 @@ class TemplateRestore extends Command
         $ctx->set($tenant);
 
         try {
-            try {
-                DB::connection('tenant')->getPdo();
-            } catch (\Throwable $e) {
-                // Só cria quando o servidor responde e o banco comprovadamente não existe —
-                // pergunta ao pg_database em vez de interpretar a mensagem (o PDO devolve 08006
-                // genérico, com texto que muda com a locale do servidor).
-                if ($this->bancoExiste($tenant) !== false || ! $this->criarBanco($tenant)) {
-                    $this->error("Falha ao conectar em {$tenant->db_host}:{$tenant->db_port}/{$tenant->db_name} como '{$tenant->db_username}'.");
-                    $this->error('Detalhe: '.$e->getMessage());
-
-                    return self::FAILURE;
-                }
-                DB::purge('tenant');
-            }
-
-            [$tabelas, $linhas] = $this->inspecionar();
-
-            if ($tabelas > 0 || $linhas > 0) {
-                $this->warn("O banco '{$tenant->db_name}' já contém objetos/dados:");
-                $this->table(
-                    ['Banco', 'Tabelas (public)', 'Linhas (estimado)'],
-                    [[$tenant->db_name, $tabelas, number_format($linhas, 0, ',', '.')]]
-                );
-                $this->warn('Continuar vai APAGAR todo o schema public e recriá-lo do zero.');
-
-                if (! $this->option('force') && ! $this->confirm("Confirma limpar e restaurar '{$tenant->db_name}'?", false)) {
-                    $this->line('Operação cancelada.');
-
-                    return self::FAILURE;
-                }
-
-                $this->line("Limpando schema public de '{$tenant->db_name}'...");
-                $this->limparSchemaPublic(DB::connection('tenant')->getPdo());
-            }
-
-            // ── 1. Schema ────────────────────────────────────────────────────────
-            $this->line('Criando o schema (migrations)...');
-            if ($this->call('migrate', ['--database' => 'tenant', '--force' => true]) !== self::SUCCESS) {
-                $this->error('Falha nas migrations — o banco pode ter ficado parcial. Corrija e rode de novo.');
-
+            if (! $this->garantirBanco($tenant) || ! $this->liberarSchema($tenant)) {
                 return self::FAILURE;
             }
 
-            // REDE DE SEGURANÇA: o schema foi apagado acima; migrate "com sucesso" que não
-            // criou quase nada deixaria o tenant vazio sem ninguém acusar.
-            DB::purge('tenant');
-            [$tabelas] = $this->inspecionar();
-            if ($tabelas < self::MIN_TABELAS) {
-                $this->error("Schema terminou com apenas {$tabelas} tabela(s) — esperado ao menos ".self::MIN_TABELAS.'.');
-
+            $tabelas = $this->criarSchema();
+            if ($tabelas === null) {
                 return self::FAILURE;
             }
-            $this->info("Schema conferido: {$tabelas} tabelas no schema public.");
 
-            // ── 2. Estrutura ─────────────────────────────────────────────────────
             $this->semearEstrutura();
-
-            // ── 3. Acesso: super admins do legado ────────────────────────────────
             $this->importarAdmins($admins);
-
-            $this->newLine();
-            $this->info("✓ Tenant #{$tenant->id} ({$tenant->db_name}) restaurado com sucesso.");
-            $this->table(
-                ['Banco', 'Tabelas (public)', 'UGs', 'Usuários'],
-                [[$tenant->db_name, $tabelas, $this->contar('ugs') ?? 'n/d', $this->contar('users') ?? 'n/d']]
-            );
-
-            $this->newLine();
-            $this->info("Super admins com acesso ao tenant (senhas do legado '{$legado}'):");
-            $this->table(['Nome', 'Login (legado)', 'Email'], $admins->map(fn ($a) => [$a->nome, $a->login, $a->email])->all());
+            $this->relatar($tenant, $tabelas, $legado, $admins);
 
             return self::SUCCESS;
         } finally {
             $ctx->clear();
         }
+    }
+
+    /** Tenant alvo (--tenant ou menu, pelo TenantAware) — tem de ser PostgreSQL. */
+    private function escolherAlvo(): ?Tenant
+    {
+        $tenant = $this->resolveTenant((string) $this->option('tenant'));
+        if (! $tenant) {
+            return null;
+        }
+        if ($tenant->driver !== 'pgsql') {
+            $this->error("O tenant #{$tenant->id} usa '{$tenant->driver}'; este comando restaura só PostgreSQL.");
+
+            return null;
+        }
+
+        $this->line("Alvo: tenant #{$tenant->id} {$tenant->nome} → {$tenant->db_host}:{$tenant->db_port}/{$tenant->db_name} (login: {$tenant->db_username})");
+
+        return $tenant;
+    }
+
+    /** Super admins do legado; null quando inacessível ou sem ninguém (o tenant ficaria sem login). */
+    private function lerAdminsDoLegado(string $legado): ?Collection
+    {
+        $admins = $this->adminsDoLegado($legado);
+        if ($admins !== null && $admins->isEmpty()) {
+            $this->error("Nenhum super admin ativo com e-mail em '{$legado}' — o tenant ficaria sem login. Abortando.");
+
+            return null;
+        }
+
+        return $admins;
+    }
+
+    /** Conecta no banco do tenant; se ele comprovadamente não existe, oferece criar. */
+    private function garantirBanco(Tenant $tenant): bool
+    {
+        try {
+            DB::connection('tenant')->getPdo();
+
+            return true;
+        } catch (\Throwable $e) {
+            // Só cria quando o servidor responde e o banco comprovadamente não existe —
+            // pergunta ao pg_database em vez de interpretar a mensagem (o PDO devolve 08006
+            // genérico, com texto que muda com a locale do servidor).
+            if ($this->bancoExiste($tenant) !== false || ! $this->criarBanco($tenant)) {
+                $this->error("Falha ao conectar em {$tenant->db_host}:{$tenant->db_port}/{$tenant->db_name} como '{$tenant->db_username}'.");
+                $this->error('Detalhe: '.$e->getMessage());
+
+                return false;
+            }
+            DB::purge('tenant');
+
+            return true;
+        }
+    }
+
+    /** Banco com dados: mostra, confirma e tira o schema atual do caminho (vira backup). */
+    private function liberarSchema(Tenant $tenant): bool
+    {
+        [$tabelas, $linhas] = $this->inspecionar();
+        if ($tabelas === 0 && $linhas === 0) {
+            return true;
+        }
+
+        $this->warn("O banco '{$tenant->db_name}' já contém objetos/dados:");
+        $this->table(
+            ['Banco', 'Tabelas (public)', 'Linhas (estimado)'],
+            [[$tenant->db_name, $tabelas, number_format($linhas, 0, ',', '.')]]
+        );
+        $this->warn('Continuar vai substituir o schema public por um vazio (o atual vira backup no mesmo banco).');
+
+        if (! $this->confirmado("Confirma restaurar '{$tenant->db_name}'?", false)) {
+            $this->line('Operação cancelada.');
+
+            return false;
+        }
+
+        $backup = $this->guardarSchemaPublic(DB::connection('tenant')->getPdo());
+        $this->info("Schema anterior preservado como '{$backup}' (desfazer: renomeie de volta para public).");
+
+        return true;
+    }
+
+    /**
+     * Roda as migrations e confere o resultado. Devolve o nº de tabelas, ou null na falha.
+     * Rede de segurança: migrate "com sucesso" que não criou quase nada deixaria o tenant
+     * vazio sem ninguém acusar.
+     */
+    private function criarSchema(): ?int
+    {
+        $this->line('Criando o schema (migrations)...');
+        if ($this->call('migrate', ['--database' => 'tenant', '--force' => true]) !== self::SUCCESS) {
+            $this->error('Falha nas migrations — o banco pode ter ficado parcial. Corrija e rode de novo.');
+
+            return null;
+        }
+
+        DB::purge('tenant');
+        [$tabelas] = $this->inspecionar();
+        if ($tabelas < self::MIN_TABELAS) {
+            $this->error("Schema terminou com apenas {$tabelas} tabela(s) — esperado ao menos ".self::MIN_TABELAS.'.');
+
+            return null;
+        }
+        $this->info("Schema conferido: {$tabelas} tabelas no schema public.");
+
+        return $tabelas;
+    }
+
+    private function relatar(Tenant $tenant, int $tabelas, string $legado, Collection $admins): void
+    {
+        $this->newLine();
+        $this->info("✓ Tenant #{$tenant->id} ({$tenant->db_name}) restaurado com sucesso.");
+        $this->table(
+            ['Banco', 'Tabelas (public)', 'UGs', 'Usuários'],
+            [[$tenant->db_name, $tabelas, $this->contar('ugs') ?? 'n/d', $this->contar('users') ?? 'n/d']]
+        );
+
+        $this->newLine();
+        $this->info("Super admins com acesso ao tenant (senhas do legado '{$legado}'):");
+        $this->table(['Nome', 'Login (legado)', 'Email'], $admins->map(fn ($a) => [$a->nome, $a->login, $a->email])->all());
     }
 
     /**
@@ -234,7 +285,7 @@ class TemplateRestore extends Command
         }
 
         $this->warn("O banco '{$nome}' não existe em {$tenant->db_host}:{$tenant->db_port}.");
-        if (! $this->option('force') && ! $this->confirm("Criar o banco '{$nome}' agora?", true)) {
+        if (! $this->confirmado("Criar o banco '{$nome}' agora?", true)) {
             return false;
         }
 
@@ -251,31 +302,6 @@ class TemplateRestore extends Command
         $this->info("Banco '{$nome}' criado.");
 
         return true;
-    }
-
-    /** Tenant pelo --tenant (id, subdomínio ou sub.domínio) ou pelo menu. */
-    private function selecionarTenant(Collection $tenants): ?Tenant
-    {
-        $opt = (string) $this->option('tenant');
-        if ($opt !== '') {
-            $tenant = $tenants->first(fn (Tenant $t) => (string) $t->id === $opt
-                || $t->subdomain === $opt
-                || "{$t->subdomain}.{$t->domain}" === $opt);
-            if (! $tenant) {
-                $this->error("Tenant '{$opt}' não encontrado entre os tenants PG ativos do GPEDocs.");
-            }
-
-            return $tenant;
-        }
-
-        $rotulos = $tenants
-            ->mapWithKeys(fn (Tenant $t) => [(string) $t->id => "#{$t->id} {$t->nome} — {$t->db_name} — {$t->subdomain}{$t->domain}"])
-            ->all();
-
-        $escolhido = $this->choice('Selecione o tenant PostgreSQL', array_values($rotulos));
-        $id = (int) array_search($escolhido, $rotulos, true);
-
-        return $tenants->firstWhere('id', $id);
     }
 
     /**
@@ -352,7 +378,7 @@ class TemplateRestore extends Command
         $this->components->task("Super admins do legado ({$admins->count()})", function () use ($admins) {
             DB::transaction(function () use ($admins) {
                 $conn = DB::connection('tenant');
-                $ugId = $conn->table('ugs')->where('codigo', 'UG-MODELO')->value('id');
+                $ugId = $conn->table('ugs')->where('codigo', Ug::CODIGO_MODELO)->value('id');
                 $roleId = $conn->table('ged_roles')->where('nome', self::ROLE_ADMIN)->value('id');
 
                 foreach ($admins as $a) {
@@ -421,17 +447,31 @@ class TemplateRestore extends Command
     }
 
     /**
-     * Limpa o schema public tabela a tabela (cada DROP é autocommit → poucos locks por vez)
-     * e só então recria o schema já quase vazio — um DROP SCHEMA CASCADE único bloqueia
-     * todo objeto numa só transação.
+     * Tira o schema public do caminho SEM apagá-lo: renomeia para bkp_restore_<data_hora> e
+     * cria um public vazio. Uma operação de catálogo (rápida, sem varrer tabelas) e desfazível
+     * — o restore deixa de ser destrutivo. Devolve o nome do backup.
      */
-    private function limparSchemaPublic(\PDO $pdo): void
+    private function guardarSchemaPublic(\PDO $pdo): string
     {
-        $tabelas = $pdo->query("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")->fetchAll(\PDO::FETCH_COLUMN);
-        foreach ($tabelas as $t) {
-            $pdo->exec('DROP TABLE IF EXISTS "public"."'.str_replace('"', '""', (string) $t).'" CASCADE');
-        }
-        $pdo->exec('DROP SCHEMA public CASCADE');
+        $backup = 'bkp_restore_'.now()->format('Ymd_His');
+        $pdo->exec("ALTER SCHEMA public RENAME TO {$backup}");
         $pdo->exec('CREATE SCHEMA public');
+
+        return $backup;
+    }
+
+    private function emProducao(): bool
+    {
+        return config('app.env') === 'production';
+    }
+
+    /** Confirmação que o --force só pula fora de produção. */
+    private function confirmado(string $pergunta, bool $padrao): bool
+    {
+        if ($this->option('force') && ! $this->emProducao()) {
+            return true;
+        }
+
+        return $this->confirm($pergunta, $padrao);
     }
 }

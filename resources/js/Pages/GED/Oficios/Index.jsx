@@ -8,8 +8,9 @@ import { useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
-import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
+import TabelaRolavel from '../../../Components/TabelaRolavel';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import { arquivamento } from '../../../utils/confirmacoes';
 
 const STATUS_MAP = {
     rascunho:   { label: 'Rascunho',   color: 'bg-gray-100 text-gray-600',   icon: 'fas fa-edit',        desc: 'Em elaboracao' },
@@ -22,8 +23,6 @@ const STATUS_MAP = {
 
 export default function OficiosIndex({ oficios, filters }) {
     const confirmar = useConfirm();
-    // Listagem rola só por dentro — a página nunca (padrão gpe2).
-    const scrollRef = useFillViewportHeight();
     const data = oficios?.data || oficios || [];
     const [search, setSearch] = useState(filters?.search || '');
     const [statusFilter, setStatusFilter] = useState(filters?.status || '');
@@ -100,9 +99,9 @@ export default function OficiosIndex({ oficios, filters }) {
                 </div>
 
                 {/* Tabela */}
-                <div ref={scrollRef} className="overflow-auto">
+                <TabelaRolavel total={data.length} paginado={oficios?.last_page > 1}>
                     <table className="w-full text-sm">
-                        <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
+                        <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
                             <tr>
                                 <th className="px-4 py-3 text-left font-semibold">Número</th>
                                 <th className="px-4 py-3 text-left font-semibold">Assunto</th>
@@ -166,7 +165,7 @@ export default function OficiosIndex({ oficios, filters }) {
                                                 {oficio.status !== 'arquivado' && (
                                                     <ActionBtn icon="fas fa-archive" title="Arquivar"
                                                         onClick={async () => {
-                                                            if (await confirmar({ titulo: 'Arquivar este ofício?', rotuloConfirmar: 'Arquivar' }))
+                                                            if (await confirmar(arquivamento('este ofício')))
                                                                 router.post(`/oficios/${oficio.id}/arquivar`, {}, { preserveState: true, preserveScroll: true });
                                                         }} />
                                                 )}
@@ -179,7 +178,7 @@ export default function OficiosIndex({ oficios, filters }) {
                             })}
                         </tbody>
                     </table>
-                </div>
+                </TabelaRolavel>
 
                 {/* Paginacao */}
                 {oficios?.links && oficios.last_page > 1 && (

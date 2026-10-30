@@ -71,6 +71,8 @@ return [
             'driver'    => env('GPE_LEGADO_DRIVER', 'mariadb'),
             'host'      => env('GPE_LEGADO_HOST', '127.0.0.1'),
             'database'  => env('GPE_LEGADO_DATABASE', 'gpdparaguacu'),
+            // Banco legado de onde o docs:template-restore traz os super admins.
+            'admins_database' => env('GPE_LEGADO_ADMINS_DATABASE', 'gpdsantoantoniodoamparo'),
             'username'  => env('GPE_LEGADO_USERNAME', 'root'),
             'password'  => env('GPE_LEGADO_PASSWORD', ''),
             'port'      => env('GPE_LEGADO_PORT', '3306'),

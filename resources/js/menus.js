@@ -165,6 +165,15 @@ export function rotinasDe(permissoes) {
 }
 
 /**
+ * A URL é a tela deste href? Href com query casa exato (ou com mais parâmetros depois);
+ * sem query, casa o caminho — `/repositorio?page=2` ainda é `/repositorio`. Regra única de
+ * "url é esta rotina": quem precisar dela (cabeçalho, sidebar) usa esta função.
+ */
+export function casaHref(href, url, caminho = url.split('?')[0]) {
+    return href.includes('?') ? (url === href || url.startsWith(href + '&')) : caminho === href;
+}
+
+/**
  * Rotina (item de menu) que corresponde à URL atual, ou null se a tela não é uma rotina
  * (detalhe, formulário...). Href com query casa exatamente; sem query, casa o caminho.
  * Vence o href mais longo — /repositorio?filtro=favoritos antes de /repositorio.
@@ -173,10 +182,7 @@ export function rotinaDaUrl(url) {
     const caminho = url.split('?')[0];
     let melhor = null;
     for (const r of ROTINAS) {
-        const casa = r.href.includes('?')
-            ? (url === r.href || url.startsWith(r.href + '&'))
-            : caminho === r.href;
-        if (casa && (!melhor || r.href.length > melhor.href.length)) melhor = r;
+        if (casaHref(r.href, url, caminho) && (!melhor || r.href.length > melhor.href.length)) melhor = r;
     }
     return melhor;
 }

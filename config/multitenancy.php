@@ -52,7 +52,7 @@ return [
     |
     | O landlord é compartilhado com o gpe2 — o que separa os tenants do GPEDocs
     | é a coluna `domain`. Os comandos console (trait TenantAware — tenant:migrate,
-    | etc.) operam SÓ nos tenants cuja coluna `domain` casa com este valor (LIKE),
+    | etc.) operam SÓ nos tenants cuja coluna `domain` é igual a este valor (escopo global `gpedocs` do model Tenant),
     | assim nunca tocam bancos do gpe2. Também identifica o apex no ResolveTenant.
     |
     | Produção: TENANT_DOMINIO_BASE=gpedocs.com.br

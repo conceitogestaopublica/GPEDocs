@@ -11,6 +11,7 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import { arquivamento } from '../../../utils/confirmacoes';
 
 export default function MemorandosShow({ memorando, pode_receber, pode_tramitar, meu_status, unidades = [], usuarios = [] }) {
     const confirmar = useConfirm();
@@ -159,7 +160,7 @@ export default function MemorandosShow({ memorando, pode_receber, pode_tramitar,
                         {memo.status !== 'arquivado' && (
                             <Button variant="secondary" icon="fas fa-archive"
                                 onClick={async () => {
-                                    if (await confirmar({ titulo: 'Arquivar este memorando?', rotuloConfirmar: 'Arquivar' }))
+                                    if (await confirmar(arquivamento('este memorando')))
                                         router.post(`/memorandos/${memo.id}/arquivar`);
                                 }}>
                                 Arquivar

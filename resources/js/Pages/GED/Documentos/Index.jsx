@@ -10,13 +10,12 @@ import SolicitarAssinaturaLoteModal from '../../../Components/SolicitarAssinatur
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Modal from '../../../Components/Modal';
-import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
+import TabelaRolavel from '../../../Components/TabelaRolavel';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import { exclusao } from '../../../utils/confirmacoes';
 
 export default function DocumentosIndex({ documentos, filters, favorito_ids, usuarios }) {
     const confirmar = useConfirm();
-    // Listagem rola só por dentro — a página nunca (padrão gpe2).
-    const scrollRef = useFillViewportHeight();
     const data = documentos?.data || documentos || [];
     const favIds = favorito_ids || [];
     const filtro = filters?.filtro || '';
@@ -72,7 +71,7 @@ export default function DocumentosIndex({ documentos, filters, favorito_ids, usu
     const bulkAction = async (action) => {
         if (selected.length === 0) return;
         if (action === 'excluir') {
-            if (!await confirmar({ titulo: `Excluir ${selected.length} documento(s)?`, tom: 'perigo', rotuloConfirmar: 'Excluir' })) return;
+            if (!await confirmar(exclusao(`Excluir ${selected.length} documento(s)?`))) return;
             selected.forEach(id => router.delete(`/documentos/${id}`, { preserveState: true, preserveScroll: true }));
             setSelected([]);
         }
@@ -169,9 +168,9 @@ export default function DocumentosIndex({ documentos, filters, favorito_ids, usu
                 </div>
 
                 {/* Tabela */}
-                <div ref={scrollRef} className="overflow-auto">
+                <TabelaRolavel total={data.length} paginado={documentos?.last_page > 1}>
                     <table className="w-full text-sm">
-                        <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
+                        <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
                             <tr>
                                 <th className="px-3 py-3 w-10">
                                     <input type="checkbox" checked={data.length > 0 && selected.length === data.length}
@@ -234,7 +233,7 @@ export default function DocumentosIndex({ documentos, filters, favorito_ids, usu
                                                 <ActionBtn icon="fas fa-pen" title="Editar"
                                                     onClick={() => router.visit(`/documentos/${row.id}`)} />
                                                 <ActionBtn icon="fas fa-trash" title="Excluir" danger
-                                                    onClick={async () => { if (await confirmar({ titulo: 'Excluir este documento?', tom: 'perigo', rotuloConfirmar: 'Excluir' })) router.delete(`/documentos/${row.id}`); }} />
+                                                    onClick={async () => { if (await confirmar(exclusao('Excluir este documento?'))) router.delete(`/documentos/${row.id}`); }} />
                                             </div>
                                         </td>
                                         {/* Status */}
@@ -266,7 +265,7 @@ export default function DocumentosIndex({ documentos, filters, favorito_ids, usu
                             })}
                         </tbody>
                     </table>
-                </div>
+                </TabelaRolavel>
 
                 {/* Paginacao */}
                 {documentos?.links && documentos.last_page > 1 && (

@@ -11,20 +11,31 @@ import { useId } from 'react';
  * Props:
  *   texto:     texto dentro da folha (default "Docs")
  *   size:      tamanho em px (default 64)
+ *   modulo:    chave do módulo (MODULO_CONFIG: ged, gepsp, configuracoes) — define o tom
  *   tons:      [claro, escuro] para forçar as cores (opcional)
  *   className: classes adicionais
  */
+// Pela CHAVE do módulo, não pelo texto exibido: o texto muda ("Flow" virou "Fluxos") e a
+// cor não pode depender disso.
 const TONS = {
-    Docs: ['#2BC4D4', '#0B8A9C'],   // turquesa da marca
-    Flow: ['#34D3A6', '#0E8F6E'],   // verde-água (Flow usa teal/emerald)
-    Conf: ['#8FA3BF', '#40546F'],   // azul-ardósia (Config usa slate)
+    ged:           ['#2BC4D4', '#0B8A9C'],   // turquesa da marca
+    gepsp:         ['#34D3A6', '#0E8F6E'],   // verde-água (Fluxos usa teal/emerald)
+    configuracoes: ['#8FA3BF', '#40546F'],   // azul-ardósia (Config usa slate)
 };
-const PADRAO = TONS.Docs;
+const PADRAO = TONS.ged;
 
-export default function ModuloIcon({ texto = 'Docs', size = 64, tons = null, className = '' }) {
+// Texto na folha: até 4 letras no corpo cheio; palavras maiores diminuem a fonte na mesma
+// proporção (antes eram espremidas na largura máxima e ficavam deformadas).
+const FONTE = 17;
+const LARGURA_LETRA = 9.4;     // largura média de uma letra Inter 800 no corpo FONTE
+const LETRAS_CORPO_CHEIO = 4;
+
+export default function ModuloIcon({ texto = 'Docs', modulo = null, size = 64, tons = null, className = '' }) {
     const id = useId().replace(/:/g, '');
-    const [claro, escuro] = tons || TONS[texto] || PADRAO;
-    const larguraTexto = Math.min(36, (texto || '').length * 9.4);
+    const [claro, escuro] = tons || TONS[modulo] || PADRAO;
+    const letras = Math.max(1, (texto || '').length);
+    const fonte = letras <= LETRAS_CORPO_CHEIO ? FONTE : FONTE * LETRAS_CORPO_CHEIO / letras;
+    const larguraTexto = letras * LARGURA_LETRA * (fonte / FONTE);
 
     return (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width={size} height={size}
@@ -54,7 +65,7 @@ export default function ModuloIcon({ texto = 'Docs', size = 64, tons = null, cla
 
             {/* Nome do módulo */}
             <text x="51" y="68" textAnchor="middle"
-                fontFamily="Inter, ui-sans-serif, system-ui, sans-serif" fontWeight="800" fontSize="17"
+                fontFamily="Inter, ui-sans-serif, system-ui, sans-serif" fontWeight="800" fontSize={fonte}
                 textLength={larguraTexto} lengthAdjust="spacingAndGlyphs" fill={escuro}>
                 {texto}
             </text>

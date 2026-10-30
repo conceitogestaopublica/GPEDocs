@@ -29,6 +29,8 @@ services:
       - ./app:/var/www/html/app
       - ./database:/var/www/html/database
       - ./routes:/var/www/html/routes
+      # bootstrap/app.php registra middlewares: sem o bind, mudança nele só valia após rebuild.
+      - ./bootstrap/app.php:/var/www/html/bootstrap/app.php:ro
       - ./config:/var/www/html/config
       - ./resources:/var/www/html/resources
       - ./lang:/var/www/html/lang
@@ -109,6 +111,8 @@ services:
       - ./app:/var/www/html/app
       - ./database:/var/www/html/database
       - ./routes:/var/www/html/routes
+      # bootstrap/app.php registra middlewares: sem o bind, mudança nele só valia após rebuild.
+      - ./bootstrap/app.php:/var/www/html/bootstrap/app.php:ro
       - ./config:/var/www/html/config
       - ./resources:/var/www/html/resources
       - ./lang:/var/www/html/lang

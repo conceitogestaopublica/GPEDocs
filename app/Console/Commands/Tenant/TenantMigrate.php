@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands\Tenant;
 
 use App\Console\Commands\Concerns\TenantAware;
+use App\Models\Tenant;
 use Illuminate\Console\Command;
 
 /**
@@ -110,9 +111,22 @@ class TenantMigrate extends Command
         return true;
     }
 
+    /** --fresh e --rollback num tenant só também apagam/revertem: confirma nomeando o banco. */
+    protected function confirmarExecucaoUm(Tenant $tenant): bool
+    {
+        if ($this->option('fresh')) {
+            return $this->confirm("Isso vai DROPAR e recriar o banco '{$tenant->db_name}' ({$tenant->nome}). Tem certeza?", false);
+        }
+        if ($this->option('rollback')) {
+            return $this->confirm("Isso vai REVERTER migrations no banco '{$tenant->db_name}' ({$tenant->nome}). Tem certeza?", false);
+        }
+
+        return true;
+    }
+
     /** true quando o --tenant informado pede TODOS os tenants (all/todos/*). */
     private function tenantEhTodos(): bool
     {
-        return in_array(strtolower((string) $this->option('tenant')), ['all', 'todos', '*'], true);
+        return $this->ehTodos($this->option('tenant'));
     }
 }

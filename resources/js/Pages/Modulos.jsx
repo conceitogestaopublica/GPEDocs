@@ -117,7 +117,7 @@ export default function Modulos() {
                             className="group bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-xl hover:border-transparent hover:ring-2 hover:ring-blue-200 transition-all duration-300 text-center"
                         >
                             <div className="flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
-                                <ModuloIcon texto={mod.iconText} size={72} />
+                                <ModuloIcon texto={mod.iconText} modulo={mod.key} size={72} />
                             </div>
                             <h3 className="text-sm font-bold text-gray-800 mb-1">{mod.sigla}</h3>
                             <p className="text-xs text-gray-500 leading-relaxed">{mod.nome}</p>

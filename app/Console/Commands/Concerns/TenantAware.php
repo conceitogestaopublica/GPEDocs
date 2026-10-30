@@ -36,6 +36,12 @@ trait TenantAware
      * Executa $callback para 1 tenant (--tenant=domain) ou todos (--tenant=ALL).
      * Retorna o pior código de saída.
      */
+    /** Valor de --tenant que significa TODOS os tenants. */
+    protected function ehTodos(?string $valor): bool
+    {
+        return in_array(strtolower((string) $valor), ['all', 'todos', '*'], true);
+    }
+
     protected function runForTenant(callable $callback): int
     {
         $opt = $this->option('tenant');
@@ -56,7 +62,7 @@ trait TenantAware
             }
         }
 
-        if (in_array(strtolower((string) $opt), ['all', 'todos', '*'], true)) {
+        if ($this->ehTodos($opt)) {
             return $this->runForAllTenants($callback);
         }
 
@@ -64,8 +70,22 @@ trait TenantAware
         if (! $tenant) {
             return self::FAILURE;
         }
+        if (! $this->confirmarExecucaoUm($tenant)) {
+            $this->info('Cancelado.');
+
+            return self::FAILURE;
+        }
 
         return $this->runForOne($tenant, $callback);
+    }
+
+    /**
+     * Hook de confirmação antes de rodar em UM tenant. Padrão: sem confirmação. Comandos
+     * destrutivos (--fresh/--rollback) sobrescrevem — o alvo único é tão real quanto TODOS.
+     */
+    protected function confirmarExecucaoUm(Tenant $tenant): bool
+    {
+        return true;
     }
 
     /**
@@ -184,20 +204,32 @@ trait TenantAware
             }
         }
 
-        $tenant = $this->tenantsAtivos()->where(function ($q) use ($valor) {
+        // Por ID, subdomínio ou FQDN (`sub.domínio`). NÃO por domínio sozinho: o escopo global
+        // já deixa todos os tenants com o mesmo `domain`, e casar por ele pegava um qualquer.
+        $candidatos = $this->tenantsAtivos()->where(function ($q) use ($valor) {
             if (ctype_digit($valor)) {
                 $q->where('id', (int) $valor);
             }
             $q->orWhere('subdomain', $valor)
-                ->orWhere('domain', $valor)
                 ->orWhereRaw("CONCAT(subdomain, '.', domain) = ?", [$valor]);
-        })->first();
+        })->orderBy('id')->get();
 
-        if (! $tenant) {
+        if ($candidatos->isEmpty()) {
             $this->error("Tenant '{$valor}' não encontrado, inativo ou fora do domínio '".config('multitenancy.dominio_base')."'.");
 
             return null;
         }
+        // Em dev todos têm subdomain 'localhost': ambíguo. Recusa em vez de escolher um.
+        if ($candidatos->count() > 1) {
+            $this->error("'{$valor}' corresponde a mais de um tenant. Informe o ID:");
+            foreach ($candidatos as $t) {
+                $this->line('  '.$t->id.'  '.$this->rotuloTenant($t));
+            }
+
+            return null;
+        }
+
+        $tenant = $candidatos->first();
 
         return $tenant;
     }

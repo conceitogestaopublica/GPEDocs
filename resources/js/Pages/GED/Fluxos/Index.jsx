@@ -7,6 +7,7 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import DataTable from '../../../Components/DataTable';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import { exclusao } from '../../../utils/confirmacoes';
 
 export default function FluxosIndex({ fluxos }) {
     const confirmar = useConfirm();
@@ -50,7 +51,7 @@ export default function FluxosIndex({ fluxos }) {
                                 Editar
                             </Button>
                             <button onClick={async () => {
-                                if (await confirmar({ titulo: 'Excluir este fluxo?', tom: 'perigo', rotuloConfirmar: 'Excluir' })) router.delete(`/fluxos/${row.id}`);
+                                if (await confirmar(exclusao('Excluir este fluxo?'))) router.delete(`/fluxos/${row.id}`);
                             }} className="ds-btn ds-btn-sm ds-btn-danger" title="Excluir">
                                 <i className="fas fa-trash text-xs" />
                             </button>

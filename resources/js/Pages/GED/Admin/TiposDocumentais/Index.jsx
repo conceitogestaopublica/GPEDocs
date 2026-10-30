@@ -8,7 +8,7 @@ import PageHeader from '../../../../Components/PageHeader';
 import Button from '../../../../Components/Button';
 import Modal from '../../../../Components/Modal';
 import Card from '../../../../Components/Card';
-import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
+import TabelaRolavel from '../../../../Components/TabelaRolavel';
 
 const TIPOS_CAMPO = [
     { value: 'text', label: 'Texto' },
@@ -18,8 +18,6 @@ const TIPOS_CAMPO = [
 ];
 
 export default function TiposDocumentais({ tipos }) {
-    // Listagem rola só por dentro — a página nunca (padrão gpe2).
-    const scrollRef = useFillViewportHeight();
     const [showForm, setShowForm] = useState(false);
     const [editTipo, setEditTipo] = useState(null);
     const [deleteTipo, setDeleteTipo] = useState(null);
@@ -38,9 +36,9 @@ export default function TiposDocumentais({ tipos }) {
             </PageHeader>
 
             <Card padding={false}>
-                <div ref={scrollRef} className="overflow-auto">
+                <TabelaRolavel total={(tipos || []).length}>
                     <table className="w-full text-sm">
-                        <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-xs">
+                        <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
                             <tr>
                                 <th className="px-4 py-3 text-left font-semibold">Nome</th>
                                 <th className="px-4 py-3 text-left font-semibold">Descrição</th>
@@ -99,7 +97,7 @@ export default function TiposDocumentais({ tipos }) {
                             ))}
                         </tbody>
                     </table>
-                </div>
+                </TabelaRolavel>
                 {(!tipos || tipos.length === 0) && (
                     <div className="py-12 text-center text-gray-400">
                         <i className="fas fa-file-signature text-3xl mb-2 block" />

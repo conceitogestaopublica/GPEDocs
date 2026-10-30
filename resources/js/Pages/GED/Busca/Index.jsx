@@ -9,11 +9,9 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
-import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
+import TabelaRolavel from '../../../Components/TabelaRolavel';
 
 export default function Busca({ resultados, filtros_aplicados, tipos_documentais, pastas, buscas_salvas }) {
-    // Listagem rola só por dentro — a página nunca (padrão gpe2).
-    const scrollRef = useFillViewportHeight();
     const docs = resultados?.data || resultados || [];
     const tipos = tipos_documentais || [];
     const pastaList = pastas || [];
@@ -173,9 +171,9 @@ export default function Busca({ resultados, filtros_aplicados, tipos_documentais
                     )}
 
                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                        <div ref={scrollRef} className="overflow-auto">
+                        <TabelaRolavel total={docs.length}>
                             <table className="w-full text-sm">
-                                <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
+                                <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider">
                                     <tr>
                                         <th className="px-4 py-3 text-left font-semibold">Documento</th>
                                         <th className="px-4 py-3 text-left font-semibold">Tipo</th>
@@ -228,7 +226,7 @@ export default function Busca({ resultados, filtros_aplicados, tipos_documentais
                                     ))}
                                 </tbody>
                             </table>
-                        </div>
+                        </TabelaRolavel>
 
                         {(!resultados || docs.length === 0) && (
                             <div className="py-16 text-center text-gray-400">

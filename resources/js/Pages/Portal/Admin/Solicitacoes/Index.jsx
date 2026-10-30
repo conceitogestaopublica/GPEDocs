@@ -6,7 +6,7 @@ import { useState } from 'react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import PageHeader from '../../../../Components/PageHeader';
 import Card from '../../../../Components/Card';
-import useFillViewportHeight from '../../../../Hooks/useFillViewportHeight';
+import TabelaRolavel from '../../../../Components/TabelaRolavel';
 
 const STATUS_CORES = {
     aberta:         'bg-blue-100 text-blue-700',
@@ -17,8 +17,6 @@ const STATUS_CORES = {
 };
 
 export default function SolicitacoesIndex({ solicitacoes, servicos, statusList, contagens, filtros }) {
-    // Listagem rola só por dentro — a página nunca (padrão gpe2).
-    const scrollRef = useFillViewportHeight();
     const [busca, setBusca] = useState(filtros?.q || '');
     const [filtroStatus, setFiltroStatus] = useState(filtros?.status || '');
     const [filtroServico, setFiltroServico] = useState(filtros?.servico_id || '');
@@ -95,9 +93,9 @@ export default function SolicitacoesIndex({ solicitacoes, servicos, statusList, 
             </form>
 
             <Card padding={false}>
-                <div ref={scrollRef} className="overflow-auto">
+                <TabelaRolavel total={(solicitacoes.data || []).length}>
                     <table className="w-full text-sm">
-                        <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-xs">
+                        <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
                             <tr>
                                 <th className="px-4 py-3 text-left font-semibold">Código / Serviço</th>
                                 <th className="px-4 py-3 text-left font-semibold">Cidadão</th>
@@ -148,7 +146,7 @@ export default function SolicitacoesIndex({ solicitacoes, servicos, statusList, 
                             )}
                         </tbody>
                     </table>
-                </div>
+                </TabelaRolavel>
             </Card>
 
             {solicitacoes.last_page > 1 && (

@@ -30,49 +30,13 @@ class TenantContext
     }
 
     /**
-     * Config de conexão de um tenant a partir da LINHA dele — para quem precisa abrir uma
-     * conexão nomeada para outro banco SEM trocar o tenant ativo (publicação das universais,
-     * comparações matriz × município).
-     */
-    public function configPara(Tenant $tenant): array
-    {
-        return $this->buildConfig($tenant);
-    }
-
-    /**
-     * Config para um banco de tenant pelo NOME do banco.
-     *
-     * Existe porque clonar a conexão default e trocar só o `database` só funciona quando
-     * todos os tenants moram no mesmo servidor, com as mesmas credenciais — o que vale no
-     * ambiente de desenvolvimento e NÃO vale em produção. Lá a conexão falhava e o erro
-     * ainda saía disfarçado ("banco sem as tabelas universais").
-     *
-     * Banco não cadastrado (template, clone de teste) cai na conexão default, que é o
-     * comportamento antigo e continua correto para eles.
-     */
-    public function configPorBanco(string $database): array
-    {
-        $tenant = Tenant::query()->where('db_name', $database)->first();
-        if ($tenant) {
-            return $this->buildConfig($tenant);
-        }
-
-        $base = config('database.connections.'.config('database.default'));
-        if (! is_array($base)) {
-            throw new \RuntimeException('Conexão default não encontrada.');
-        }
-        $base['database'] = $database;
-
-        return $base;
-    }
-
-    /**
      * Monta a config da conexão do tenant conforme o driver do banco.
      * Suporta mariadb/mysql (padrão) e pgsql (migração para PostgreSQL).
      */
     private function buildConfig(Tenant $tenant): array
     {
-        $driver = $tenant->driver ?: 'mariadb';
+        // Sem driver no cadastro: o mesmo da conexão landlord (os tenants do GPE Docs são PostgreSQL).
+        $driver = $tenant->driver ?: config('database.connections.landlord.driver');
         $base = [
             'driver' => $driver,
             'host' => $tenant->db_host,
@@ -127,16 +91,8 @@ class TenantContext
     }
 
     /**
-     * Subdomínio do tenant ativo — o identificador curto e único do município.
-     *
-     * O método simplesmente nunca existiu, e TRÊS lugares o chamavam: `TenantCache` (que
-     * prefixa a chave de cache para não vazar dado entre municípios), `TenantStorage` (que
-     * separa os arquivos por tenant) e o `PcaspRoteirosSeeder`. Todos morriam com "Call to
-     * undefined method" no primeiro uso — o `TenantCache` inteiro estava inutilizável, e por
-     * isso ninguém o usava. O PHPStan apontava desde sempre, com as 3 ocorrências no baseline.
-     *
-     * `domain()` NÃO serve como substituto: em produção ele guarda o domínio base
-     * (maatgpecloud.com.br), igual para todos os municípios.
+     * Subdomínio do tenant ativo — o identificador curto do município. Não usar domain()
+     * no lugar: em produção ele guarda o domínio base, igual para todos os municípios.
      */
     public function subdomain(): ?string
     {

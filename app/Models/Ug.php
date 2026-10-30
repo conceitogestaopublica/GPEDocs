@@ -11,6 +11,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Ug extends Model
 {
+    /** UG modelo criada pelo UgModeloSeeder (estrutura de um tenant novo). */
+    public const CODIGO_MODELO = 'UG-MODELO';
+
     protected $table = 'ugs';
 
     protected $fillable = [

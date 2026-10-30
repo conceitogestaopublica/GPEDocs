@@ -9,6 +9,7 @@ import Button from '../../../Components/Button';
 import Modal from '../../../Components/Modal';
 import Card from '../../../Components/Card';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import { exclusao } from '../../../utils/confirmacoes';
 
 export default function Banners({ ug, banners }) {
     const confirmar = useConfirm();
@@ -22,7 +23,7 @@ export default function Banners({ ug, banners }) {
         router.post(`/configuracoes/ugs/${ug.id}/banners/${banner.id}/move/${direcao}`, {}, { preserveScroll: true });
     };
     const excluir = async (banner) => {
-        if (! await confirmar({ titulo: 'Excluir este banner?', descricao: 'A imagem será removida.', tom: 'perigo', rotuloConfirmar: 'Excluir' })) return;
+        if (! await confirmar(exclusao('Excluir este banner?', 'A imagem será removida.'))) return;
         router.delete(`/configuracoes/ugs/${ug.id}/banners/${banner.id}`, { preserveScroll: true });
     };
 

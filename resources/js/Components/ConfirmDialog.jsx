@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Button from './Button';
+import useEscape from '../Hooks/useEscape';
 
 /**
  * Janela de confirmação/aviso padrão do sistema — substitui `window.confirm` e
@@ -60,7 +61,7 @@ export default function ConfirmDialog({
     descricao = null,
     detalhes: detalhesProp = [],
     tom = 'info',
-    rotuloConfirmar = 'Confirmar',
+    rotuloConfirmar = null,
     rotuloCancelar = 'Cancelar',
     somenteOk = false,
     exigirTexto = null,
@@ -77,13 +78,9 @@ export default function ConfirmDialog({
         if (open) setDigitado('');
     }, [open]);
 
-    // Esc fecha (como no nativo); Enter confirma quando não há texto a digitar.
-    useEffect(() => {
-        if (!open) return;
-        const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [open, onClose]);
+    // Esc fecha só esta camada (pilha do useEscape). Enter confirma porque o foco inicial
+    // fica no botão de confirmar (efeito abaixo) — ou, com texto exigido, no campo.
+    useEscape(() => onClose?.(), open);
 
     useEffect(() => {
         if (!open) return;
@@ -149,7 +146,7 @@ export default function ConfirmDialog({
 
                 <div ref={botaoRef} className="flex flex-row-reverse gap-2 px-6 py-4 mt-2 bg-gray-50 border-t border-gray-100">
                     <Button onClick={confirmar} variant={cls.variante} className={cls.botao} disabled={!liberado}>
-                        {somenteOk ? (rotuloConfirmar === 'Confirmar' ? 'Entendi' : rotuloConfirmar) : rotuloConfirmar}
+                        {rotuloConfirmar ?? (somenteOk ? 'Entendi' : 'Confirmar')}
                     </Button>
                     {!somenteOk && <Button onClick={onClose} variant="secondary">{rotuloCancelar}</Button>}
                 </div>

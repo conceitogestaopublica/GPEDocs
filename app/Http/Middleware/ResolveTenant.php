@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Models\Tenant;
+use App\Tenant\LandlordUrl;
 use App\Tenant\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
@@ -29,17 +30,11 @@ class ResolveTenant
     /** Subdomains "reservados" que não correspondem a tenants. */
     private const SUBDOMAINS_RESERVADOS = ['www', 'admin', 'api'];
 
-    /** URL absoluta do painel landlord (gpe2) — usada fora daqui para links "voltar ao painel". */
-    public static $LANDLORD_URL = '';
-
-    public static $LANDLORD_PORT = '';
-
     public function handle(Request $request, Closure $next): Response
     {
         $host = $request->getHost();
 
-        self::$LANDLORD_PORT = $request->getPort();
-        self::$LANDLORD_URL = $this->landlordUrl($request);
+        $landlord = LandlordUrl::de($request);
 
         // Única definição de "é ambiente local" — cobre localhost e IP cru.
         $isLocal = $host === 'localhost' || filter_var($host, FILTER_VALIDATE_IP);
@@ -49,13 +44,13 @@ class ResolveTenant
         // Coluna `domain` do tenant: em dev guarda a porta (':8090'); em produção,
         // o host sem o subdomain (paraguacu.gpedocs.com.br → gpedocs.com.br).
         $dominio = $isLocal
-            ? ':'.self::$LANDLORD_PORT
+            ? ':'.$request->getPort()
             : ($subdomain === null ? '' : substr($host, strlen($subdomain) + 1));
 
         // ── Painel landlord: só existe no gpe2 ────────────────────────────────
         // (NÃO casa 'sso/landlord' — consumo SSO do lado tenant, que precisa do tenant.)
         if ($request->is('landlord', 'landlord/*') || (! $isLocal && $subdomain === 'admin')) {
-            return $this->paraLandlord('/landlord/tenants');
+            return $this->paraLandlord($landlord, '/landlord/tenants');
         }
 
         // www / api / apex → não ativa tenant (landing/API).
@@ -68,6 +63,7 @@ class ResolveTenant
         if (! $tenant) {
             // Tenant não existe ou está inativo → login do painel landlord (gpe2).
             return $this->paraLandlord(
+                $landlord,
                 '/landlord/login',
                 "Nenhum tenant encontrado para o endereço '{$subdomain}{$dominio}'."
             );
@@ -82,35 +78,13 @@ class ResolveTenant
      * Redireciona para o painel do gpe2. Sem LANDLORD_URL não há destino seguro
      * (relativo cairia neste mesmo host, em loop) → 404 explícito.
      */
-    private function paraLandlord(string $path, ?string $msg = null): Response
+    private function paraLandlord(string $landlord, string $path, ?string $msg = null): Response
     {
-        if (self::$LANDLORD_URL === '') {
+        if ($landlord === '') {
             abort(404, $msg ?? '');
         }
 
-        return redirect()->away(self::$LANDLORD_URL.$path);
-    }
-
-    /**
-     * URL absoluta do painel landlord, com esquema garantido.
-     *
-     * Location sem esquema é interpretado como caminho relativo pelo browser
-     * (vira /landlord/admin.exemplo.com.br), então herda o esquema da request
-     * quando a config vier só com o host.
-     */
-    private function landlordUrl(Request $request): string
-    {
-        $url = (string) config('multitenancy.landlord_url');
-
-        if ($url === '') {
-            return '';
-        }
-
-        if (! str_contains($url, '://')) {
-            $url = $request->getScheme().'://'.$url;
-        }
-
-        return rtrim($url, '/');
+        return redirect()->away($landlord.$path);
     }
 
     /**
@@ -138,34 +112,31 @@ class ResolveTenant
     }
 
     /**
-     * Cache do tenant por (domain, subdomain) — a porta entra na chave via
-     * $dominio, senão duas instâncias dev em portas diferentes se misturam.
+     * Tenant de (domain, subdomain). O cache guarda SÓ O ID — nunca o model, que levaria a
+     * senha do banco para o disco; e o tenant é relido pela chave primária a cada request,
+     * então desativado no gpe2 deixa de valer na hora. 0 marca "não existe" (TTL curto: o
+     * tenant recém-criado no painel aparece rápido). A porta entra na chave via $dominio,
+     * senão duas instâncias dev em portas diferentes se misturam.
      */
     private function resolveTenant(string $dominio, string $subdomain): ?Tenant
     {
-        $consulta = fn (): ?Tenant => Tenant::active()
+        $buscarId = fn (): int => (int) Tenant::active()
             ->where('domain', $dominio)
             ->where('subdomain', $subdomain)
-            ->first();
+            ->value('id');
 
         try {
             $cache = Cache::store('file');
-            $chave = "tenant:subdomain:{$dominio}.{$subdomain}";
-
-            // `false` marca "não existe": Cache::remember trata null como ausência
-            // e repetiria a query no landlord a cada request. TTL curto no miss para
-            // o tenant recém-criado no painel aparecer rápido.
-            $tenant = $cache->get($chave);
-
-            if ($tenant === null) {
-                $tenant = $consulta() ?: false;
-                $cache->put($chave, $tenant, $tenant === false ? 60 : 300);
+            $chave = "tenant:id:{$dominio}.{$subdomain}";
+            $id = $cache->get($chave);
+            if (! is_int($id)) {
+                $id = $buscarId();
+                $cache->put($chave, $id, $id === 0 ? 60 : 300);
             }
-
-            return $tenant ?: null;
-        } catch (\Throwable $e) {
-            // Se cache falhar, consulta direto (não derruba a app)
-            return $consulta();
+        } catch (\Throwable) {
+            $id = $buscarId(); // cache fora do ar não derruba a app
         }
+
+        return $id > 0 ? Tenant::active()->find($id) : null;
     }
 }

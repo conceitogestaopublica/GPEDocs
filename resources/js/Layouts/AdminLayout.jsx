@@ -11,6 +11,8 @@ import FlashMessage from '../Components/FlashMessage';
 import Sidebar from '../Components/Sidebar';
 import ChatFlutuante from '../Components/ChatFlutuante';
 import CommandPalette from '../Components/CommandPalette';
+import NotificacoesDropdown from '../Components/NotificacoesDropdown';
+import useClickFora from '../Hooks/useClickFora';
 import { rotinasDe } from '../menus';
 
 // Detectar modulo pela URL
@@ -21,7 +23,7 @@ function getModulo(url) {
 }
 
 export default function AdminLayout({ children }) {
-    const { auth, flash, notificacoes_pendentes, tenant, favoritos } = usePage().props;
+    const { auth, flash, notificacoes_pendentes, notificacoes_recentes, tenant, favoritos } = usePage().props;
     const { url } = usePage();
     const modulo = getModulo(url);
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -29,7 +31,6 @@ export default function AdminLayout({ children }) {
     // sessão do navegador (sessionStorage — some ao fechar o navegador/aba).
     const [collapsed, setCollapsed] = useState(() => {
         try {
-            localStorage.removeItem('ged_sidebar_collapsed');
             return sessionStorage.getItem('ged_sidebar_expandida') !== 'true';
         } catch (_) {
             return true;
@@ -97,7 +98,7 @@ export default function AdminLayout({ children }) {
                         <div className="hidden sm:block w-px h-8 bg-gray-200" />
 
                         <FavoritosMenu favoritos={favoritos || []} />
-                        <NotificacoesDropdown count={notificacoes_pendentes || 0} />
+                        <NotificacoesDropdown count={notificacoes_pendentes || 0} recentes={notificacoes_recentes || []} />
 
                         <UserMenu user={auth?.user} />
                     </div>
@@ -129,17 +130,6 @@ export default function AdminLayout({ children }) {
     );
 }
 
-/** Fecha o dropdown ao clicar fora. */
-function useFora(setOpen) {
-    const ref = useRef(null);
-    useEffect(() => {
-        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [setOpen]);
-    return ref;
-}
-
 /**
  * UG ativa — pílula verde como a gestora do gpe2. Com mais de uma UG, leva à tela de troca.
  */
@@ -167,7 +157,7 @@ function UgPill({ tenant }) {
 /** Rotinas favoritas (marcadas com a estrela na busca Ctrl+K). */
 function FavoritosMenu({ favoritos }) {
     const [open, setOpen] = useState(false);
-    const ref = useFora(setOpen);
+    const ref = useClickFora(setOpen);
     const remover = (e, href) => {
         e.preventDefault();
         e.stopPropagation();
@@ -222,52 +212,12 @@ function FavoritosMenu({ favoritos }) {
 /**
  * Dropdown de Notificacoes
  */
-function NotificacoesDropdown({ count }) {
-    const [open, setOpen] = useState(false);
-    const ref = useFora(setOpen);
-
-    return (
-        <div className="relative" ref={ref}>
-            <button onClick={() => setOpen(!open)} title="Notificações"
-                className="relative w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors">
-                <i className="fas fa-bell text-sm" />
-                {count > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                        {count > 99 ? '99+' : count}
-                    </span>
-                )}
-            </button>
-
-            {open && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-fadeIn" data-topbar-dropdown>
-                    <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                        <p className="text-sm font-semibold text-gray-800">Notificações</p>
-                        {count > 0 && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{count} novas</span>}
-                    </div>
-                    <div className="max-h-64 overflow-y-auto">
-                        {count === 0 && (
-                            <div className="px-4 py-6 text-center text-gray-400">
-                                <i className="fas fa-bell-slash text-2xl mb-2 block" />
-                                <p className="text-sm">Nenhuma notificação nova</p>
-                            </div>
-                        )}
-                        <Link href={count > 0 ? '/notificacoes?nao_lidas=1' : '/notificacoes'}
-                            className="block px-4 py-3 text-sm text-primary-600 hover:bg-primary-50 text-center font-medium">
-                            {count > 0 ? 'Ver notificações novas' : 'Ver todas as notificações'}
-                        </Link>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
 /**
  * Menu do usuario
  */
 function UserMenu({ user }) {
     const [open, setOpen] = useState(false);
-    const ref = useFora(setOpen);
+    const ref = useClickFora(setOpen);
     const initials = (user?.name || 'U').substring(0, 2).toUpperCase();
 
     return (

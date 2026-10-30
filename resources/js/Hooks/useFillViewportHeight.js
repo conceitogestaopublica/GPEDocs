@@ -1,28 +1,25 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { alturaDisponivel, semExcesso } from '../utils/alturaListagem';
+
+/** Paddings dos containers acima/abaixo da listagem + respiro. */
+const FOLGA_PADRAO = 56;
+/** Abaixo disto a listagem não encolhe (tela baixa): aí a página rola, a lista continua usável. */
+const ALTURA_MINIMA = 240;
 
 /**
- * Faz o container de scroll de uma LISTAGEM preencher a altura que sobra até o fim da
- * viewport, rolando SÓ internamente — a página inteira nunca rola. Padrão do gpe2.
+ * Faz o container de uma LISTAGEM preencher a altura que sobra até o fim da tela, rolando
+ * SÓ por dentro — a página inteira não rola (padrão gpe2). Só MEDE e aplica a altura: o
+ * rodapé "N registros" e o cabeçalho fixo são do componente <TabelaRolavel>, renderizados
+ * pelo React (antes o hook inseria/reescrevia nós dentro do DOM do React).
  *
- * Cálculo top-down: mede o topo real do elemento e reserva abaixo dele o próximo irmão
- * (paginação, se houver) + o `<footer>` do layout + `gap` (paddings dos containers + respiro).
- * Depois CORRIGE pelo que de fato sobrou: se a página ainda passa da viewport (ex.: paginação
- * fora do card, que o cálculo não enxerga), desconta o excesso. Tabelas curtas nunca são
- * cortadas; só as altas são limitadas. Recalcula no resize e a cada mudança de layout.
+ * Conta (utils/alturaListagem): do topo do elemento até o fim da tela, menos o irmão logo
+ * abaixo (paginação), o <footer> do layout e uma folga; depois desconta o que ainda passar
+ * da tela. Sendo o último bloco da página, também ocupa o espaço que sobra (minHeight).
+ * Recalcula no resize e a cada mudança de layout.
  *
- * Quando a listagem é o último bloco da página, também recebe `minHeight` igual — ocupa o
- * espaço que sobra em vez de deixar um vazio abaixo do cartão.
- *
- * Diferença do gpe2: devolve uma CALLBACK REF, não um objeto ref. Assim funciona também com
- * tabela que monta depois (aba, carregamento) — o objeto ref só era lido na montagem.
- *
- * Uso: `const ref = useFillViewportHeight(); ... <div ref={ref} className="overflow-auto">`
- * com `<thead className="sticky top-0 ...">` para o cabeçalho ficar fixo.
- *
- * @param {{ gap?: number, minHeight?: number }} [opts]
- * @returns {(el: HTMLElement|null) => void}
+ * Devolve uma CALLBACK REF (funciona com tabela que monta depois — aba, carregamento).
  */
-export default function useFillViewportHeight({ gap = 56, minHeight = 240 } = {}) {
+export default function useFillViewportHeight({ folga = FOLGA_PADRAO, minima = ALTURA_MINIMA } = {}) {
     const limpar = useRef(null);
 
     const ref = useCallback((el) => {
@@ -30,57 +27,25 @@ export default function useFillViewportHeight({ gap = 56, minHeight = 240 } = {}
         limpar.current = null;
         if (!el) return;
 
-        // Rodapé FIXO no pé do container: como o cabeçalho sticky no topo, uma faixa sticky
-        // embaixo — a linha cortada pela rolagem não encosta na borda do cartão.
-        //   - com paginação logo abaixo (irmão), a própria paginação é o rodapé: faixa fina;
-        //   - sem paginação, a faixa vira a barra "N registros".
-        if (!el.querySelector(':scope > [data-rodape-listagem]')) {
-            const rodape = document.createElement('div');
-            rodape.dataset.rodapeListagem = '';
-            rodape.className = el.nextElementSibling
-                ? 'sticky bottom-0 h-2.5 bg-white'
-                : 'sticky bottom-0 px-5 py-3 border-t border-gray-100 bg-gray-50/95 text-xs text-gray-500';
-            el.appendChild(rodape);
-            el.querySelectorAll('tfoot.sticky').forEach((t) => { t.style.bottom = el.nextElementSibling ? '0.625rem' : '2.5rem'; });
-        }
-
         const ajustar = () => {
-            // O React pode inserir nós depois da faixa; ela tem de ser o último filho.
-            const rodape = el.querySelector(':scope > [data-rodape-listagem]');
-            if (rodape && el.lastElementChild !== rodape) el.appendChild(rodape);
-            if (rodape && !el.nextElementSibling) {
-                // Linha única com colspan é a mensagem de "nenhum registro", não um registro.
-                const linhas = [...el.querySelectorAll('tbody > tr')].filter((tr) => !(tr.children.length === 1 && tr.firstElementChild?.colSpan > 1));
-                const n = linhas.length;
-                const txt = n === 0 ? 'Nenhum registro' : `<strong class="text-gray-700">${n}</strong> registro${n === 1 ? '' : 's'}`;
-                if (rodape.innerHTML !== txt) rodape.innerHTML = txt;
-            }
-
-            const top = el.getBoundingClientRect().top;
             const irmao = el.nextElementSibling;
             const footers = document.querySelectorAll('footer');
-            const footerH = footers.length ? footers[footers.length - 1].offsetHeight : 0;
-            let altura = Math.max(minHeight, window.innerHeight - top - (irmao ? irmao.offsetHeight : 0) - footerH - gap);
-
-            // "Última" = nada depois dela nem de nenhum ancestral até o <main>, tolerando o
-            // irmão imediato (paginação). Só aí ocupa o espaço que sobra.
-            let n = el.nextElementSibling ?? el;
-            let ultima = true;
-            while (n && n.tagName !== 'MAIN' && n !== document.body) {
-                if (n.nextElementSibling) { ultima = false; break; }
-                n = n.parentElement;
-            }
+            let altura = alturaDisponivel({
+                viewport: window.innerHeight,
+                topo: el.getBoundingClientRect().top,
+                irmao: irmao ? irmao.offsetHeight : 0,
+                rodapeLayout: footers.length ? footers[footers.length - 1].offsetHeight : 0,
+                folga,
+                minima,
+            });
+            const ultima = ehUltimoBloco(el);
 
             el.style.maxHeight = `${altura}px`;
             el.style.minHeight = ultima ? `${altura}px` : '';
 
-            // Correção: o que ainda passa da viewport (conteúdo abaixo que o cálculo não viu).
-            const excesso = document.documentElement.scrollHeight - window.innerHeight;
-            if (excesso > 0) {
-                altura = Math.max(minHeight, altura - excesso);
-                el.style.maxHeight = `${altura}px`;
-                if (ultima) el.style.minHeight = `${altura}px`;
-            }
+            altura = semExcesso(altura, document.documentElement.scrollHeight - window.innerHeight, minima);
+            el.style.maxHeight = `${altura}px`;
+            if (ultima) el.style.minHeight = `${altura}px`;
         };
 
         ajustar();
@@ -92,9 +57,20 @@ export default function useFillViewportHeight({ gap = 56, minHeight = 240 } = {}
             window.removeEventListener('resize', ajustar);
             ro.disconnect();
         };
-    }, [gap, minHeight]);
+    }, [folga, minima]);
 
     useEffect(() => () => limpar.current?.(), []);
 
     return ref;
+}
+
+/**
+ * "Último bloco" = nada depois dele nem de nenhum ancestral até o <main>, tolerando o irmão
+ * imediato (paginação). Só aí a listagem ocupa o espaço que sobra.
+ */
+function ehUltimoBloco(el) {
+    for (let n = el.nextElementSibling ?? el; n && n.tagName !== 'MAIN' && n !== document.body; n = n.parentElement) {
+        if (n.nextElementSibling) return false;
+    }
+    return true;
 }

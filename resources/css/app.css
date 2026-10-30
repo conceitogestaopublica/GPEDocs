@@ -48,6 +48,14 @@
     z-index: 10;
 }
 
+/* Cabeçalho fixo das listagens que rolam por dentro (<TabelaRolavel>): definido UMA vez
+   aqui, não repetido em cada tela. */
+.tabela-rolavel thead {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
 /* ── Cursor dos elementos clicáveis ──────────────────────────────────────
    O preflight do Tailwind v4 deixa <button> com cursor padrão (seta). Aqui todo
    elemento clicável ganha a "mãozinha", e desabilitado mostra "proibido".
@@ -368,13 +376,6 @@ main table tbody tr:hover { background-color: var(--ds-surface-hover); }
     to { transform: translateX(0); }
 }
 .animate-slideInRight { animation: slideInRight 0.3s ease-out; }
-
-/* Flyout da sidebar minimizada: rótulo desliza para fora do ícone. */
-@keyframes flyoutIn {
-    from { opacity: 0; transform: translateX(-8px) scale(0.97); }
-    to { opacity: 1; transform: none; }
-}
-.animate-flyoutIn { animation: flyoutIn 0.18s cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: left center; }
 
 /* Modais — regra GLOBAL, discreta, sem tocar em cada tela.
    Todo overlay de tela inteira (`fixed inset-0`, ~90 no sistema: confirmação, formulários

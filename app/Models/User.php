@@ -8,6 +8,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -35,6 +36,50 @@ class User extends Authenticatable
             'super_admin'     => 'boolean',
             'acesso_geral_ug' => 'boolean',
         ];
+    }
+
+    /**
+     * Usuários com este CPF, comparando só os dígitos dos dois lados.
+     *
+     * O cadastro grava o CPF como foi digitado ("020.576.226-30") e quem integra manda só
+     * dígitos ("02057622630"). Comparar a coluna crua não acha ninguém, e a integração criava
+     * um usuário externo duplicado: o documento ia para ele, não para a conta de quem assina.
+     * REPLACE encadeado (e não regexp_replace) para valer igual no PostgreSQL, MySQL e SQLite.
+     *
+     * A conta interna vem primeiro: bancos que já passaram pelo defeito têm, para o mesmo CPF,
+     * a conta real e o externo duplicado — e `->first()` tem de devolver a real.
+     */
+    public function scopePorCpf(Builder $query, string $cpf): Builder
+    {
+        $digitos = preg_replace('/\D/', '', $cpf);
+
+        // Sem dígitos não há CPF: sem esta trava, casaria com quem tem cpf '' ou só máscara.
+        if ($digitos === '') {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereNotNull('cpf')
+            ->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), '/', ''), ' ', '') = ?", [$digitos])
+            ->orderByRaw("CASE WHEN tipo = 'externo' THEN 1 ELSE 0 END")
+            ->orderBy('id');
+    }
+
+    /**
+     * E-mail da conta que entra pelo CPF no login: '' quando não há conta, false quando o CPF
+     * é ambíguo. Havendo várias, vale a única INTERNA — o externo duplicado que a integração
+     * criou para o mesmo CPF (e-mail provisório, senha aleatória) não é quem está entrando.
+     * Um externo sozinho (cadastrado com senha pelo administrador) entra normalmente.
+     */
+    public static function emailParaLoginPorCpf(string $cpf): string|false
+    {
+        $contas = static::porCpf($cpf)->get(['email', 'tipo']);
+        if ($contas->count() <= 1) {
+            return (string) ($contas->first()?->email ?? '');
+        }
+
+        $internas = $contas->where('tipo', '!=', 'externo');
+
+        return $internas->count() === 1 ? (string) $internas->first()->email : false;
     }
 
     public function documentos(): HasMany

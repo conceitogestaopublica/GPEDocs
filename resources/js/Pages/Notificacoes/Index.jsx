@@ -5,6 +5,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import AdminLayout from '../../Layouts/AdminLayout';
 import PageHeader from '../../Components/PageHeader';
 import Button from '../../Components/Button';
+import ItemNotificacao from '../../Components/ItemNotificacao';
 
 export default function NotificacoesIndex({ notificacoes, filtros }) {
     const itens = notificacoes?.data || [];
@@ -40,19 +41,10 @@ export default function NotificacoesIndex({ notificacoes, filtros }) {
                 ) : (
                     <ul className="divide-y divide-gray-100">
                         {itens.map((n) => (
-                            <li key={n.id} className={`px-4 py-3 flex items-start gap-3 ${n.lida ? '' : 'bg-blue-50/40'}`}>
-                                <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${n.lida ? 'bg-gray-200' : 'bg-blue-500'}`} />
-                                <div className="flex-1 min-w-0">
-                                    <p className={`text-sm ${n.lida ? 'text-gray-700' : 'text-gray-900 font-semibold'}`}>{n.titulo}</p>
-                                    {n.mensagem && <p className="text-xs text-gray-500 mt-0.5">{n.mensagem}</p>}
-                                    <p className="text-[11px] text-gray-400 mt-1">{formatarData(n.created_at)}</p>
-                                </div>
+                            <li key={n.id} className={`px-4 py-3 flex items-start gap-3 transition-colors ${n.lida ? '' : 'bg-primary-50/40'} ${n.href ? 'hover:bg-gray-50' : ''}`}>
+                                {/* Com assunto, o conteúdo inteiro é o link: marca como lida e leva até ele. */}
+                                <ItemNotificacao n={n} quando={formatarData(n.created_at)} className="flex-1 min-w-0" />
                                 <div className="flex items-center gap-3 shrink-0">
-                                    {n.tem_link && (
-                                        <Link href={`/notificacoes/${n.id}/abrir`} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
-                                            Abrir
-                                        </Link>
-                                    )}
                                     {!n.lida && (
                                         <button onClick={() => router.post(`/notificacoes/${n.id}/lida`, {}, { preserveScroll: true })}
                                             className="text-xs text-gray-500 hover:text-gray-700">

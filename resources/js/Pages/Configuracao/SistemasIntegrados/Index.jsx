@@ -9,14 +9,13 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
-import useFillViewportHeight from '../../../Hooks/useFillViewportHeight';
+import TabelaRolavel from '../../../Components/TabelaRolavel';
 import { useConfirm, useNotificar } from '../../../Components/ConfirmProvider';
+import { exclusao } from '../../../utils/confirmacoes';
 
 export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
     const confirmar = useConfirm();
     const notificar = useNotificar();
-    // Listagem rola só por dentro — a página nunca (padrão gpe2).
-    const scrollRef = useFillViewportHeight();
     const { props } = usePage();
     const tokenGerado = props.flash?.token_gerado;
 
@@ -69,9 +68,9 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                         <p className="text-xs mt-1">Cadastre um sistema para gerar API token e habilitar a integração.</p>
                     </div>
                 ) : (
-                    <div ref={scrollRef} className="overflow-auto">
+                    <TabelaRolavel total={sistemas.length}>
                         <table className="w-full text-sm">
-                            <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px]">
+                            <thead className="bg-gray-50 text-gray-500 uppercase text-[10px]">
                                 <tr>
                                     <th className="px-3 py-2.5 text-left font-semibold">Código</th>
                                     <th className="px-3 py-2.5 text-left font-semibold">Nome</th>
@@ -124,7 +123,7 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                                                     <i className={`fas fa-${s.ativo ? 'eye-slash' : 'eye'}`} />
                                                 </button>
                                                 <button onClick={async () => {
-                                                        if (await confirmar({ titulo: 'Excluir este sistema?', descricao: 'Só é possível excluir um sistema que ainda não enviou documentos.', tom: 'perigo', rotuloConfirmar: 'Excluir' })) {
+                                                        if (await confirmar(exclusao('Excluir este sistema?', 'Só é possível excluir um sistema que ainda não enviou documentos.'))) {
                                                             router.delete(`/configuracoes/sistemas-integrados/${s.id}`);
                                                         }
                                                     }} title="Excluir"
@@ -137,7 +136,7 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                                 ))}
                             </tbody>
                         </table>
-                    </div>
+                    </TabelaRolavel>
                 )}
             </Card>
             )}
@@ -151,9 +150,9 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                             <p className="text-xs mt-1">Os logs aparecem aqui quando documentos são assinados.</p>
                         </div>
                     ) : (
-                        <div ref={scrollRef} className="overflow-auto">
+                        <TabelaRolavel total={logs.length}>
                             <table className="w-full text-sm">
-                                <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 uppercase text-[10px]">
+                                <thead className="bg-gray-50 text-gray-500 uppercase text-[10px]">
                                     <tr>
                                         <th className="px-3 py-2.5 text-left font-semibold">Sistema</th>
                                         <th className="px-3 py-2.5 text-left font-semibold">Evento</th>
@@ -215,7 +214,7 @@ export default function SistemasIntegradosIndex({ sistemas = [], logs = [] }) {
                                     ))}
                                 </tbody>
                             </table>
-                        </div>
+                        </TabelaRolavel>
                     )}
                 </Card>
             )}

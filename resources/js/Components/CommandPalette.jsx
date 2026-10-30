@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { router, usePage } from '@inertiajs/react';
+import useEscape from '../Hooks/useEscape';
+import useFavoritoRotina from '../Hooks/useFavoritoRotina';
+import { cap, norm, termosDe, trechosRealcados } from '../utils/busca';
 
 /**
  * CommandPalette — busca GLOBAL de rotinas (Ctrl/⌘+K) + FAVORITOS por usuário. Padrão gpe2.
@@ -17,38 +20,34 @@ import { router, usePage } from '@inertiajs/react';
  */
 export default function CommandPalette({ rotinas = [] }) {
     const favoritos = usePage().props.favoritos || [];
-    const favSet = useMemo(() => new Set(favoritos.map((f) => f.href)), [favoritos]);
+    const { ehFavorito, alternar } = useFavoritoRotina();
 
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [ativo, setAtivo] = useState(0);
-    const inputRef = useRef(null);
     const listRef = useRef(null);
 
-    // Ctrl/⌘+K abre/fecha em qualquer tela; Esc fecha.
+    // Ctrl/⌘+K abre/fecha em qualquer tela. Esc fecha (só esta camada — pilha do useEscape).
     useEffect(() => {
         const onKey = (e) => {
             if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
                 e.preventDefault();
                 setOpen((v) => !v);
-            } else if (e.key === 'Escape') {
-                setOpen(false);
             }
         };
         document.addEventListener('keydown', onKey);
         return () => document.removeEventListener('keydown', onKey);
     }, []);
+    useEscape(() => setOpen(false), open);
 
-    // Ao abrir: foca a busca e zera o destaque.
+    // Ao abrir: zera o destaque (o foco vai pelo autoFocus do campo).
     useEffect(() => {
-        if (!open) return;
-        setAtivo(0);
-        setTimeout(() => inputRef.current?.focus(), 20);
+        if (open) setAtivo(0);
     }, [open]);
 
     // Resultado: sem busca → favoritos no topo + demais; com busca → filtro achatado.
     const resultado = useMemo(() => {
-        const termos = norm(query).split(/\s+/).filter(Boolean);
+        const termos = termosDe(query);
         if (termos.length === 0) {
             const favHrefs = new Set(favoritos.map((f) => f.href));
             const favs = favoritos.map((f) => ({ href: f.href, label: f.label, icon: f.icon, modulo: '', grupo: 'Favoritos' }));
@@ -66,10 +65,13 @@ export default function CommandPalette({ rotinas = [] }) {
 
     // Linha "buscar nos documentos": só com texto; sempre a última (Enter nela quando não há rotina).
     const termo = query.trim();
-    const buscaDocs = termo ? { href: `/busca?q=${encodeURIComponent(termo)}`, label: termo, buscaDocs: true } : null;
+    const buscaDocs = useMemo(
+        () => (termo ? { href: `/busca?q=${encodeURIComponent(termo)}`, label: termo, buscaDocs: true } : null),
+        [termo],
+    );
     const flat = useMemo(
         () => [...resultado.favs, ...resultado.resto, ...(buscaDocs ? [buscaDocs] : [])],
-        [resultado, buscaDocs?.href],
+        [resultado, buscaDocs],
     );
 
     // Mantém o item destacado visível.
@@ -85,47 +87,43 @@ export default function CommandPalette({ rotinas = [] }) {
         router.visit(r.href);
     };
 
-    // Favoritar/desfavoritar sem sair do modal (só recarrega a prop `favoritos`).
-    const toggleFav = (e, r) => {
-        e.stopPropagation();
-        e.preventDefault();
-        const opts = { preserveState: true, preserveScroll: true };
-        if (favSet.has(r.href)) {
-            router.post('/rotinas/favoritos/remover', { href: r.href }, opts);
-        } else {
-            router.post('/rotinas/favoritos', { href: r.href, label: r.label, icon: r.icon || 'fas fa-circle' }, opts);
-        }
-    };
-
     const onKey = (e) => {
         if (e.key === 'ArrowDown') { e.preventDefault(); setAtivo((i) => Math.min(flat.length - 1, i + 1)); }
         else if (e.key === 'ArrowUp') { e.preventDefault(); setAtivo((i) => Math.max(0, i - 1)); }
         else if (e.key === 'Enter') { e.preventDefault(); ir(flat[ativo]); }
+        // Ctrl/⌘+D favorita o item destacado (a linha "buscar nos documentos" não é rotina).
+        else if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+            e.preventDefault();
+            const r = flat[ativo];
+            if (r && !r.buscaDocs) alternar(r);
+        }
     };
 
-    // Renderiza uma linha; `gi` = índice global (destaque + navegação por teclado).
+    // Renderiza uma linha; `gi` = índice global (destaque + navegação por teclado). A estrela
+    // é um botão IRMÃO do botão da linha (interativo aninhado em <button> é HTML inválido).
     const linha = (r, gi) => {
-        const isFav = favSet.has(r.href);
+        const isFav = ehFavorito(r.href);
         return (
-            <button key={`${r.href}-${gi}`} type="button" data-idx={gi}
-                onClick={() => ir(r)}
-                onMouseEnter={() => setAtivo(gi)}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${gi === ativo ? 'bg-blue-50' : ''}`}>
-                <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${gi === ativo ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
-                    <i className={`${r.icon || 'fas fa-circle'} text-xs`} />
-                </span>
-                <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-medium text-gray-800 truncate">{realce(r.label, query)}</span>
-                    {r.grupo && r.grupo !== 'Favoritos' && <span className="block text-[10px] text-gray-400 truncate">{cap(r.grupo)}</span>}
-                </span>
-                {r.modulo && <span className="text-[11px] text-gray-400 shrink-0 hidden sm:block">{r.modulo}</span>}
-                {/* Estrela — favoritar/desfavoritar */}
-                <span role="button" tabIndex={-1} onClick={(e) => toggleFav(e, r)}
-                    title={isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                    className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center hover:bg-amber-50">
+            <div key={`${r.href}-${gi}`} data-idx={gi} onMouseEnter={() => setAtivo(gi)}
+                className={`flex items-center pr-3 transition-colors ${gi === ativo ? 'bg-blue-50' : ''}`}>
+                <button type="button" onClick={() => ir(r)} tabIndex={-1}
+                    className="flex-1 min-w-0 flex items-center gap-3 pl-4 py-2.5 text-left">
+                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${gi === ativo ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                        <i className={`${r.icon || 'fas fa-circle'} text-xs`} />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-medium text-gray-800 truncate"><Realce texto={r.label} query={query} /></span>
+                        {r.grupo && r.grupo !== 'Favoritos' && <span className="block text-[10px] text-gray-400 truncate">{cap(r.grupo)}</span>}
+                    </span>
+                    {r.modulo && <span className="text-[11px] text-gray-400 shrink-0 hidden sm:block">{r.modulo}</span>}
+                </button>
+                <button type="button" tabIndex={-1} onClick={() => alternar(r)}
+                    title={isFav ? 'Remover dos favoritos (Ctrl+D)' : 'Adicionar aos favoritos (Ctrl+D)'}
+                    aria-label={isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'} aria-pressed={isFav}
+                    className="shrink-0 w-7 h-7 ml-2 rounded-lg flex items-center justify-center hover:bg-amber-50">
                     <i className={`fas fa-star text-xs ${isFav ? 'text-amber-400' : 'text-gray-300 hover:text-amber-300'}`} />
-                </span>
-            </button>
+                </button>
+            </div>
         );
     };
 
@@ -164,7 +162,7 @@ export default function CommandPalette({ rotinas = [] }) {
                         {/* Busca */}
                         <div className="flex items-center gap-3 px-4 border-b border-gray-100">
                             <i className="fas fa-search text-gray-400 text-sm" />
-                            <input ref={inputRef} type="text" value={query}
+                            <input autoFocus type="text" value={query}
                                 onChange={(e) => { setQuery(e.target.value); setAtivo(0); }}
                                 onKeyDown={onKey}
                                 placeholder="Buscar rotina em todos os módulos..."
@@ -208,7 +206,7 @@ export default function CommandPalette({ rotinas = [] }) {
                         <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-[10px] text-gray-400">
                             <span><i className="fas fa-arrow-up" /> <i className="fas fa-arrow-down" /> navegar</span>
                             <span><i className="fas fa-turn-down fa-rotate-90" /> abrir</span>
-                            <span><i className="fas fa-star text-amber-400" /> favoritar</span>
+                            <span><i className="fas fa-star text-amber-400" /> Ctrl D favoritar</span>
                             <span className="ml-auto">{rotinas.length} rotinas</span>
                         </div>
                     </div>
@@ -219,26 +217,9 @@ export default function CommandPalette({ rotinas = [] }) {
     );
 }
 
-/** Caixa de título para exibir o grupo (seções vêm em CAIXA ALTA). */
-function cap(s) {
-    return String(s ?? '').toLowerCase().replace(/(^|\s|\/|\()\p{L}/gu, (c) => c.toUpperCase());
-}
-
-/** minúsculas + sem acento (filtro insensível a caixa/acento). */
-function norm(s) {
-    return String(s ?? '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
-}
-
-/** Realça os termos da busca no rótulo. */
-function realce(texto, query) {
-    if (!texto) return texto;
-    const termos = (query ?? '').trim().toLowerCase().split(/\s+/).filter((t) => t.length >= 2);
-    if (termos.length === 0) return texto;
-    const padrao = termos.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-    const partes = String(texto).split(new RegExp(`(${padrao})`, 'ig'));
-    return partes.map((p, i) =>
-        termos.some((t) => p.toLowerCase() === t)
-            ? <mark key={i} className="bg-yellow-200 text-gray-900 rounded px-0.5">{p}</mark>
-            : p
-    );
+/** Rótulo com os termos da busca realçados (comparação sem acento — utils/busca). */
+function Realce({ texto, query }) {
+    return trechosRealcados(texto, query).map((t, i) => (t.realce
+        ? <mark key={i} className="bg-yellow-200 text-gray-900 rounded px-0.5">{t.texto}</mark>
+        : t.texto));
 }

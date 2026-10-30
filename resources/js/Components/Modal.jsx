@@ -1,13 +1,9 @@
 import { useEffect } from 'react';
+import useEscape from '../Hooks/useEscape';
 
 export default function Modal({ show, onClose, title, maxWidth = 'lg', children }) {
-    // Esc fecha — mesmo comportamento da janela de confirmação (ConfirmDialog).
-    useEffect(() => {
-        if (!show || !onClose) return;
-        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [show, onClose]);
+    // Esc fecha só a camada de cima (um confirmar() aberto daqui fecha primeiro).
+    useEscape(() => onClose?.(), show && !!onClose);
 
     useEffect(() => {
         if (show) document.body.style.overflow = 'hidden';

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\UsuarioFavorito;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Rotinas favoritas por usuário × UG (Ctrl+K → estrela) — padrão do gpe2 (FavoritoController).
@@ -17,31 +17,27 @@ use Illuminate\Support\Facades\DB;
  */
 class RotinaFavoritaController extends Controller
 {
+    /** Caminho interno do sistema ("/repositorio?filtro=..."), nunca URL externa nem "//host". */
+    private const HREF = ['required', 'string', 'max:255', 'regex:#^/(?!/)#'];
+
     public function store(Request $request): RedirectResponse
     {
         $dados = $request->validate([
-            'href'  => ['required', 'string', 'max:255'],
+            'href'  => self::HREF,
             'label' => ['required', 'string', 'max:255'],
             'icon'  => ['nullable', 'string', 'max:60'],
         ]);
 
-        DB::table('usuario_favorito')->updateOrInsert(
-            ['user_id' => (int) $request->user()->id, 'ug_id' => (int) $request->session()->get('ug_id', 0), 'href' => $dados['href']],
-            ['label' => $dados['label'], 'icon' => $dados['icon'] ?? null, 'updated_at' => now(), 'created_at' => now()],
-        );
+        UsuarioFavorito::favoritar($request->user()->id, $request->session()->get('ug_id'), $dados['href'], $dados['label'], $dados['icon'] ?? null);
 
         return back();
     }
 
     public function destroy(Request $request): RedirectResponse
     {
-        $dados = $request->validate(['href' => ['required', 'string', 'max:255']]);
+        $dados = $request->validate(['href' => self::HREF]);
 
-        DB::table('usuario_favorito')
-            ->where('user_id', (int) $request->user()->id)
-            ->where('ug_id', (int) $request->session()->get('ug_id', 0))
-            ->where('href', $dados['href'])
-            ->delete();
+        UsuarioFavorito::desfavoritar($request->user()->id, $request->session()->get('ug_id'), $dados['href']);
 
         return back();
     }
