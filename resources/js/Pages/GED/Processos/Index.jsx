@@ -55,7 +55,8 @@ const prioridadeOptions = [
 
 export default function Index({ processos, filters, tipos_processo }) {
     // Listagem rola só por dentro — a página nunca (padrão gpe2).
-    const scrollRef = useFillViewportHeight();
+    // Em tela baixa (notebook com zoom) a lista não encolhe a 3 linhas: mínimo de ~8 e a página rola
+    const scrollRef = useFillViewportHeight({ minHeight: 480 });
     const f = filters || {};
     const [search, setSearch] = useState(f.search || '');
     const [tipoId, setTipoId] = useState(f.tipo_processo_id || '');
