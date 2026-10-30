@@ -427,9 +427,9 @@ Route::middleware('auth')->group(function () {
     // Pastas / Repositorio
     Route::get('repositorio', [PastaController::class, 'index'])->name('repositorio')->middleware('can:documento.visualizar');
     Route::get('pastas/tree', [PastaController::class, 'tree'])->name('pastas.tree')->middleware('can:pasta.visualizar');
-    Route::resource('pastas', PastaController::class)->except(['index', 'show'])
-        ->middlewareFor(['create', 'store'], 'can:pasta.criar')
-        ->middlewareFor(['edit', 'update'], 'can:pasta.editar')
+    Route::resource('pastas', PastaController::class)->except(['index', 'show', 'create', 'edit'])   // criar e editar pasta é por janela no repositório
+        ->middlewareFor('store', 'can:pasta.criar')
+        ->middlewareFor('update', 'can:pasta.editar')
         ->middlewareFor('destroy', 'can:pasta.excluir');
     Route::post('pastas/{id}/inativar', [PastaController::class, 'inativar'])->name('pastas.inativar')->middleware('can:pasta.editar');
 
