@@ -29,7 +29,7 @@ export default function Acessos({ linhas, filtros, limiteDireto, setores, usuari
                 <Card className="2xl:col-span-3">
                     <Filtros base="/relatorios/acessos" filtros={filtros} setores={setores} usuarios={usuarios} />
                     <p className="mb-2 text-xs text-gray-500">{linhas.total} linha(s) (usuário × dia) no período.</p>
-                    <DataTable columns={colunas} data={linhas.data} pagination={linhas} searchable={false} emptyMessage="Nenhum acesso com estes filtros." />
+                    <DataTable columns={colunas} data={linhas.data} pagination={linhas} searchable={false} fillHeight={false} emptyMessage="Nenhum acesso com estes filtros." />
                 </Card>
                 <div className="space-y-4">
                     <Gerados gerados={gerados} destaque={destaque} />

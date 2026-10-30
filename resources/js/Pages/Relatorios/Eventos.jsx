@@ -37,7 +37,7 @@ export default function Eventos({ linhas, filtros, limiteDireto, categorias, cod
                         </>
                     )} />
                     <p className="mb-2 text-xs text-gray-500">{linhas.total} evento(s) no período.</p>
-                    <DataTable columns={colunas} data={linhas.data} pagination={linhas} searchable={false} emptyMessage="Nenhum evento com estes filtros." />
+                    <DataTable columns={colunas} data={linhas.data} pagination={linhas} searchable={false} fillHeight={false} emptyMessage="Nenhum evento com estes filtros." />
                 </Card>
                 <div className="space-y-4">
                     <Gerados gerados={gerados} destaque={destaque} />

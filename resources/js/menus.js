@@ -35,9 +35,6 @@ export const MENU_CONFIGURACOES = [
     { section: 'label', label: 'Integrações' },
     { title: 'Sistemas Integrados', icon: 'fas fa-plug', href: '/configuracoes/sistemas-integrados', color: 'text-violet-600 bg-violet-100', permissao: 'admin.sistemas_integrados' },
     { title: 'Sistema tributário', icon: 'fas fa-landmark-dome', href: '/configuracoes/integracao-tributaria', color: 'text-emerald-600 bg-emerald-100', permissao: 'admin.sistemas_integrados' },
-    { section: 'label', label: 'Auditoria' },
-    { title: 'Relatório de eventos', icon: 'fas fa-list-check', href: '/relatorios/eventos', color: 'text-rose-600 bg-rose-100', permissao: 'relatorio.eventos' },
-    { title: 'Acessos diários', icon: 'fas fa-right-to-bracket', href: '/relatorios/acessos', color: 'text-sky-600 bg-sky-100', permissao: 'relatorio.eventos' },
     { section: 'label', label: 'Urbanismo' },
     { title: 'Consulta prévia (mapa)', icon: 'fas fa-map', href: '/configuracoes/urbanismo', color: 'text-teal-600 bg-teal-100', permissao: 'urbanismo.gerir' },
     { title: 'App da fiscalização', icon: 'fas fa-mobile-screen', href: '/configuracoes/fiscalizacao', color: 'text-cyan-600 bg-cyan-100', permissao: 'fiscalizacao.formularios' },
@@ -116,6 +113,14 @@ export const MENU_GEPSP = [
         children: [
             { title: 'Protocolo legislativo', icon: 'fas fa-landmark', href: '/flow/legislativo',            color: 'text-amber-600 bg-amber-100', permissao: 'legislativo.gerir' },
             { title: 'Vereadores',            icon: 'fas fa-user-tie', href: '/flow/legislativo/vereadores', color: 'text-amber-600 bg-amber-100', permissao: 'legislativo.gerir' },
+        ],
+    },
+    {
+        // Auditoria e uso do sistema (TR 4.25)
+        title: 'Relatórios', icon: 'fas fa-chart-line', color: 'text-rose-600 bg-rose-100',
+        children: [
+            { title: 'Relatório de eventos', icon: 'fas fa-list-check',       href: '/relatorios/eventos', color: 'text-rose-600 bg-rose-100', permissao: 'relatorio.eventos' },
+            { title: 'Acessos diários',      icon: 'fas fa-right-to-bracket', href: '/relatorios/acessos', color: 'text-sky-600 bg-sky-100', permissao: 'relatorio.eventos' },
         ],
     },
     {
