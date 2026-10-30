@@ -382,7 +382,7 @@ export default function OficiosCreate({ tramitaAtivo = false, setores = [], auto
                         </div>
                     </div>
 
-                    {!isFisico && (
+                    {isEmail && (
                         <div className="bg-white rounded-xl border border-gray-200 p-5">
                             <h3 className="text-sm font-semibold text-gray-800 mb-3">
                                 <i className="fas fa-route text-green-500 mr-1.5" />
