@@ -70,6 +70,7 @@ class OficioController extends Controller
             'rascunho'     => \App\Support\Rascunhos::abrir(request()->integer('rascunho') ?: null, Auth::user(), 'oficio'),
             'autorizacoes' => EmNomeDe::autorizacoes(),
             'setores' => $setores,
+            'tramitaAtivo' => \App\Support\Tramita::ativo(),
         ]);
     }
 
@@ -135,7 +136,11 @@ class OficioController extends Controller
             'destinatario_celular'=> ['nullable', 'string', 'max:20', function ($a, $v, $falha) { if ($v && ! \App\Support\Sms::normalizar($v)) { $falha('Celular inválido (use DDD + 9 dígitos).'); } }],
             'avisar_sms'          => ['nullable', 'boolean'],
             'setor_origem'        => ['nullable', 'string', 'max:150'],
-            'modo_envio'          => ['nullable', 'string', 'in:eletronico,fisico'],
+            'modo_envio'          => ['nullable', 'string', 'in:eletronico,fisico,tramita'],
+            // Tramita GOV.BR (TR 4.28.5): estrutura de destino escolhida no barramento
+            'tramita_estrutura'   => ['required_if:modo_envio,tramita', 'nullable', 'string', 'max:40'],
+            'tramita_repositorio' => ['nullable', 'string', 'max:40'],
+            'tramita_nome'        => ['required_if:modo_envio,tramita', 'nullable', 'string', 'max:250'],
             'data_envio'          => ['nullable', 'date'],
             'files'               => ['nullable', 'array'],
             'files.*'             => ['file', 'max:51200'],
@@ -234,6 +239,16 @@ class OficioController extends Controller
 
         if ($modoEnvio === 'fisico') {
             return redirect("/oficios/{$oficio->id}")->with('success', "Ofício {$numero} registrado no livro de controle.");
+        }
+        if ($modoEnvio === 'tramita') {
+            try {
+                $t = \App\Support\Tramita::enviarOficio($oficio, ['repositorio' => $request->input('tramita_repositorio'), 'estrutura' => $request->input('tramita_estrutura'),
+                    'nome' => $request->input('tramita_nome')], Auth::user());
+
+                return redirect("/oficios/{$oficio->id}")->with('success', "Ofício {$numero} enviado pelo Tramita GOV.BR a {$t->outro_nome}: NRE {$t->nre}, IDT {$t->idt}.");
+            } catch (\App\Integracoes\Tramita\FalhaTramita $e) {
+                return redirect("/oficios/{$oficio->id}")->with('error', "Ofício {$numero} registrado, mas não foi enviado pelo Tramita GOV.BR: {$e->getMessage()} Tente de novo pelo bloco Tramita GOV.BR desta tela.");
+            }
         }
 
         // Depois do commit: falha no e-mail não desfaz o ofício; fica registrada e pode ser reenviada.
