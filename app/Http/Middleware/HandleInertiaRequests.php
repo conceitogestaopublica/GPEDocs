@@ -52,6 +52,8 @@ class HandleInertiaRequests extends Middleware
                 'token_gerado'  => $request->session()->get('token_gerado'),
             ],
             'notificacoes_pendentes' => $notificacoesPendentes,
+            // Ambiente somente leitura (TR 4.26.17): faixa no topo de todas as telas
+            'somente_leitura' => fn () => $user ? \App\Http\Middleware\SomenteLeitura::ativo() : false,
             // Rotinas favoritas do usuário (Ctrl+K → estrela) — pessoais e por UG da sessão.
             'favoritos' => $this->favoritos($user, $request),
             'tenant' => $tenant,

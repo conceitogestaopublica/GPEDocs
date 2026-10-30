@@ -67,6 +67,10 @@ return [
 
     'timezone' => 'UTC',
 
+    // Ambiente pós-contratual somente leitura (TR 4.26.17): também pode ser ligado por município
+    // em Configurações → Backup e portabilidade.
+    'somente_leitura' => (bool) env('GED_SOMENTE_LEITURA', false),
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

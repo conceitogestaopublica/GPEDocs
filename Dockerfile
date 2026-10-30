@@ -42,6 +42,8 @@ RUN apk add --no-cache \
         libreoffice-writer \
         font-liberation \
         font-dejavu \
+        # Backup do banco do município (TR 4.26.13): pg_dump na mesma versão do servidor — App\Support\Backup.
+        postgresql18-client \
         unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \

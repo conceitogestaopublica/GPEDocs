@@ -519,6 +519,18 @@ Route::middleware('auth')->group(function () {
                 ->whereNumber('ugId')->name('certificado-prefeitura.toggle');
         });
 
+        // Backup e portabilidade (TR 4.26.13–17)
+        Route::controller(\App\Http\Controllers\Configuracao\PortabilidadeController::class)->prefix('portabilidade')->name('portabilidade.')->middleware('can:admin.portabilidade')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('backup', 'backup')->middleware('throttle:6,1')->name('backup');
+            Route::post('backups/{id}/verificar', 'verificar')->whereNumber('id')->name('verificar');
+            Route::get('backups/{id}/baixar', 'baixarBackup')->whereNumber('id')->name('baixar');
+            Route::post('acervo', 'acervo')->middleware('throttle:6,1')->name('acervo');
+            Route::post('exportar', 'exportar')->middleware('throttle:6,1')->name('exportar');
+            Route::get('exportacoes/{id}/baixar', 'baixarExportacao')->whereNumber('id')->name('exportacao');
+            Route::get('dicionario', 'dicionario')->name('dicionario');
+            Route::post('config', 'salvarConfig')->name('config');
+        });
         // Formulários do app da fiscalização (TR 4.52)
         Route::controller(\App\Http\Controllers\AppFiscalizacaoController::class)->prefix('fiscalizacao')->name('fiscalizacao.')->group(function () {
             Route::get('/', 'index')->name('index');

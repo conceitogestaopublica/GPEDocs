@@ -25,6 +25,7 @@ export const MENU_CONFIGURACOES = [
     { title: 'Unidades Gestoras', icon: 'fas fa-building', href: '/configuracoes/ugs', color: 'text-indigo-600 bg-indigo-100', permissao: 'admin.ugs' },
     { title: 'Certificado da Prefeitura', icon: 'fas fa-shield-alt', href: '/configuracoes/certificado-prefeitura', color: 'text-emerald-600 bg-emerald-100', permissao: 'admin.ugs' },
     { title: 'Expediente e feriados', icon: 'fas fa-calendar-days', href: '/configuracoes/expediente', color: 'text-amber-600 bg-amber-100', permissao: 'admin.configuracoes' },
+    { title: 'Backup e portabilidade', icon: 'fas fa-box-archive', href: '/configuracoes/portabilidade', color: 'text-teal-600 bg-teal-100', permissao: 'admin.portabilidade' },
     { title: 'Identidade visual', icon: 'fas fa-palette', href: '/configuracoes/identidade-visual', color: 'text-pink-600 bg-pink-100', permissao: 'admin.configuracoes' },
     { section: 'label', label: 'Acessos' },
     { title: 'Usuários', icon: 'fas fa-users', href: '/configuracoes/usuarios', color: 'text-red-600 bg-red-100', permissao: 'admin.usuarios' },

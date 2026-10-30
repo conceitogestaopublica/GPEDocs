@@ -22,7 +22,7 @@ function getModulo(url) {
 }
 
 export default function AdminLayout({ children }) {
-    const { auth, flash, notificacoes_pendentes, tenant, favoritos } = usePage().props;
+    const { auth, flash, notificacoes_pendentes, tenant, favoritos, somente_leitura } = usePage().props;
     const { url } = usePage();
     const modulo = getModulo(url);
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -111,6 +111,13 @@ export default function AdminLayout({ children }) {
                         {flash?.success && <FlashMessage type="success" message={flash.success} />}
                         {flash?.error && <FlashMessage type="error" message={flash.error} />}
                         {flash?.warning && <FlashMessage type="warning" message={flash.warning} />}
+                    </div>
+                )}
+
+                {/* Ambiente somente leitura (TR 4.26.17) */}
+                {somente_leitura && (
+                    <div className="bg-amber-100 border-b border-amber-300 px-4 sm:px-5 lg:px-8 py-2 text-sm text-amber-900 no-print">
+                        <i className="fas fa-lock mr-2" />Ambiente <b>somente leitura</b>: consulte e baixe documentos e processos; nada pode ser alterado.
                     </div>
                 )}
 

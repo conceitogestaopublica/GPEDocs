@@ -21,6 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\BloquearUsuarioSuspenso::class,
             // Trilha de eventos: alterações feitas pelos servidores (TR 4.25.12)
             \App\Http\Middleware\RegistrarEvento::class,
+            // Ambiente pós-contratual somente leitura (TR 4.26.17)
+            \App\Http\Middleware\SomenteLeitura::class,
             ]);
 
             // Aliases para uso em rotas
