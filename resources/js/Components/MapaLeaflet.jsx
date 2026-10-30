@@ -22,10 +22,22 @@ async function centroDaCidade(cidade) {
     return centros[cidade];
 }
 
-export default function MapaLeaflet({ pontos = [], marcado = null, onMarcar = null, cidade = '', altura = 320, className = '' }) {
+/** Plugin de mapa de calor: precisa do L global antes de carregar. */
+let calorPronto = null;
+function carregarCalor() {
+    if (! calorPronto) {
+        window.L = L;
+        calorPronto = import('leaflet.heat');
+    }
+    return calorPronto;
+}
+
+/** `calor`: em vez de pinos, mancha de densidade das demandas (TR 4.25.21). */
+export default function MapaLeaflet({ pontos = [], marcado = null, onMarcar = null, cidade = '', altura = 320, className = '', calor = false }) {
     const caixa = useRef(null);
     const mapa = useRef(null);
     const camada = useRef(null);
+    const camadaCalor = useRef(null);
     const ajustou = useRef(false);
     const onMarcarRef = useRef(onMarcar);
     useEffect(() => { onMarcarRef.current = onMarcar; });
@@ -43,9 +55,16 @@ export default function MapaLeaflet({ pontos = [], marcado = null, onMarcar = nu
         const m = mapa.current;
         if (! m) return;
         camada.current.clearLayers();
+        if (camadaCalor.current) { m.removeLayer(camadaCalor.current); camadaCalor.current = null; }
         const todos = [...pontos];
         if (marcado?.lat != null) todos.push({ ...marcado, cor: '#0e7490', destaque: true });
-        todos.forEach(p => {
+        if (calor) {
+            carregarCalor().then(() => {
+                if (! mapa.current) return;
+                camadaCalor.current = L.heatLayer(todos.map(p => [p.lat, p.lng, 1]), { radius: 28, blur: 20, maxZoom: 17, minOpacity: 0.35 }).addTo(mapa.current);
+            });
+        }
+        (calor ? [] : todos).forEach(p => {
             const c = L.circleMarker([p.lat, p.lng], { radius: p.destaque ? 10 : 7, color: '#fff', weight: 2, fillColor: p.cor || '#0e7490', fillOpacity: 0.9 });
             if (p.popup) c.bindPopup(p.popup);
             c.addTo(camada.current);
@@ -56,7 +75,7 @@ export default function MapaLeaflet({ pontos = [], marcado = null, onMarcar = nu
         } else if (! todos.length && ! ajustou.current) {
             centroDaCidade(cidade).then(c => { if (c && mapa.current && ! ajustou.current) mapa.current.setView(c, 14); });
         }
-    }, [pontos, marcado?.lat, marcado?.lng, cidade]);
+    }, [pontos, marcado?.lat, marcado?.lng, cidade, calor]);
 
     return <div ref={caixa} style={{ height: altura }} className={`rounded border border-gray-200 z-0 ${onMarcar ? 'cursor-crosshair' : ''} ${className}`} />;
 }

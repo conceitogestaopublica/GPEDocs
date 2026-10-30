@@ -17,12 +17,35 @@ use Inertia\Inertia;
 
 /**
  * Mapa das demandas, localização do processo, avaliação registrada no balcão e reabertura
- * (TR 4.32.21, 4.32.25–27, 4.33.9, 4.33.24).
+ * (TR 4.32.21, 4.32.25–27, 4.33.9, 4.33.24), com faixas de tempo e filtro de setor (4.25.21–26).
  */
 class MapaAvaliacaoController extends Controller
 {
     private const CORES = ['aberto' => '#0e7490', 'aguardando_assinatura' => '#7c3aed', 'concluido' => '#16a34a',
         'arquivado' => '#64748b', 'cancelado' => '#dc2626'];
+
+    /** Faixas de tempo dos pinos (TR 4.25.23–25): em aberto há quanto tempo; resolvidos em quanto tempo. */
+    public const FAIXAS = [
+        'aberto_20' => ['Em aberto até 20 dias', '#f59e0b'], 'aberto_30' => ['Em aberto de 20 a 30 dias', '#ea580c'],
+        'aberto_mais30' => ['Em aberto há mais de 30 dias', '#dc2626'],
+        'resolvido_30' => ['Resolvido em até 30 dias', '#16a34a'], 'resolvido_mais30' => ['Resolvido em mais de 30 dias', '#2563eb'],
+    ];
+
+    /** @return array{0: ?string, 1: ?int} [faixa, dias] — cancelado fica sem faixa. */
+    private static function faixa(Processo $p): array
+    {
+        if ($p->status === 'cancelado' || ! $p->created_at) {
+            return [null, null];
+        }
+        if (in_array($p->status, ['concluido', 'arquivado'], true)) {
+            $dias = (int) $p->created_at->diffInDays($p->concluido_em ?? $p->updated_at, true);
+
+            return [$dias <= 30 ? 'resolvido_30' : 'resolvido_mais30', $dias];
+        }
+        $dias = (int) $p->created_at->diffInDays(now(), true);
+
+        return [$dias <= 20 ? 'aberto_20' : ($dias <= 30 ? 'aberto_30' : 'aberto_mais30'), $dias];
+    }
 
     /** Mapa das demandas com localização, no escopo do servidor (setores dele ou toda a UG). */
     public function mapa(Request $request)
@@ -33,6 +56,8 @@ class MapaAvaliacaoController extends Controller
             'situacao' => in_array($request->input('situacao'), ['abertos', 'concluidos'], true) ? $request->input('situacao') : '',
             'de'       => $request->input('de') ?: null,
             'ate'      => $request->input('ate') ?: null,
+            'unidade_id' => $request->integer('unidade_id') ?: null,
+            'faixa'    => isset(self::FAIXAS[$request->input('faixa')]) ? $request->input('faixa') : '',
         ];
         $q = \App\Support\RequerimentoServidor::restringir(Processo::query()->with('tipoProcesso:id,nome')->whereNotNull('latitude'), $user);
         if (! $user->acesso_geral_ug && ! $user->super_admin) {
@@ -44,17 +69,24 @@ class MapaAvaliacaoController extends Controller
             ->when($f['situacao'] === 'abertos', fn ($w) => $w->whereNotIn('status', ['concluido', 'arquivado', 'cancelado']))
             ->when($f['situacao'] === 'concluidos', fn ($w) => $w->whereIn('status', ['concluido', 'arquivado']))
             ->when($f['de'], fn ($w) => $w->where('created_at', '>=', $f['de']))
-            ->when($f['ate'], fn ($w) => $w->where('created_at', '<=', $f['ate'] . ' 23:59:59'));
+            ->when($f['ate'], fn ($w) => $w->where('created_at', '<=', $f['ate'] . ' 23:59:59'))
+            // setor por onde o processo passou, com os subordinados (TR 4.25.21)
+            ->when($f['unidade_id'], fn ($w) => $w->whereHas('tramitacoes', fn ($t) => $t->whereIn('destino_unidade_id', \App\Support\Organograma::comDescendentes($f['unidade_id']))));
 
         $notas = DB::table('proc_avaliacoes')->selectRaw('processo_id, round(avg(nota)::numeric, 1) as nota')->groupBy('processo_id')->pluck('nota', 'processo_id');
 
         return Inertia::render('GED/Flow/Mapa', [
-            'pontos'  => $q->orderByDesc('created_at')->limit(2000)->get()->map(fn (Processo $p) => [
-                'id' => $p->id, 'lat' => $p->latitude, 'lng' => $p->longitude, 'numero' => $p->numero_protocolo,
-                'assunto' => $p->assunto, 'tipo' => $p->tipoProcesso?->nome, 'status' => $p->status,
-                'cor' => self::CORES[$p->status] ?? '#0e7490', 'endereco' => $p->local_endereco,
-                'nota' => isset($notas[$p->id]) ? (float) $notas[$p->id] : null, 'data' => $p->created_at?->toIso8601String(),
-            ]),
+            'pontos'  => $q->orderByDesc('created_at')->limit(2000)->get()->map(function (Processo $p) {
+                [$faixa, $dias] = self::faixa($p);
+
+                return ['id' => $p->id, 'lat' => $p->latitude, 'lng' => $p->longitude, 'numero' => $p->numero_protocolo,
+                    'assunto' => $p->assunto, 'tipo' => $p->tipoProcesso?->nome, 'status' => $p->status,
+                    'cor' => self::CORES[$p->status] ?? '#0e7490', 'endereco' => $p->local_endereco,
+                    'faixa' => $faixa, 'cor_faixa' => self::FAIXAS[$faixa][1] ?? '#64748b', 'dias' => $dias,
+                    'nota' => isset($notas[$p->id]) ? (float) $notas[$p->id] : null, 'data' => $p->created_at?->toIso8601String()];
+            })->when($f['faixa'], fn ($c) => $c->where('faixa', $f['faixa']))->values(),
+            'faixas'  => collect(self::FAIXAS)->map(fn ($x, $k) => ['chave' => $k, 'rotulo' => $x[0], 'cor' => $x[1]])->values(),
+            'setores' => DB::table('ug_organograma')->where('ug_id', session('ug_id', $user->ug_id))->where('ativo', true)->orderBy('nome')->get(['id', 'nome', 'sigla']),
             'filtros' => $f,
             'tipos'   => DB::table('proc_tipos_processo')->where('ativo', true)->where('localizacao', '<>', 'nao')->orderBy('nome')->get(['id', 'nome']),
             'cidade'  => self::cidade(),
