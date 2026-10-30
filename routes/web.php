@@ -284,6 +284,12 @@ Route::get('verificar/codigo/{codigo}', [VerificacaoController::class, 'porCodig
     ->where('codigo', '[A-Za-z0-9-]{6,20}')->name('verificar.codigo');
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
 // Mapa público da consulta prévia de viabilidade (TR 4.50)
+// Suporte: avaliar ou reabrir pelo link do e-mail de resolução, sem login (TR 4.26.8)
+Route::controller(\App\Http\Controllers\SuporteController::class)->prefix('suporte/avaliar')->middleware('throttle:30,1')->group(function () {
+    Route::get('{token}', 'avaliacao')->whereUuid('token')->name('suporte.avaliacao');
+    Route::post('{token}', 'avaliar')->whereUuid('token')->name('suporte.avaliar');
+});
+
 // App offline da fiscalização (TR 4.52): arquivos do PWA ficam fora do login (o service worker se atualiza sozinho)
 Route::controller(\App\Http\Controllers\AppFiscalizacaoController::class)->prefix('fiscal')->group(function () {
     Route::get('sw', 'sw')->name('fiscal.sw');
@@ -862,7 +868,36 @@ Route::middleware('auth')->group(function () {
         Route::post('processos/anexos/{anexo}/externo', 'visibilidade')->whereNumber('anexo')->name('processos.anexos.externo');
         Route::post('processos/{id}/consulta-link', [\App\Http\Controllers\ConsultaPublicaController::class, 'link'])->whereNumber('id')->name('processos.consulta-link');
     });
-    // Painel de indicadores (TR 4.25.1, 4.25.3, 4.25.7, 4.25.17–20, 4.29)
+    // Suporte na plataforma (TR 4.26.1–10): chat flutuante (api), central de suporte, ajuda e configuração
+    Route::controller(\App\Http\Controllers\SuporteController::class)->prefix('suporte')->name('suporte.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('ajuda', 'ajuda')->name('ajuda');
+        Route::get('atendimentos/{id}', 'show')->whereNumber('id')->name('show');
+        Route::post('atendimentos/{id}/assumir', 'assumir')->whereNumber('id')->name('assumir');
+        Route::post('atendimentos/{id}/escalar', 'escalar')->whereNumber('id')->name('escalar');
+        Route::post('atendimentos/{id}/incluir', 'incluir')->whereNumber('id')->name('incluir');
+        Route::post('atendimentos/{id}/resolver', 'resolver')->whereNumber('id')->name('resolver');
+        Route::post('atendimentos/{id}/reabrir', 'reabrir')->whereNumber('id')->name('reabrir');
+        Route::post('atendimentos/{id}/cancelar', 'cancelar')->whereNumber('id')->name('cancelar');
+        Route::post('disponibilidade', 'disponibilidade')->name('disponibilidade');
+        Route::get('api/painel', 'painel')->name('api.painel');
+        Route::get('api/artigos', 'artigos')->name('api.artigos');
+        Route::post('api/artigos/{id}/visto', 'artigoVisto')->whereNumber('id')->name('api.artigo-visto');
+        Route::post('api/artigos/{id}/retorno', 'artigoRetorno')->whereNumber('id')->name('api.artigo-retorno');
+        Route::post('api/atendimentos', 'abrir')->middleware('throttle:20,1')->name('api.abrir');
+        Route::get('api/buscar', 'buscar')->name('api.buscar');
+        Route::get('api/atendimentos/{id}/mensagens', 'mensagens')->whereNumber('id')->name('api.mensagens');
+        Route::post('api/atendimentos/{id}/mensagens', 'enviar')->whereNumber('id')->middleware('throttle:60,1')->name('api.enviar');
+        Route::get('api/pessoas', 'pessoas')->name('api.pessoas');
+        Route::get('configuracao', 'configuracao')->name('configuracao');
+        Route::post('configuracao', 'salvarConfig')->name('configuracao.salvar');
+        Route::post('assuntos', 'salvarAssunto')->name('assuntos.store');
+        Route::post('assuntos/{id}', 'salvarAssunto')->whereNumber('id')->name('assuntos.update');
+        Route::post('artigos', 'salvarArtigo')->name('artigos.store');
+        Route::post('artigos/{id}', 'salvarArtigo')->whereNumber('id')->name('artigos.update');
+        Route::delete('artigos/{id}', 'excluirArtigo')->whereNumber('id')->name('artigos.destroy');
+        Route::post('atendentes', 'salvarAtendente')->name('atendentes.salvar');
+    });
     Route::controller(\App\Http\Controllers\IndicadorController::class)->prefix('relatorios/indicadores')->name('relatorios.indicadores')->middleware('can:relatorio.indicadores')->group(function () {
         Route::get('/', 'index');
         Route::post('planilha', 'planilha')->middleware('throttle:60,1')->name('.planilha');

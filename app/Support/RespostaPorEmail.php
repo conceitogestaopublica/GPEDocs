@@ -29,8 +29,9 @@ use Illuminate\Support\Str;
  * entrega a resposta no webhook; aqui ela é conferida (o remetente tem de ser quem recebeu),
  * perde o texto citado do e-mail original e entra no documento com os anexos:
  * processo → despacho por e-mail; memorando → resposta; ofício → resposta externa;
- * solicitação do portal → mensagem do cidadão. E-mail no endereço de entrada de um assunto abre
- * manifestação (ManifestacaoPorEmail).
+ * solicitação do portal → mensagem do cidadão; atendimento de suporte → mensagem na conversa. E-mail
+ * no endereço de entrada de um assunto abre manifestação (ManifestacaoPorEmail); no endereço do suporte,
+ * abre atendimento para o servidor com aquele e-mail (TR 4.26.1).
  */
 final class RespostaPorEmail
 {
@@ -81,6 +82,20 @@ final class RespostaPorEmail
             $log('registrado', null, (object) ['referencia_tipo' => 'processo', 'referencia_id' => $p->id]);
 
             return ['resultado' => 'registrado', 'motivo' => null, 'processo' => $p->numero_protocolo];
+        }
+        $suporte = mb_strtolower((string) Suporte::config()->email_entrada);
+        if (! $r && $suporte !== '' && str_contains(mb_strtolower($para), $suporte)) {
+            $servidor = User::whereRaw('lower(email) = ?', [$de])->whereNull('suspenso_em')->first();
+            if (! $servidor) {
+                $log('recusado', "Remetente {$de} não é servidor cadastrado", null);
+
+                return ['resultado' => 'recusado', 'motivo' => "Remetente {$de} não é servidor cadastrado"];
+            }
+            $texto = self::semCitacao((string) ($msg['texto'] ?? '') ?: strip_tags((string) ($msg['html'] ?? '')));
+            $at = Suporte::abrir($servidor, $assunto !== '' ? $assunto : 'Pedido de suporte por e-mail', $texto !== '' ? $texto : '(sem texto)', null, 'email');
+            $log('registrado', null, (object) ['referencia_tipo' => 'suporte', 'referencia_id' => $at->id]);
+
+            return ['resultado' => 'registrado', 'motivo' => null, 'atendimento' => $at->numero];
         }
         if (! $r) {
             $log('sem_destino', 'Endereço de resposta desconhecido', null, $m[1] ?? null);
@@ -154,6 +169,12 @@ final class RespostaPorEmail
                 Notificacao::create(['usuario_id' => $o->remetente_id, 'tipo' => 'oficio_lido', 'titulo' => 'Resposta ao ofício por e-mail',
                     'mensagem' => "{$o->destinatario_nome} respondeu o ofício {$o->numero}" . ($anexos ? ' com ' . count($anexos) . ' anexo(s)' : '') . '.',
                     'referencia_tipo' => 'oficio', 'referencia_id' => $o->id, 'lida' => false]);
+                break;
+            case 'suporte':
+                $at = DB::table('sup_atendimentos')->find($r->referencia_id);
+                if ($at && $user) {
+                    Suporte::responder($at, $user, "[Por e-mail] {$texto}" . ($anexos ? "\n(" . count($anexos) . ' anexo(s) não importado(s): envie pelo sistema)' : ''));
+                }
                 break;
             case 'solicitacao':
                 $s = Solicitacao::withoutGlobalScopes()->findOrFail($r->referencia_id);

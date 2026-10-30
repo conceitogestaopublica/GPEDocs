@@ -42,6 +42,8 @@ final class Permissoes
         'portal.carta_servicos' => 'Manter a carta de serviços',
         'contato.gerenciar'    => 'Consultar e manter contatos (cadastro, listas, procurações, unificação e CSV)',
         'urbanismo.gerir'      => 'Consulta prévia: zonas e parâmetros urbanísticos, camadas e lotes do mapa',
+        'suporte.atender'      => 'Suporte: atender, responder, escalar e resolver atendimentos dos usuários',
+        'suporte.gerir'        => 'Suporte: central de ajuda (assuntos e artigos), atendentes e configuração',
         'relatorio.indicadores' => 'Painel de indicadores: uso, setores, processos e assinaturas de todos os setores',
         'relatorio.eventos'    => 'Relatórios de eventos (auditoria) e de acessos diários, com exportação e agendamento',
         'fiscalizacao.campo'   => 'App da fiscalização: fazer vistorias no celular (offline) e sincronizar',

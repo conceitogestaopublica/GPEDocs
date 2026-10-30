@@ -17,7 +17,7 @@ import { rotinasDe } from '../menus';
 // Detectar modulo pela URL
 function getModulo(url) {
     if (url.startsWith('/configuracoes') || url.startsWith('/perfil/')) return 'configuracoes';
-    if (url.startsWith('/flow') || url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url.startsWith('/oficios') || url.startsWith('/pareceres') || url.startsWith('/atos') || url.startsWith('/diario') || url.startsWith('/relatorios') || url === '/admin/tipos-processo' || url.startsWith('/admin/oficios-modelos')) return 'gepsp';
+    if (url.startsWith('/flow') || url.startsWith('/processos') || url.startsWith('/tramitacoes') || url.startsWith('/memorandos') || url.startsWith('/circulares') || url.startsWith('/oficios') || url.startsWith('/pareceres') || url.startsWith('/atos') || url.startsWith('/diario') || url.startsWith('/relatorios') || url.startsWith('/suporte') || url === '/admin/tipos-processo' || url.startsWith('/admin/oficios-modelos')) return 'gepsp';
     return 'ged';
 }
 

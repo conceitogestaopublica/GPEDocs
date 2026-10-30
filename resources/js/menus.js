@@ -116,6 +116,15 @@ export const MENU_GEPSP = [
         ],
     },
     {
+        // Suporte ao usuário da plataforma (TR 4.26)
+        title: 'Suporte', icon: 'fas fa-life-ring', color: 'text-cyan-600 bg-cyan-100',
+        children: [
+            { title: 'Central de suporte', icon: 'fas fa-headset',       href: '/suporte',              color: 'text-cyan-600 bg-cyan-100' },
+            { title: 'Central de ajuda',   icon: 'fas fa-book-open',     href: '/suporte/ajuda',        color: 'text-blue-600 bg-blue-100' },
+            { title: 'Configurar suporte', icon: 'fas fa-sliders',       href: '/suporte/configuracao', color: 'text-slate-600 bg-slate-100', permissao: 'suporte.gerir' },
+        ],
+    },
+    {
         // Auditoria e uso do sistema (TR 4.25)
         title: 'Relatórios', icon: 'fas fa-chart-line', color: 'text-rose-600 bg-rose-100',
         children: [
