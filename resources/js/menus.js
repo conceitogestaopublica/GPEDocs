@@ -116,6 +116,14 @@ export const MENU_GEPSP = [
         ],
     },
     {
+        // Ofícios e processos com outros entes (TR 4.28)
+        title: 'Tramita GOV.BR', icon: 'fas fa-share-nodes', color: 'text-green-700 bg-green-100',
+        children: [
+            { title: 'Enviados e recebidos', icon: 'fas fa-right-left', href: '/tramita',              color: 'text-green-700 bg-green-100', permissao: 'tramita.usar' },
+            { title: 'Configuração',         icon: 'fas fa-sliders',    href: '/tramita/configuracao', color: 'text-slate-600 bg-slate-100', permissao: 'tramita.configurar' },
+        ],
+    },
+    {
         // Suporte ao usuário da plataforma (TR 4.26)
         title: 'Suporte', icon: 'fas fa-life-ring', color: 'text-cyan-600 bg-cyan-100',
         children: [

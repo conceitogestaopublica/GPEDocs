@@ -454,6 +454,7 @@ class ProcessoController extends Controller
             'externo'         => \App\Http\Controllers\ParticipanteController::doProcesso($processo),
             // Fiscalização: origem, fiscalizações geradas e diligências (TR 4.49)
             'fiscalizacao'    => \App\Http\Controllers\FiscalizacaoController::doProcesso($processo),
+            'tramita'         => \App\Http\Controllers\TramitaController::doDocumento('processo_id', $processo->id),
             // Sistema tributário: imóvel, guias, alvará/habite-se, fiscalização (TR 4.48, 4.49)
             'tributario'      => \App\Http\Controllers\ProcessoTributarioController::doProcesso($processo),
             'legislativo'     => $processo->vereador_id || $processo->proposicao_tipo ? [

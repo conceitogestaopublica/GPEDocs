@@ -298,6 +298,7 @@ class OficioController extends Controller
             'conteudo_html' => $oficio->conteudoFinal(),
             'marcadores'    => ['citado_em' => \App\Support\Marcadores::citadoEm('oficio', $oficio->id), 'pessoas' => \App\Support\Marcadores::doDocumento('oficio', $oficio->id)],
             'acessos'       => \App\Support\Acessos::de('oficio', $oficio->id),
+            'tramita'       => \App\Http\Controllers\TramitaController::doDocumento('oficio_id', $oficio->id),
         ]);
     }
 

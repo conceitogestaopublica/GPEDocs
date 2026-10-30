@@ -868,6 +868,22 @@ Route::middleware('auth')->group(function () {
         Route::post('processos/anexos/{anexo}/externo', 'visibilidade')->whereNumber('anexo')->name('processos.anexos.externo');
         Route::post('processos/{id}/consulta-link', [\App\Http\Controllers\ConsultaPublicaController::class, 'link'])->whereNumber('id')->name('processos.consulta-link');
     });
+    // Tramita GOV.BR (TR 4.28): enviados/recebidos, envio do ofício e do processo, aceite/recusa, configuração
+    Route::controller(\App\Http\Controllers\TramitaController::class)->prefix('tramita')->name('tramita.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('estruturas', 'estruturas')->middleware('throttle:60,1')->name('estruturas');
+        Route::post('oficios/{id}', 'enviarOficio')->whereNumber('id')->middleware('throttle:20,1')->name('oficio');
+        Route::post('processos/{id}', 'enviarProcesso')->whereNumber('id')->middleware('throttle:20,1')->name('processo');
+        Route::post('sincronizar', 'sincronizar')->middleware('throttle:20,1')->name('sincronizar');
+        Route::post('{id}/aceitar', 'aceitar')->whereNumber('id')->name('aceitar');
+        Route::post('{id}/recusar', 'recusar')->whereNumber('id')->name('recusar');
+        Route::get('{id}/componentes/{indice}', 'componente')->whereNumber(['id', 'indice'])->name('componente');
+        Route::get('{id}/comprovante', 'comprovante')->whereNumber('id')->name('comprovante');
+        Route::get('configuracao', 'configuracao')->name('configuracao');
+        Route::post('configuracao', 'salvarConfig')->name('configuracao.salvar');
+        Route::post('configuracao/testar', 'testar')->name('testar');
+        Route::post('configuracao/simular', 'simularEntrada')->name('simular');
+    });
     // Suporte na plataforma (TR 4.26.1–10): chat flutuante (api), central de suporte, ajuda e configuração
     Route::controller(\App\Http\Controllers\SuporteController::class)->prefix('suporte')->name('suporte.')->group(function () {
         Route::get('/', 'index')->name('index');

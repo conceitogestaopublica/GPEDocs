@@ -17,6 +17,7 @@ import ComissaoPad from '../../../Components/ComissaoPad';
 import TributarioDoProcesso from '../../../Components/TributarioDoProcesso';
 import ParticipantesDoProcesso from '../../../Components/ParticipantesDoProcesso';
 import FiscalizacaoDoProcesso from '../../../Components/FiscalizacaoDoProcesso';
+import TramitaDoDocumento from '../../../Components/TramitaDoDocumento';
 import FerramentasDoTexto from '../../../Components/FerramentasDoTexto';
 import MapaAvaliacaoDoProcesso from '../../../Components/MapaAvaliacaoDoProcesso';
 import Modal from '../../../Components/Modal';
@@ -83,7 +84,7 @@ const tabList = [
     { key: 'arvore', label: 'Árvore', icon: 'fas fa-sitemap' },
 ];
 
-export default function Show({ fiscalizacao = null, externo = null, tributario = null, pad = null, pareceres = [], pode_emitir_parecer = false, legislativo = null, solicitante = null, ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
+export default function Show({ tramita = null, fiscalizacao = null, externo = null, tributario = null, pad = null, pareceres = [], pode_emitir_parecer = false, legislativo = null, solicitante = null, ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
     acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [], classificacao = null, mapa_avaliacao = null }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
@@ -626,6 +627,7 @@ export default function Show({ fiscalizacao = null, externo = null, tributario =
                     </Card>
                 )}
                 {/* Fiscalização: origem, geradas e diligências (TR 4.49) */}
+                {activeTab === 'detalhes' && <TramitaDoDocumento dados={tramita} url={`/tramita/processos/${proc.id}`} rotulo="processo" className="mb-4" />}
                 {activeTab === 'detalhes' && fiscalizacao && <FiscalizacaoDoProcesso processoId={proc.id} dados={fiscalizacao} unidades={unidadesTree} pode={(auth?.user?.permissoes || []).some((p) => ['*', 'processo.tramitar'].includes(p))} />}
                 {/* Participantes e acesso do externo (TR 4.48.28, 4.48.30) */}
                 {activeTab === 'detalhes' && externo && <ParticipantesDoProcesso processoId={proc.id} dados={externo} podeEditar={(auth?.user?.permissoes || []).some((p) => ['*', 'processo.tramitar'].includes(p))} />}

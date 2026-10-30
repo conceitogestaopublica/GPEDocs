@@ -42,6 +42,8 @@ final class Permissoes
         'portal.carta_servicos' => 'Manter a carta de serviços',
         'contato.gerenciar'    => 'Consultar e manter contatos (cadastro, listas, procurações, unificação e CSV)',
         'urbanismo.gerir'      => 'Consulta prévia: zonas e parâmetros urbanísticos, camadas e lotes do mapa',
+        'tramita.usar'         => 'Tramita GOV.BR: enviar ofícios e processos a outros entes, aceitar ou recusar os recebidos',
+        'tramita.configurar'   => 'Tramita GOV.BR: adesão, certificado, estrutura do ente e destino dos recebidos',
         'suporte.atender'      => 'Suporte: atender, responder, escalar e resolver atendimentos dos usuários',
         'suporte.gerir'        => 'Suporte: central de ajuda (assuntos e artigos), atendentes e configuração',
         'relatorio.indicadores' => 'Painel de indicadores: uso, setores, processos e assinaturas de todos os setores',
