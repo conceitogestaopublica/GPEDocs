@@ -37,6 +37,7 @@ export const MENU_CONFIGURACOES = [
     { title: 'Sistema tributário', icon: 'fas fa-landmark-dome', href: '/configuracoes/integracao-tributaria', color: 'text-emerald-600 bg-emerald-100', permissao: 'admin.sistemas_integrados' },
     { section: 'label', label: 'Urbanismo' },
     { title: 'Consulta prévia (mapa)', icon: 'fas fa-map', href: '/configuracoes/urbanismo', color: 'text-teal-600 bg-teal-100', permissao: 'urbanismo.gerir' },
+    { title: 'App da fiscalização', icon: 'fas fa-mobile-screen', href: '/configuracoes/fiscalizacao', color: 'text-cyan-600 bg-cyan-100', permissao: 'fiscalizacao.formularios' },
 ];
 
 export const MENU_GEPSP = [

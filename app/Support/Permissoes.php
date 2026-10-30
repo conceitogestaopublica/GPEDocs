@@ -42,6 +42,8 @@ final class Permissoes
         'portal.carta_servicos' => 'Manter a carta de serviços',
         'contato.gerenciar'    => 'Consultar e manter contatos (cadastro, listas, procurações, unificação e CSV)',
         'urbanismo.gerir'      => 'Consulta prévia: zonas e parâmetros urbanísticos, camadas e lotes do mapa',
+        'fiscalizacao.campo'   => 'App da fiscalização: fazer vistorias no celular (offline) e sincronizar',
+        'fiscalizacao.formularios' => 'App da fiscalização: formulários de checklist, campos e objetos fiscalizados',
         'tributario.usar'      => 'Sistema tributário: consultar imóvel, emitir guia, pedir alvará/habite-se e fiscalização a partir do processo',
         'diario.gerir'         => 'Diário Oficial: estrutura (cadernos, seções), responsáveis e montagem das edições',
         'ato.elaborar'         => 'Atos oficiais: elaborar, gerar PDF/A, enviar à assinatura e publicar',

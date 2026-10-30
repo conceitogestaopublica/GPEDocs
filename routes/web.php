@@ -284,6 +284,13 @@ Route::get('verificar/codigo/{codigo}', [VerificacaoController::class, 'porCodig
     ->where('codigo', '[A-Za-z0-9-]{6,20}')->name('verificar.codigo');
 Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->name('verificar');
 // Mapa público da consulta prévia de viabilidade (TR 4.50)
+// App offline da fiscalização (TR 4.52): arquivos do PWA ficam fora do login (o service worker se atualiza sozinho)
+Route::controller(\App\Http\Controllers\AppFiscalizacaoController::class)->prefix('fiscal')->group(function () {
+    Route::get('sw', 'sw')->name('fiscal.sw');
+    Route::get('manifesto', 'manifesto')->name('fiscal.manifesto');
+    Route::get('icone', 'icone')->name('fiscal.icone');
+});
+
 Route::controller(\App\Http\Controllers\UrbanismoController::class)->prefix('mapa-urbano')->middleware('throttle:120,1')->group(function () {
     Route::get('/', 'mapa')->name('mapa-urbano');
     Route::get('dados', 'dados')->name('mapa-urbano.dados');
@@ -508,6 +515,13 @@ Route::middleware('auth')->group(function () {
 
         // Sistemas integrados (API tokens para sistemas externos)
         Route::middleware('can:admin.sistemas_integrados')->group(function () {
+        // Formulários do app da fiscalização (TR 4.52)
+        Route::controller(\App\Http\Controllers\AppFiscalizacaoController::class)->prefix('fiscalizacao')->name('fiscalizacao.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('formularios', 'salvarFormulario')->name('formularios.store');
+            Route::post('formularios/{id}', 'salvarFormulario')->whereNumber('id')->name('formularios.update');
+            Route::delete('formularios/{id}', 'excluirFormulario')->whereNumber('id')->name('formularios.destroy');
+        });
         // Consulta prévia: zonas, camadas e lotes do mapa (TR 4.50)
         Route::controller(\App\Http\Controllers\UrbanismoController::class)->prefix('urbanismo')->name('urbanismo.')->group(function () {
             Route::get('/', 'index')->name('index');
@@ -847,6 +861,15 @@ Route::middleware('auth')->group(function () {
         Route::post('processos/{id}/participantes/{participante}/convite', 'convidar')->whereNumber(['id', 'participante'])->middleware('throttle:20,1')->name('processos.participantes.convite');
         Route::post('processos/anexos/{anexo}/externo', 'visibilidade')->whereNumber('anexo')->name('processos.anexos.externo');
         Route::post('processos/{id}/consulta-link', [\App\Http\Controllers\ConsultaPublicaController::class, 'link'])->whereNumber('id')->name('processos.consulta-link');
+    });
+    // App offline da fiscalização (TR 4.52): tela do fiscal, sincronização e relatório da vistoria
+    Route::controller(\App\Http\Controllers\AppFiscalizacaoController::class)->prefix('fiscal')->name('fiscal.')->group(function () {
+        Route::get('/', 'app')->name('app');
+        Route::get('api/sessao', 'sessao')->name('sessao');
+        Route::get('api/vistorias', 'minhas')->name('minhas');
+        Route::post('api/vistorias', 'sincronizar')->middleware('throttle:60,1')->name('sincronizar');
+        Route::get('vistorias/{id}/pdf', 'pdf')->whereNumber('id')->name('pdf');
+        Route::get('vistorias/{id}/fotos/{indice}', 'foto')->whereNumber(['id', 'indice'])->name('foto');
     });
     // Fiscalização de obras e posturas (TR 4.49)
     Route::controller(\App\Http\Controllers\FiscalizacaoController::class)->group(function () {
