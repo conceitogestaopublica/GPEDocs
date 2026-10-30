@@ -343,10 +343,21 @@ export default function OficiosCreate({ tramitaAtivo = false, setores = [], auto
                     <div className="bg-white rounded-xl border border-gray-200 p-5">
                         <h3 className="text-sm font-semibold text-gray-800 mb-3">
                             <i className="fas fa-info-circle text-blue-500 mr-1.5" />
-                            {isFisico ? 'Registro no Livro' : 'Envio Eletrônico'}
+                            {isFisico ? 'Registro no Livro' : isTramita ? 'Tramita GOV.BR' : 'Envio Eletrônico'}
                         </h3>
                         <div className="space-y-3 text-xs text-gray-600 leading-relaxed">
-                            {isFisico ? (
+                            {isTramita ? (
+                                <>
+                                    <p>
+                                        O ofício será <strong>enviado pelo barramento do governo</strong> ao órgão escolhido,
+                                        com o PDF e os anexos. Na hora você recebe o <strong>NRE</strong> e o <strong>IDT</strong>.
+                                    </p>
+                                    <p>
+                                        Quando o destino receber, chega o recibo com data e hora (ou a recusa, com o motivo).
+                                        Acompanhe no próprio ofício ou em Tramita GOV.BR.
+                                    </p>
+                                </>
+                            ) : isFisico ? (
                                 <>
                                     <p>
                                         O ofício será <strong>registrado no livro de controle</strong> para
