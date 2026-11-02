@@ -261,7 +261,7 @@ class SuporteController extends Controller
     {
         $b = trim((string) $request->input('q'));
 
-        return response()->json(strlen($b) < 2 ? [] : DB::table('users')->whereNull('suspenso_em')->where('tipo', '<>', 'externo')
+        return response()->json(strlen($b) < 2 ? [] : DB::table('users')->whereNull('suspenso_em')->where('somente_portal', false)->where('tipo', '<>', 'externo')
             ->where(fn ($w) => $w->where('name', 'ilike', "%{$b}%")->orWhere('email', 'ilike', "%{$b}%"))->orderBy('name')->limit(15)->get(['id', 'name', 'email']));
     }
 

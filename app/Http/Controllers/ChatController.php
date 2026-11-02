@@ -20,8 +20,8 @@ class ChatController extends Controller
         $ugId = (int) ($request->session()->get('ug_id') ?? 0);
         $userId = (int) Auth::id();
 
-        // Usuarios da mesma UG (exceto o proprio)
-        $usuarios = User::query()
+        // Usuarios do GED da mesma UG (exceto o proprio; servidor só do Portal/app não entra)
+        $usuarios = User::query()->doGed()
             ->select('users.id', 'users.name', 'users.email')
             ->where('users.id', '!=', $userId)
             ->when($ugId, function ($q) use ($ugId) {

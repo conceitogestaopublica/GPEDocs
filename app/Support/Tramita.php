@@ -120,7 +120,7 @@ final class Tramita
                 if ($cfg->aceite_automatico) {
                     self::aceitar($t, null);
                 } elseif ($cfg->unidade_entrada_id) {
-                    foreach (DB::table('users')->where('unidade_id', $cfg->unidade_entrada_id)->whereNull('suspenso_em')->pluck('id') as $uid) {
+                    foreach (DB::table('users')->where('unidade_id', $cfg->unidade_entrada_id)->whereNull('suspenso_em')->where('somente_portal', false)->pluck('id') as $uid) {
                         self::avisar($uid, "Tramita: chegou {$t->assunto}", "De {$t->outro_nome}. Aceite ou recuse em Tramita GOV.BR → Recebidos.", $t);
                     }
                 }

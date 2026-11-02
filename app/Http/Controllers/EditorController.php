@@ -48,7 +48,7 @@ class EditorController extends Controller
         // Pessoas: servidores da UG e, no @ e no !, os contatos externos (assinatura exige CPF e e-mail)
         $assinar = $tipo === 'assinatura';
         $servidores = DB::table('users as u')->leftJoin('ug_organograma as o', 'o.id', '=', 'u.unidade_id')
-            ->where('u.tipo', 'interno')->whereNull('u.suspenso_em')->where('u.ug_id', session('ug_id'))
+            ->where('u.tipo', 'interno')->whereNull('u.suspenso_em')->where('u.somente_portal', false)->where('u.ug_id', session('ug_id'))
             ->when($q !== '', fn ($w) => $w->whereRaw('lower(u.name) like ?', [$termo]))
             ->orderByRaw('lower(u.name) like ? desc', [$comeco])->orderBy('u.name')->limit(8)->get(['u.id', 'u.name', 'u.cargo', 'o.nome as setor'])
             ->map(fn ($u) => ['id' => "usuario:{$u->id}", 'label' => $u->name, 'detalhe' => collect([$u->cargo, $u->setor])->filter()->implode(' · ') ?: 'Servidor']);

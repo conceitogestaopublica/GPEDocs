@@ -57,7 +57,7 @@ class BuscaController extends Controller
             'opcoes'     => [
                 'assuntos'  => TipoProcesso::where('ativo', true)->orderBy('nome')->get(['id', 'nome']),
                 'setores'   => \App\Models\UgOrganograma::whereIn('id', Setores::doUsuario($user))->orderBy('nome')->get(['id', 'nome']),
-                'usuarios'  => User::where('tipo', 'interno')->whereNull('suspenso_em')->orderBy('name')->get(['id', 'name']),
+                'usuarios'  => User::doGed()->where('tipo', 'interno')->orderBy('name')->get(['id', 'name']),
                 'etiquetas' => Etiquetas::doUsuario($user)->values(),
                 'classificacoes' => \App\Support\Classificacao::opcoes(false),
                 'pode_todos' => (bool) ($user->acesso_geral_ug || $user->super_admin),

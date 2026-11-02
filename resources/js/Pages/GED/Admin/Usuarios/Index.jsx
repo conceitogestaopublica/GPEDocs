@@ -129,6 +129,7 @@ export default function Usuarios({ usuarios, filtros = {}, online = 0, minutos_o
                         <option value="">Todos os tipos</option>
                         <option value="interno">Internos</option>
                         <option value="externo">Externos</option>
+                        <option value="portal">Só Portal/app</option>
                     </select>
                     <Button type="submit" icon="fas fa-search" variant="secondary">Buscar</Button>
                     {(busca || tipo) && (

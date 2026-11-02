@@ -40,9 +40,10 @@ final class Setores
     /** Quem atende o setor (principal ou secundário) — para avisar do que chega nele. @return list<int> */
     public static function servidores(int $unidadeId): array
     {
-        return User::query()
-            ->where('unidade_id', $unidadeId)
-            ->orWhereIn('id', fn ($q) => $q->select('user_id')->from('user_setores')->where('unidade_id', $unidadeId))
+        // só quem usa o GED: servidor só do Portal/app não recebe aviso nem entra na caixa do setor
+        return User::query()->doGed()
+            ->where(fn ($w) => $w->where('unidade_id', $unidadeId)
+                ->orWhereIn('id', fn ($q) => $q->select('user_id')->from('user_setores')->where('unidade_id', $unidadeId)))
             ->pluck('id')->map(fn ($id) => (int) $id)->unique()->values()->all();
     }
 

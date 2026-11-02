@@ -629,7 +629,7 @@ class ProcessoController extends Controller
         return [
             'responsavel' => $etapa->destinatario_id ? User::whereKey($etapa->destinatario_id)->first(['id', 'name']) : null,
             'colegas'     => User::whereIn('id', \App\Support\Setores::servidores($etapa->destino_unidade_id))
-                ->whereNull('suspenso_em')->orderBy('name')->get(['id', 'name']),
+                ->orderBy('name')->get(['id', 'name']),
         ];
     }
 
