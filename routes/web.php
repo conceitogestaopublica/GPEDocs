@@ -871,6 +871,16 @@ Route::middleware('auth')->group(function () {
         // Ouvidoria e e-SIC (TR 4.33.22–23; Lei 13.460 art. 16; LAI art. 11)
         Route::post('processos/{id}/prorrogar-prazo', [ProcessoController::class, 'prorrogarPrazo'])->whereNumber('id')->name('processos.prorrogar-prazo');
         Route::post('processos/{id}/resolver-ouvidoria', [ProcessoController::class, 'resolverOuvidoria'])->whereNumber('id')->name('processos.resolver-ouvidoria');
+        // Sobrestamento, apensação/desapensação e anexação
+        Route::controller(\App\Http\Controllers\Flow\VinculoProcessoController::class)->group(function () {
+            Route::post('processos/{id}/sobrestar', 'sobrestar')->whereNumber('id')->name('processos.sobrestar');
+            Route::post('processos/{id}/retomar', 'retomar')->whereNumber('id')->name('processos.retomar');
+            Route::post('processos/{id}/vincular', 'vincular')->whereNumber('id')->name('processos.vincular');
+            Route::post('processos/{id}/apensos/{apenso}/desapensar', 'desapensar')->whereNumber(['id', 'apenso'])->name('processos.desapensar');
+            Route::get('processos/{id}/vinculaveis', 'buscar')->whereNumber('id')->name('processos.vinculaveis');
+        });
+        // Despacho em lote a partir da caixa de trabalho: receber, encaminhar, arquivar
+        Route::post('processos/lote', \App\Http\Controllers\Flow\DespachoLoteController::class)->middleware('throttle:30,1')->name('processos.lote');
         // Localização, avaliação no balcão e reabertura (TR 4.32.21, 4.32.25–27, 4.33.9)
         Route::post('processos/{id}/localizacao', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'localizacao'])->whereNumber('id')->name('processos.localizacao');
     // Recebimento de documento físico com comprovante (TR 4.32.28)

@@ -370,8 +370,13 @@ class InboxController extends Controller
         // Etiquetas do setor de cada item (TR 4.19)
         $etiquetasDosItens = \App\Support\Etiquetas::dosItens(Auth::user(),
             collect($items->items())->map(fn ($i) => [$i->tipo, (int) $i->item_id])->unique()->values()->all());
+        // Processo parado (sobrestado, apensado ou anexado): na caixa sai o aviso no lugar do prazo
+        $parados = DB::table('proc_processos')->whereIn('id', $linhasProcesso->pluck('item_id')->all())
+            ->where(fn ($w) => $w->whereNotNull('sobrestado_em')->orWhereNotNull('apensado_a_id')->orWhereNotNull('anexado_a_id'))
+            ->selectRaw("id, case when anexado_a_id is not null then 'anexado' when apensado_a_id is not null then 'apensado' else 'sobrestado' end as motivo")
+            ->pluck('motivo', 'id');
 
-        $items->setCollection($items->getCollection()->map(function ($it) use ($users, $unidades, $assinaturasPorProcesso, $documentosPorProcesso, $memosInfo, $oficiosInfo, $prazoEtapa, $prazoManual, $etiquetasDosItens) {
+        $items->setCollection($items->getCollection()->map(function ($it) use ($users, $unidades, $assinaturasPorProcesso, $documentosPorProcesso, $memosInfo, $oficiosInfo, $prazoEtapa, $prazoManual, $etiquetasDosItens, $parados) {
             // A view devolve o horário cru (UTC); sem o fuso o navegador mostrava 18:01 em vez de 15:01
             $it->criado_em = $it->criado_em ? \Illuminate\Support\Carbon::parse($it->criado_em, 'UTC')->toIso8601String() : null;
             $it->etiquetas = $etiquetasDosItens["{$it->tipo}-{$it->item_id}"] ?? [];
@@ -384,6 +389,10 @@ class InboxController extends Controller
                     $vence->lte(now()->addHours(\App\Models\Processo\Prazo::HORAS_VENCENDO)) => 'vencendo',
                     default => 'com_folga',
                 };
+                $it->parado = $parados[$it->item_id] ?? null;
+                if ($it->parado) {
+                    $it->prazo_situacao = null;   // parado não corre prazo
+                }
             }
             $it->remetente_nome = $users[$it->remetente_id]->name ?? null;
             $it->destino_usuario_nome = $it->destino_usuario_id ? ($users[$it->destino_usuario_id]->name ?? null) : null;
@@ -453,6 +462,14 @@ class InboxController extends Controller
                 ? \App\Models\UgOrganograma::whereIn('id', Setores::doUsuario(Auth::user()))
                     ->orderBy('nome')->get(['id', 'nome'])
                 : [],
+            // Despacho em lote (caixas de entrada): setores e servidores para encaminhar
+            'despacho_lote' => in_array($vista, ['pessoal', 'setor'], true) ? [
+                'unidades' => \App\Models\UgOrganograma::query()->when($ugId, fn ($q) => $q->where('ug_id', $ugId))->where('ativo', true)
+                    ->orderBy('nivel')->orderBy('nome')->get(['id', 'nome', 'nivel']),
+                'usuarios' => \App\Models\User::query()->where('tipo', 'interno')->whereNull('suspenso_em')
+                    ->when($ugId, fn ($q) => $q->where(fn ($w) => $w->whereHas('ugs', fn ($u) => $u->where('ugs.id', $ugId))->orWhere('ug_id', $ugId)))
+                    ->orderBy('name')->get(['id', 'name', 'unidade_id']),
+            ] : null,
         ]);
     }
 

@@ -464,6 +464,8 @@ class ProcessoController extends Controller
             'marcadores'      => ['citado_em' => \App\Support\Marcadores::citadoEm('processo', $processo->id), 'pessoas' => \App\Support\Marcadores::doDocumento('processo', $processo->id)],
             'classificacao'        => \App\Support\Classificacao::doItem('processo', $processo->id),
             'mapa_avaliacao'       => \App\Http\Controllers\Flow\MapaAvaliacaoController::paraTela($processo),
+            // Sobrestamento, apensos e anexados
+            'vinculos'             => \App\Support\VinculosProcesso::doProcesso($processo, Auth::user()),
             'processo'             => $processo,
             'usuarios'             => $usuarios,
             'unidades'             => $unidades,
@@ -683,6 +685,8 @@ class ProcessoController extends Controller
             Tramitacao::where('processo_id', $processo->id)
                 ->whereIn('status', ['pendente', 'recebido'])
                 ->update(['status' => 'concluido', 'recebido_em' => DB::raw('COALESCE(recebido_em, NOW())')]);
+            // Os apensos acompanham a decisão do principal e se encerram com ele
+            \App\Support\VinculosProcesso::encerrarApensos($processo, Auth::user(), 'concluido');
 
             // Toda decisao (inclusive arquivamento) gera PDF + Documento — pra poder
             // arquivar em pasta do GPE Docs. So as decisoes formais (deferido/indeferido/
@@ -1035,6 +1039,8 @@ class ProcessoController extends Controller
             Tramitacao::where('processo_id', $processo->id)
                 ->whereIn('status', ['pendente', 'recebido'])
                 ->update(['status' => 'cancelado']);
+            // Os apensos se encerram junto com o principal
+            \App\Support\VinculosProcesso::encerrarApensos($processo, Auth::user(), 'cancelado');
 
             ProcessoHistorico::create([
                 'processo_id' => $processo->id,

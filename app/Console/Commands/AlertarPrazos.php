@@ -18,6 +18,7 @@ use Illuminate\Console\Command;
  * faltam "alerta_dias" dias, avisa no sistema quem enxerga o prazo — o criador
  * (pessoal), quem atende o setor (setor) ou o criador e quem está com o processo
  * (todos) — e, se o prazo pediu, também por e-mail. Um aviso por prazo.
+ * Antes, retoma os processos cujo sobrestamento venceu (App\Support\VinculosProcesso).
  * Agendado diariamente (routes/console.php).
  */
 class AlertarPrazos extends Command
@@ -35,7 +36,9 @@ class AlertarPrazos extends Command
             $ctx->set($tenant);
             Expediente::esquecer();
             Setores::esquecer();
-            $this->info("{$tenant->id}: " . $this->alertar($tenant) . ' aviso(s)');
+            // Sobrestamentos que venceram voltam a tramitar antes dos avisos (os prazos já saem estendidos)
+            $retomados = \App\Support\VinculosProcesso::retomarVencidos();
+            $this->info("{$tenant->id}: {$retomados} retomado(s), " . $this->alertar($tenant) . ' aviso(s)');
         }
 
         return self::SUCCESS;
@@ -48,7 +51,8 @@ class AlertarPrazos extends Command
             ->whereNull('concluido_em')->whereNull('alertado_em')->whereNotNull('alerta_dias')
             ->where('vence_em', '>', now())
             ->get()
-            ->filter(fn (Prazo $p) => $p->processo && now()->gte($p->vence_em->copy()->subDays($p->alerta_dias)));
+            // processo sobrestado não corre prazo: o aviso fica para depois da retomada
+            ->filter(fn (Prazo $p) => $p->processo && ! $p->processo->sobrestado_em && now()->gte($p->vence_em->copy()->subDays($p->alerta_dias)));
 
         foreach ($prazos as $prazo) {
             $quando = $prazo->vence_em->copy()->setTimezone(Expediente::FUSO)->format('d/m/Y H:i');
