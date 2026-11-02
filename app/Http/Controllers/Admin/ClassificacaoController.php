@@ -219,6 +219,14 @@ class ClassificacaoController extends Controller
             'descricao'  => ['required', 'string', 'max:255'],
             'observacao' => ['nullable', 'string', 'max:2000'],
             'parent_id'  => ['nullable', 'integer', 'exists:ged_classificacoes,id'],
+            // Tabela de temporalidade e destinação (CONARQ)
+            'ttd_corrente_anos'       => ['nullable', 'integer', 'between:0,200'],
+            'ttd_corrente_texto'      => ['nullable', 'string', 'max:150'],
+            'ttd_intermediaria_anos'  => ['nullable', 'integer', 'between:0,200'],
+            'ttd_intermediaria_texto' => ['nullable', 'string', 'max:150'],
+            'ttd_evento'              => ['nullable', 'in:producao,conclusao'],
+            'ttd_destinacao'          => ['nullable', 'in:eliminacao,guarda_permanente'],
+            'ttd_observacao'          => ['nullable', 'string', 'max:2000'],
         ], ['codigo.regex' => 'Use só números, pontos, hífen ou barra (ex.: 01.02.03).']);
 
         $nivel = 1;
@@ -233,8 +241,16 @@ class ClassificacaoController extends Controller
             throw ValidationException::withMessages(['parent_id' => 'O plano tem no máximo quatro níveis.']);
         }
 
+        $campos = ['ttd_corrente_anos', 'ttd_corrente_texto', 'ttd_intermediaria_anos', 'ttd_intermediaria_texto', 'ttd_evento', 'ttd_destinacao', 'ttd_observacao'];
+        $ttd = collect(array_fill_keys($campos, null))->merge(collect($dados)->only($campos))->map(fn ($v) => $v === '' ? null : $v);
+        if ($ttd->filter(fn ($v) => $v !== null)->isNotEmpty() && (! $ttd['ttd_destinacao'] || ($ttd['ttd_corrente_anos'] === null && ! $ttd['ttd_corrente_texto']))) {
+            throw ValidationException::withMessages(['ttd_destinacao' => 'Na temporalidade, informe ao menos o prazo da fase corrente (anos ou condição) e a destinação final.']);
+        }
+
         return ['codigo' => $dados['codigo'], 'descricao' => $dados['descricao'], 'observacao' => $dados['observacao'] ?? null,
-            'parent_id' => $dados['parent_id'] ?? null, 'nivel' => $nivel];
+            'parent_id' => $dados['parent_id'] ?? null, 'nivel' => $nivel]
+            // a contagem começa da produção quando o evento não foi informado
+            + $ttd->put('ttd_evento', $ttd['ttd_destinacao'] ? ($ttd['ttd_evento'] ?? 'producao') : null)->all();
     }
 
     private function profundidadeAbaixo(int $id): int
