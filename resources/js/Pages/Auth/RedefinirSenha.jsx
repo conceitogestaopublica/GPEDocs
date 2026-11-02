@@ -4,7 +4,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { CartaoAuth } from './EsqueciSenha';
 
-export default function RedefinirSenha({ token, email }) {
+export default function RedefinirSenha({ token, email, regra = 'A senha precisa ter pelo menos 8 caracteres.' }) {
     const { data, setData, post, processing, errors } = useForm({
         token,
         email: email || '',
@@ -20,7 +20,7 @@ export default function RedefinirSenha({ token, email }) {
     const campo = 'w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400';
 
     return (
-        <CartaoAuth titulo="Definir nova senha" subtitulo="A senha precisa ter pelo menos 8 caracteres.">
+        <CartaoAuth titulo="Definir nova senha" subtitulo={regra}>
             <Head title="Nova senha - GPE Docs" />
             <form onSubmit={enviar} className="space-y-4">
                 <div>

@@ -54,6 +54,8 @@ class Assinatura extends Model
     {
         return [
             'assinado_em'          => 'datetime',
+            'lembrado_em'          => 'datetime',
+            'lembrete_vespera_em'  => 'datetime',
             'timestamp_assinatura' => 'datetime',
             'cadeia_certificados'  => 'array',
             'signature_position'   => 'array',

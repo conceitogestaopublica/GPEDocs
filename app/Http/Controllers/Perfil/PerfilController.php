@@ -78,11 +78,12 @@ class PerfilController extends Controller
         $u = Auth::user();
         $dados = $request->validate([
             'senha_atual' => ['required', 'string'],
-            'senha'       => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
+            'senha'       => ['required', 'confirmed', \App\Support\PoliticaSenha::regra()],
         ], [], ['senha' => 'nova senha']);
         $this->conferirSenha($u, $dados['senha_atual']);
 
-        $u->forceFill(['password' => Hash::make($dados['senha'])])->save();
+        \App\Support\PoliticaSenha::conferirHistorico($u, $dados['senha'], 'senha');
+        \App\Support\PoliticaSenha::gravar($u, $dados['senha']);
         HistoricoUsuario::registrar($u, 'Senha', null, 'Alterada pelo próprio servidor');
 
         return back()->with('success', 'Senha alterada.');
