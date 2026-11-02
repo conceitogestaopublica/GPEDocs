@@ -63,6 +63,7 @@ final class Permissoes
         'rh.requerimentos'     => 'Gestão de Pessoas: ver todos os requerimentos pessoais de servidores',
         'ouvidoria.gerir'      => 'Ouvidoria: painel, dados de manifestante sigiloso, resolver em todos os setores e decisão final',
         'esic.gerir'           => 'e-SIC: painel de pedidos de acesso à informação e prorrogação de prazo (LAI)',
+        'esic.recursos'        => 'e-SIC: decidir os recursos do requerente (autoridade da 1ª e da 2ª instância, LAI art. 15)',
 
         // Administração
         'admin.configuracoes'       => 'Acessar o módulo de configurações',

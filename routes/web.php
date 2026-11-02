@@ -185,6 +185,8 @@ Route::prefix('api/portal')
         Route::get('solicitacoes/{codigo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'show'])->where('codigo', '[^/]+')->name('solicitacoes.show');
         Route::post('solicitacoes/{codigo}/avaliacao', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'avaliar'])->where('codigo', '[^/]+')->name('solicitacoes.avaliacao');
         Route::post('solicitacoes/{codigo}/cancelar',[\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'cancelar'])->where('codigo', '[^/]+')->name('solicitacoes.cancelar');
+        // Recurso do requerente no e-SIC (LAI art. 15)
+        Route::post('solicitacoes/{codigo}/recurso', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'recurso'])->where('codigo', '[^/]+')->middleware('throttle:10,1')->name('solicitacoes.recurso');
         // Interação depois de abrir, comprovante e processos do cidadão (TR 4.32.1, 4.32.11, 4.32.23)
         Route::post('solicitacoes/{codigo}/mensagens', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'mensagem'])->where('codigo', '[^/]+')->middleware('throttle:30,1')->name('solicitacoes.mensagens');
         Route::get('solicitacoes/{codigo}/comprovante', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'comprovante'])->where('codigo', '[^/]+')->name('solicitacoes.comprovante');
@@ -871,6 +873,9 @@ Route::middleware('auth')->group(function () {
         // Ouvidoria e e-SIC (TR 4.33.22–23; Lei 13.460 art. 16; LAI art. 11)
         Route::post('processos/{id}/prorrogar-prazo', [ProcessoController::class, 'prorrogarPrazo'])->whereNumber('id')->name('processos.prorrogar-prazo');
         Route::post('processos/{id}/resolver-ouvidoria', [ProcessoController::class, 'resolverOuvidoria'])->whereNumber('id')->name('processos.resolver-ouvidoria');
+        // Recurso do requerente no e-SIC: registrar (recebido fora do portal) e decidir (LAI art. 15)
+        Route::post('processos/{id}/recursos-esic', [\App\Http\Controllers\Flow\RecursoEsicController::class, 'registrar'])->whereNumber('id')->name('processos.recursos-esic.store');
+        Route::post('recursos-esic/{id}/decidir', [\App\Http\Controllers\Flow\RecursoEsicController::class, 'decidir'])->whereNumber('id')->name('recursos-esic.decidir');
         // Localização, avaliação no balcão e reabertura (TR 4.32.21, 4.32.25–27, 4.33.9)
         Route::post('processos/{id}/localizacao', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'localizacao'])->whereNumber('id')->name('processos.localizacao');
     // Recebimento de documento físico com comprovante (TR 4.32.28)
