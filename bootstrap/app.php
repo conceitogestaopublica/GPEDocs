@@ -43,6 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
             // API stateless: ignora CSRF nas rotas /api/integracoes/*
             $middleware->validateCsrfTokens(except: [
                 'api/integracoes/*',
+                'api/suporte/eventos',   // Central de Demandas: autenticada pela assinatura HMAC
             ]);
         })->withExceptions(function (Exceptions $exceptions): void {
             //
