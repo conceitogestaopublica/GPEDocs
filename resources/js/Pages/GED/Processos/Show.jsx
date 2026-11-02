@@ -13,6 +13,7 @@ import ClassificacaoDoItem from '../../../Components/ClassificacaoDoItem';
 import MarcadoresDoDocumento from '../../../Components/MarcadoresDoDocumento';
 import RecebimentosFisicos from '../../../Components/RecebimentosFisicos';
 import OuvidoriaDoProcesso from '../../../Components/OuvidoriaDoProcesso';
+import LicencaAmbientalDoProcesso from '../../../Components/LicencaAmbientalDoProcesso';
 import ComissaoPad from '../../../Components/ComissaoPad';
 import TributarioDoProcesso from '../../../Components/TributarioDoProcesso';
 import ParticipantesDoProcesso from '../../../Components/ParticipantesDoProcesso';
@@ -84,7 +85,7 @@ const tabList = [
     { key: 'arvore', label: 'Árvore', icon: 'fas fa-sitemap' },
 ];
 
-export default function Show({ tramita = null, fiscalizacao = null, externo = null, tributario = null, pad = null, pareceres = [], pode_emitir_parecer = false, legislativo = null, solicitante = null, ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
+export default function Show({ licenca_ambiental = null, tramita = null, fiscalizacao = null, externo = null, tributario = null, pad = null, pareceres = [], pode_emitir_parecer = false, legislativo = null, solicitante = null, ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
     acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [], classificacao = null, mapa_avaliacao = null }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
@@ -670,6 +671,7 @@ export default function Show({ tramita = null, fiscalizacao = null, externo = nu
                     </Card>
                 )}
                 {activeTab === 'detalhes' && <MapaAvaliacaoDoProcesso processoId={processo.id} dados={mapa_avaliacao} className="mb-6" />}
+                {activeTab === 'detalhes' && <LicencaAmbientalDoProcesso processoId={processo.id} dados={licenca_ambiental} className="mb-6" />}
                 {activeTab === 'detalhes' && <OuvidoriaDoProcesso processoId={processo.id} dados={ouvidoria} className="mb-6" />}
                 {activeTab === 'detalhes' && <MarcadoresDoDocumento dados={marcadores} className="mb-6" />}
                 {activeTab === 'detalhes' && <RecebimentosFisicos processoId={processo.id} recebimentos={recebimentos_fisicos} className="mb-6"
@@ -1727,6 +1729,7 @@ const ACOES_HISTORICO = {
     prazo_criado: 'Prazo incluído', prazo_alterado: 'Prazo alterado', prazo_realizado: 'Prazo realizado', prazo_excluido: 'Prazo excluído',
     anexos_reordenados: 'Anexos reordenados', anexo_avaliado: 'Anexo avaliado', link_anexo: 'Link seguro de anexo', arvore_solicitada: 'Árvore do processo pedida',
     reclassificacao: 'Reclassificado', localizacao: 'Localização alterada', avaliacao: 'Avaliação', reabertura: 'Reaberto',
+    licenca_emitida: 'Licença ambiental emitida', licenca_indeferida: 'Licença ambiental indeferida',
 };
 
 function formatDate(dateStr) {

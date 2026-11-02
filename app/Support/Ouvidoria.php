@@ -121,7 +121,7 @@ final class Ouvidoria
     }
 
     /** Evento e situação na solicitação do portal ligada ao processo, se houver. */
-    private static function avisarPortal(Processo $p, string $mensagem, ?string $status): void
+    public static function avisarPortal(Processo $p, string $mensagem, ?string $status): void
     {
         $s = \App\Models\Portal\Solicitacao::withoutGlobalScope('ug')->where('processo_id', $p->id)->first();
         if (! $s) {

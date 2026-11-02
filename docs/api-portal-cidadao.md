@@ -145,6 +145,21 @@ veem, acompanham e podem cancelar. Lista e detalhe trazem `titular: { id, nome }
 A solicitação é registrada pelo mesmo serviço do portal embutido (`RegistrarSolicitacaoService`),
 e o andamento do processo volta sozinho para ela (`SincronizarPortalCidadaoService`).
 
+## Licenciamento ambiental
+
+Sempre com `ug`; requerimento e licenças também com `cidadao_id`. Só funciona depois que o município
+escolhe, em **GPE Fluxos › Meio ambiente › Configurar licenciamento**, o serviço da Carta que recebe o
+requerimento (com assunto e setor) e cadastra as atividades e os documentos exigidos.
+
+| Rota | O que faz |
+|---|---|
+| `GET ambiental/atividades` | `modalidades` (`LP`, `LI`, `LO`, `LAS`, `LOC`, `RENOVACAO`), `atividades[]` (`id`, `codigo`, `descricao`, `unidade`, `potencial`) e `disponivel` |
+| `GET ambiental/enquadramento?atividade_id=&porte_valor=&modalidade=` | `porte`, `potencial`, `classe` (1 a 6) e `documentos[]` exigidos (`nome`, `obrigatorio`, `extensoes`) — o **índice** na lista é o `indice` do envio; 422 `{ erro }` quando a modalidade não cabe (LAS só nas classes 1 e 2) |
+| `POST ambiental/requerimentos` | `modalidade`, `atividade_id`, `porte_valor`, `empreendimento_nome`, `empreendimento_endereco`, `descricao`, `empreendedor_nome?`, `empreendedor_documento?` (padrão: o cidadão), `documentos[]` `{ indice, nome, conteudo }` (base64, mesmas regras dos documentos exigidos), `licenca_anterior?` (número, para **renovação**) → 201 `{ solicitacao: { codigo, processo, classe, comprovante_url } }`; o acompanhamento é o da solicitação |
+| `GET ambiental/licencas` | licenças do cidadão (pelo CPF/CNPJ do empreendedor ou pelas solicitações dele): `numero`, `modalidade`, `situacao`, `valida_ate`, `empreendimento`, `pode_renovar`, `verificacao_url` |
+
+A licença emitida tem PDF com QR que abre a verificação pública `GET /ambiental/licencas/{codigo}` (sem login).
+
 ## Configurar um município
 
 1. `php artisan tenant:migrate --tenant={id}` (campos `area` e `acao_fiscal`).
