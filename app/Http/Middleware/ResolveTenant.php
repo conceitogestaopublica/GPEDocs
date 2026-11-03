@@ -95,11 +95,11 @@ class ResolveTenant
      */
     private function extractSubdomain(string $host): ?string
     {
-        $base = (string) config('multitenancy.dominio_base');
-
-        // O default de dev é ':8090' (marcador de porta), não um domínio.
-        if (str_contains($base, '.') && $host === $base) {
-            return null;
+        // O default de dev é ':8090' (marcador de porta), não um domínio; pode haver vários (lista).
+        foreach (\App\Models\Tenant::dominiosBase() as $base) {
+            if (str_contains($base, '.') && $host === $base) {
+                return null;
+            }
         }
 
         $partes = explode('.', $host);
