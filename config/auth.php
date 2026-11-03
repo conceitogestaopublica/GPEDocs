@@ -132,13 +132,15 @@ return [
      * - aviso: quantos dias antes do vencimento o usuário é avisado ao entrar;
      * - historico: quantas senhas anteriores não podem ser reutilizadas (0 desliga);
      * - minimo / exige: tamanho mínimo e composição (letra, numero, maiuscula, especial — separados por vírgula).
+ *   Padrão 'numero': senha só numérica é aceita; vazio = sem exigência de composição.
      */
     'senha' => [
         'validade' => (int) env('GED_SENHA_VALIDADE_DIAS', 180),
         'aviso'    => (int) env('GED_SENHA_AVISO_DIAS', 10),
         'historico' => (int) env('GED_SENHA_HISTORICO', 5),
         'minimo'   => (int) env('GED_SENHA_MINIMO', 8),
-        'exige'    => env('GED_SENHA_EXIGE', 'letra,numero'),
+        // Padrão: ao menos um número — senha só numérica é aceita (regra do produto).
+        'exige'    => env('GED_SENHA_EXIGE', 'numero'),
     ],
 
     /*

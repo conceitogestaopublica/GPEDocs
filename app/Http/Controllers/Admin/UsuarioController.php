@@ -203,7 +203,12 @@ class UsuarioController extends Controller
             return redirect()->route('configuracoes.usuarios.index')->with('success', 'Usuário criado com sucesso.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Erro ao criar usuário: ' . $e->getMessage());
+            // O texto da exceção pode trazer SQL com dados sensíveis (já mostrou o hash da senha):
+            // o detalhe vai para o log; a tela recebe só a mensagem.
+            report($e);
+
+            return back()->withInput($request->except('password', 'password_confirmation'))
+                ->with('error', 'Não foi possível criar o usuário. O erro foi registrado para o suporte.');
         }
     }
 
@@ -269,7 +274,12 @@ class UsuarioController extends Controller
             return redirect()->route('configuracoes.usuarios.index')->with('success', 'Usuário atualizado com sucesso.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Erro ao atualizar usuário: ' . $e->getMessage());
+            // O texto da exceção pode trazer SQL com dados sensíveis (já mostrou o hash da senha):
+            // o detalhe vai para o log; a tela recebe só a mensagem.
+            report($e);
+
+            return back()->withInput($request->except('password', 'password_confirmation'))
+                ->with('error', 'Não foi possível atualizar o usuário. O erro foi registrado para o suporte.');
         }
     }
 
