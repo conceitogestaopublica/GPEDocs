@@ -47,6 +47,8 @@ class User extends Authenticatable
             'dois_fatores_ativado_em'  => 'datetime',
             'data_nascimento'          => 'date',
             'preferencias'             => 'array',
+            'senha_alterada_em'        => 'datetime',
+            'senha_trocar'             => 'boolean',
         ];
     }
 

@@ -361,6 +361,9 @@ Route::middleware('guest')->group(function () {
     Route::post('/forgot-password', [\App\Http\Controllers\Auth\SenhaController::class, 'enviar'])->name('password.email')->middleware('throttle:senha');
     Route::get('/reset-password/{token}', [\App\Http\Controllers\Auth\SenhaController::class, 'formulario'])->name('password.reset');
     Route::post('/reset-password', [\App\Http\Controllers\Auth\SenhaController::class, 'redefinir'])->name('password.update')->middleware('throttle:senha');
+    // Senha vencida ou provisória: criar a nova logo depois de entrar com ela
+    Route::get('/senha/expirada', [\App\Http\Controllers\Auth\SenhaController::class, 'expirada'])->name('senha.expirada');
+    Route::post('/senha/expirada', [\App\Http\Controllers\Auth\SenhaController::class, 'trocarExpirada'])->middleware('throttle:senha');
 });
 
 // Selecionar UG (autenticado, mas isento do EnsureUgSelected)

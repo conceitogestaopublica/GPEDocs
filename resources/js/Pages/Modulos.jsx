@@ -33,7 +33,7 @@ const MODULOS = [
 ];
 
 export default function Modulos() {
-    const { auth, tenant } = usePage().props;
+    const { auth, tenant, flash } = usePage().props;
     const user = auth?.user;
     const ugAtual = tenant?.atual;
     const modulos = MODULOS
@@ -104,6 +104,14 @@ export default function Modulos() {
 
             {/* Conteudo */}
             <main className="max-w-4xl mx-auto px-6 py-12">
+                {/* Aviso da entrada (ex.: senha perto de vencer) */}
+                {flash?.warning && (
+                    <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-start gap-2">
+                        <i className="fas fa-key mt-0.5" />
+                        <span className="flex-1">{flash.warning}</span>
+                        <Link href="/perfil" className="font-semibold underline whitespace-nowrap">Trocar agora</Link>
+                    </div>
+                )}
                 <div className="text-center mb-10">
                     <h1 className="text-2xl font-bold text-gray-800">Selecionar Módulo</h1>
                     <p className="text-sm text-gray-500 mt-1">Escolha o módulo que deseja acessar</p>

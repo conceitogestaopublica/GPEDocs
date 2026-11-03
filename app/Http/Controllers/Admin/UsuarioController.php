@@ -160,6 +160,8 @@ class UsuarioController extends Controller
                 'ug_id'           => $ugIds[0] ?? null,  // UG primaria = primeira do array
                 'unidade_id'      => $unidadeId,
             ]);
+            // Senha escolhida pelo administrador é provisória: o servidor cria a dele no primeiro acesso
+            $user->forceFill(['senha_alterada_em' => now(), 'senha_trocar' => ! empty($validated['password'])])->save();
 
             // Cadeia de responsabilidade do cadastro: quem, de onde e com que navegador.
             DB::table('users')->where('id', $user->id)->update([
@@ -237,7 +239,8 @@ class UsuarioController extends Controller
             ];
 
             if (! empty($validated['password'])) {
-                $data['password'] = Hash::make($validated['password']);
+                // senha definida pelo administrador: o servidor cria a dele no próximo acesso
+                \App\Support\PoliticaSenha::gravar($user, $validated['password'], true);
             }
 
             $user->update($data);
@@ -278,7 +281,7 @@ class UsuarioController extends Controller
             'sexo'        => ['nullable', 'in:F,M,O'],
             'data_nascimento' => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
             // Vazia no cadastro: o sistema gera e manda ao servidor o link para definir a dele
-            'password'    => ['nullable', 'string', 'min:8'],
+            'password'    => ['nullable', 'string', \App\Support\PoliticaSenha::regra()],
             'tipo'        => ['required', 'in:interno,externo'],
             'super_admin'      => ['boolean'],
             'acesso_geral_ug'  => ['boolean'],
