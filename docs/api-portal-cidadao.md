@@ -125,6 +125,14 @@ Sempre com `ug` e `cidadao_id` (o portal só informa o id do cidadão autenticad
 | `POST solicitacoes` | `servico` (slug), `descricao`, `telefone_contato?`, `email_contato?`, `anexos?` (até 3 `{ nome, conteudo }` em base64; PDF/JPG/PNG, 10 MB), `dados_formulario?`, `documentos_exigidos?` → 201; abre o processo se o serviço tiver tipo + setor (formulário e anexos vão junto); avisa por e-mail; 403 em serviço da área "servidor" para quem não é servidor |
 | `GET solicitacoes/{codigo}` | detalhe: descrição, resposta, processo (`numero_protocolo`, `status`) e eventos |
 | `POST solicitacoes/{codigo}/cancelar` | cancela (422 se já finalizada) |
+| `POST solicitacoes/{codigo}/recurso` | **e-SIC:** recurso contra a resposta do pedido de acesso à informação (LAI art. 15): `motivo` → 201 `{ recurso: { instancia, decidir_ate } }`; 422 `{ erro }` quando não cabe (fora dos 10 dias, recurso já pendente, 2ª instância já decidida, 1ª provida) |
+
+**Recurso no e-SIC:** o detalhe (`GET solicitacoes/{codigo}`) traz `processo.recurso_esic` nos
+pedidos de acesso à informação — `recursos[]` (`instancia`, `motivo`, `interposto_em`, `decidir_ate`,
+`decisao`, `decisao_rotulo`, `fundamentacao`, `decidido_em`), `pode_recorrer`, `instancia` (1 ou 2),
+`recorrer_ate` e `motivo` (por que não cabe). Mostre o botão "Recorrer" quando `pode_recorrer`; cabe
+em até 10 dias da resposta (1ª instância) ou da decisão não provida/provida em parte (2ª instância).
+O recebimento e cada decisão também chegam como eventos da solicitação.
 
 **Por procuração:** no `POST solicitacoes`, `cidadao_id` é o **titular** (outorgante) e
 `procurador_cidadao_id` é quem protocola (o cidadão logado; a procuração vai nos anexos). Os dois

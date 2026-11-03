@@ -45,7 +45,7 @@ final class Organograma
     public static function servidoresPorSetor(int $ugId): array
     {
         $limiteOnline = now()->subMinutes(BloquearUsuarioSuspenso::MINUTOS_ONLINE);
-        $usuarios = User::query()->where('tipo', 'interno')->whereNull('suspenso_em')
+        $usuarios = User::query()->doGed()->where('tipo', 'interno')
             ->where(fn ($q) => $q->where('ug_id', $ugId)->orWhereIn('unidade_id', UgOrganograma::where('ug_id', $ugId)->select('id')))
             ->get(['id', 'name', 'email', 'cargo', 'telefone', 'unidade_id', 'created_at', 'ultimo_acesso_em', 'ultima_atividade_em', 'foto_path'])
             ->keyBy('id');

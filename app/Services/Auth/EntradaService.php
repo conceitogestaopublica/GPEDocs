@@ -39,6 +39,16 @@ final class EntradaService
             ]);
         }
 
+        // Senha vencida ou provisória (definida pelo administrador): cria a nova antes de entrar
+        if ($origem === 'senha' && \App\Support\PoliticaSenha::precisaTrocar($user)) {
+            $request->session()->put('troca_senha', [
+                'user_id' => $user->id, 'lembrar' => $lembrar, 'origem' => $origem,
+                'ate' => now()->addMinutes(15)->getTimestamp(),
+            ]);
+
+            return redirect()->route('senha.expirada');
+        }
+
         if (! $dispensa2fa && $user->temDoisFatores()) {
             $request->session()->put('entrada_2fa', [
                 'user_id' => $user->id,
@@ -85,6 +95,12 @@ final class EntradaService
         Auth::login($user, $lembrar);
         $request->session()->forget('entrada_2fa');
         $request->session()->regenerate();
+        // Senha perto de vencer: aviso na entrada, com o caminho para trocar
+        if ($origem === 'senha' && ($restam = \App\Support\PoliticaSenha::diasParaVencer($user)) !== null) {
+            $request->session()->flash('warning', $restam === 0
+                ? 'Sua senha vence hoje. Troque em Meu perfil › Meus dados para não ser obrigado a criar outra no próximo acesso.'
+                : "Sua senha vence em {$restam} dia(s). Troque em Meu perfil › Meus dados.");
+        }
 
         // UGs disponíveis: super_admin enxerga todas as ativas; os demais, as do pivot.
         $ugs = $user->super_admin

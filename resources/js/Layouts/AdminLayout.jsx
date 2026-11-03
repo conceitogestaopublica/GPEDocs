@@ -132,7 +132,7 @@ export default function AdminLayout({ children }) {
             </div>
 
             {/* Chat interno flutuante */}
-            {auth?.user && <ChatFlutuante />}
+            {auth?.user && <ChatFlutuante modulo={modulo} />}
         </div>
     );
 }

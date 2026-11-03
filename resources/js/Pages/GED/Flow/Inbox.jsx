@@ -3,7 +3,7 @@
  * Layout estilo /assinaturas: filtros + linhas com acoes inline (visualizar,
  * baixar, assinar, arquivar no GED) sem precisar abrir o item.
  */
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
@@ -79,7 +79,7 @@ const TIPO_CONFIG = {
     processo:  { label: 'Processo',  icone: 'fa-folder-open',  cor: 'indigo', link: 'processos' },
 };
 
-export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidade = false, pastas = [], meus_setores = [], contagens = {}, minhas_etiquetas = [] }) {
+export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidade = false, pastas = [], meus_setores = [], contagens = {}, minhas_etiquetas = [], despacho_lote = null }) {
     const cfg = VISTA_CONFIG[vista];
     const lista = items?.data || [];
     const links = items?.links || null;
@@ -142,6 +142,29 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
         itens: selecionados.map(k => { const [t, id] = k.split(':'); return { tipo: t, item_id: Number(id) }; }),
     }, { preserveScroll: true, onSuccess: () => setSelecionados([]) });
     const gaveta = minhas_etiquetas.find(e => e.id === filtros.etiqueta);
+
+    // Despacho em lote: receber, encaminhar ou arquivar os processos selecionados
+    const selecaoAtiva = minhas_etiquetas.length > 0 || !! despacho_lote;
+    const processosSelecionados = selecionados.filter(k => k.startsWith('processo:')).map(k => Number(k.split(':')[1]));
+    const [loteAcao, setLoteAcao] = useState(null);
+    const loteForm = useForm({ acao: '', processos: [], despacho: '', setor_destino: '', destinatario_id: '' });
+    const lote = {
+        abrir: (acao) => {
+            if (acao === 'receber') {
+                if (window.confirm(`Receber ${processosSelecionados.length} processo(s)?`)) {
+                    router.post('/processos/lote', { acao, processos: processosSelecionados }, { preserveScroll: true, onSuccess: () => setSelecionados([]) });
+                }
+                return;
+            }
+            loteForm.setData({ acao, processos: processosSelecionados, despacho: '', setor_destino: '', destinatario_id: '' });
+            setLoteAcao(acao);
+        },
+        enviar: (e) => {
+            e.preventDefault();
+            loteForm.post('/processos/lote', { preserveScroll: true, onSuccess: () => { setLoteAcao(null); setSelecionados([]); } });
+        },
+    };
+    const resultadoLote = usePage().props.flash?.lote;
 
     // Não lidos por mim, por módulo (TR 4.10.5)
     const porTipo = vista === 'setor' ? contagens.setor_por_tipo : vista === 'pessoal' ? contagens.pessoal_por_tipo : null;
@@ -288,6 +311,21 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                 </form>
             </div>
 
+            {/* Resultado do despacho em lote: os que não puderam e o motivo */}
+            {resultadoLote?.falhas?.length > 0 && (
+                <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 p-3">
+                    <p className="text-sm font-semibold text-amber-900 mb-1">
+                        <i className="fas fa-triangle-exclamation mr-1" />
+                        {resultadoLote.ok.length} feito(s); {resultadoLote.falhas.length} não puderam:
+                    </p>
+                    <ul className="text-xs text-amber-900 space-y-0.5">
+                        {resultadoLote.falhas.map(f => (
+                            <li key={f.id}><Link href={`/processos/${f.id}`} className="font-semibold underline">{f.numero}</Link> — {f.motivo}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
             {/* Lista */}
             <Card padding={false}>
                 {lista.length === 0 ? (
@@ -298,8 +336,8 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100">
-                        {/* Etiquetar em lote (TR 4.19.7) */}
-                        {minhas_etiquetas.length > 0 && (
+                        {/* Etiquetar (TR 4.19.7) e despachar em lote */}
+                        {selecaoAtiva && (
                             <div className="px-4 py-2 bg-gray-50 flex flex-wrap items-center gap-2 text-sm">
                                 <label className="flex items-center gap-2 text-gray-600 cursor-pointer">
                                     <input type="checkbox" className="rounded border-gray-300 text-blue-600"
@@ -307,7 +345,14 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                                         onChange={(e) => setSelecionados(e.target.checked ? lista.map(chaveItem) : [])} />
                                     {selecionados.length ? `${selecionados.length} selecionado(s)` : 'Selecionar todos'}
                                 </label>
-                                {selecionados.length > 0 && (
+                                {despacho_lote && processosSelecionados.length > 0 && (
+                                    <span className="flex flex-wrap items-center gap-1.5 border-r border-gray-200 pr-2 mr-1">
+                                        <Button variant="secondary" icon="fas fa-inbox" onClick={() => lote.abrir('receber')}>Receber</Button>
+                                        <Button variant="secondary" icon="fas fa-share" onClick={() => lote.abrir('encaminhar')}>Encaminhar</Button>
+                                        <Button variant="secondary" icon="fas fa-box-archive" onClick={() => lote.abrir('arquivar')}>Arquivar</Button>
+                                    </span>
+                                )}
+                                {selecionados.length > 0 && minhas_etiquetas.length > 0 && (
                                     <>
                                         <select value={etiquetaLote} onChange={(e) => setEtiquetaLote(e.target.value)} className="ds-input !h-8 !py-0 w-56">
                                             <option value="">Etiqueta…</option>
@@ -321,7 +366,7 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                         )}
                         {lista.map(item => (
                             <ItemRow key={item.id} item={item}
-                                selecionavel={minhas_etiquetas.length > 0}
+                                selecionavel={selecaoAtiva}
                                 selecionado={selecionados.includes(chaveItem(item))}
                                 onSelecionar={(v) => setSelecionados(s => v ? [...s, chaveItem(item)] : s.filter(x => x !== chaveItem(item)))}
                                 onEtiqueta={(id) => aplicar(null, filtros.aba, { etiqueta: id })}
@@ -415,6 +460,49 @@ export default function FlowInbox({ vista, items, filtros = {}, aviso_sem_unidad
                     </form>
                 </Modal>
             )}
+
+            {/* Encaminhar ou arquivar em lote */}
+            <Modal show={!! loteAcao} onClose={() => setLoteAcao(null)}
+                title={`${loteAcao === 'encaminhar' ? 'Encaminhar' : 'Arquivar'} ${processosSelecionados.length} processo(s)`}>
+                <form onSubmit={lote.enviar} className="space-y-3">
+                    <p className="text-xs text-gray-600">
+                        Cada processo passa pelas mesmas regras da tela do processo e ganha o registro no histórico.
+                        Os que não puderem ser {loteAcao === 'encaminhar' ? 'encaminhados' : 'arquivados'} aparecem depois com o motivo.
+                    </p>
+                    {loteAcao === 'encaminhar' && despacho_lote && (
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Setor de destino</label>
+                                <select value={loteForm.data.setor_destino} onChange={(e) => loteForm.setData({ ...loteForm.data, setor_destino: e.target.value, destinatario_id: '' })} className="ds-input">
+                                    <option value="">Escolha…</option>
+                                    {despacho_lote.unidades.map(u => <option key={u.id} value={u.id}>{' '.repeat(((u.nivel || 1) - 1) * 3)}{u.nome}</option>)}
+                                </select>
+                                {loteForm.errors.setor_destino && <p className="mt-1 text-xs text-red-600">{loteForm.errors.setor_destino}</p>}
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Servidor (opcional)</label>
+                                <select value={loteForm.data.destinatario_id} onChange={(e) => loteForm.setData('destinatario_id', e.target.value)} className="ds-input" disabled={! loteForm.data.setor_destino}>
+                                    <option value="">Todo o setor</option>
+                                    {despacho_lote.usuarios.filter(u => String(u.unidade_id) === String(loteForm.data.setor_destino)).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    )}
+                    <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">{loteAcao === 'encaminhar' ? 'Despacho' : 'Motivo do arquivamento'}</label>
+                        <textarea value={loteForm.data.despacho} onChange={(e) => loteForm.setData('despacho', e.target.value)} rows={4} className="ds-input"
+                            placeholder={loteAcao === 'encaminhar' ? 'O mesmo despacho vai para todos os processos selecionados' : 'Ex.: perda do objeto'} />
+                        {loteForm.errors.despacho && <p className="mt-1 text-xs text-red-600">{loteForm.errors.despacho}</p>}
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                        <Button variant="secondary" type="button" onClick={() => setLoteAcao(null)}>Cancelar</Button>
+                        <Button type="submit" loading={loteForm.processing} icon={loteAcao === 'encaminhar' ? 'fas fa-share' : 'fas fa-box-archive'}
+                            disabled={! loteForm.data.despacho.trim() || (loteAcao === 'encaminhar' && ! loteForm.data.setor_destino)}>
+                            {loteAcao === 'encaminhar' ? 'Encaminhar' : 'Arquivar'}
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </AdminLayout>
     );
 }
@@ -451,7 +539,7 @@ function ItemRow({ item, onAssinar, onArquivar, selecionavel = false, selecionad
             <div className="flex items-start gap-3">
                 {selecionavel && ['processo', 'memorando', 'oficio'].includes(item.tipo) && (
                     <input type="checkbox" checked={selecionado} onChange={(e) => onSelecionar?.(e.target.checked)}
-                        className="mt-2.5 rounded border-gray-300 text-blue-600" title="Selecionar para etiquetar" />
+                        className="mt-2.5 rounded border-gray-300 text-blue-600" title="Selecionar para etiquetar ou despachar em lote" />
                 )}
                 <div className={`w-9 h-9 ${cores.bg} rounded-lg flex items-center justify-center shrink-0`}>
                     <i className={`fas ${tipo.icone} ${cores.text} text-sm`} />
@@ -480,6 +568,11 @@ function ItemRow({ item, onAssinar, onArquivar, selecionavel = false, selecionad
                         )}
                         {item.copia && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold uppercase" title="Cópia para ciência">Cópia</span>
+                        )}
+                        {item.parado && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold uppercase" title="Processo parado: não corre prazo">
+                                <i className={`fas ${item.parado === 'sobrestado' ? 'fa-circle-pause' : 'fa-paperclip'} mr-0.5`} />{item.parado}
+                            </span>
                         )}
                         {/* Prazo (TR 4.13.4, 4.13.5) */}
                         {item.prazo_situacao && (

@@ -17,7 +17,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 #[Fillable(['name', 'email', 'cpf', 'telefone', 'password', 'tipo', 'ug_id', 'unidade_id', 'legado_usuario_id', 'legado_funcionario_id', 'matricula', 'super_admin', 'acesso_geral_ug',
-    'cargo', 'sexo', 'data_nascimento', 'email_secundario'])]
+    'cargo', 'sexo', 'data_nascimento', 'email_secundario', 'somente_portal'])]
 #[Hidden(['password', 'remember_token', 'dois_fatores_segredo', 'dois_fatores_recuperacao', 'dois_fatores_ultimo_passo'])]
 class User extends Authenticatable
 {
@@ -39,7 +39,8 @@ class User extends Authenticatable
             'password' => 'hashed',
             'super_admin'     => 'boolean',
             'acesso_geral_ug' => 'boolean',
-            'suspenso_em'         => 'datetime',
+            'somente_portal'  => 'boolean',
+            'suspenso_em'       => 'datetime',
             'ultimo_acesso_em'    => 'datetime',
             'ultima_atividade_em' => 'datetime',
             'dois_fatores_segredo'     => 'encrypted',
@@ -47,7 +48,18 @@ class User extends Authenticatable
             'dois_fatores_ativado_em'  => 'datetime',
             'data_nascimento'          => 'date',
             'preferencias'             => 'array',
+            'senha_alterada_em'        => 'datetime',
+            'senha_trocar'             => 'boolean',
         ];
+    }
+
+    /**
+     * Quem usa o GED: ativo e não é servidor só do Portal/app (somente_portal). Vale para o chat
+     * interno e para as listas de pessoas (destinatários, signatários, responsáveis…).
+     */
+    public function scopeDoGed(Builder $query): Builder
+    {
+        return $query->whereNull($query->qualifyColumn('suspenso_em'))->where($query->qualifyColumn('somente_portal'), false);
     }
 
     /**
@@ -269,7 +281,7 @@ class User extends Authenticatable
     public static function paraAssinatura(?int $atualId, bool $soInternos = true)
     {
         $usuarios = static::query()
-            ->whereNull('suspenso_em')
+            ->doGed()
             ->when($soInternos, fn ($q) => $q->where('tipo', 'interno'))
             ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [(int) $atualId])
             ->orderBy('name')

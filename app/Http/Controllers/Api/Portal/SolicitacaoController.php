@@ -102,6 +102,8 @@ class SolicitacaoController extends PortalApiController
                     'prazo_legal'      => \App\Support\Ouvidoria::situacaoPrazo($processo),
                     'prorrogacao'      => $processo->prorrogado_em ? ['em' => $processo->prorrogado_em->toIso8601String(), 'motivo' => $processo->prorrogacao_motivo] : null,
                     'decisao_final'    => $processo->decisao_final ? ['texto' => $processo->decisao_final, 'em' => $processo->decisao_final_em?->toIso8601String()] : null,
+                    // Recurso do requerente no e-SIC: os já interpostos e se cabe recorrer agora (LAI art. 15)
+                    'recurso_esic'     => \App\Support\RecursoEsic::paraPortal($processo),
                     'localizacao'      => $processo->latitude !== null || $processo->local_endereco
                         ? ['latitude' => $processo->latitude, 'longitude' => $processo->longitude, 'endereco' => $processo->local_endereco] : null,
                     // Avaliação por estrelas depois da conclusão (TR 4.32.25–27): pode = falta avaliar esta rodada
@@ -243,6 +245,24 @@ class SolicitacaoController extends PortalApiController
         \App\Support\Avaliacoes::registrar($processo, (int) $d['nota'], $d['comentario'] ?? null, 'portal', $this->cidadao($request)->id);
 
         return response()->json(['ok' => true], 201);
+    }
+
+    /** Recurso do requerente contra a resposta do pedido de acesso à informação (LAI art. 15). */
+    public function recurso(Request $request, string $codigo): JsonResponse
+    {
+        $solicitacao = $this->doCidadao($request, $codigo);
+        $d = $request->validate(['motivo' => ['required', 'string', 'max:5000']]);
+        $processo = $solicitacao->processo_id ? Processo::query()->withoutGlobalScope('ug')->with('tipoProcesso')->find($solicitacao->processo_id) : null;
+        if (! $processo) {
+            return response()->json(['erro' => 'Esta solicitação não tem pedido de acesso à informação para recorrer.'], 422);
+        }
+        try {
+            $r = DB::transaction(fn () => \App\Support\RecursoEsic::interpor($processo, $d['motivo'], 'portal', $this->cidadao($request)->id, null));
+        } catch (\RuntimeException $e) {
+            return response()->json(['erro' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['recurso' => ['instancia' => (int) $r->instancia, 'decidir_ate' => \Illuminate\Support\Carbon::parse($r->decidir_ate)->toIso8601String()]], 201);
     }
 
     public function cancelar(Request $request, string $codigo): JsonResponse

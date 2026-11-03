@@ -64,6 +64,7 @@ final class Permissoes
         'rh.requerimentos'     => 'Gestão de Pessoas: ver todos os requerimentos pessoais de servidores',
         'ouvidoria.gerir'      => 'Ouvidoria: painel, dados de manifestante sigiloso, resolver em todos os setores e decisão final',
         'esic.gerir'           => 'e-SIC: painel de pedidos de acesso à informação e prorrogação de prazo (LAI)',
+        'esic.recursos'        => 'e-SIC: decidir os recursos do requerente (autoridade da 1ª e da 2ª instância, LAI art. 15)',
 
         // Administração
         'admin.configuracoes'       => 'Acessar o módulo de configurações',
@@ -74,6 +75,8 @@ final class Permissoes
         'admin.tipos_documentais'   => 'Gerenciar tipos documentais',
         'admin.contatos'            => 'Configurar contatos (campos complementares e regras de preenchimento)',
         'admin.classificacao'       =>'Manter o plano de classificação e reclassificar documentos e processos',
+        'arquivo.temporalidade'     => 'Tabela de temporalidade, avaliação do acervo e listagens de eliminação',
+        'arquivo.eliminar'          => 'Aprovar listagens de eliminação, publicar o edital e eliminar documentos',
         'admin.tipos_processo'      => 'Gerenciar tipos de processo e modelos de ofício',
     ];
 

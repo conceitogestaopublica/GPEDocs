@@ -50,6 +50,8 @@ class HandleInertiaRequests extends Middleware
                 'warning'       => $request->session()->get('warning'),
                 'info'          => $request->session()->get('info'),
                 'token_gerado'  => $request->session()->get('token_gerado'),
+                // Resultado do despacho em lote: feitos e os que não puderam, com o motivo
+                'lote'          => $request->session()->get('lote'),
             ],
             'notificacoes_pendentes' => $notificacoesPendentes,
             // Ambiente somente leitura (TR 4.26.17): faixa no topo de todas as telas

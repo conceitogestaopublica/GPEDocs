@@ -115,17 +115,36 @@ final class AcaoNoProcesso
             ->pluck('setor_destino')->unique()->values()->all();
 
         $podeEncerrar = ! $encerrado && $principal && ($ativo || ($autor && $semDespachoAinda));
+        // Sobrestado, apensado ou anexado: parado — ninguém recebe, despacha nem decide
+        $parado = self::parado($processo);
+        $vinculado = $processo->apensado_a_id || $processo->anexado_a_id;
 
         return [
             'etapa'      => $etapa,
-            'receber'    => ! $encerrado && $ativo && $etapa->status === 'pendente',
+            'receber'    => ! $encerrado && ! $parado && $ativo && $etapa->status === 'pendente',
             // Despachar etapa ainda pendente registra o recebimento antes (ver TramitacaoController).
-            'despachar'  => ! $encerrado && $ativo,
-            'concluir'   => $podeEncerrar && $aguardando === [],
-            'cancelar'   => $podeEncerrar,
-            'resolver'   => ! $encerrado && $ativo && ! $principal,
+            'despachar'  => ! $encerrado && ! $parado && $ativo,
+            'concluir'   => $podeEncerrar && ! $parado && $aguardando === [],
+            'cancelar'   => $podeEncerrar && ! $vinculado,
+            'resolver'   => ! $encerrado && ! $parado && $ativo && ! $principal,
             'aguardando' => $aguardando,
+            // Sobrestar, apensar e anexar: quem está na etapa ativa da frente principal
+            'sobrestar'  => $podeEncerrar && ! $parado,
+            'retomar'    => (bool) $processo->sobrestado_em && ! $encerrado && ($ativo || $autor),
+            'vincular'   => $podeEncerrar && ! $parado,
+            'parado'     => $parado,
         ];
+    }
+
+    /** Motivo de o processo estar parado (sobrestado, apensado ou anexado), ou null. */
+    public static function parado(Processo $processo): ?string
+    {
+        return match (true) {
+            (bool) $processo->anexado_a_id => 'anexado',
+            (bool) $processo->apensado_a_id => 'apensado',
+            (bool) $processo->sobrestado_em => 'sobrestado',
+            default => null,
+        };
     }
 
     /** A tramitação informada na rota tem de ser uma etapa ativa, e o usuário tem de estar nela. */
@@ -137,6 +156,13 @@ final class AcaoNoProcesso
         }
         if ($tramitacao->modo !== 'tramite' || ! in_array($tramitacao->status, self::ATIVAS, true)) {
             abort(409, 'Esta etapa não é mais uma etapa ativa do processo.');
+        }
+        if ($motivo = self::parado($tramitacao->processo)) {
+            abort(409, [
+                'sobrestado' => 'O processo está sobrestado: retome-o antes de tramitar.',
+                'apensado' => 'O processo está apensado a outro e tramita junto com o principal: desapense-o antes.',
+                'anexado' => 'O processo foi anexado a outro e está encerrado.',
+            ][$motivo]);
         }
         if (! self::ativoNaEtapa($tramitacao, $user)) {
             abort(403, 'Você não é destinatário desta etapa do processo.');

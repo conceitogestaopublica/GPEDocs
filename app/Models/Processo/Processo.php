@@ -85,6 +85,14 @@ class Processo extends Model
         'prorrogacao_motivo',
         'decisao_final',
         'decisao_final_em',
+        // Sobrestamento e vínculos entre processos (apensação, anexação)
+        'sobrestado_em',
+        'sobrestado_ate',
+        'sobrestamento_motivo',
+        'sobrestamento_condicao',
+        'sobrestado_por',
+        'apensado_a_id',
+        'anexado_a_id',
     ];
 
     protected function casts(): array
@@ -95,6 +103,8 @@ class Processo extends Model
             'prazo_legal_em' => 'datetime',
             'prorrogado_em' => 'datetime',
             'decisao_final_em' => 'datetime',
+            'sobrestado_em' => 'datetime',
+            'sobrestado_ate' => 'date',
             'latitude' => 'float',
             'longitude' => 'float',
         ];

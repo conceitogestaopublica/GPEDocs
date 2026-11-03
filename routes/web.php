@@ -185,6 +185,8 @@ Route::prefix('api/portal')
         Route::get('solicitacoes/{codigo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'show'])->where('codigo', '[^/]+')->name('solicitacoes.show');
         Route::post('solicitacoes/{codigo}/avaliacao', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'avaliar'])->where('codigo', '[^/]+')->name('solicitacoes.avaliacao');
         Route::post('solicitacoes/{codigo}/cancelar',[\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'cancelar'])->where('codigo', '[^/]+')->name('solicitacoes.cancelar');
+        // Recurso do requerente no e-SIC (LAI art. 15)
+        Route::post('solicitacoes/{codigo}/recurso', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'recurso'])->where('codigo', '[^/]+')->middleware('throttle:10,1')->name('solicitacoes.recurso');
         // Interação depois de abrir, comprovante e processos do cidadão (TR 4.32.1, 4.32.11, 4.32.23)
         Route::post('solicitacoes/{codigo}/mensagens', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'mensagem'])->where('codigo', '[^/]+')->middleware('throttle:30,1')->name('solicitacoes.mensagens');
         Route::get('solicitacoes/{codigo}/comprovante', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'comprovante'])->where('codigo', '[^/]+')->name('solicitacoes.comprovante');
@@ -297,6 +299,21 @@ Route::get('ead/certificados/{codigo}', [\App\Http\Controllers\EadController::cl
 // Verificação pública da licença ambiental (QR do PDF)
 Route::get('ambiental/licencas/{codigo}', [\App\Http\Controllers\Flow\AmbientalController::class, 'verificar'])->whereUuid('codigo')->middleware('throttle:60,1')->name('ambiental.verificar');
 
+// Central de Demandas da Conceito → GED: eventos do atendimento do suporte. Sem login e sem CSRF:
+// quem autentica é a assinatura HMAC (X-GPE-Assinatura) com o segredo do tenant.
+Route::post('api/suporte/eventos', [\App\Http\Controllers\Api\SuporteCentralController::class, 'eventos'])
+    ->withoutMiddleware([
+        \App\Http\Middleware\HandleInertiaRequests::class,
+        \App\Http\Middleware\EnsureUgSelected::class,
+        \Illuminate\Auth\Middleware\Authenticate::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+    ])
+    ->middleware('throttle:240,1')->name('api.suporte.eventos');
+
 // Suporte: avaliar ou reabrir pelo link do e-mail de resolução, sem login (TR 4.26.8)
 Route::controller(\App\Http\Controllers\SuporteController::class)->prefix('suporte/avaliar')->middleware('throttle:30,1')->group(function () {
     Route::get('{token}', 'avaliacao')->whereUuid('token')->name('suporte.avaliacao');
@@ -370,6 +387,9 @@ Route::middleware('guest')->group(function () {
     Route::post('/forgot-password', [\App\Http\Controllers\Auth\SenhaController::class, 'enviar'])->name('password.email')->middleware('throttle:senha');
     Route::get('/reset-password/{token}', [\App\Http\Controllers\Auth\SenhaController::class, 'formulario'])->name('password.reset');
     Route::post('/reset-password', [\App\Http\Controllers\Auth\SenhaController::class, 'redefinir'])->name('password.update')->middleware('throttle:senha');
+    // Senha vencida ou provisória: criar a nova logo depois de entrar com ela
+    Route::get('/senha/expirada', [\App\Http\Controllers\Auth\SenhaController::class, 'expirada'])->name('senha.expirada');
+    Route::post('/senha/expirada', [\App\Http\Controllers\Auth\SenhaController::class, 'trocarExpirada'])->middleware('throttle:senha');
 });
 
 // Selecionar UG (autenticado, mas isento do EnsureUgSelected)
@@ -621,6 +641,17 @@ Route::middleware('auth')->group(function () {
             Route::get('classificacao/exportar', 'exportar')->name('classificacao.exportar');
             Route::post('classificacao/item/{modulo}/{id}', 'reclassificar')->whereNumber('id')->name('classificacao.reclassificar');
         });
+        // Tabela de temporalidade: avaliação do acervo e eliminação (Resolução CONARQ nº 40/2014)
+        Route::middleware('can:arquivo.temporalidade')->controller(\App\Http\Controllers\Admin\TemporalidadeController::class)
+            ->prefix('temporalidade')->name('temporalidade.')->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('listagens', 'store')->name('listagens.store');
+                Route::post('listagens/{id}/aprovar', 'aprovar')->whereNumber('id')->name('listagens.aprovar');
+                Route::post('listagens/{id}/edital', 'edital')->whereNumber('id')->name('listagens.edital');
+                Route::post('listagens/{id}/eliminar', 'eliminar')->whereNumber('id')->name('listagens.eliminar');
+                Route::post('listagens/{id}/cancelar', 'cancelar')->whereNumber('id')->name('listagens.cancelar');
+                Route::get('listagens/{id}/pdf/{documento}', 'pdf')->whereNumber('id')->whereIn('documento', ['listagem', 'edital', 'termo'])->name('listagens.pdf');
+            });
         Route::middleware('can:admin.tipos_processo')->group(function () {
             Route::resource('tipos-processo', TipoProcessoController::class)->except(['create', 'edit', 'show']);
             Route::post('tipos-processo/{id}/toggle-ativo', [TipoProcessoController::class, 'toggleAtivo'])->name('tipos-processo.toggle-ativo');
@@ -893,6 +924,19 @@ Route::middleware('auth')->group(function () {
         // Ouvidoria e e-SIC (TR 4.33.22–23; Lei 13.460 art. 16; LAI art. 11)
         Route::post('processos/{id}/prorrogar-prazo', [ProcessoController::class, 'prorrogarPrazo'])->whereNumber('id')->name('processos.prorrogar-prazo');
         Route::post('processos/{id}/resolver-ouvidoria', [ProcessoController::class, 'resolverOuvidoria'])->whereNumber('id')->name('processos.resolver-ouvidoria');
+        // Sobrestamento, apensação/desapensação e anexação
+        Route::controller(\App\Http\Controllers\Flow\VinculoProcessoController::class)->group(function () {
+            Route::post('processos/{id}/sobrestar', 'sobrestar')->whereNumber('id')->name('processos.sobrestar');
+            Route::post('processos/{id}/retomar', 'retomar')->whereNumber('id')->name('processos.retomar');
+            Route::post('processos/{id}/vincular', 'vincular')->whereNumber('id')->name('processos.vincular');
+            Route::post('processos/{id}/apensos/{apenso}/desapensar', 'desapensar')->whereNumber(['id', 'apenso'])->name('processos.desapensar');
+            Route::get('processos/{id}/vinculaveis', 'buscar')->whereNumber('id')->name('processos.vinculaveis');
+        });
+        // Despacho em lote a partir da caixa de trabalho: receber, encaminhar, arquivar
+        Route::post('processos/lote', \App\Http\Controllers\Flow\DespachoLoteController::class)->middleware('throttle:30,1')->name('processos.lote');
+        // Recurso do requerente no e-SIC: registrar (recebido fora do portal) e decidir (LAI art. 15)
+        Route::post('processos/{id}/recursos-esic', [\App\Http\Controllers\Flow\RecursoEsicController::class, 'registrar'])->whereNumber('id')->name('processos.recursos-esic.store');
+        Route::post('recursos-esic/{id}/decidir', [\App\Http\Controllers\Flow\RecursoEsicController::class, 'decidir'])->whereNumber('id')->name('recursos-esic.decidir');
         // Localização, avaliação no balcão e reabertura (TR 4.32.21, 4.32.25–27, 4.33.9)
         Route::post('processos/{id}/localizacao', [\App\Http\Controllers\Flow\MapaAvaliacaoController::class, 'localizacao'])->whereNumber('id')->name('processos.localizacao');
     // Recebimento de documento físico com comprovante (TR 4.32.28)
@@ -962,9 +1006,12 @@ Route::middleware('auth')->group(function () {
         Route::get('api/buscar', 'buscar')->name('api.buscar');
         Route::get('api/atendimentos/{id}/mensagens', 'mensagens')->whereNumber('id')->name('api.mensagens');
         Route::post('api/atendimentos/{id}/mensagens', 'enviar')->whereNumber('id')->middleware('throttle:60,1')->name('api.enviar');
+        Route::post('api/atendimentos/{id}/mensagens/{mensagem}/retorno', 'retornoAutomatico')->whereNumber(['id', 'mensagem'])->middleware('throttle:20,1')->name('api.retorno');
         Route::get('api/pessoas', 'pessoas')->name('api.pessoas');
         Route::get('configuracao', 'configuracao')->name('configuracao');
         Route::post('configuracao', 'salvarConfig')->name('configuracao.salvar');
+        Route::post('configuracao/central', 'salvarCentral')->name('configuracao.central');
+        Route::post('configuracao/central/testar', 'testarCentral')->middleware('throttle:10,1')->name('configuracao.central.testar');
         Route::post('assuntos', 'salvarAssunto')->name('assuntos.store');
         Route::post('assuntos/{id}', 'salvarAssunto')->whereNumber('id')->name('assuntos.update');
         Route::post('artigos', 'salvarArtigo')->name('artigos.store');

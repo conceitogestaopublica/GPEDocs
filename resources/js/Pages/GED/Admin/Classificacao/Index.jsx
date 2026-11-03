@@ -16,7 +16,9 @@ const NIVEIS = ['Classe', 'Subclasse', 'Grupo', 'Subgrupo'];
 export default function Classificacao({ classificacoes = [], modulos = [], assuntos = {}, pendentes = {}, conferencia = null }) {
     const confirmar = useConfirm();
     const [editando, setEditando] = useState(null);
-    const vazio = { codigo: '', descricao: '', observacao: '', parent_id: '' };
+    // Tabela de temporalidade e destinação (CONARQ) em cada código
+    const TTD = ['ttd_corrente_anos', 'ttd_corrente_texto', 'ttd_intermediaria_anos', 'ttd_intermediaria_texto', 'ttd_evento', 'ttd_destinacao', 'ttd_observacao'];
+    const vazio = { codigo: '', descricao: '', observacao: '', parent_id: '', ...Object.fromEntries(TTD.map(k => [k, ''])) };
     const form = useForm(vazio);
     const arquivo = useRef(null);
 
@@ -32,7 +34,13 @@ export default function Classificacao({ classificacoes = [], modulos = [], assun
     const ativas = linhas.filter(c => c.ativo);
     const rotulo = (c) => `${'  '.repeat(c.nivel - 1)}${c.codigo} — ${c.descricao}`;
 
-    const editar = (c) => { setEditando(c.id); form.setData({ codigo: c.codigo, descricao: c.descricao, observacao: c.observacao || '', parent_id: c.parent_id ? String(c.parent_id) : '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+    const editar = (c) => {
+        setEditando(c.id);
+        form.setData({ codigo: c.codigo, descricao: c.descricao, observacao: c.observacao || '', parent_id: c.parent_id ? String(c.parent_id) : '',
+            ...Object.fromEntries(TTD.map(k => [k, c[k] ?? ''])) });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    const prazo = (anos, texto) => (anos !== null && anos !== undefined && anos !== '' ? `${anos} ano(s)` : (texto || '—'));
     const limpar = () => { setEditando(null); form.setData(vazio); form.clearErrors(); };
     const salvar = (e) => {
         e.preventDefault();
@@ -134,6 +142,27 @@ export default function Classificacao({ classificacoes = [], modulos = [], assun
                             <label className="block text-sm font-medium text-gray-700 mb-1">Observação <span className="text-gray-400 text-xs">(opcional)</span></label>
                             <textarea value={form.data.observacao} onChange={(e) => form.setData('observacao', e.target.value)} rows={2} className="ds-input" />
                         </div>
+                        <fieldset className="rounded-lg border border-gray-200 p-3 space-y-2">
+                            <legend className="px-1 text-xs font-semibold text-gray-600">Temporalidade e destinação <span className="font-normal text-gray-400">(opcional)</span></legend>
+                            <div className="grid grid-cols-2 gap-2">
+                                <label className="text-[11px] text-gray-600">Fase corrente (anos)
+                                    <input type="number" min={0} max={200} value={form.data.ttd_corrente_anos} onChange={(e) => form.setData('ttd_corrente_anos', e.target.value)} className="ds-input mt-0.5" /></label>
+                                <label className="text-[11px] text-gray-600">Fase intermediária (anos)
+                                    <input type="number" min={0} max={200} value={form.data.ttd_intermediaria_anos} onChange={(e) => form.setData('ttd_intermediaria_anos', e.target.value)} className="ds-input mt-0.5" /></label>
+                                <input value={form.data.ttd_corrente_texto} onChange={(e) => form.setData('ttd_corrente_texto', e.target.value)} maxLength={150} className="ds-input text-xs" placeholder="ou condição (ex.: enquanto vigente)" />
+                                <input value={form.data.ttd_intermediaria_texto} onChange={(e) => form.setData('ttd_intermediaria_texto', e.target.value)} maxLength={150} className="ds-input text-xs" placeholder="ou condição" />
+                                <label className="text-[11px] text-gray-600">Contar a partir da
+                                    <select value={form.data.ttd_evento || 'producao'} onChange={(e) => form.setData('ttd_evento', e.target.value)} className="ds-input mt-0.5">
+                                        <option value="producao">produção</option><option value="conclusao">conclusão do processo</option>
+                                    </select></label>
+                                <label className="text-[11px] text-gray-600">Destinação final
+                                    <select value={form.data.ttd_destinacao} onChange={(e) => form.setData('ttd_destinacao', e.target.value)} className="ds-input mt-0.5">
+                                        <option value="">—</option><option value="eliminacao">Eliminação</option><option value="guarda_permanente">Guarda permanente</option>
+                                    </select></label>
+                            </div>
+                            <textarea value={form.data.ttd_observacao} onChange={(e) => form.setData('ttd_observacao', e.target.value)} rows={2} className="ds-input text-xs" placeholder="Observações da tabela (fundamento legal, microfilmagem…)" />
+                            {form.errors.ttd_destinacao && <p className="text-xs text-red-600">{form.errors.ttd_destinacao}</p>}
+                        </fieldset>
                         <div className="flex gap-2">
                             <Button type="submit" variant="primary" loading={form.processing} disabled={! form.data.codigo.trim() || ! form.data.descricao.trim()}>{editando ? 'Salvar' : 'Criar'}</Button>
                             {editando && <Button type="button" variant="secondary" onClick={limpar}>Cancelar</Button>}
@@ -153,6 +182,12 @@ export default function Classificacao({ classificacoes = [], modulos = [], assun
                                         <span className="ml-2 text-[10px] uppercase text-gray-400">{NIVEIS[c.nivel - 1]}</span>
                                         {! c.ativo && <span className="ml-2 text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-800 no-underline">Suspensa</span>}
                                         <span className="ml-2 text-xs text-gray-400">{c.uso} item(ns)</span>
+                                        {c.ttd_destinacao && (
+                                            <span className="ml-2 text-[10px] rounded-full px-2 py-0.5 bg-rose-50 text-rose-800" title={c.ttd_observacao || ''}>
+                                                <i className="fas fa-hourglass-half mr-1" />
+                                                {prazo(c.ttd_corrente_anos, c.ttd_corrente_texto)} + {prazo(c.ttd_intermediaria_anos, c.ttd_intermediaria_texto)} · {c.ttd_destinacao === 'eliminacao' ? 'eliminação' : 'guarda permanente'}
+                                            </span>
+                                        )}
                                     </span>
                                     <span className="flex items-center gap-3 text-xs shrink-0">
                                         <button type="button" className="text-blue-700 hover:underline" onClick={() => editar(c)}>Editar</button>

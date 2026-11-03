@@ -25,7 +25,8 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
         tipo:            usuario?.tipo || 'interno',
         super_admin:     !! usuario?.super_admin,
         acesso_geral_ug: !! usuario?.acesso_geral_ug,
-        ug_ids:          usuario?.ug_ids || [],
+        somente_portal:  !! usuario?.somente_portal,
+        ug_ids:         usuario?.ug_ids || [],
         unidade_id:      usuario?.unidade_id || '',
         setores_secundarios: usuario?.setores_secundarios || [],
         roles:          usuario?.roles || [],
@@ -367,6 +368,32 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                             unidades={unidadesDaUg}
                             ugPrincipal={ugPrincipal}
                         />
+                    </CadastroSecao>
+                )}
+
+                {/* Servidor só do Portal/app: não entra no GED nem aparece no chat e nas listas de pessoas */}
+                {data.tipo === 'interno' && ! data.super_admin && (
+                    <CadastroSecao
+                        icone="fa-mobile-screen"
+                        titulo="Acesso pelo Portal e pelo app"
+                        descricao="Servidores trazidos do RH pedem pelo Portal do Cidadão (área do servidor) e pelo aplicativo. Desmarque para dar acesso ao GPE Docs."
+                    >
+                        <label className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${
+                            data.somente_portal ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:bg-gray-50'
+                        }`}>
+                            <input type="checkbox" checked={data.somente_portal}
+                                onChange={(e) => setData('somente_portal', e.target.checked)}
+                                className="rounded border-gray-300 text-amber-600 mt-0.5" />
+                            <div>
+                                <p className="text-sm font-semibold text-gray-800">
+                                    <i className="fas fa-mobile-screen text-amber-500 mr-1" />
+                                    Só Portal e app (não entra no GPE Docs)
+                                </p>
+                                <p className="text-[11px] text-gray-500 leading-tight">
+                                    Não consegue entrar no GPE Docs e não aparece no chat interno nem nas listas de destinatários, signatários e responsáveis.
+                                </p>
+                            </div>
+                        </label>
                     </CadastroSecao>
                 )}
 

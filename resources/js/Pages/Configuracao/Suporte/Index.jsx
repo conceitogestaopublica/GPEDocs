@@ -1,6 +1,7 @@
 /**
  * Configurar suporte (TR 4.26): assuntos e artigos da central de ajuda (autoatendimento), atendentes com
- * nível, e-mail de entrada, setor da TI e assunto do chamado técnico (nível 3), prazo para fechar resolvidos.
+ * nível, e-mail de entrada, setor da TI e assunto do chamado técnico (nível 3), prazo para fechar resolvidos,
+ * e a ligação com a Central de Demandas da Conceito.
  */
 import { useEffect, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
@@ -13,7 +14,9 @@ import RichEditor from '../../../Components/RichEditor';
 
 const dt = (s) => (s ? new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'nunca');
 
-export default function Index({ assuntos, artigos, atendentes, config, tiposChamado, setores, niveis, indicadores }) {
+export default function Index({ assuntos, artigos, atendentes, config, tiposChamado, setores, niveis, indicadores, central: centralAtual }) {
+    // token e segredo nunca voltam do servidor: campos vazios mantêm o que está salvo
+    const [central, setCentral] = useState({ central_url: centralAtual.url || '', central_token: '', central_segredo: '', central_ativo: centralAtual.ativo });
     const errors = usePage().props.errors || {};
     const [assunto, setAssunto] = useState(null);
     const [artigo, setArtigo] = useState(null);
@@ -99,6 +102,26 @@ export default function Index({ assuntos, artigos, atendentes, config, tiposCham
                             <label className="block text-xs text-gray-600">Fechar resolvidos sem resposta após (horas)<input type="number" min="1" max="720" value={cfg.horas_fechamento} onChange={(e) => setCfg({ ...cfg, horas_fechamento: e.target.value })} className="ds-input mt-1 !w-32" /></label>
                             {Object.values(errors)[0] && <p className="text-xs text-red-600">{Object.values(errors)[0]}</p>}
                             <Button size="sm" icon="fas fa-save" onClick={() => post('/suporte/configuracao', cfg)}>Salvar</Button>
+                        </div>
+                    </Card>
+
+                    <Card title="Central de Demandas da Conceito">
+                        <div className="space-y-3">
+                            <p className="text-[11px] text-gray-500">Ligada, os atendimentos novos do chat vão para a equipe de suporte da Conceito e as respostas voltam para a conversa; não entram na fila dos atendentes daqui. Os já abertos terminam como estão. O token e o segredo são gerados na Central, em Configurações → Integrações.</p>
+                            <label className="block text-xs text-gray-600">Endereço da API<input value={central.central_url} onChange={(e) => setCentral({ ...central, central_url: e.target.value })} className="ds-input mt-1" placeholder="https://demandas.conceito.gpecloud.com.br/api/v1" /></label>
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                <label className="text-xs text-gray-600">Token<input value={central.central_token} onChange={(e) => setCentral({ ...central, central_token: e.target.value })} className="ds-input mt-1 font-mono" autoComplete="off"
+                                    placeholder={centralAtual.token_inicio ? `Salvo: ${centralAtual.token_inicio} (deixe vazio para manter)` : 'gpe_…'} /></label>
+                                <label className="text-xs text-gray-600">Segredo<input type="password" value={central.central_segredo} onChange={(e) => setCentral({ ...central, central_segredo: e.target.value })} className="ds-input mt-1 font-mono" autoComplete="new-password"
+                                    placeholder={centralAtual.tem_segredo ? 'Salvo (deixe vazio para manter)' : '48 caracteres'} /></label>
+                            </div>
+                            <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={central.central_ativo} onChange={(e) => setCentral({ ...central, central_ativo: e.target.checked })} />Ligada: a equipe Conceito atende os atendimentos novos</label>
+                            {centralAtual.pendentes > 0 && <p className="text-xs text-amber-700"><i className="fas fa-triangle-exclamation mr-1" />{centralAtual.pendentes} atendimento(s) com falha no último envio à Central; a fila continua tentando.</p>}
+                            <p className="text-[11px] text-gray-500">Endereço de retorno a cadastrar na Central: <code className="rounded bg-gray-100 px-1">{typeof window !== 'undefined' ? window.location.origin : ''}</code></p>
+                            <div className="flex gap-2">
+                                <Button size="sm" icon="fas fa-save" onClick={() => router.post('/suporte/configuracao/central', central, { preserveScroll: true, onSuccess: () => setCentral((c) => ({ ...c, central_token: '', central_segredo: '' })) })}>Salvar</Button>
+                                <Button size="sm" variant="secondary" icon="fas fa-plug" disabled={! centralAtual.token_inicio} onClick={() => router.post('/suporte/configuracao/central/testar', {}, { preserveScroll: true })}>Testar ligação</Button>
+                            </div>
                         </div>
                     </Card>
                 </div>

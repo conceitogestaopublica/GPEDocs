@@ -445,6 +445,8 @@ class ProcessoController extends Controller
             'variaveis_despacho'   => \App\Support\Variaveis::paraEditor(\App\Models\Processo\Processo::ROTULOS_VARIAVEIS_DESPACHO),
             'recebimentos_fisicos' => \App\Http\Controllers\RecebimentoFisicoController::doProcesso($processo->id),
             'ouvidoria'       => self::dadosOuvidoria($processo),
+            // Recurso do requerente no e-SIC (LAI art. 15)
+            'recurso_esic'    => \App\Support\RecursoEsic::doProcesso($processo, Auth::user()),
             // Licenciamento ambiental: enquadramento, emissão, condicionantes
             'licenca_ambiental' => \App\Support\LicenciamentoAmbiental::doProcesso($processo, Auth::user()),
             'menu_url'        => self::menuDoProcesso($request, $processo),
@@ -466,6 +468,8 @@ class ProcessoController extends Controller
             'marcadores'      => ['citado_em' => \App\Support\Marcadores::citadoEm('processo', $processo->id), 'pessoas' => \App\Support\Marcadores::doDocumento('processo', $processo->id)],
             'classificacao'        => \App\Support\Classificacao::doItem('processo', $processo->id),
             'mapa_avaliacao'       => \App\Http\Controllers\Flow\MapaAvaliacaoController::paraTela($processo),
+            // Sobrestamento, apensos e anexados
+            'vinculos'             => \App\Support\VinculosProcesso::doProcesso($processo, Auth::user()),
             'processo'             => $processo,
             'usuarios'             => $usuarios,
             'unidades'             => $unidades,
@@ -631,7 +635,7 @@ class ProcessoController extends Controller
         return [
             'responsavel' => $etapa->destinatario_id ? User::whereKey($etapa->destinatario_id)->first(['id', 'name']) : null,
             'colegas'     => User::whereIn('id', \App\Support\Setores::servidores($etapa->destino_unidade_id))
-                ->whereNull('suspenso_em')->orderBy('name')->get(['id', 'name']),
+                ->orderBy('name')->get(['id', 'name']),
         ];
     }
 
@@ -685,6 +689,8 @@ class ProcessoController extends Controller
             Tramitacao::where('processo_id', $processo->id)
                 ->whereIn('status', ['pendente', 'recebido'])
                 ->update(['status' => 'concluido', 'recebido_em' => DB::raw('COALESCE(recebido_em, NOW())')]);
+            // Os apensos acompanham a decisão do principal e se encerram com ele
+            \App\Support\VinculosProcesso::encerrarApensos($processo, Auth::user(), 'concluido');
 
             // Toda decisao (inclusive arquivamento) gera PDF + Documento — pra poder
             // arquivar em pasta do GPE Docs. So as decisoes formais (deferido/indeferido/
@@ -862,7 +868,12 @@ class ProcessoController extends Controller
     public function downloadAnexo($anexoId)
     {
         $anexo = ProcessoAnexo::findOrFail($anexoId);
-        Processo::findOrFail($anexo->processo_id); // escopo de UG: anexo de processo de outra UG dá 404
+        $processo = Processo::findOrFail($anexo->processo_id); // escopo de UG: anexo de processo de outra UG dá 404
+        // Eliminado pela tabela de temporalidade: o arquivo foi apagado (fica o registro)
+        if ($processo->eliminado_em) {
+            $listagem = \Illuminate\Support\Facades\DB::table('ged_eliminacoes')->where('id', $processo->eliminacao_id)->value('numero');
+            abort(410, 'Este processo foi eliminado conforme a tabela de temporalidade' . ($listagem ? " (listagem {$listagem})" : '') . ': os arquivos não existem mais.');
+        }
         if (! request()->boolean('inline')) {
             ProcessoAnexo::whereKey($anexo->id)->increment('downloads');   // TR 4.14.5 (abrir para ver não conta)
         }
@@ -1037,6 +1048,8 @@ class ProcessoController extends Controller
             Tramitacao::where('processo_id', $processo->id)
                 ->whereIn('status', ['pendente', 'recebido'])
                 ->update(['status' => 'cancelado']);
+            // Os apensos se encerram junto com o principal
+            \App\Support\VinculosProcesso::encerrarApensos($processo, Auth::user(), 'cancelado');
 
             ProcessoHistorico::create([
                 'processo_id' => $processo->id,

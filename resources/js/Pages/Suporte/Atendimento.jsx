@@ -28,6 +28,8 @@ export default function Atendimento({ atendimento: a, participantes, ehAtendente
     const ultimo = useRef(0);
     const lista = useRef(null);
     const fechado = ['resolvido', 'fechado', 'cancelado'].includes(a.status);
+    // atendimento da Central de Demandas: quem atende é a equipe Conceito, sem ações dos atendentes daqui
+    const interno = ehAtendente && ! souSolicitante && ! a.via_central;
 
     const carregar = async () => {
         const r = await jsonFetch(`/suporte/api/atendimentos/${a.id}/mensagens${ultimo.current ? `?apos=${ultimo.current}` : ''}`).catch(() => null);
@@ -60,7 +62,9 @@ export default function Atendimento({ atendimento: a, participantes, ehAtendente
             <Head title={`Suporte ${a.numero}`} />
             <PageHeader title={`${a.numero} — ${a.titulo}`} subtitle={`${a.assunto || 'Sem assunto'} · aberto por ${a.solicitante}${a.canal === 'email' ? ' por e-mail' : ''}`}>
                 <span className={`rounded-full px-3 py-1 text-xs font-semibold ${COR[a.status]}`}>{a.status_rotulo}</span>
-                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">{niveis[a.nivel]}</span>
+                {a.via_central
+                    ? <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-800"><i className="fas fa-headset mr-1" />Atendido pela equipe Conceito{a.central_numero ? ` · ${a.central_numero}` : ''}</span>
+                    : <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">{niveis[a.nivel]}</span>}
             </PageHeader>
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -71,7 +75,7 @@ export default function Atendimento({ atendimento: a, participantes, ehAtendente
                             : (
                                 <div key={m.id} className={`flex ${m.minha ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${m.tipo === 'nota' ? 'border border-amber-300 bg-amber-50 text-amber-900' : m.minha ? 'rounded-br-sm bg-cyan-700 text-white' : 'rounded-bl-sm border border-gray-200 bg-white text-gray-800'}`}>
-                                        <p className="text-[11px] font-semibold opacity-75">{m.autor}{m.tipo === 'nota' ? ' — nota interna (o usuário não vê)' : ''}</p>
+                                        <p className="text-[11px] font-semibold opacity-75">{m.automatica && <span className="mr-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] text-violet-800"><i className="fas fa-robot mr-0.5" />Resposta automática</span>}{m.automatica ? '' : m.autor}{m.tipo === 'nota' ? ' — nota interna (o usuário não vê)' : ''}{m.retorno ? (m.retorno === 'resolveu' ? ' · o usuário respondeu: resolveu' : ' · o usuário respondeu: não resolveu') : ''}</p>
                                         <p className="whitespace-pre-wrap break-words">{m.conteudo}</p>
                                         <p className={`mt-1 text-[10px] ${m.minha && m.tipo !== 'nota' ? 'text-cyan-100' : 'text-gray-400'}`}>{hora(m.em)}</p>
                                     </div>
@@ -81,7 +85,7 @@ export default function Atendimento({ atendimento: a, participantes, ehAtendente
                     {a.status !== 'cancelado' && (
                         <form onSubmit={enviar} className="border-t border-gray-100 p-3">
                             <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={3}
-                                placeholder={fechado ? 'Escrever reabre o atendimento…' : 'Mensagem'} className="ds-input !h-auto w-full" />
+                                placeholder={fechado ? (a.via_central ? 'Escrever envia à equipe Conceito…' : 'Escrever reabre o atendimento…') : 'Mensagem'} className="ds-input !h-auto w-full" />
                             <div className="mt-2 flex items-center gap-3">
                                 {ehAtendente && ! souSolicitante && <label className="flex items-center gap-1.5 text-xs text-amber-800"><input type="checkbox" checked={nota} onChange={(e) => setNota(e.target.checked)} /> Nota interna (só atendentes)</label>}
                                 <Button type="submit" size="sm" icon="fas fa-paper-plane" className="ml-auto" disabled={! texto.trim()}>Enviar</Button>
@@ -93,11 +97,11 @@ export default function Atendimento({ atendimento: a, participantes, ehAtendente
                 <div className="space-y-4">
                     <Card title="Ações">
                         <div className="flex flex-wrap gap-2">
-                            {ehAtendente && ! souSolicitante && ! fechado && <Button size="sm" icon="fas fa-hand" onClick={() => acao(`/suporte/atendimentos/${a.id}/assumir`)}>Assumir</Button>}
-                            {ehAtendente && ! souSolicitante && ! fechado && a.nivel < 3 && <Button size="sm" variant="secondary" icon="fas fa-turn-up" onClick={() => { setCampo(''); setModal('escalar'); }}>Encaminhar ao nível {a.nivel + 1}</Button>}
-                            {ehAtendente && ! souSolicitante && ! fechado && <Button size="sm" variant="success" icon="fas fa-check" onClick={() => { setCampo(''); setModal('resolver'); }}>Resolver</Button>}
+                            {interno && ! fechado && <Button size="sm" icon="fas fa-hand" onClick={() => acao(`/suporte/atendimentos/${a.id}/assumir`)}>Assumir</Button>}
+                            {interno && ! fechado && a.nivel < 3 && <Button size="sm" variant="secondary" icon="fas fa-turn-up" onClick={() => { setCampo(''); setModal('escalar'); }}>Encaminhar ao nível {a.nivel + 1}</Button>}
+                            {interno && ! fechado && <Button size="sm" variant="success" icon="fas fa-check" onClick={() => { setCampo(''); setModal('resolver'); }}>Resolver</Button>}
                             {! fechado && <Button size="sm" variant="secondary" icon="fas fa-user-plus" onClick={() => { setCampo(''); setModal('incluir'); }}>Incluir pessoa</Button>}
-                            {['resolvido', 'fechado'].includes(a.status) && <Button size="sm" variant="secondary" icon="fas fa-rotate-left" onClick={() => { setCampo(''); setModal('reabrir'); }}>Reabrir</Button>}
+                            {['resolvido', 'fechado'].includes(a.status) && <Button size="sm" variant="secondary" icon="fas fa-rotate-left" onClick={() => { setCampo(''); setModal('reabrir'); }}>{a.via_central ? 'Pedir reabertura' : 'Reabrir'}</Button>}
                             {! fechado && (souSolicitante || ehAtendente) && <Button size="sm" variant="ghost" icon="fas fa-ban" onClick={() => window.confirm('Cancelar este atendimento?') && acao(`/suporte/atendimentos/${a.id}/cancelar`)}>Cancelar</Button>}
                         </div>
                         {a.processo && <p className="mt-3 rounded-lg bg-violet-50 p-2 text-xs text-violet-900">Chamado técnico da TI: <Link href={`/processos/${a.processo.id}`} className="font-semibold underline">{a.processo.numero_protocolo}</Link> ({a.processo.status})</p>}
