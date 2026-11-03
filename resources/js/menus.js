@@ -17,6 +17,7 @@ export const MENU_GED = [
     { section: 'label', label: 'Administração' },
     { title: 'Tipos Documentais', icon: 'fas fa-file-signature', href: '/admin/tipos-documentais', color: 'text-violet-600 bg-violet-100', permissao: 'admin.tipos_documentais' },
     { title: 'Plano de Classificação', icon: 'fas fa-sitemap', href: '/admin/classificacao', color: 'text-teal-600 bg-teal-100', permissao: 'admin.classificacao' },
+    { title: 'Temporalidade e eliminação', icon: 'fas fa-hourglass-half', href: '/admin/temporalidade', color: 'text-rose-600 bg-rose-100', permissao: 'arquivo.temporalidade' },
 ];
 
 export const MENU_CONFIGURACOES = [

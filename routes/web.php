@@ -612,6 +612,17 @@ Route::middleware('auth')->group(function () {
             Route::get('classificacao/exportar', 'exportar')->name('classificacao.exportar');
             Route::post('classificacao/item/{modulo}/{id}', 'reclassificar')->whereNumber('id')->name('classificacao.reclassificar');
         });
+        // Tabela de temporalidade: avaliação do acervo e eliminação (Resolução CONARQ nº 40/2014)
+        Route::middleware('can:arquivo.temporalidade')->controller(\App\Http\Controllers\Admin\TemporalidadeController::class)
+            ->prefix('temporalidade')->name('temporalidade.')->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('listagens', 'store')->name('listagens.store');
+                Route::post('listagens/{id}/aprovar', 'aprovar')->whereNumber('id')->name('listagens.aprovar');
+                Route::post('listagens/{id}/edital', 'edital')->whereNumber('id')->name('listagens.edital');
+                Route::post('listagens/{id}/eliminar', 'eliminar')->whereNumber('id')->name('listagens.eliminar');
+                Route::post('listagens/{id}/cancelar', 'cancelar')->whereNumber('id')->name('listagens.cancelar');
+                Route::get('listagens/{id}/pdf/{documento}', 'pdf')->whereNumber('id')->whereIn('documento', ['listagem', 'edital', 'termo'])->name('listagens.pdf');
+            });
         Route::middleware('can:admin.tipos_processo')->group(function () {
             Route::resource('tipos-processo', TipoProcessoController::class)->except(['create', 'edit', 'show']);
             Route::post('tipos-processo/{id}/toggle-ativo', [TipoProcessoController::class, 'toggleAtivo'])->name('tipos-processo.toggle-ativo');

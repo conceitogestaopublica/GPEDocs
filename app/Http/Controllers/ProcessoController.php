@@ -864,7 +864,12 @@ class ProcessoController extends Controller
     public function downloadAnexo($anexoId)
     {
         $anexo = ProcessoAnexo::findOrFail($anexoId);
-        Processo::findOrFail($anexo->processo_id); // escopo de UG: anexo de processo de outra UG dá 404
+        $processo = Processo::findOrFail($anexo->processo_id); // escopo de UG: anexo de processo de outra UG dá 404
+        // Eliminado pela tabela de temporalidade: o arquivo foi apagado (fica o registro)
+        if ($processo->eliminado_em) {
+            $listagem = \Illuminate\Support\Facades\DB::table('ged_eliminacoes')->where('id', $processo->eliminacao_id)->value('numero');
+            abort(410, 'Este processo foi eliminado conforme a tabela de temporalidade' . ($listagem ? " (listagem {$listagem})" : '') . ': os arquivos não existem mais.');
+        }
         if (! request()->boolean('inline')) {
             ProcessoAnexo::whereKey($anexo->id)->increment('downloads');   // TR 4.14.5 (abrir para ver não conta)
         }
