@@ -214,6 +214,13 @@ Route::prefix('api/portal')
         // Ouvidoria anônima/sigilosa sem login (código + chave) e estatísticas do e-SIC (TR 4.33.27, 4.34)
         Route::get('acompanhar/{codigo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'acompanhar'])->where('codigo', '[^/]+')->middleware('throttle:30,1')->name('acompanhar');
         Route::get('esic/estatisticas', [\App\Http\Controllers\Api\Portal\EsicController::class, 'estatisticas'])->name('esic.estatisticas');
+        // Licenciamento ambiental: atividades, enquadramento, requerimento (e renovação) e licenças do cidadão
+        Route::controller(\App\Http\Controllers\Api\Portal\AmbientalController::class)->prefix('ambiental')->name('ambiental.')->group(function () {
+            Route::get('atividades', 'atividades')->name('atividades');
+            Route::get('enquadramento', 'enquadramento')->middleware('throttle:60,1')->name('enquadramento');
+            Route::post('requerimentos', 'requerer')->middleware('throttle:10,1')->name('requerimentos');
+            Route::get('licencas', 'minhas')->name('licencas');
+        });
         // o número tem barra (REQ-2026/000001): o portal manda %2F, que chega decodificado — por isso '.+'
         Route::get('processos/{numero}/anexos/{anexo}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'anexoProcesso'])->where('numero', '.+')->whereNumber('anexo')->name('processos.anexo');
         Route::get('processos/{numero}', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'processo'])->where('numero', '.+')->name('processos.show');
@@ -289,6 +296,8 @@ Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->na
 // Mapa público da consulta prévia de viabilidade (TR 4.50)
 // Verificação pública do certificado do EAD (QR do PDF, TR 4.24.7)
 Route::get('ead/certificados/{codigo}', [\App\Http\Controllers\EadController::class, 'verificar'])->whereUuid('codigo')->middleware('throttle:60,1')->name('ead.verificar');
+// Verificação pública da licença ambiental (QR do PDF)
+Route::get('ambiental/licencas/{codigo}', [\App\Http\Controllers\Flow\AmbientalController::class, 'verificar'])->whereUuid('codigo')->middleware('throttle:60,1')->name('ambiental.verificar');
 
 // Central de Demandas da Conceito → GED: eventos do atendimento do suporte. Sem login e sem CSRF:
 // quem autentica é a assinatura HMAC (X-GPE-Assinatura) com o segredo do tenant.
@@ -796,6 +805,19 @@ Route::middleware('auth')->group(function () {
         // Painéis da ouvidoria e do e-SIC (TR 4.33.25–26, 4.34)
         Route::get('ouvidoria', [\App\Http\Controllers\Flow\OuvidoriaController::class, 'ouvidoria'])->name('ouvidoria');
         Route::get('esic', [\App\Http\Controllers\Flow\OuvidoriaController::class, 'esic'])->name('esic');
+        // Licenciamento ambiental
+        Route::controller(\App\Http\Controllers\Flow\AmbientalController::class)->prefix('ambiental')->name('ambiental.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('configuracao', 'configuracao')->name('configuracao');
+            Route::post('configuracao', 'salvarConfig')->name('configuracao.salvar');
+            Route::post('atividades/{id?}', 'salvarAtividade')->whereNumber('id')->name('atividades.salvar');
+            Route::post('documentos/{id?}', 'salvarDocumento')->whereNumber('id')->name('documentos.salvar');
+            Route::get('enquadrar', 'enquadrar')->name('enquadrar');
+            Route::post('processos/{id}/requerimento', 'registrar')->whereNumber('id')->name('registrar');
+            Route::post('licencas/{id}/emitir', 'emitir')->whereNumber('id')->name('emitir');
+            Route::post('licencas/{id}/indeferir', 'indeferir')->whereNumber('id')->name('indeferir');
+            Route::post('condicionantes/{id}/cumprir', 'cumprir')->whereNumber('id')->name('cumprir');
+        });
         // Processo seletivo simplificado (TR 4.41)
         Route::middleware('can:pss.gerir')->controller(\App\Http\Controllers\Flow\PssController::class)->group(function () {
             Route::get('pss', 'index')->name('pss');

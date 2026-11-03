@@ -110,6 +110,14 @@ export const MENU_GEPSP = [
         ],
     },
     {
+        // Licenciamento ambiental: requerimentos, licenças, condicionantes e vencimentos
+        title: 'Meio ambiente', icon: 'fas fa-leaf', color: 'text-green-700 bg-green-100',
+        children: [
+            { title: 'Licenças ambientais',      icon: 'fas fa-leaf',    href: '/flow/ambiental',             color: 'text-green-700 bg-green-100', permissao: 'ambiental.gerir' },
+            { title: 'Configurar licenciamento', icon: 'fas fa-sliders', href: '/flow/ambiental/configuracao', color: 'text-slate-600 bg-slate-100', permissao: 'ambiental.gerir' },
+        ],
+    },
+    {
         // Requerimentos e indicações de vereadores (TR 4.37)
         title: 'Legislativo', icon: 'fas fa-landmark', color: 'text-amber-600 bg-amber-100',
         children: [

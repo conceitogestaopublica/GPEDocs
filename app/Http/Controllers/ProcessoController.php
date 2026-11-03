@@ -447,6 +447,8 @@ class ProcessoController extends Controller
             'ouvidoria'       => self::dadosOuvidoria($processo),
             // Recurso do requerente no e-SIC (LAI art. 15)
             'recurso_esic'    => \App\Support\RecursoEsic::doProcesso($processo, Auth::user()),
+            // Licenciamento ambiental: enquadramento, emissão, condicionantes
+            'licenca_ambiental' => \App\Support\LicenciamentoAmbiental::doProcesso($processo, Auth::user()),
             'menu_url'        => self::menuDoProcesso($request, $processo),
             // Pareceres do processo e se o usuário pode emitir (TR 4.39)
             'pareceres'       => \App\Http\Controllers\ParecerController::doProcesso($processo->id),

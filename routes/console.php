@@ -12,6 +12,8 @@ Artisan::command('inspire', function () {
 Illuminate\Support\Facades\Schedule::command('processos:alertar-prazos')->dailyAt('07:00')->timezone('America/Sao_Paulo');
 // Lembrete de assinatura pendente (periódico e véspera do prazo) e aviso de prazo vencido ao solicitante
 Illuminate\Support\Facades\Schedule::command('assinaturas:lembrar')->dailyAt('08:00')->timezone('America/Sao_Paulo')->withoutOverlapping();
+// Licenciamento ambiental: licenças vencidas, aviso de vencimento (renovação) e de condicionantes
+Illuminate\Support\Facades\Schedule::command('ambiental:avisar')->dailyAt('07:30')->timezone('America/Sao_Paulo')->withoutOverlapping();
 // Memorandos e circulares com data de arquivamento automático (TR 4.46.12)
 // Diário Oficial: edição ordinária do dia com os atos pendentes (TR 4.43.8)
 Illuminate\Support\Facades\Schedule::command('diario:montar-ordinaria')->dailyAt('06:00')->timezone('America/Sao_Paulo');
