@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import SuporteChat from './SuporteChat';
 
-export default function ChatFlutuante() {
+export default function ChatFlutuante({ modulo }) {
     const [open, setOpen] = useState(false);
     const [aba, setAba] = useState('pessoas');
     const [suporte, setSuporte] = useState(null);
@@ -289,7 +289,7 @@ export default function ChatFlutuante() {
 
                     {/* Conteudo */}
                     {!contatoAtivo && aba === 'suporte' ? (
-                        <SuporteChat fetchJson={fetchJson} painel={suporte} recarregar={carregarSuporte} />
+                        <SuporteChat fetchJson={fetchJson} painel={suporte} recarregar={carregarSuporte} modulo={modulo} />
                     ) : !contatoAtivo ? (
                         // Lista de contatos
                         <>

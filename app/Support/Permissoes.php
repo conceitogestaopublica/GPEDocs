@@ -74,6 +74,8 @@ final class Permissoes
         'admin.tipos_documentais'   => 'Gerenciar tipos documentais',
         'admin.contatos'            => 'Configurar contatos (campos complementares e regras de preenchimento)',
         'admin.classificacao'       =>'Manter o plano de classificação e reclassificar documentos e processos',
+        'arquivo.temporalidade'     => 'Tabela de temporalidade, avaliação do acervo e listagens de eliminação',
+        'arquivo.eliminar'          => 'Aprovar listagens de eliminação, publicar o edital e eliminar documentos',
         'admin.tipos_processo'      => 'Gerenciar tipos de processo e modelos de ofício',
     ];
 

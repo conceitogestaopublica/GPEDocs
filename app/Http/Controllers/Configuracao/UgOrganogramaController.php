@@ -102,7 +102,7 @@ class UgOrganogramaController extends Controller
 
     private function listarUsuariosResponsaveis(): array
     {
-        return User::where('tipo', 'interno')
+        return User::doGed()->where('tipo', 'interno')
             ->orderBy('name')
             ->get(['id', 'name', 'email'])
             ->toArray();

@@ -200,6 +200,8 @@ class ImportarServidores extends Command
                     'tipo'                  => 'interno',
                     'super_admin'           => false,
                     'acesso_geral_ug'       => false,
+                    // pede pelo Portal e pelo app; não entra no GED nem aparece no chat
+                    'somente_portal'        => true,
                     'ug_id'                 => $ugId,
                     'unidade_id'            => $unidadeId,
                     'legado_funcionario_id' => (int) $s->funcionario_id,

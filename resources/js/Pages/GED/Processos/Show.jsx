@@ -21,6 +21,7 @@ import FiscalizacaoDoProcesso from '../../../Components/FiscalizacaoDoProcesso';
 import TramitaDoDocumento from '../../../Components/TramitaDoDocumento';
 import FerramentasDoTexto from '../../../Components/FerramentasDoTexto';
 import MapaAvaliacaoDoProcesso from '../../../Components/MapaAvaliacaoDoProcesso';
+import VinculosDoProcesso from '../../../Components/VinculosDoProcesso';
 import Modal from '../../../Components/Modal';
 import Tabs from '../../../Components/Tabs';
 import Avatar from '../../../Components/Avatar';
@@ -86,7 +87,7 @@ const tabList = [
 ];
 
 export default function Show({ recurso_esic = null, tramita = null, fiscalizacao = null, externo = null, tributario = null, pad = null, pareceres = [], pode_emitir_parecer = false, legislativo = null, solicitante = null, ouvidoria = null, recebimentos_fisicos = [], marcadores = null, variaveis_despacho = [], processo, usuarios, unidades = [], pode_receber, pode_despachar, pode_concluir, assinatura_pendente, decisao_assinada, pastas = [], solicitacao_portal = null, cuidados = null,
-    acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [], classificacao = null, mapa_avaliacao = null }) {
+    acessos = [], prazos = [], etiquetas_processo = [], minhas_etiquetas = [], arvores = [], arvore_configuracoes = {}, arvore_secoes = {}, fluxo = null, pode_alterar_assunto = false, tipos_processo = [], etapa_acao = null, minhas_etapas = [], pode_cancelar = false, pode_resolver = false, aguardando_setores = [], copia_pendente = null, frentes = null, estagios = [], classificacao = null, mapa_avaliacao = null, vinculos = null }) {
     const confirmar = useConfirm();
     const avisar = useAvisar();
     // Meu perfil › Preferências: abrir anexo no navegador ou baixar
@@ -584,6 +585,9 @@ export default function Show({ recurso_esic = null, tramita = null, fiscalizacao
                     </div>
                 </div>
             </div>
+
+            {/* Sobrestamento, apensos e anexados: aviso de processo parado e as ações */}
+            <VinculosDoProcesso processo={proc} dados={vinculos} className="mb-4" />
 
             {/* Tabs */}
             <Tabs tabs={tabList} activeTab={activeTab} onChange={setActiveTab} />
@@ -1729,6 +1733,9 @@ const ACOES_HISTORICO = {
     prazo_criado: 'Prazo incluído', prazo_alterado: 'Prazo alterado', prazo_realizado: 'Prazo realizado', prazo_excluido: 'Prazo excluído',
     anexos_reordenados: 'Anexos reordenados', anexo_avaliado: 'Anexo avaliado', link_anexo: 'Link seguro de anexo', arvore_solicitada: 'Árvore do processo pedida',
     reclassificacao: 'Reclassificado', localizacao: 'Localização alterada', avaliacao: 'Avaliação', reabertura: 'Reaberto',
+    sobrestamento: 'Sobrestado', retomada: 'Retomado', apensacao: 'Processo apensado', apensado: 'Apensado a outro processo',
+    desapensacao: 'Processo desapensado', desapensado: 'Desapensado', anexacao: 'Processo anexado', anexado: 'Anexado a outro processo',
+    encerrado_com_principal: 'Encerrado com o principal',
     recurso_esic: 'Recurso (e-SIC)', recurso_esic_decidido: 'Recurso decidido (e-SIC)',
 };
 

@@ -21,7 +21,8 @@ class LixeiraController extends Controller
 {
     public function index(): Response
     {
-        $documentos = Documento::onlyTrashed()
+        // Eliminado pela tabela de temporalidade não é lixeira: não aparece nem volta
+        $documentos = Documento::onlyTrashed()->whereNull('eliminado_em')
             ->with(['tipoDocumental:id,nome', 'pasta:id,nome'])
             ->orderByDesc('deleted_at')
             ->paginate(30)
@@ -56,7 +57,7 @@ class LixeiraController extends Controller
 
     public function restaurarDocumento(Request $request, $id)
     {
-        $documento = Documento::onlyTrashed()->findOrFail($id);
+        $documento = Documento::onlyTrashed()->whereNull('eliminado_em')->findOrFail($id);
 
         if ($documento->pasta_id && ! Pasta::whereKey($documento->pasta_id)->where('ativo', true)->exists()) {
             return back()->with('error', 'A pasta do documento está inativa: reative-a primeiro.');

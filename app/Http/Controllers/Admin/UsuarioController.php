@@ -21,7 +21,7 @@ class UsuarioController extends Controller
     public function index(Request $request): Response
     {
         $busca = trim((string) $request->input('busca', ''));
-        $tipoFiltro = $request->input('tipo'); // null | 'interno' | 'externo'
+        $tipoFiltro = $request->input('tipo'); // null | 'interno' | 'externo' | 'portal' (servidores só do Portal/app)
         $ugAtualId = (int) ($request->session()->get('ug_id') ?? 0);
         // Toggle visivel apenas para super_admin: mostrar users de TODAS as UGs
         $todasUgs = $request->boolean('todas_ugs') && (bool) $request->user()?->super_admin;
@@ -55,6 +55,8 @@ class UsuarioController extends Controller
                 });
             })
             ->when(in_array($tipoFiltro, ['interno', 'externo'], true), fn ($q) => $q->where('users.tipo', $tipoFiltro))
+            // por padrão a lista é de quem usa o GED; os servidores só do Portal/app têm filtro próprio
+            ->where('users.somente_portal', $tipoFiltro === 'portal')
             ->orderBy('name')
             ->paginate(20)
             ->withQueryString()
@@ -106,6 +108,7 @@ class UsuarioController extends Controller
                 'tipo'            => $usuario->tipo,
                 'super_admin'     => (bool) $usuario->super_admin,
                 'acesso_geral_ug' => (bool) $usuario->acesso_geral_ug,
+                'somente_portal'  => (bool) $usuario->somente_portal,
                 'ug_id'           => $usuario->ug_id,        // UG primaria/legada
                 'unidade_id'      => $usuario->unidade_id,
                 'setores_secundarios' => $usuario->setoresSecundarios()->pluck('ug_organograma.id')->all(),
@@ -157,9 +160,12 @@ class UsuarioController extends Controller
                 'tipo'            => $tipo,
                 'super_admin'     => (bool) ($validated['super_admin'] ?? false),
                 'acesso_geral_ug' => (bool) ($validated['acesso_geral_ug'] ?? false),
+                'somente_portal'  => $tipo === 'interno' && ! ($validated['super_admin'] ?? false) && (bool) ($validated['somente_portal'] ?? false),
                 'ug_id'           => $ugIds[0] ?? null,  // UG primaria = primeira do array
                 'unidade_id'      => $unidadeId,
             ]);
+            // Senha escolhida pelo administrador é provisória: o servidor cria a dele no primeiro acesso
+            $user->forceFill(['senha_alterada_em' => now(), 'senha_trocar' => ! empty($validated['password'])])->save();
 
             // Cadeia de responsabilidade do cadastro: quem, de onde e com que navegador.
             DB::table('users')->where('id', $user->id)->update([
@@ -232,12 +238,14 @@ class UsuarioController extends Controller
                 'tipo'            => $tipo,
                 'super_admin'     => (bool) ($validated['super_admin'] ?? false),
                 'acesso_geral_ug' => (bool) ($validated['acesso_geral_ug'] ?? false),
+                'somente_portal'  => $tipo === 'interno' && ! ($validated['super_admin'] ?? false) && (bool) ($validated['somente_portal'] ?? false),
                 'ug_id'           => $ugIds[0] ?? null,
                 'unidade_id'      => $unidadeId,
             ];
 
             if (! empty($validated['password'])) {
-                $data['password'] = Hash::make($validated['password']);
+                // senha definida pelo administrador: o servidor cria a dele no próximo acesso
+                \App\Support\PoliticaSenha::gravar($user, $validated['password'], true);
             }
 
             $user->update($data);
@@ -278,10 +286,11 @@ class UsuarioController extends Controller
             'sexo'        => ['nullable', 'in:F,M,O'],
             'data_nascimento' => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
             // Vazia no cadastro: o sistema gera e manda ao servidor o link para definir a dele
-            'password'    => ['nullable', 'string', 'min:8'],
+            'password'    => ['nullable', 'string', \App\Support\PoliticaSenha::regra()],
             'tipo'        => ['required', 'in:interno,externo'],
             'super_admin'      => ['boolean'],
             'acesso_geral_ug'  => ['boolean'],
+            'somente_portal'   => ['boolean'],
             'ug_ids'      => ['nullable', 'array'],
             'ug_ids.*'    => ['integer', 'exists:ugs,id'],
             'unidade_id'  => ['nullable', 'integer', 'exists:ug_organograma,id'],

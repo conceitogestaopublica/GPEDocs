@@ -53,7 +53,7 @@ class CircularController extends Controller
 
     public function create(): Response
     {
-        $usuarios = User::where('id', '!=', Auth::id())->where('tipo', 'interno')->whereNull('suspenso_em')
+        $usuarios = User::doGed()->where('id', '!=', Auth::id())->where('tipo', 'interno')
             ->orderBy('name')
             ->get(['id', 'name', 'email']);
 

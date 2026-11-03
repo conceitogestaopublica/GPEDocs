@@ -46,7 +46,7 @@ class MemorandoController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        $usuarios = User::orderBy('name')->get(['id', 'name', 'email']);
+        $usuarios = User::doGed()->orderBy('name')->get(['id', 'name', 'email']);
 
         return Inertia::render('GED/Memorandos/Index', [
             'memorandos' => $memorandos,
@@ -146,7 +146,7 @@ class MemorandoController extends Controller
                         'lido'         => false,
                     ]);
                 }
-                $usuariosNotificar = User::whereIn('unidade_id', $unidades)->pluck('id')->all();
+                $usuariosNotificar = User::doGed()->whereIn('unidade_id', $unidades)->pluck('id')->all();
             } elseif ($tipoDestino === 'setor') {
                 $unidadeId = (int) $request->input('unidade_id');
                 MemorandoDestinatario::create([

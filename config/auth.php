@@ -126,4 +126,25 @@ return [
      */
     'dias_inatividade' => (int) env('GED_DIAS_INATIVIDADE', 90),
 
+    /*
+     * Política de senha (App\Support\PoliticaSenha):
+     * - validade: dias até a senha expirar e ser exigida uma nova no próximo acesso (0 desliga);
+     * - aviso: quantos dias antes do vencimento o usuário é avisado ao entrar;
+     * - historico: quantas senhas anteriores não podem ser reutilizadas (0 desliga);
+     * - minimo / exige: tamanho mínimo e composição (letra, numero, maiuscula, especial — separados por vírgula).
+     */
+    'senha' => [
+        'validade' => (int) env('GED_SENHA_VALIDADE_DIAS', 180),
+        'aviso'    => (int) env('GED_SENHA_AVISO_DIAS', 10),
+        'historico' => (int) env('GED_SENHA_HISTORICO', 5),
+        'minimo'   => (int) env('GED_SENHA_MINIMO', 8),
+        'exige'    => env('GED_SENHA_EXIGE', 'letra,numero'),
+    ],
+
+    /*
+     * Lembrete de assinatura pendente: de quantos em quantos dias o signatário é lembrado
+     * (0 desliga); a véspera do prazo da solicitação sempre gera lembrete.
+     */
+    'lembrete_assinatura_dias' => (int) env('GED_LEMBRETE_ASSINATURA_DIAS', 3),
+
 ];
