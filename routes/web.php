@@ -288,6 +288,21 @@ Route::get('verificar/{token}', [VerificacaoController::class, 'verificar'])->na
 // Verificação pública do certificado do EAD (QR do PDF, TR 4.24.7)
 Route::get('ead/certificados/{codigo}', [\App\Http\Controllers\EadController::class, 'verificar'])->whereUuid('codigo')->middleware('throttle:60,1')->name('ead.verificar');
 
+// Central de Demandas da Conceito → GED: eventos do atendimento do suporte. Sem login e sem CSRF:
+// quem autentica é a assinatura HMAC (X-GPE-Assinatura) com o segredo do tenant.
+Route::post('api/suporte/eventos', [\App\Http\Controllers\Api\SuporteCentralController::class, 'eventos'])
+    ->withoutMiddleware([
+        \App\Http\Middleware\HandleInertiaRequests::class,
+        \App\Http\Middleware\EnsureUgSelected::class,
+        \Illuminate\Auth\Middleware\Authenticate::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+    ])
+    ->middleware('throttle:240,1')->name('api.suporte.eventos');
+
 // Suporte: avaliar ou reabrir pelo link do e-mail de resolução, sem login (TR 4.26.8)
 Route::controller(\App\Http\Controllers\SuporteController::class)->prefix('suporte/avaliar')->middleware('throttle:30,1')->group(function () {
     Route::get('{token}', 'avaliacao')->whereUuid('token')->name('suporte.avaliacao');
@@ -964,9 +979,12 @@ Route::middleware('auth')->group(function () {
         Route::get('api/buscar', 'buscar')->name('api.buscar');
         Route::get('api/atendimentos/{id}/mensagens', 'mensagens')->whereNumber('id')->name('api.mensagens');
         Route::post('api/atendimentos/{id}/mensagens', 'enviar')->whereNumber('id')->middleware('throttle:60,1')->name('api.enviar');
+        Route::post('api/atendimentos/{id}/mensagens/{mensagem}/retorno', 'retornoAutomatico')->whereNumber(['id', 'mensagem'])->middleware('throttle:20,1')->name('api.retorno');
         Route::get('api/pessoas', 'pessoas')->name('api.pessoas');
         Route::get('configuracao', 'configuracao')->name('configuracao');
         Route::post('configuracao', 'salvarConfig')->name('configuracao.salvar');
+        Route::post('configuracao/central', 'salvarCentral')->name('configuracao.central');
+        Route::post('configuracao/central/testar', 'testarCentral')->middleware('throttle:10,1')->name('configuracao.central.testar');
         Route::post('assuntos', 'salvarAssunto')->name('assuntos.store');
         Route::post('assuntos/{id}', 'salvarAssunto')->whereNumber('id')->name('assuntos.update');
         Route::post('artigos', 'salvarArtigo')->name('artigos.store');

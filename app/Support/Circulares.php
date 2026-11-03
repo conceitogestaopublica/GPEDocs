@@ -23,13 +23,13 @@ final class Circulares
     /** Servidores ativos da UG que recebem. @return Collection<int, int> */
     public static function destinatarios(string $tipo, array $unidades, array $usuarios, int $exceto): Collection
     {
-        $base = User::query()->where('tipo', 'interno')->whereNull('suspenso_em')->where('id', '<>', $exceto);
+        $base = User::query()->doGed()->where('tipo', 'interno')->where('id', '<>', $exceto);
 
         $ids = match ($tipo) {
             'usuarios' => $base->whereIn('id', array_map('intval', $usuarios))->pluck('id'),
             'setores'  => collect(self::comSubsetores($unidades))->flatMap(fn ($u) => Setores::servidores($u))
                 ->unique()->filter(fn ($id) => $id !== $exceto)
-                ->pipe(fn ($c) => User::query()->whereIn('id', $c)->where('tipo', 'interno')->whereNull('suspenso_em')->pluck('id')),
+                ->pipe(fn ($c) => User::query()->whereIn('id', $c)->doGed()->where('tipo', 'interno')->pluck('id')),
             default    => $base->where(fn ($q) => $q->where('ug_id', session('ug_id'))
                 ->orWhereIn('unidade_id', UgOrganograma::where('ug_id', session('ug_id'))->select('id')))->pluck('id'),
         };

@@ -21,7 +21,7 @@ class UsuarioController extends Controller
     public function index(Request $request): Response
     {
         $busca = trim((string) $request->input('busca', ''));
-        $tipoFiltro = $request->input('tipo'); // null | 'interno' | 'externo'
+        $tipoFiltro = $request->input('tipo'); // null | 'interno' | 'externo' | 'portal' (servidores só do Portal/app)
         $ugAtualId = (int) ($request->session()->get('ug_id') ?? 0);
         // Toggle visivel apenas para super_admin: mostrar users de TODAS as UGs
         $todasUgs = $request->boolean('todas_ugs') && (bool) $request->user()?->super_admin;
@@ -55,6 +55,8 @@ class UsuarioController extends Controller
                 });
             })
             ->when(in_array($tipoFiltro, ['interno', 'externo'], true), fn ($q) => $q->where('users.tipo', $tipoFiltro))
+            // por padrão a lista é de quem usa o GED; os servidores só do Portal/app têm filtro próprio
+            ->where('users.somente_portal', $tipoFiltro === 'portal')
             ->orderBy('name')
             ->paginate(20)
             ->withQueryString()
@@ -106,6 +108,7 @@ class UsuarioController extends Controller
                 'tipo'            => $usuario->tipo,
                 'super_admin'     => (bool) $usuario->super_admin,
                 'acesso_geral_ug' => (bool) $usuario->acesso_geral_ug,
+                'somente_portal'  => (bool) $usuario->somente_portal,
                 'ug_id'           => $usuario->ug_id,        // UG primaria/legada
                 'unidade_id'      => $usuario->unidade_id,
                 'setores_secundarios' => $usuario->setoresSecundarios()->pluck('ug_organograma.id')->all(),
@@ -157,6 +160,7 @@ class UsuarioController extends Controller
                 'tipo'            => $tipo,
                 'super_admin'     => (bool) ($validated['super_admin'] ?? false),
                 'acesso_geral_ug' => (bool) ($validated['acesso_geral_ug'] ?? false),
+                'somente_portal'  => $tipo === 'interno' && ! ($validated['super_admin'] ?? false) && (bool) ($validated['somente_portal'] ?? false),
                 'ug_id'           => $ugIds[0] ?? null,  // UG primaria = primeira do array
                 'unidade_id'      => $unidadeId,
             ]);
@@ -234,6 +238,7 @@ class UsuarioController extends Controller
                 'tipo'            => $tipo,
                 'super_admin'     => (bool) ($validated['super_admin'] ?? false),
                 'acesso_geral_ug' => (bool) ($validated['acesso_geral_ug'] ?? false),
+                'somente_portal'  => $tipo === 'interno' && ! ($validated['super_admin'] ?? false) && (bool) ($validated['somente_portal'] ?? false),
                 'ug_id'           => $ugIds[0] ?? null,
                 'unidade_id'      => $unidadeId,
             ];
@@ -285,6 +290,7 @@ class UsuarioController extends Controller
             'tipo'        => ['required', 'in:interno,externo'],
             'super_admin'      => ['boolean'],
             'acesso_geral_ug'  => ['boolean'],
+            'somente_portal'   => ['boolean'],
             'ug_ids'      => ['nullable', 'array'],
             'ug_ids.*'    => ['integer', 'exists:ugs,id'],
             'unidade_id'  => ['nullable', 'integer', 'exists:ug_organograma,id'],

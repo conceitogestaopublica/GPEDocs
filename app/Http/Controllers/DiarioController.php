@@ -69,7 +69,7 @@ class DiarioController extends Controller
             'responsaveis' => Responsavel::with('user:id,name,email')->orderByDesc('ativo')->get()
                 ->map(fn (Responsavel $r) => ['id' => $r->id, 'user_id' => $r->user_id, 'nome' => $r->user?->name, 'funcao' => $r->funcao,
                     'telefone' => $r->telefone, 'email' => $r->email ?: $r->user?->email, 'ativo' => $r->ativo]),
-            'usuarios' => User::where('tipo', 'interno')->whereNull('suspenso_em')->orderBy('name')->get(['id', 'name']),
+            'usuarios' => User::doGed()->where('tipo', 'interno')->orderBy('name')->get(['id', 'name']),
         ]);
     }
 

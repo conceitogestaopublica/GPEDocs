@@ -4,12 +4,22 @@
  * conversa com o suporte.
  */
 import { useEffect, useRef, useState } from 'react';
+import { MODULO_CONFIG, rotinaDaUrl } from '../menus';
 
 const COR = { aberto: 'bg-amber-100 text-amber-800', em_atendimento: 'bg-cyan-100 text-cyan-800', resolvido: 'bg-emerald-100 text-emerald-700',
     fechado: 'bg-slate-100 text-slate-600', cancelado: 'bg-red-100 text-red-700' };
 const hora = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
 
-export default function SuporteChat({ fetchJson, painel, recarregar }) {
+/** Onde o servidor estava ao abrir o chat: vai para a Central de Demandas (módulo, grupo do menu, tela, endereço). */
+function contextoDaTela(modulo) {
+    const url = window.location.pathname + window.location.search;
+    const rotina = rotinaDaUrl(url);
+    const titulo = document.title.replace(/\s*-\s*GPE Docs\s*$/, '').trim();
+    return { modulo: MODULO_CONFIG[modulo] ? modulo : null, submodulo: rotina?.grupo || null,
+        tela: (rotina?.label || titulo || '').slice(0, 200) || null, url_tela: window.location.href.slice(0, 500) };
+}
+
+export default function SuporteChat({ fetchJson, painel, recarregar, modulo }) {
     const [tela, setTela] = useState('inicio');
     const [assunto, setAssunto] = useState(null);
     const [artigos, setArtigos] = useState([]);
@@ -38,7 +48,7 @@ export default function SuporteChat({ fetchJson, painel, recarregar }) {
         e.preventDefault();
         setErro('');
         try {
-            const r = await fetchJson('/suporte/api/atendimentos', { method: 'POST', body: JSON.stringify({ ...form, assunto_id: assunto?.id || null }) });
+            const r = await fetchJson('/suporte/api/atendimentos', { method: 'POST', body: JSON.stringify({ ...form, assunto_id: assunto?.id || null, ...contextoDaTela(modulo) }) });
             setForm({ titulo: '', descricao: '' });
             setAtual(r.atendimento); setTela('conversa'); recarregar();
         } catch { setErro('Não foi possível abrir o atendimento. Confira o título e a descrição.'); }
@@ -58,6 +68,11 @@ export default function SuporteChat({ fetchJson, painel, recarregar }) {
             {aviso && <p className="m-3 rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800" onClick={() => setAviso('')}>{aviso}</p>}
             {tela === 'inicio' && (
                 <>
+                    {painel?.central ? (
+                        <div className="border-b border-gray-100 px-3 py-2.5">
+                            <p className="text-xs text-gray-600"><i className="fas fa-headset mr-1 text-cyan-700" />Quem atende é a <strong>equipe de suporte da Conceito</strong>. A resposta chega aqui e por e-mail.</p>
+                        </div>
+                    ) : (
                     <div className="border-b border-gray-100 px-3 py-2.5">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Atendentes on-line</p>
                         {atendentes.length ? (
@@ -66,6 +81,7 @@ export default function SuporteChat({ fetchJson, painel, recarregar }) {
                                     <span className="h-2 w-2 rounded-full bg-emerald-500" />{a.nome}</span>))}</div>
                         ) : <p className="mt-1 text-xs text-gray-500">Nenhum atendente on-line agora. Você pode abrir o atendimento: a resposta chega aqui e por e-mail.</p>}
                     </div>
+                    )}
                     <div className="space-y-2 px-3 py-3">
                         <button type="button" onClick={() => setTela('assuntos')} className="w-full rounded-xl bg-cyan-700 py-2.5 text-sm font-semibold text-white hover:bg-cyan-800">
                             <i className="fas fa-life-ring mr-1.5" />Preciso de ajuda</button>
@@ -80,6 +96,7 @@ export default function SuporteChat({ fetchJson, painel, recarregar }) {
                         <button key={a.id} type="button" onClick={() => { setAtual(a); setTela('conversa'); }} className="w-full border-b border-gray-50 px-3 py-2 text-left hover:bg-gray-50">
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-semibold text-gray-800">{a.numero}</span>
+                                {a.central_numero && <span className="text-[10px] text-gray-500">{a.central_numero}</span>}
                                 <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${COR[a.status]}`}>{a.status_rotulo}</span>
                                 {a.nao_lidas > 0 && <span className="ml-auto rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">{a.nao_lidas}</span>}
                             </div>
@@ -145,6 +162,31 @@ export default function SuporteChat({ fetchJson, painel, recarregar }) {
     );
 }
 
+/** "Isso resolveu?" da resposta automática da Central: some depois de responder ou do prazo. */
+function RetornoAutomatico({ fetchJson, atendimentoId, mensagem, feito }) {
+    const [comentario, setComentario] = useState('');
+    const [enviando, setEnviando] = useState(false);
+    const [erro, setErro] = useState('');
+    const responder = async (resolveu) => {
+        setEnviando(true); setErro('');
+        try {
+            await fetchJson(`/suporte/api/atendimentos/${atendimentoId}/mensagens/${mensagem.id}/retorno`, { method: 'POST', body: JSON.stringify({ resolveu, comentario: comentario.trim() || null }) });
+            feito();
+        } catch { setErro('Não foi possível registrar a resposta. Tente de novo.'); setEnviando(false); }
+    };
+    return (
+        <div className="mt-2 border-t border-gray-100 pt-2">
+            <input value={comentario} onChange={(e) => setComentario(e.target.value)} maxLength={2000} placeholder="Comentário (opcional)" className="mb-1.5 w-full rounded-lg border border-gray-200 px-2 py-1 text-xs" />
+            <div className="flex gap-1.5">
+                <button type="button" disabled={enviando} onClick={() => responder(true)} className="flex-1 rounded-lg bg-emerald-600 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Resolveu</button>
+                <button type="button" disabled={enviando} onClick={() => responder(false)} className="flex-1 rounded-lg border border-gray-300 py-1.5 text-xs disabled:opacity-50">Não resolveu</button>
+            </div>
+            {mensagem.responder_ate && <p className="mt-1 text-[10px] text-gray-400">Responda até {hora(mensagem.responder_ate)}; depois disso a equipe Conceito assume.</p>}
+            {erro && <p className="mt-1 text-[10px] text-red-600">{erro}</p>}
+        </div>
+    );
+}
+
 const Voltar = ({ onClick }) => <button type="button" onClick={onClick} className="mb-2 text-xs text-gray-500 hover:text-gray-700"><i className="fas fa-arrow-left mr-1" />Voltar</button>;
 
 function Conversa({ fetchJson, atual, setAtual, voltar }) {
@@ -184,8 +226,9 @@ function Conversa({ fetchJson, atual, setAtual, voltar }) {
             <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2">
                 <button type="button" onClick={voltar} className="text-gray-500" aria-label="Voltar"><i className="fas fa-arrow-left" /></button>
                 <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-gray-800">{atual.numero} <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] ${COR[atual.status]}`}>{atual.status_rotulo}</span></p>
+                    <p className="text-xs font-semibold text-gray-800">{atual.numero}{atual.central_numero && <span className="ml-1 font-normal text-gray-500">· {atual.central_numero}</span>} <span className={`ml-1 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] ${COR[atual.status]}`}>{atual.status_rotulo}</span></p>
                     <p className="truncate text-[11px] text-gray-500">{atual.titulo}{atual.atendente ? ` · ${atual.atendente}` : ''}</p>
+                    {atual.via_central && <p className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-cyan-50 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-800"><i className="fas fa-headset" />Atendido pela equipe Conceito</p>}
                 </div>
                 <a href={`/suporte/atendimentos/${atual.id}`} className="text-[11px] text-cyan-700" title="Abrir em tela cheia"><i className="fas fa-up-right-from-square" /></a>
             </div>
@@ -195,9 +238,11 @@ function Conversa({ fetchJson, atual, setAtual, voltar }) {
                     : (
                         <div key={m.id} className={`flex ${m.minha ? 'justify-end' : 'justify-start'}`}>
                             <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${m.tipo === 'nota' ? 'border border-amber-300 bg-amber-50 text-amber-900' : m.minha ? 'rounded-br-sm bg-cyan-700 text-white' : 'rounded-bl-sm border border-gray-200 bg-white text-gray-800'}`}>
-                                {! m.minha && <p className="text-[10px] font-semibold opacity-70">{m.autor}{m.tipo === 'nota' ? ' (nota interna)' : ''}</p>}
+                                {m.automatica && <p className="mb-1 inline-flex items-center gap-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-800"><i className="fas fa-robot" />Resposta automática</p>}
+                                {! m.minha && ! m.automatica && <p className="text-[10px] font-semibold opacity-70">{m.autor}{m.tipo === 'nota' ? ' (nota interna)' : ''}</p>}
                                 <p className="whitespace-pre-wrap break-words">{m.conteudo}</p>
                                 <p className={`mt-1 text-[10px] ${m.minha ? 'text-cyan-100' : 'text-gray-400'}`}>{hora(m.em)}</p>
+                                {m.pergunta_aberta && <RetornoAutomatico fetchJson={fetchJson} atendimentoId={atual.id} mensagem={m} feito={() => carregar(false)} />}
                             </div>
                         </div>
                     ))}
@@ -206,7 +251,7 @@ function Conversa({ fetchJson, atual, setAtual, voltar }) {
                 <form onSubmit={enviar} className="flex items-end gap-2 border-t border-gray-100 bg-white p-2">
                     <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={1}
                         onKeyDown={(e) => { if (e.key === 'Enter' && ! e.shiftKey) { e.preventDefault(); enviar(e); } }}
-                        placeholder={['resolvido', 'fechado'].includes(atual.status) ? 'Escrever reabre o atendimento…' : 'Mensagem…'}
+                        placeholder={['resolvido', 'fechado'].includes(atual.status) ? (atual.via_central ? 'Escrever envia à equipe Conceito…' : 'Escrever reabre o atendimento…') : 'Mensagem…'}
                         className="max-h-24 flex-1 resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm" />
                     <button type="submit" disabled={! texto.trim()} className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan-700 text-white disabled:opacity-50" aria-label="Enviar"><i className="fas fa-paper-plane text-xs" /></button>
                 </form>

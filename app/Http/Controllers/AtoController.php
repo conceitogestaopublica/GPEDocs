@@ -58,7 +58,7 @@ class AtoController extends Controller
                 + ['marcadores' => $this->marcadoresDoModelo($t)]),
             'numeracoes' => AtoTipo::NUMERACOES, 'marcadores' => Atos::MARCADORES,
             'unidades' => \App\Models\UgOrganograma::where('ativo', true)->orderBy('nome')->get(['id', 'nome']),
-            'usuarios' => User::where('tipo', 'interno')->whereNull('suspenso_em')->orderBy('name')->get(['id', 'name', 'cargo']),
+            'usuarios' => User::doGed()->where('tipo', 'interno')->orderBy('name')->get(['id', 'name', 'cargo']),
         ]);
     }
 
@@ -156,7 +156,7 @@ class AtoController extends Controller
                 'diario' => ($podeElaborar || \App\Support\DiarioOficial::podeGerir(Auth::user())) && ! $materia && \App\Support\DiarioOficial::atoAssinado($ato),
             ],
             'signatarios_padrao' => User::whereIn('id', $ato->tipo?->signatarios ?? [])->orderBy('name')->get(['id', 'name']),
-            'usuarios' => User::where('tipo', 'interno')->whereNull('suspenso_em')->orderBy('name')->get(['id', 'name']),
+            'usuarios' => User::doGed()->where('tipo', 'interno')->orderBy('name')->get(['id', 'name']),
             'diario' => [
                 'estrutura' => \App\Models\Diario\Estrutura::where('ativo', true)->get()->map(fn ($n) => ['id' => $n->id, 'caminho' => \App\Support\DiarioOficial::caminhos()[$n->id] ?? $n->nome])->sortBy('caminho')->values(),
                 'edicoes' => \App\Models\Diario\Edicao::where('status', 'pendente')->orderBy('data')->get()->map(fn ($e) => ['id' => $e->id, 'titulo' => $e->titulo()]),
