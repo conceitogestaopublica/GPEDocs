@@ -158,6 +158,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                 onCancelar={onCancelar}
                 onSalvar={onSalvar}
                 processing={processing}
+                erros={errors}
                 labelSalvar={isEdit ? 'Salvar alterações' : 'Criar Usuário'}
                 iconeSalvar={isEdit ? 'fas fa-save' : 'fas fa-user-plus'}
             >

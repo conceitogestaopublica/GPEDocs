@@ -122,6 +122,7 @@ export default function UgForm({ ug }) {
                 onCancelar={onCancelar}
                 onSalvar={onSalvar}
                 processing={processing}
+                erros={errors}
                 labelSalvar={isEdit ? 'Salvar alterações' : 'Criar UG'}
                 iconeSalvar={isEdit ? 'fas fa-save' : 'fas fa-plus'}
             >

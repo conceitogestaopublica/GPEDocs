@@ -21,6 +21,7 @@
  *   obrigatoriosFaltando: bool — se true mostra mensagem amarela
  *   onCancelar, onSalvar
  *   processing: bool
+ *   erros: erros de validacao do servidor ({ campo: mensagem }), listados junto do botao de salvar
  *   labelSalvar: texto do botao
  *   children: cards do formulario
  */
@@ -37,10 +38,15 @@ export default function CadastroLayout({
     onCancelar,
     onSalvar,
     processing = false,
+    erros = {},
     labelSalvar = 'Salvar',
     iconeSalvar = 'fas fa-check',
     children,
 }) {
+    // O botão fica no fim da tela e os campos, lá em cima: só a mensagem ao lado do campo pode
+    // ficar fora da vista, e nem todo campo tem a sua. Aqui o erro aparece onde se clicou.
+    const mensagensDeErro = [...new Set(Object.values(erros))];
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
             {/* Coluna principal */}
@@ -66,16 +72,29 @@ export default function CadastroLayout({
                 </div>
 
                 {/* Footer */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-4 flex items-center justify-between">
-                    <p className="text-xs text-gray-500">Revise os dados antes de salvar.</p>
-                    <div className="flex gap-2">
-                        <Button variant="secondary" type="button" onClick={onCancelar}>
-                            Cancelar
-                        </Button>
-                        <Button type="button" onClick={onSalvar} loading={processing} icon={iconeSalvar}
-                            disabled={obrigatoriosFaltando}>
-                            {labelSalvar}
-                        </Button>
+                <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-3">
+                    {mensagensDeErro.length > 0 && (
+                        <div role="alert" className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-700">
+                            <p className="font-semibold mb-1">
+                                <i className="fas fa-exclamation-circle mr-1" />
+                                Não foi possível salvar:
+                            </p>
+                            <ul className="list-disc list-inside space-y-0.5">
+                                {mensagensDeErro.map((mensagem) => <li key={mensagem}>{mensagem}</li>)}
+                            </ul>
+                        </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                        <p className="text-xs text-gray-500">Revise os dados antes de salvar.</p>
+                        <div className="flex gap-2">
+                            <Button variant="secondary" type="button" onClick={onCancelar}>
+                                Cancelar
+                            </Button>
+                            <Button type="button" onClick={onSalvar} loading={processing} icon={iconeSalvar}
+                                disabled={obrigatoriosFaltando}>
+                                {labelSalvar}
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </div>

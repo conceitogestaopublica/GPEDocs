@@ -129,6 +129,7 @@ export default function OrganogramaForm({ ug, parent, nivel, node, usuarios = []
                 onCancelar={onCancelar}
                 onSalvar={onSalvar}
                 processing={processing}
+                erros={errors}
                 labelSalvar={isEdit ? 'Salvar alterações' : `Criar ${labelAtual}`}
                 iconeSalvar={isEdit ? 'fas fa-save' : 'fas fa-plus'}
             >
