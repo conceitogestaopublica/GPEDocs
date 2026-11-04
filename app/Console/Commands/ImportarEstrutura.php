@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Models\Logradouro;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Support\Permissoes;
 use App\Tenant\TenantContext;
 use Illuminate\Console\Command;
@@ -255,10 +256,16 @@ class ImportarEstrutura extends Command
                 $ugId = $ugs[(int) $u->gestora_id] ?? (reset($ugs) ?: null);
                 $super = (int) $u->super === 1;
 
+                $cpf = $this->cpf($u->doc);
+                $documento = User::documentoDisponivelPara($cpf, $email);
+                if ($cpf !== $documento) {
+                    $this->warn("{$email}: documento já está em outra conta; importado sem documento.");
+                }
+
                 DB::table('users')->updateOrInsert(['email' => $email], [
                     'name'              => $this->texto($u->nome),
                     'password'          => (string) $u->password,
-                    'cpf'               => $this->cpf($u->doc),
+                    'cpf'               => $documento,
                     'tipo'              => 'interno',
                     'super_admin'       => $super,
                     'ug_id'             => $ugId,

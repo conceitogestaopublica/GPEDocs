@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Auth\EntradaService;
+use App\Support\DocumentoPessoa;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -37,16 +38,16 @@ class LoginController extends Controller
             \App\Support\Captcha::validar($request, 'login');
         }
 
-        // Aceita e-mail OU CPF (com ou sem pontuação) no mesmo campo.
+        // Aceita e-mail, CPF ou CNPJ (com ou sem pontuação) no mesmo campo.
         $email = $this->emailDoLogin(trim($dados['login']));
         if ($email === null) {
             return back()->withErrors([
-                'login' => 'Informe um e-mail válido ou um CPF com 11 dígitos.',
+                'login' => 'Informe um e-mail válido, um CPF com 11 dígitos ou um CNPJ com 14 dígitos.',
             ])->onlyInput('login');
         }
         if ($email === false) {
             return back()->withErrors([
-                'login' => 'Este CPF está vinculado a mais de um usuário. Entre com o seu e-mail.',
+                'login' => 'Este documento está vinculado a mais de um usuário. Entre com o seu e-mail.',
             ])->onlyInput('login');
         }
 
@@ -71,14 +72,14 @@ class LoginController extends Controller
     /**
      * E-mail da conta a partir do que foi digitado no campo de login.
      *
-     *   e-mail           → ele mesmo (a validação da senha fica com o Auth::attempt)
-     *   CPF (11 dígitos) → e-mail do usuário com esse CPF; `users.cpf` é texto livre
-     *                      (com ou sem máscara), então compara só os dígitos
+     *   e-mail                    → ele mesmo (a validação da senha fica com o Auth::attempt)
+     *   CPF (11) ou CNPJ (14 dígitos) → e-mail do usuário com esse documento; compara só os
+     *                               dígitos, porque há documentos com e sem máscara
      *
-     * Retorna null quando não é nem e-mail nem CPF, e false quando o CPF é ambíguo (regra em
-     * User::emailParaLoginPorCpf: a conta interna vence o externo duplicado). CPF sem usuário devolve um
-     * e-mail vazio: o attempt falha com a mesma mensagem de senha errada, sem revelar se
-     * o CPF existe.
+     * Retorna null quando não é e-mail nem documento, e false quando o documento é ambíguo (regra em
+     * User::emailParaLoginPorDocumento: a conta interna vence o externo duplicado). Documento sem usuário
+     * devolve um e-mail vazio: o attempt falha com a mesma mensagem de senha errada, sem revelar se
+     * o documento existe.
      */
     private function emailDoLogin(string $login): string|false|null
     {
@@ -86,12 +87,12 @@ class LoginController extends Controller
             return filter_var($login, FILTER_VALIDATE_EMAIL) ? $login : null;
         }
 
-        $cpf = preg_replace('/\D/', '', $login);
-        if (strlen($cpf) !== 11) {
+        $documento = DocumentoPessoa::soDigitos($login);
+        if (! in_array(strlen($documento), [11, 14], true)) {
             return null;
         }
 
-        return User::emailParaLoginPorCpf($cpf);
+        return User::emailParaLoginPorDocumento($documento);
     }
 
     public function destroy(Request $request)

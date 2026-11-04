@@ -9,6 +9,8 @@ use App\Models\Role;
 use App\Models\Ug;
 use App\Models\UgOrganograma;
 use App\Models\User;
+use App\Rules\DocumentoDeUsuario;
+use App\Support\DocumentoPessoa;
 use App\Support\HistoricoUsuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -47,9 +49,9 @@ class UsuarioController extends Controller
                     $cpfDigits = preg_replace('/\D/', '', $busca);
                     $q->where('users.name', 'like', $termo)
                       ->orWhere('users.email', 'like', $termo);
-                    // Só o CPF completo encontra (LGPD): busca parcial permitiria descobrir CPFs por tentativa.
-                    if (strlen($cpfDigits) === 11) {
-                        // O CPF está gravado com e sem pontuação: compara só os dígitos.
+                    // Só o documento completo encontra (LGPD): busca parcial permitiria descobri-lo por tentativa.
+                    if (in_array(strlen($cpfDigits), [11, 14], true)) {
+                        // O documento está gravado com e sem pontuação: compara só os dígitos.
                         $q->orWhereRaw("regexp_replace(users.cpf, '[^0-9]', '', 'g') = ?", [$cpfDigits]);
                     }
                 });
@@ -60,7 +62,7 @@ class UsuarioController extends Controller
             ->orderBy('name')
             ->paginate(20)
             ->withQueryString()
-            ->through(fn (User $u) => $u->setAttribute('cpf', \App\Support\DocumentoPessoa::mascararCpf($u->cpf)));
+            ->through(fn (User $u) => $u->setAttribute('cpf', DocumentoPessoa::mascarar($u->cpf)));
 
         // Férias / afastamento / licença vigente de quem está na página
         $ausentes = User::ausentesHoje(collect($usuarios->items())->pluck('id'));
@@ -285,11 +287,11 @@ class UsuarioController extends Controller
 
     private function validarUsuario(Request $request, bool $criando, ?int $userId = null): array
     {
-        return $request->validate([
+        $validated = $request->validate([
             'name'        => ['required', 'string', 'max:255'],
             'email'       => ['required', 'string', 'email', 'max:255',
                               $criando ? 'unique:users,email' : 'unique:users,email,' . $userId],
-            'cpf'         => ['nullable', 'string', 'max:14'],
+            'cpf'         => ['nullable', 'string', 'max:18', new DocumentoDeUsuario($userId)],
             'telefone'    => ['nullable', 'string', 'max:30'],
             'matricula'   => ['nullable', 'string', 'max:30'],
             'cargo'       => ['nullable', 'string', 'max:120'],
@@ -309,6 +311,11 @@ class UsuarioController extends Controller
             'roles'       => ['nullable', 'array'],
             'roles.*'     => ['integer', 'exists:ged_roles,id'],
         ]);
+
+        // Só dígitos: a coluna tem 14 posições, e o CNPJ com máscara tem 18.
+        $validated['cpf'] = DocumentoPessoa::soDigitos($validated['cpf'] ?? null) ?: null;
+
+        return $validated;
     }
 
     private function normalizarUgIds(Request $request): array

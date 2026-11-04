@@ -117,15 +117,15 @@ export default function Login({ flash = {}, exige_captcha = false, provedores = 
                         ) : (
                         <>
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            {/* E-mail ou CPF */}
+                            {/* E-mail, CPF ou CNPJ */}
                             <div>
-                                <label className="block text-sm font-medium text-slate-600 mb-1.5">CPF ou E-mail</label>
+                                <label className="block text-sm font-medium text-slate-600 mb-1.5">CPF/CNPJ ou E-mail</label>
                                 <div className="relative">
                                     <input
                                         type="text"
                                         value={data.login}
                                         onChange={(e) => setData('login', e.target.value)}
-                                        placeholder="Digite seu CPF ou e-mail"
+                                        placeholder="Digite seu CPF, CNPJ ou e-mail"
                                         autoFocus
                                         autoComplete="username"
                                         className={`w-full pl-4 pr-11 py-3 rounded-xl text-sm text-slate-800 placeholder-slate-400 border bg-slate-50/60 outline-none transition-all

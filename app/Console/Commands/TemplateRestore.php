@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\TenantAware;
 use App\Models\Tenant;
 use App\Models\Ug;
+use App\Models\User;
 use App\Tenant\TenantContext;
 use Database\Seeders\EnderecosDemoSeeder;
 use Database\Seeders\GedSeeder;
@@ -382,10 +383,16 @@ class TemplateRestore extends Command
                 $roleId = $conn->table('ged_roles')->where('nome', self::ROLE_ADMIN)->value('id');
 
                 foreach ($admins as $a) {
+                    $cpf = $this->formatarCpf($a->doc);
+                    $documento = User::documentoDisponivelPara($cpf, $a->email);
+                    if ($cpf !== $documento) {
+                        $this->warn("{$a->email}: documento já está em outra conta; importado sem documento.");
+                    }
+
                     $conn->table('users')->updateOrInsert(['email' => $a->email], [
                         'name' => (string) $a->nome,
                         'password' => (string) $a->password,
-                        'cpf' => $this->formatarCpf($a->doc),
+                        'cpf' => $documento,
                         'tipo' => 'interno',
                         'super_admin' => true,
                         'ug_id' => $ugId,

@@ -270,10 +270,15 @@ class ImportarGpdSantoAntonio extends Command
                 $cpf = null;
             }
 
+            $documento = User::documentoDisponivelPara($cpf, $u->email);
+            if ($cpf !== $documento) {
+                $this->warn("{$u->email}: documento já está em outra conta; importado sem documento.");
+            }
+
             $novoUser = User::create([
                 'name'              => mb_strtoupper($this->limparTexto($u->nome)),
                 'email'             => $u->email,
-                'cpf'               => $cpf,
+                'cpf'               => $documento,
                 'password'          => $u->password,
                 'tipo'              => 'interno',
                 'ug_id'             => $ug?->id,

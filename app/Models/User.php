@@ -63,21 +63,21 @@ class User extends Authenticatable
     }
 
     /**
-     * Usuários com este CPF, comparando só os dígitos dos dois lados.
+     * Usuários com este CPF/CNPJ, comparando só os dígitos dos dois lados.
      *
-     * O cadastro grava o CPF como foi digitado ("020.576.226-30") e quem integra manda só
+     * Há documentos gravados como foram digitados ("020.576.226-30") e quem integra manda só
      * dígitos ("02057622630"). Comparar a coluna crua não acha ninguém, e a integração criava
      * um usuário externo duplicado: o documento ia para ele, não para a conta de quem assina.
      * REPLACE encadeado (e não regexp_replace) para valer igual no PostgreSQL, MySQL e SQLite.
      *
-     * A conta interna vem primeiro: bancos que já passaram pelo defeito têm, para o mesmo CPF,
+     * A conta interna vem primeiro: bancos que já passaram pelo defeito têm, para o mesmo documento,
      * a conta real e o externo duplicado — e `->first()` tem de devolver a real.
      */
-    public function scopePorCpf(Builder $query, string $cpf): Builder
+    public function scopePorDocumento(Builder $query, string $documento): Builder
     {
-        $digitos = preg_replace('/\D/', '', $cpf);
+        $digitos = preg_replace('/\D/', '', $documento);
 
-        // Sem dígitos não há CPF: sem esta trava, casaria com quem tem cpf '' ou só máscara.
+        // Sem dígitos não há documento: sem esta trava, casaria com quem tem cpf '' ou só máscara.
         if ($digitos === '') {
             return $query->whereRaw('1 = 0');
         }
@@ -89,14 +89,14 @@ class User extends Authenticatable
     }
 
     /**
-     * E-mail da conta que entra pelo CPF no login: '' quando não há conta, false quando o CPF
-     * é ambíguo. Havendo várias, vale a única INTERNA — o externo duplicado que a integração
-     * criou para o mesmo CPF (e-mail provisório, senha aleatória) não é quem está entrando.
+     * E-mail da conta que entra pelo CPF/CNPJ no login: '' quando não há conta, false quando o
+     * documento é ambíguo. Havendo várias, vale a única INTERNA — o externo duplicado que a integração
+     * criou para o mesmo documento (e-mail provisório, senha aleatória) não é quem está entrando.
      * Um externo sozinho (cadastrado com senha pelo administrador) entra normalmente.
      */
-    public static function emailParaLoginPorCpf(string $cpf): string|false
+    public static function emailParaLoginPorDocumento(string $documento): string|false
     {
-        $contas = static::porCpf($cpf)->get(['email', 'tipo']);
+        $contas = static::porDocumento($documento)->get(['email', 'tipo']);
         if ($contas->count() <= 1) {
             return (string) ($contas->first()?->email ?? '');
         }
@@ -104,6 +104,28 @@ class User extends Authenticatable
         $internas = $contas->where('tipo', '!=', 'externo');
 
         return $internas->count() === 1 ? (string) $internas->first()->email : false;
+    }
+
+    /** O documento já pertence a outra conta? $excetoId é a conta em edição. */
+    public static function documentoEmOutraConta(string $documento, ?int $excetoId = null): bool
+    {
+        return static::porDocumento($documento)
+            ->when($excetoId, fn (Builder $q) => $q->whereKeyNot($excetoId))
+            ->exists();
+    }
+
+    /**
+     * Para os importadores, que identificam a conta pelo e-mail: devolve o documento se ele puder
+     * ficar nessa conta, ou null se já estiver em outra. A conta entra sem documento, em vez de
+     * derrubar a importação no índice único ou repetir o documento.
+     */
+    public static function documentoDisponivelPara(?string $documento, string $email): ?string
+    {
+        if ($documento === null || $documento === '') {
+            return null;
+        }
+
+        return static::porDocumento($documento)->where('email', '!=', $email)->exists() ? null : $documento;
     }
 
     /** Endereço da foto do servidor (servida por rota autenticada) — null sem foto. */

@@ -121,7 +121,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
         ...(data.super_admin ? [{ icone: 'fa-crown', label: 'Super Admin', valor: 'Sim' }] : []),
         ...(data.acesso_geral_ug ? [{ icone: 'fa-eye', label: 'Acesso UG', valor: 'Toda a UG' }] : []),
         { icone: 'fa-user',         label: 'Nome',     valor: data.name,    vazio: ! data.name },
-        { icone: 'fa-id-card',      label: 'CPF',      valor: formatarCpf(data.cpf), vazio: ! data.cpf },
+        { icone: 'fa-id-card',      label: 'CPF/CNPJ', valor: formatarDocumento(data.cpf), vazio: ! data.cpf },
         { icone: 'fa-envelope',     label: 'E-mail',   valor: data.email,   vazio: ! data.email },
         { icone: 'fa-phone',        label: 'Telefone', valor: data.telefone, vazio: ! data.telefone },
         { icone: 'fa-key',          label: 'Senha',    valor: data.password ? '••••••••' : (isEdit ? 'manter atual' : 'link por e-mail') },
@@ -207,9 +207,9 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                             {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">CPF</label>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">CPF/CNPJ</label>
                             <input type="text" value={data.cpf} onChange={(e) => setData('cpf', e.target.value)}
-                                className="ds-input" maxLength={14} placeholder="000.000.000-00" />
+                                className="ds-input" maxLength={18} placeholder="CPF ou CNPJ" />
                             {errors.cpf && <p className="mt-1 text-xs text-red-600">{errors.cpf}</p>}
                         </div>
                     </div>
@@ -514,10 +514,11 @@ function resumirNavegador(ua) {
     return [nome && `${nome} ${nav[2]}`, so].filter(Boolean).join(' · ') || ua.slice(0, 60);
 }
 
-function formatarCpf(cpf) {
-    const d = (cpf || '').replace(/\D/g, '');
-    if (d.length !== 11) return cpf;
-    return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+function formatarDocumento(documento) {
+    const d = (documento || '').replace(/\D/g, '');
+    if (d.length === 11) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+    if (d.length === 14) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
+    return documento;
 }
 
 /**

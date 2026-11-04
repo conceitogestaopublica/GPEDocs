@@ -33,7 +33,7 @@ class PerfilController extends Controller
         return Inertia::render('GED/Perfil/MeusDados', [
             'perfil' => [
                 'name'             => $u->name,
-                'cpf'              => DocumentoPessoa::mascararCpf($u->cpf),
+                'cpf'              => DocumentoPessoa::mascarar($u->cpf),
                 'matricula'        => $u->matricula,
                 'cargo'            => $u->cargo,
                 'sexo'             => $u->sexo,
