@@ -46,7 +46,8 @@ class HandleInertiaRequests extends Middleware
             'identidade' => fn () => \App\Support\IdentidadeVisual::paraTela(),
             // Licença da extensão Web PKI (assinatura A3 e entrada com certificado fora de localhost)
             'webpki_licenca' => config('icp_brasil.webpki_licenca') ?: null,
-            'assinador_download' => config('icp_brasil.assinador_download_url') ?: null,
+            'assinador_download' => fn () => config('icp_brasil.assinador_download_url')
+                ?: (is_file(config('icp_brasil.assinador_arquivo')) ? route('assinador.baixar') : null),
             'flash' => [
                 'success'       => $request->session()->get('success'),
                 'error'         => $request->session()->get('error'),
