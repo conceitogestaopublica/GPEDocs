@@ -16,14 +16,14 @@
 # segundo é recusado (flock).
 #
 # Diferenças do gpe2:
-#   - o php84-fpm é COMPARTILHADO e cada instalação fica numa pasta própria dentro dele
+#   - o php84-gpe é COMPARTILHADO e cada instalação fica numa pasta própria dentro dele
 #     (ex.: /var/www/gpedocs-paraguacu), não em /var/www/html — a pasta é descoberta
 #     pelos volumes do container (ou informada em APP_DIR);
 #   - vendor/ não é versionado aqui: roda `composer install`;
 #   - sem Jasper; em compensação há worker de fila, que precisa de `queue:restart`.
 set -euo pipefail
 
-PHP_CONTAINER="${PHP_CONTAINER:-php84-fpm}"
+PHP_CONTAINER="${PHP_CONTAINER:-php84-gpe}"
 NODE_IMAGE="${NODE_IMAGE:-node:22}"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
