@@ -56,7 +56,9 @@ return [
     | assim nunca tocam bancos do gpe2. Também identifica o apex no ResolveTenant.
     |
     | Produção: TENANT_DOMINIO_BASE=gpedocs.com.br
-    | Dev local: ':<APP_PORT>' (default ':8090') — a porta em que o docs-nginx escuta
+    | Dev local: ':<APP_PORT>' (default ':8090') — a porta em que o docs-nginx escuta. Mais de um município
+    | no mesmo Docker: lista de portas (':8090,:8091'), cada tenant com domain = a sua porta, e o docs-nginx
+    | publicando as portas extras (docker-compose.override.yml local).
     |
     */
     'dominio_base' => env('TENANT_DOMINIO_BASE', ':8090'),

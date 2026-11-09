@@ -16,7 +16,7 @@ const STORAGE_KEY = 'gpe_remember_email';
 
 export default function Login({ flash = {}, exige_captcha = false, provedores = [] }) {
     const erroEntrada = usePage().props.errors?.login;
-    // Brasão e fundo do município (TR 4.22.1)
+    // Fundo do município (TR 4.22.1); o brasão aparece só nos relatórios
     const identidade = usePage().props.identidade || {};
     const { data, setData, post, processing, errors } = useForm({
         login: '',
@@ -61,11 +61,8 @@ export default function Login({ flash = {}, exige_captcha = false, provedores = 
                     <div className="relative">
                         {/* Mesmo arquivo de logo do GPE Cloud usado no gpe2 e no tributário — a
                             nuvem desenhada à mão divergia da marca no primeiro retoque. */}
-                        {identidade.brasao_url && (
-                            <img src={identidade.brasao_url} alt="Brasão do município" className="h-24 xl:h-28 w-auto mb-6 select-none drop-shadow" />
-                        )}
                         <img src="/images/logo-gpe-cloud-full.png" alt="GPE Cloud — Gestão Pública Eficiente"
-                            className={`w-auto mb-10 select-none ${identidade.brasao_url ? 'h-12 xl:h-14' : 'h-24 xl:h-28'}`} />
+                            className="h-24 xl:h-28 w-auto mb-10 select-none" />
 
                         <h1 className="text-4xl font-extrabold leading-tight text-slate-800">Bem-vindo de volta!</h1>
                         <p className="mt-3 text-lg text-slate-500 max-w-md">
@@ -91,7 +88,6 @@ export default function Login({ flash = {}, exige_captcha = false, provedores = 
                     <div className="w-full max-w-md">
                         {/* Logo + marca */}
                         <div className="mb-8 lg:hidden flex items-center gap-3">
-                            {identidade.brasao_url && <img src={identidade.brasao_url} alt="Brasão do município" className="h-14 w-auto" />}
                             <img src="/images/logo-gpe-cloud-full.png" alt="GPE Cloud" className="h-11 w-auto" />
                         </div>
 
