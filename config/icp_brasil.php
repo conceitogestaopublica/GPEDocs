@@ -128,4 +128,7 @@ return [
     // Licença da extensão Web PKI (Lacuna): sem ela a extensão só funciona em localhost.
     'webpki_licenca' => (string) env('WEBPKI_LICENCA', ''),
 
+    // Onde baixar o GPE Assinador (programa nosso para assinar com A3 sem extensão de terceiros)
+    'assinador_download_url' => (string) env('ASSINADOR_DOWNLOAD_URL', ''),
+
 ];

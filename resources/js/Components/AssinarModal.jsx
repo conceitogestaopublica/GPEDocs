@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import Button from './Button';
 import { aguardar } from '../Support/webPki';
+import { conectarAssinador } from '../Support/assinadorLocal';
 
 export default function AssinarModal({ assinatura, onClose }) {
     const [tipo, setTipo] = useState('simples');
@@ -230,11 +231,37 @@ function FormIcpA3({ assinatura, onClose }) {
     const [razao, setRazao] = useState('Assinatura Eletronica Qualificada (Lei 14.063/2020 art. 4, III)');
     const [local, setLocal] = useState('Brasil');
     const [concordo, setConcordo] = useState(false);
-    const licenca = usePage().props.webpki_licenca;
+    const { webpki_licenca: licenca, assinador_download: linkAssinador } = usePage().props;
+    const [tentativa, setTentativa] = useState(0);
 
     useEffect(() => {
         let cancelado = false;
+        setEstado('inicializando');
+        setErro(null);
         (async () => {
+            // 1º o GPE Assinador (nosso, sem terceiros); a extensão Web PKI só onde ela funciona
+            const assinador = await conectarAssinador();
+            if (cancelado) return;
+            if (assinador) {
+                setPkiRef(assinador);
+                setEstado('listando');
+                try {
+                    const lista = await assinador.listCertificates();
+                    if (cancelado) return;
+                    setCerts(lista);
+                    setEstado('pronto');
+                    if (lista.length > 0) setThumbprint(lista[0].thumbprint);
+                } catch (e) {
+                    setErro('Falha ao listar certificados: ' + (e?.message || e));
+                    setEstado('erro');
+                }
+                return;
+            }
+            const local = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+            if (! licenca && ! local) {
+                setEstado('sem_extensao');
+                return;
+            }
             try {
                 const { LacunaWebPKI } = await import('web-pki');
                 const pki = new LacunaWebPKI(licenca || undefined);
@@ -267,7 +294,7 @@ function FormIcpA3({ assinatura, onClose }) {
             }
         })();
         return () => { cancelado = true; };
-    }, []);
+    }, [tentativa]);
 
     const obterGeo = () => new Promise((resolve) => {
         if (! navigator.geolocation) return resolve('');
@@ -302,14 +329,17 @@ function FormIcpA3({ assinatura, onClose }) {
             setProgresso('Aguardando PIN do token...');
             const assinaturaB64 = await aguardar(pkiRef.signHash({
                 thumbprint, hash: dadosPrep.hash_a_assinar, digestAlgorithm: dadosPrep.algoritmo_digest,
+                descricao: assinatura.documento?.nome,
             }));
 
             setProgresso('Finalizando assinatura no servidor...');
             const geo = await obterGeo();
+            // O GPE Assinador entrega as ACs intermediárias que o Windows conhece: o servidor monta a cadeia sem baixar
+            const cadeia = pkiRef.readChain ? await pkiRef.readChain({ thumbprint }).catch(() => []) : [];
             const respFin = await fetch(`/assinaturas/${assinatura.id}/finalizar-icp-a3`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
-                body: JSON.stringify({ sessao_id: dadosPrep.sessao_id, assinatura_b64: assinaturaB64, geolocalizacao: geo }),
+                body: JSON.stringify({ sessao_id: dadosPrep.sessao_id, assinatura_b64: assinaturaB64, geolocalizacao: geo, cadeia_pem: cadeia }),
             });
             const dadosFin = await respFin.json();
             if (! respFin.ok) throw new Error(dadosFin?.erro || 'Falha ao finalizar assinatura');
@@ -329,19 +359,25 @@ function FormIcpA3({ assinatura, onClose }) {
             <div className="space-y-4">
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                     <p className="text-sm font-semibold text-amber-800 mb-1">
-                        <i className="fas fa-puzzle-piece mr-1" />
-                        Extensão Web PKI não detectada
+                        <i className="fas fa-pen-nib mr-1" />
+                        GPE Assinador não encontrado
                     </p>
                     <p className="text-xs text-amber-700 mb-3">
-                        Para assinar com token/smartcard, você precisa instalar a extensão gratuita Web PKI da Lacuna.
+                        Para assinar com token ou cartão (A3), instale o GPE Assinador neste computador, uma vez só.
+                        Depois de instalado ele fica perto do relógio do Windows. Se já instalou, confira se ele está aberto.
                     </p>
-                    <a href="https://get.webpkiplugin.com" target="_blank" rel="noopener"
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-700">
-                        <i className="fas fa-download" />Baixar Web PKI
-                    </a>
+                    {linkAssinador && (
+                        <a href={linkAssinador} target="_blank" rel="noopener"
+                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-700">
+                            <i className="fas fa-download" />Baixar o GPE Assinador
+                        </a>
+                    )}
                 </div>
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
                     <Button variant="secondary" type="button" onClick={onClose}>Fechar</Button>
+                    <Button type="button" onClick={() => setTentativa((t) => t + 1)}>
+                        <i className="fas fa-rotate-right mr-1" />Tentar de novo
+                    </Button>
                 </div>
             </div>
         );
@@ -359,7 +395,7 @@ function FormIcpA3({ assinatura, onClose }) {
             {(estado === 'inicializando' || estado === 'listando') && (
                 <div className="text-center py-4 text-xs text-gray-500">
                     <i className="fas fa-spinner fa-spin mr-2" />
-                    {estado === 'inicializando' ? 'Conectando com Web PKI...' : 'Listando certificados disponíveis...'}
+                    {estado === 'inicializando' ? 'Procurando o GPE Assinador...' : 'Listando certificados disponíveis...'}
                 </div>
             )}
 
