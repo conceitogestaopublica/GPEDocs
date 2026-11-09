@@ -37,8 +37,19 @@ class Tenant extends Model
     protected static function booted(): void
     {
         static::addGlobalScope('gpedocs', function (Builder $q) {
-            $q->where($q->qualifyColumn('domain'), (string) config('multitenancy.dominio_base'));
+            $q->whereIn($q->qualifyColumn('domain'), self::dominiosBase());
         });
+    }
+
+    /**
+     * Domínios do GPEDocs (TENANT_DOMINIO_BASE). Em produção é um só (gpedocs.com.br); em dev pode
+     * ser uma lista de portas (":8090,:8091"), um município por porta no mesmo Docker.
+     *
+     * @return list<string>
+     */
+    public static function dominiosBase(): array
+    {
+        return array_values(array_filter(array_map('trim', explode(',', (string) config('multitenancy.dominio_base')))));
     }
 
     protected $casts = [
