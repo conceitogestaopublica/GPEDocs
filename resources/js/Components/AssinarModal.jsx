@@ -257,8 +257,9 @@ function FormIcpA3({ assinatura, onClose }) {
                 }
                 return;
             }
-            const local = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-            if (! licenca && ! local) {
+            // Web PKI só com licença comprada; sem ela o caminho é o GPE Assinador (também em localhost,
+            // para o ambiente local se comportar como a produção)
+            if (! licenca) {
                 setEstado('sem_extensao');
                 return;
             }
