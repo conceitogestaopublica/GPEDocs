@@ -23,7 +23,27 @@ class LoginController extends Controller
             // Botões gov.br / Google só aparecem com as credenciais configuradas
             'provedores'    => array_values(array_filter(\App\Services\Auth\OidcCliente::PROVEDORES,
                 fn ($p) => \App\Services\Auth\OidcCliente::ativo($p))),
+            'certificado'   => self::entradaComCertificado($request),
         ]);
+    }
+
+    /**
+     * Como entrar com certificado neste ambiente: pelo certificado cliente do HTTPS, sem plugin,
+     * quando há endereço configurado; senão pela extensão Web PKI, que fora de localhost só funciona
+     * com licença. Sem nenhum dos dois o botão não aparece.
+     */
+    public static function entradaComCertificado(Request $request): ?array
+    {
+        $url = (string) config('icp_brasil.login_tls.url');
+        if ($url !== '') {
+            return ['modo' => 'tls', 'url' => $url.'/certificado/entrar'];
+        }
+        $local = $request->getHost() === 'localhost' || filter_var($request->getHost(), FILTER_VALIDATE_IP);
+        if ($local || config('icp_brasil.webpki_licenca') !== '') {
+            return ['modo' => 'webpki'];
+        }
+
+        return null;
     }
 
     public function store(Request $request, EntradaService $entrada)

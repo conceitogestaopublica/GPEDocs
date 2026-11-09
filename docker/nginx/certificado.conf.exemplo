@@ -1,0 +1,33 @@
+# Endereço da entrada com certificado digital sem plugin (certificado cliente do HTTPS).
+# Um só para todos os municípios; o GED descobre o município pelo ?origem e devolve para lá.
+# Ver docs/login-certificado.md. No .env do GED: CERTIFICADO_LOGIN_URL=https://certificado.gpedocs.com.br
+server {
+    listen 443 ssl;
+    server_name certificado.gpedocs.com.br;
+
+    ssl_certificate     /etc/nginx/certs/certificado.crt;   # certificado do servidor (ex.: *.gpedocs.com.br)
+    ssl_certificate_key /etc/nginx/certs/certificado.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # Pede o certificado do usuário. "optional_no_ca": o nginx não confere a cadeia (o GED confere
+    # até a AC Raiz ICP-Brasil, com LCR) e o navegador oferece todos os certificados do usuário.
+    ssl_verify_client optional_no_ca;
+    ssl_verify_depth 5;
+
+    root /var/www/html/public;
+
+    location = /certificado/entrar {
+        resolver 127.0.0.11 valid=10s ipv6=off;
+        set $upstream_app app:9000;
+        fastcgi_pass $upstream_app;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+        fastcgi_param HTTPS on;
+        # O certificado apresentado (PEM, URL-encoded); "(null)"/vazio quando o usuário não escolheu nenhum
+        fastcgi_param SSL_CLIENT_CERT $ssl_client_escaped_cert;
+    }
+
+    location / {
+        return 404;
+    }
+}

@@ -10,7 +10,7 @@
  *   assinatura: { id, documento: { nome }, solicitacao: { mensagem } }
  *   onClose: () => void
  */
-import { router, useForm } from '@inertiajs/react';
+import { router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import Button from './Button';
@@ -230,13 +230,14 @@ function FormIcpA3({ assinatura, onClose }) {
     const [razao, setRazao] = useState('Assinatura Eletronica Qualificada (Lei 14.063/2020 art. 4, III)');
     const [local, setLocal] = useState('Brasil');
     const [concordo, setConcordo] = useState(false);
+    const licenca = usePage().props.webpki_licenca;
 
     useEffect(() => {
         let cancelado = false;
         (async () => {
             try {
                 const { LacunaWebPKI } = await import('web-pki');
-                const pki = new LacunaWebPKI();
+                const pki = new LacunaWebPKI(licenca || undefined);
                 pki.init({
                     ready: async () => {
                         if (cancelado) return;

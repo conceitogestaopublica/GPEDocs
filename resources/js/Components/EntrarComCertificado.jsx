@@ -4,10 +4,12 @@
  * um desafio, o certificado assina e o servidor confere cadeia, revogação e
  * o CPF do titular. A chave privada não sai da máquina.
  */
+import { usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { aguardar } from '../Support/webPki';
 
 export default function EntrarComCertificado({ lembrar = false, onVoltar }) {
+    const licenca = usePage().props.webpki_licenca;
     const [estado, setEstado] = useState('iniciando'); // iniciando | sem_extensao | pronto | entrando | erro
     const [pki, setPki] = useState(null);
     const [certs, setCerts] = useState([]);
@@ -21,7 +23,7 @@ export default function EntrarComCertificado({ lembrar = false, onVoltar }) {
         (async () => {
             try {
                 const { LacunaWebPKI } = await import('web-pki');
-                const p = new LacunaWebPKI();
+                const p = new LacunaWebPKI(licenca || undefined);
                 p.init({
                     ready: async () => {
                         if (cancelado) return;

@@ -299,6 +299,24 @@ Route::get('ead/certificados/{codigo}', [\App\Http\Controllers\EadController::cl
 // Verificação pública da licença ambiental (QR do PDF)
 Route::get('ambiental/licencas/{codigo}', [\App\Http\Controllers\Flow\AmbientalController::class, 'verificar'])->whereUuid('codigo')->middleware('throttle:60,1')->name('ambiental.verificar');
 
+// Entrada com certificado cliente do HTTPS (endereço próprio, sem tenant pelo host: o município vem
+// em ?origem). Sem sessão: só confere o certificado e devolve ao município com um passe de uso único.
+Route::get('certificado/entrar', [\App\Http\Controllers\Auth\CertificadoClienteController::class, 'entrar'])
+    ->withoutMiddleware([
+        \App\Http\Middleware\HandleInertiaRequests::class,
+        \App\Http\Middleware\EnsureUgSelected::class,
+        \Illuminate\Auth\Middleware\Authenticate::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        \App\Http\Middleware\BloquearUsuarioSuspenso::class,
+        \App\Http\Middleware\RegistrarEvento::class,
+        \App\Http\Middleware\SomenteLeitura::class,
+    ])
+    ->middleware('throttle:30,1')->name('certificado.entrar');
+
 // Central de Demandas da Conceito → GED: eventos do atendimento do suporte. Sem login e sem CSRF:
 // quem autentica é a assinatura HMAC (X-GPE-Assinatura) com o segredo do tenant.
 Route::post('api/suporte/eventos', [\App\Http\Controllers\Api\SuporteCentralController::class, 'eventos'])
@@ -370,6 +388,9 @@ Route::middleware('guest')->group(function () {
     // Entrada com certificado digital ICP-Brasil (Web PKI)
     Route::get('/login/certificado/desafio', [\App\Http\Controllers\Auth\CertificadoLoginController::class, 'desafio'])->middleware('throttle:30,1');
     Route::post('/login/certificado', [\App\Http\Controllers\Auth\CertificadoLoginController::class, 'entrar'])->middleware('throttle:login');
+    // Sem plugin: volta do endereço do certificado cliente com o passe de uso único
+    Route::get('/login/certificado/passe/{passe}', [\App\Http\Controllers\Auth\CertificadoClienteController::class, 'passe'])
+        ->where('passe', '[A-Za-z0-9]{48}')->middleware('throttle:login')->name('login.certificado.passe');
 
     // Entrada pelo gov.br e pelo Google (OpenID Connect) — desligadas sem credenciais
     Route::get('/login/oidc/{provedor}', [\App\Http\Controllers\Auth\OidcLoginController::class, 'redirecionar'])

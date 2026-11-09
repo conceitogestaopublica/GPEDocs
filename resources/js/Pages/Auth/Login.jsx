@@ -14,7 +14,7 @@ import { useState, useEffect } from 'react';
 
 const STORAGE_KEY = 'gpe_remember_email';
 
-export default function Login({ flash = {}, exige_captcha = false, provedores = [] }) {
+export default function Login({ flash = {}, exige_captcha = false, provedores = [], certificado = null }) {
     const erroEntrada = usePage().props.errors?.login;
     // Fundo do município (TR 4.22.1); o brasão aparece só nos relatórios
     const identidade = usePage().props.identidade || {};
@@ -183,15 +183,26 @@ export default function Login({ flash = {}, exige_captcha = false, provedores = 
                             </button>
                         </form>
 
-                        <div className="flex items-center gap-3 my-5">
-                            <span className="flex-1 h-px bg-slate-200" />
-                            <span className="text-xs text-slate-400">ou</span>
-                            <span className="flex-1 h-px bg-slate-200" />
-                        </div>
-                        <button type="button" onClick={() => setComCertificado(true)}
-                            className="w-full py-3 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2">
-                            <i className="fas fa-id-card text-cyan-600" /> Entrar com certificado digital
-                        </button>
+                        {(certificado || provedores.length > 0) && (
+                            <div className="flex items-center gap-3 my-5">
+                                <span className="flex-1 h-px bg-slate-200" />
+                                <span className="text-xs text-slate-400">ou</span>
+                                <span className="flex-1 h-px bg-slate-200" />
+                            </div>
+                        )}
+                        {/* Sem plugin: o navegador pede o certificado no endereço próprio e volta logado */}
+                        {certificado?.modo === 'tls' && (
+                            <a href={`${certificado.url}?origem=${encodeURIComponent(window.location.host)}${data.remember ? '&lembrar=1' : ''}`}
+                                className="w-full py-3 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2">
+                                <i className="fas fa-id-card text-cyan-600" /> Entrar com certificado digital
+                            </a>
+                        )}
+                        {certificado?.modo === 'webpki' && (
+                            <button type="button" onClick={() => setComCertificado(true)}
+                                className="w-full py-3 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2">
+                                <i className="fas fa-id-card text-cyan-600" /> Entrar com certificado digital
+                            </button>
+                        )}
                         {provedores.includes('govbr') && (
                             <a href={`/login/oidc/govbr${data.remember ? '?lembrar=1' : ''}`}
                                 className="mt-2 w-full py-3 rounded-xl text-sm font-semibold text-white bg-[#1351B4] hover:bg-[#0c326f] flex items-center justify-center gap-2">
