@@ -4,7 +4,7 @@
  * Aceita 3 modos:
  *   - simples: Lei 14.063/2020 art. 4 I (CPF + IP + geo)
  *   - qualificada: Art. 4 III via certificado A1 (.pfx) ICP-Brasil
- *   - qualificadaA3: Art. 4 III via token/smartcard usando Lacuna Web PKI
+ *   - qualificadaA3: Art. 4 III via token/smartcard pelo GPE Assinador (Web PKI só com licença)
  *
  * Props:
  *   assinatura: { id, documento: { nome }, solicitacao: { mensagem } }
@@ -28,7 +28,7 @@ export default function AssinarModal({ assinatura, onClose }) {
         { key: 'qualificada', icon: 'shield-alt',  cor: 'green',  titulo: 'Qualificada A1',
           desc: 'Art. 4, III — certificado A1 (.pfx) ICP-Brasil', badge: 'ICP-Brasil' },
         { key: 'qualificadaA3', icon: 'usb',       cor: 'purple', titulo: 'Qualificada A3',
-          desc: 'Art. 4, III — token/smartcard via Web PKI', badge: 'Token' },
+          desc: 'Art. 4, III — token/cartão ou certificado instalado, pelo GPE Assinador', badge: 'Token' },
     ];
 
     const cores = {
