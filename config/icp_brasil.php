@@ -111,4 +111,21 @@ return [
         // Adicione aqui as ACs que seus signatarios tipicamente usam.
     ],
 
+    /*
+     * Entrada com certificado sem plugin: o navegador apresenta o certificado no próprio HTTPS
+     * (certificado cliente), num endereço só para isso — ex.: https://certificado.gpedocs.com.br.
+     * Vazio = desligado. Ver docs/login-certificado.md (configuração do nginx/proxy).
+     *  - cabecalho: quando o TLS termina num proxy à frente do GED, o nome do cabeçalho em que o
+     *    proxy repassa o certificado (URL-encoded, como o $ssl_client_escaped_cert do nginx).
+     *    Só vale para requisição vinda de proxy confiável (TRUSTED_PROXIES); vazio = o nginx do
+     *    próprio GED repassa por fastcgi_param SSL_CLIENT_CERT.
+     */
+    'login_tls' => [
+        'url'       => rtrim((string) env('CERTIFICADO_LOGIN_URL', ''), '/'),
+        'cabecalho' => (string) env('CERTIFICADO_LOGIN_CABECALHO', ''),
+    ],
+
+    // Licença da extensão Web PKI (Lacuna): sem ela a extensão só funciona em localhost.
+    'webpki_licenca' => (string) env('WEBPKI_LICENCA', ''),
+
 ];

@@ -44,6 +44,8 @@ class HandleInertiaRequests extends Middleware
             ],
             // Brasão e fundo da tela de acesso e cor do município (TR 4.22.1) — também antes do login
             'identidade' => fn () => \App\Support\IdentidadeVisual::paraTela(),
+            // Licença da extensão Web PKI (assinatura A3 e entrada com certificado fora de localhost)
+            'webpki_licenca' => config('icp_brasil.webpki_licenca') ?: null,
             'flash' => [
                 'success'       => $request->session()->get('success'),
                 'error'         => $request->session()->get('error'),

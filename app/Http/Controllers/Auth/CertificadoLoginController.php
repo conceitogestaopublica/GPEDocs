@@ -6,8 +6,8 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Listeners\RegistrarAcesso;
-use App\Models\User;
 use App\Services\Auth\EntradaService;
+use App\Services\Auth\UsuarioDoCertificado;
 use App\Services\CertificadoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -41,7 +41,7 @@ class CertificadoLoginController extends Controller
         ]);
     }
 
-    public function entrar(Request $request, CertificadoService $certificados, EntradaService $entrada)
+    public function entrar(Request $request, UsuarioDoCertificado $doCertificado, EntradaService $entrada)
     {
         $request->validate([
             'cert_pem'       => ['required', 'string', 'max:20000'],
@@ -63,36 +63,12 @@ class CertificadoLoginController extends Controller
             return $this->recusar('A assinatura não confere com o certificado apresentado.');
         }
 
-        $meta = $certificados->lerMetadados($certPem);
-        $agora = time();
-        if ($agora < strtotime($meta['valido_de']) || $agora > strtotime($meta['valido_ate'])) {
-            return $this->recusar('Certificado fora da validade.');
+        $conferido = $doCertificado->conferir($certPem);
+        if (! $conferido['user']) {
+            return $this->recusar($conferido['erro'], false);
         }
 
-        $cadeia = $certificados->verificarCadeia($certPem);
-        if (! $cadeia['ok']) {
-            return $this->recusar($cadeia['motivo']);
-        }
-
-        $cpf = preg_replace('/\D/', '', (string) ($meta['subject_cpf'] ?? ''));
-        if (strlen($cpf) !== 11) {
-            return $this->recusar('Este certificado não é um e-CPF (não traz o CPF do titular).');
-        }
-
-        $usuarios = User::query()
-            ->whereNotNull('cpf')
-            ->whereRaw("regexp_replace(cpf, '[^0-9]', '', 'g') = ?", [$cpf])
-            ->limit(2)
-            ->get();
-        if ($usuarios->count() !== 1) {
-            RegistrarAcesso::recusa(null, $usuarios->isEmpty() ? 'certificado sem usuário com o CPF' : 'CPF em mais de um usuário', 'certificado', $meta['subject_cn'] ?? null);
-
-            return $this->recusar($usuarios->isEmpty()
-                ? 'Nenhum usuário cadastrado com o CPF deste certificado. Procure o administrador.'
-                : 'O CPF deste certificado está em mais de um usuário. Procure o administrador.', false);
-        }
-
-        $resposta = $entrada->concluir($request, $usuarios->first(), $request->boolean('lembrar'), 'certificado', dispensa2fa: true);
+        $resposta = $entrada->concluir($request, $conferido['user'], $request->boolean('lembrar'), 'certificado', dispensa2fa: true);
 
         // O front chama por fetch: devolve para onde ir em vez de seguir o redirect
         $errosSessao = $request->session()->get('errors');

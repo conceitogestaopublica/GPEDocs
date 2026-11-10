@@ -34,6 +34,11 @@ class ResolveTenant
     {
         $host = $request->getHost();
 
+        // Endereço do certificado cliente: atende todos os municípios e acha o de origem sozinho
+        if ($request->is('certificado/entrar')) {
+            return $next($request);
+        }
+
         $landlord = LandlordUrl::de($request);
 
         // Única definição de "é ambiente local" — cobre localhost e IP cru.
