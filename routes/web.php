@@ -377,6 +377,14 @@ Route::get('{tipo}/verificar/{token}', [\App\Http\Controllers\VerificacaoComunic
 
 // Validacao publica de assinatura ICP-Brasil em PDF (sem auth)
 Route::get('validar-assinatura', [VerificacaoController::class, 'validarPdfPagina'])->name('validar-assinatura');
+
+// GPE Assinador (assinatura A3 sem extensão de terceiros): o executável colocado em storage/app/assinador/
+Route::get('assinador/baixar', function () {
+    $arquivo = config('icp_brasil.assinador_arquivo');
+    abort_unless(is_file($arquivo), 404);
+
+    return response()->download($arquivo, 'GPE Assinador.exe', ['Content-Type' => 'application/vnd.microsoft.portable-executable']);
+})->middleware('throttle:20,1')->name('assinador.baixar');
 Route::post('validar-assinatura', [VerificacaoController::class, 'validarPdf'])->name('validar-assinatura.upload');
 
 // Guest
