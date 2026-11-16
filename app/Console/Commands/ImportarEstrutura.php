@@ -241,7 +241,7 @@ class ImportarEstrutura extends Command
             sprintf('%s — %s (%d usuários)', $g->codigo_tce, $this->texto($g->nome), $g->usuarios) => (string) $g->codigo_tce,
         ])->all();
 
-        return $opcoes[$this->choice('UG principal (recebe a carta de serviços, as pastas e os usuários da UG modelo)', array_keys($opcoes), 0)];
+        return $opcoes[$this->choice('Todas as UGs serão importadas. Qual delas recebe o conteúdo da UG modelo (carta de serviços, pastas, admins)?', array_keys($opcoes), 0)];
     }
 
     /** @return array<int,int> gestora_id de origem → ug_id */
