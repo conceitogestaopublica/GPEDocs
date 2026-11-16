@@ -28,7 +28,7 @@ use Symfony\Component\HttpFoundation\Response;
 class ResolveTenant
 {
     /** Subdomains "reservados" que não correspondem a tenants. */
-    private const SUBDOMAINS_RESERVADOS = ['www', 'admin', 'api'];
+    public const SUBDOMAINS_RESERVADOS = ['www', 'admin', 'api'];
 
     public function handle(Request $request, Closure $next): Response
     {

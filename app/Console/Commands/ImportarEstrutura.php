@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\TenantAware;
 use App\Models\Logradouro;
 use App\Models\Tenant;
 use App\Models\User;
@@ -33,10 +34,12 @@ use Illuminate\Support\Facades\DB;
  */
 class ImportarEstrutura extends Command
 {
+    use TenantAware;
+
     protected $signature = 'docs:importar-estrutura
-        {--tenant= : Tenant alvo (id ou subdomínio)}
-        {--legado= : Banco de origem (gestoras, organograma e usuários)}
-        {--principal= : codigo_tce da gestora que absorve a UG modelo (padrão: a da Prefeitura, maior nº de usuários)}';
+        {--tenant= : Tenant alvo: id, subdomínio ou sub.domínio (vazio = menu)}
+        {--legado= : Banco de origem (padrão: GPE_LEGADO_DATABASE; perguntado se faltar)}
+        {--principal= : codigo_tce da gestora que absorve a UG modelo (vazio = menu; padrão: a de mais usuários)}';
 
     protected $description = 'Importa UGs, organograma e usuários reais do gpe2/GPD para um tenant do GPEDocs';
 
@@ -44,22 +47,29 @@ class ImportarEstrutura extends Command
 
     public function handle(): int
     {
-        $tenant = Tenant::active()->get()->first(fn (Tenant $t) => (string) $t->id === (string) $this->option('tenant')
-            || $t->subdomain === $this->option('tenant'));
+        $tenant = $this->escolherTenant();
         if (! $tenant) {
-            $this->error('Informe --tenant (id ou subdomínio) de um tenant ativo do GPEDocs.');
-
             return self::FAILURE;
         }
 
-        if ($banco = $this->option('legado')) {
-            Config::set('database.connections.gpe_legado.database', $banco);
-            DB::purge('gpe_legado');
+        $origem = $this->conectarOrigem();
+        if (! $origem) {
+            return self::FAILURE;
         }
-        $origem = DB::connection('gpe_legado');
+
+        $codigoPrincipal = $this->escolherPrincipal($origem);
+        if ($codigoPrincipal === false) {
+            return self::FAILURE;
+        }
+
         $this->line(sprintf('Origem: %s %s/%s → destino: tenant #%d %s (%s)',
             $origem->getDriverName(), config('database.connections.gpe_legado.host'), $origem->getDatabaseName(),
             $tenant->id, $tenant->nome, $tenant->db_name));
+        if (! $this->confirm('Importar UGs, organograma e usuários para este tenant?', true)) {
+            $this->line('Nada foi importado.');
+
+            return self::FAILURE;
+        }
 
         $ctx = app(TenantContext::class);
         $ctx->set($tenant);
@@ -68,7 +78,7 @@ class ImportarEstrutura extends Command
             $ugs = $this->importarUgs($origem);
             $nos = $this->importarOrganograma($origem, $ugs);
             [$usuarios, $ignorados] = $this->importarUsuarios($origem, $ugs);
-            $principal = $this->absorverUgModelo($origem, $ugs);
+            $principal = $this->absorverUgModelo($origem, $ugs, $codigoPrincipal);
 
             $this->newLine();
             $this->table(['UGs', 'Nós do organograma', 'Usuários (ativos)', 'Inativos/sem e-mail ignorados', 'UG principal'],
@@ -78,6 +88,107 @@ class ImportarEstrutura extends Command
         } finally {
             $ctx->clear();
         }
+    }
+
+    /**
+     * Tenant de --tenant (id, subdomínio ou sub.domínio) ou do menu. Um por vez: a origem é o
+     * banco de UM município, então "todos" não faz sentido aqui.
+     */
+    private function escolherTenant(): ?Tenant
+    {
+        $valor = (string) $this->option('tenant');
+        if ($valor === '') {
+            $tenants = Tenant::active()->orderBy('domain')->orderBy('id')->get();
+            if ($tenants->isEmpty()) {
+                $this->error('Nenhum tenant ativo do GPEDocs ('.config('multitenancy.dominio_base').'). Cadastre com tenant:create.');
+
+                return null;
+            }
+            $opcoes = $tenants->mapWithKeys(fn (Tenant $t) => [
+                "#{$t->id} {$t->nome} — {$t->subdomain}.{$t->domain} ({$t->db_name})" => (string) $t->id,
+            ])->all();
+            $valor = $opcoes[$this->choice('Tenant de destino', array_keys($opcoes), 0)];
+        } elseif ($this->ehTodos($valor)) {
+            $this->error('Este comando importa um município por vez: informe o ID do tenant.');
+
+            return null;
+        }
+
+        return $this->resolveTenant($valor);
+    }
+
+    /**
+     * Conexão com o banco de origem: servidor e login de GPE_LEGADO_*, banco de --legado ou
+     * perguntado (padrão GPE_LEGADO_DATABASE). Testa a conexão e a tabela `gestora` antes de
+     * mexer no tenant.
+     */
+    private function conectarOrigem(): ?\Illuminate\Database\Connection
+    {
+        $cfg = config('database.connections.gpe_legado');
+        $banco = trim((string) ($this->option('legado')
+            ?: $this->ask("Banco de origem em {$cfg['host']}:{$cfg['port']}", (string) $cfg['database'])));
+        if ($banco === '') {
+            $this->error('Informe o banco de origem (--legado).');
+
+            return null;
+        }
+        Config::set('database.connections.gpe_legado.database', $banco);
+        DB::purge('gpe_legado');
+
+        try {
+            $origem = DB::connection('gpe_legado');
+            if (! $origem->getSchemaBuilder()->hasTable('gestora')) {
+                $this->error("O banco '{$banco}' não tem a tabela 'gestora': não é um banco do gpe2/GPD.");
+
+                return null;
+            }
+        } catch (\Throwable $e) {
+            $this->error("Não foi possível conectar em {$cfg['driver']} {$cfg['host']}:{$cfg['port']}/{$banco} como '{$cfg['username']}'.");
+            $this->line('  Confira GPE_LEGADO_* no .env. Detalhe: '.$e->getMessage());
+
+            return null;
+        }
+
+        return $origem;
+    }
+
+    /**
+     * codigo_tce da gestora que absorve a UG modelo. --principal é validado; sem ele, o menu
+     * lista as gestoras com o nº de usuários e sugere a de mais usuários (a Prefeitura).
+     * Retorna null para "a de mais usuários" e false quando o código informado não existe.
+     */
+    private function escolherPrincipal($origem): string|false|null
+    {
+        $codigo = $this->option('principal');
+        if ($codigo !== null && $codigo !== '') {
+            if (! $origem->table('gestora')->where('codigo_tce', $codigo)->exists()) {
+                $this->error("Nenhuma gestora com codigo_tce '{$codigo}' na origem.");
+
+                return false;
+            }
+
+            return (string) $codigo;
+        }
+        if (! $this->input->isInteractive()) {
+            return null;
+        }
+
+        $gestoras = $origem->table('gestora as g')
+            ->join('pessoa as p', 'p.id', '=', 'g.pessoa_id')
+            ->leftJoin('usuario as u', 'u.gestora_id', '=', 'g.id')
+            ->groupBy('g.id', 'g.codigo_tce', 'p.nome')
+            ->orderByRaw('count(u.id) desc')->orderBy('g.codigo_tce')
+            ->get(['g.codigo_tce', 'p.nome', DB::raw('count(u.id) as usuarios')])
+            ->filter(fn ($g) => $g->codigo_tce !== null)
+            ->unique('codigo_tce');
+        if ($gestoras->isEmpty()) {
+            return null;
+        }
+        $opcoes = $gestoras->mapWithKeys(fn ($g) => [
+            sprintf('%s — %s (%d usuários)', $g->codigo_tce, $this->texto($g->nome), $g->usuarios) => (string) $g->codigo_tce,
+        ])->all();
+
+        return $opcoes[$this->choice('UG principal (recebe a carta de serviços, as pastas e os usuários da UG modelo)', array_keys($opcoes), 0)];
     }
 
     /** @return array<int,int> gestora_id de origem → ug_id */
@@ -297,9 +408,8 @@ class ImportarEstrutura extends Command
      * A UG modelo do template vira a principal real: tudo que estava nela (carta de
      * serviços, pastas, usuários, organograma de exemplo) passa ou sai, e a modelo é apagada.
      */
-    private function absorverUgModelo($origem, array $ugs): string
+    private function absorverUgModelo($origem, array $ugs, ?string $codigo): string
     {
-        $codigo = $this->option('principal');
         $gestoraPrincipal = $codigo !== null
             ? $origem->table('gestora')->where('codigo_tce', $codigo)->value('id')
             : $origem->table('usuario')->select('gestora_id')->groupBy('gestora_id')->orderByRaw('count(*) desc')->value('gestora_id');

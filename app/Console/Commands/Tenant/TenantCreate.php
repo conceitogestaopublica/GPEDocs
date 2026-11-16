@@ -4,75 +4,169 @@ declare(strict_types=1);
 
 namespace App\Console\Commands\Tenant;
 
+use App\Http\Middleware\ResolveTenant;
 use App\Models\Tenant;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
+/**
+ * Cadastra um município do GPEDocs no landlord compartilhado com o gpe2 (alternativa ao painel).
+ *
+ * Só grava o registro em `tenants`: o banco é criado depois pelo docs:template-restore. Toda opção
+ * não informada na linha de comando é perguntada, com o padrão deste ambiente sugerido (domínio do
+ * TENANT_DOMINIO_BASE, servidor e login do landlord). Com --no-interaction valem os padrões, e o
+ * nome do município passa a ser obrigatório.
+ */
 class TenantCreate extends Command
 {
     protected $signature = 'tenant:create
-        {--subdomain= : Subdomínio (ex: santoantoniodoamparo)}
-        {--domain=maatgpecloud.com.br : Domínio base (ex: maatgpecloud.com.br)}
+        {--domain= : Domínio base, um dos de TENANT_DOMINIO_BASE (ex: gpedocs.com.br ou :8090)}
+        {--subdomain= : Subdomínio (ex: paraguacu). Em dev (domínio :porta) é sempre localhost}
         {--nome= : Nome do município}
-        {--db-host=127.0.0.1}
-        {--db-port=5432}
-        {--db-name= : Nome do banco}
-        {--driver=pgsql : Driver do banco do tenant (o GPE2 é PostgreSQL — ver ADR-0001)}
-        {--db-username= : Usuário do banco}
-        {--db-password= : Senha do banco}
-        {--cnpj=}
-        {--uf=}';
+        {--cnpj= : CNPJ (opcional)}
+        {--uf= : UF (opcional)}
+        {--db-host= : Servidor PostgreSQL (padrão: o do landlord)}
+        {--db-port= : Porta (padrão: a do landlord)}
+        {--db-name= : Nome do banco (padrão: docs_<subdomínio>)}
+        {--db-username= : Usuário do banco (padrão: o do landlord)}
+        {--db-password= : Senha do banco (padrão: a do landlord)}';
 
-    protected $description = 'Cadastra um novo tenant no landlord';
+    protected $description = 'Cadastra um município do GPEDocs no landlord (pergunta o que não for informado)';
 
     public function handle(): int
     {
-        $subdomain = $this->option('subdomain') ?: $this->ask('Subdomínio (ex: santoantoniodoamparo)');
-        $domain = $this->option('domain') ?: 'maatgpecloud.com.br';
-        $nome = $this->option('nome') ?: $this->ask('Nome do município');
-        $dbHost = $this->option('db-host') ?: '127.0.0.1';
-        $dbPort = $this->option('db-port') ?: '5432';
-        $dbName = $this->option('db-name') ?: $this->ask('Nome do banco PostgreSQL');
-        // PostgreSQL é o único banco de tenant (ADR-0001). O default era `mariadb` — herdado
-        // da fase de migração — e o tenant nascia invisível para `gpe:template-restore` e
-        // `tenant:migrate`, que filtram driver='pgsql'.
-        $driver = $this->option('driver') ?: 'pgsql';
-        $dbUser = $this->option('db-username') ?: $this->ask('Usuário do banco');
-        $dbPass = $this->option('db-password') ?: $this->secret('Senha do banco');
+        $dominios = Tenant::dominiosBase();
+        if ($dominios === []) {
+            $this->error('TENANT_DOMINIO_BASE está vazio no .env: não há domínio do GPEDocs para cadastrar.');
 
-        if (Tenant::where('subdomain', $subdomain)->exists()) {
-            $this->error("Tenant '{$subdomain}' já existe.");
+            return self::FAILURE;
+        }
+
+        // Fora de TENANT_DOMINIO_BASE o tenant ficaria invisível para este projeto (escopo global do model).
+        $domain = $this->option('domain')
+            ?: (count($dominios) === 1 ? $dominios[0] : $this->choice('Domínio base', $dominios, 0));
+        if (! in_array($domain, $dominios, true)) {
+            $this->error("Domínio '{$domain}' não está em TENANT_DOMINIO_BASE (".implode(', ', $dominios).').');
+
+            return self::FAILURE;
+        }
+        $dev = str_starts_with($domain, ':');
+
+        // Em dev o tenant é achado pela porta, com subdomain fixo 'localhost' (ResolveTenant).
+        $subdomain = $dev ? 'localhost' : Str::lower(trim((string) ($this->option('subdomain')
+            ?: $this->ask('Subdomínio (ex: paraguacu → paraguacu.'.$domain.')'))));
+        if ($dev && $this->option('subdomain') && $this->option('subdomain') !== 'localhost') {
+            $this->warn("Domínio de dev ({$domain}): o subdomínio é sempre 'localhost'; '{$this->option('subdomain')}' foi ignorado.");
+        }
+        if (! $dev && (! preg_match('/^[a-z0-9]([a-z0-9-]{0,98}[a-z0-9])?$/', $subdomain)
+            || in_array($subdomain, ResolveTenant::SUBDOMAINS_RESERVADOS, true))) {
+            $this->error("Subdomínio inválido: '{$subdomain}' (letras minúsculas, dígitos e hífen; reservados: "
+                .implode(', ', ResolveTenant::SUBDOMAINS_RESERVADOS).').');
+
+            return self::FAILURE;
+        }
+
+        $existente = Tenant::where('domain', $domain)->where('subdomain', $subdomain)->first();
+        if ($existente) {
+            $this->error("Já existe o tenant #{$existente->id} ({$existente->nome}) em {$this->endereco($subdomain, $domain)}.");
+
+            return self::FAILURE;
+        }
+
+        $nome = trim((string) ($this->option('nome') ?: $this->ask('Nome do município')));
+        if ($nome === '' || mb_strlen($nome) > 200) {
+            $this->error('Informe o nome do município (até 200 caracteres).');
+
+            return self::FAILURE;
+        }
+
+        $cnpj = preg_replace('/\D/', '', (string) ($this->option('cnpj') ?? $this->ask('CNPJ (opcional)')));
+        if ($cnpj !== '' && strlen($cnpj) !== 14) {
+            $this->error("CNPJ inválido: precisa de 14 dígitos (veio '{$cnpj}').");
+
+            return self::FAILURE;
+        }
+
+        $uf = Str::upper(trim((string) ($this->option('uf') ?? $this->ask('UF (opcional)'))));
+        if ($uf !== '' && ! preg_match('/^[A-Z]{2}$/', $uf)) {
+            $this->error("UF inválida: '{$uf}' (duas letras, ex: MG).");
+
+            return self::FAILURE;
+        }
+
+        // O banco fica, por padrão, no mesmo PostgreSQL e com o mesmo login do landlord.
+        $landlord = config('database.connections.landlord');
+        $dbHost = (string) ($this->option('db-host') ?: $this->ask('Servidor PostgreSQL', (string) $landlord['host']));
+        $dbPort = (string) ($this->option('db-port') ?: $this->ask('Porta', (string) $landlord['port']));
+        $padraoBanco = 'docs_'.Str::of($dev ? $nome : $subdomain)->ascii()->lower()->replaceMatches('/[^a-z0-9]+/', '_')->trim('_');
+        $dbName = (string) ($this->option('db-name') ?: $this->ask('Nome do banco', $padraoBanco));
+        $dbUser = (string) ($this->option('db-username') ?: $this->ask('Usuário do banco', (string) $landlord['username']));
+        $dbPass = $this->option('db-password') ?: ($this->secret('Senha do banco (Enter = a mesma do landlord)') ?: $landlord['password']);
+
+        if (! ctype_digit($dbPort) || (int) $dbPort < 1 || (int) $dbPort > 65535) {
+            $this->error("Porta inválida: '{$dbPort}'.");
+
+            return self::FAILURE;
+        }
+        // Mesma regra do docs:template-restore, que cria o banco com este nome.
+        if (! preg_match('/^[a-z_][a-z0-9_]{0,62}$/', $dbName)) {
+            $this->error("Nome de banco inválido: '{$dbName}' (minúsculas, dígitos e _, começando por letra).");
+
+            return self::FAILURE;
+        }
+        if ($dbHost === '' || $dbUser === '') {
+            $this->error('Informe o servidor e o usuário do banco.');
+
+            return self::FAILURE;
+        }
+
+        $this->table(['Campo', 'Valor'], [
+            ['Endereço', $this->endereco($subdomain, $domain)],
+            ['Município', $nome.($uf !== '' ? " / {$uf}" : '')],
+            ['CNPJ', $cnpj !== '' ? $cnpj : '—'],
+            ['Banco', "{$dbHost}:{$dbPort}/{$dbName}"],
+            ['Login', $dbUser],
+        ]);
+        if (! $this->confirm('Cadastrar este tenant no landlord?', true)) {
+            $this->line('Nada foi gravado.');
 
             return self::FAILURE;
         }
 
         $tenant = Tenant::create([
-            'subdomain' => $subdomain,
-            'domain' => $domain,
-            'nome' => $nome,
-            'cnpj' => $this->option('cnpj'),
-            'uf' => $this->option('uf'),
-            'db_host' => $dbHost,
-            'db_port' => $dbPort,
-            'db_name' => $dbName,
+            'subdomain'   => $subdomain,
+            'domain'      => $domain,
+            'nome'        => $nome,
+            'cnpj'        => $cnpj !== '' ? $cnpj : null,
+            'uf'          => $uf !== '' ? $uf : null,
+            'driver'      => 'pgsql', // único driver de tenant (ADR-0001)
+            'db_host'     => $dbHost,
+            'db_port'     => $dbPort,
+            'db_name'     => $dbName,
             'db_username' => $dbUser,
             'db_password' => $dbPass,
-            'driver' => $driver,
-            'active' => true,
+            'db_schema'   => 'public',
+            'active'      => true,
         ]);
 
-        // Limpa cache do middleware
-        Cache::forget("tenant:subdomain:{$subdomain}");
+        // O ResolveTenant guarda "não existe" por 60 s: sem isto o endereço demora a responder.
+        try {
+            Cache::store('file')->forget("tenant:id:{$domain}.{$subdomain}");
+        } catch (\Throwable) {
+        }
 
-        $this->info("Tenant '{$subdomain}' criado com sucesso. ID: {$tenant->id}");
+        $this->info("Tenant #{$tenant->id} cadastrado.");
         $this->newLine();
-        $this->line('Próximos passos (nesta ordem — ver docs/instalacao/):');
-        $this->line("  1. Criar o banco '{$dbName}' VAZIO: <fg=cyan>CREATE DATABASE {$dbName};</>");
-        $this->line('  2. Criar o SCHEMA a partir do modelo: <fg=cyan>php artisan gpe:template-restore</>');
-        $this->line('     (o schema legado não está em migrations: sem este passo, o migrate falha em cascata)');
-        $this->line("  3. Aplicar as migrations: <fg=cyan>php artisan tenant:migrate --tenant={$subdomain}</>");
-        $this->line("  4. Acessar via: <fg=cyan>{$subdomain}.{$domain}</>");
+        $this->line('Próximo passo: criar o banco com migrations, estrutura e admins do legado:');
+        $this->line("  <fg=cyan>php artisan docs:template-restore --tenant={$tenant->id}</>");
+        $this->line('Depois acesse: <fg=cyan>'.$this->endereco($subdomain, $domain).'</>');
 
         return self::SUCCESS;
+    }
+
+    private function endereco(string $subdomain, string $domain): string
+    {
+        return str_starts_with($domain, ':') ? "http://localhost{$domain}" : "https://{$subdomain}.{$domain}";
     }
 }

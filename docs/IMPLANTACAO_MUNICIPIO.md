@@ -40,13 +40,13 @@ docker exec docs-app php artisan landlord:migrate
 ```
 
 ## 6. Criar o município
-1. No painel do gpe2 (`http://localhost:8080`), cadastre um tenant com:
-   - `subdomain` = `localhost`
-   - `domain` = `:8090`
-   - `driver` = `pgsql`
-   - `db_host` = `postgres-gpe`
-   - `db_port` = `5432`
-   - `db_name` = `docs_<municipio>`
+1. Cadastre o tenant. O comando pergunta o que faltar e sugere os padrões
+   (domínio do `TENANT_DOMINIO_BASE`, servidor e login do landlord):
+   ```bash
+   docker exec -it docs-app php artisan tenant:create
+   ```
+   Ou tudo na linha: `--nome="Paraguaçu" --uf=MG --db-name=docs_paraguacu`.
+   Também dá para cadastrar pelo painel do gpe2, com `subdomain=localhost`, `domain=:8090` e `driver=pgsql`.
 2. Crie o banco:
    ```bash
    docker exec -it docs-app php artisan docs:template-restore --tenant=<id>
@@ -57,6 +57,11 @@ docker exec docs-app php artisan landlord:migrate
    docker exec -i postgres-gpe pg_restore -U root --no-owner --no-privileges -d docs_<municipio> < arquivo.dump
    docker exec docs-app php artisan tenant:migrate --tenant=<id>
    ```
+3. (Opcional) Importe as UGs, o organograma e os usuários reais do gpe2/GPD. O comando pergunta o tenant,
+   o banco de origem (servidor e login de `GPE_LEGADO_*`) e a UG principal:
+   ```bash
+   docker exec -it docs-app php artisan docs:importar-estrutura
+   ```
 
 Acesse `http://localhost:8090`.
 
@@ -66,5 +71,5 @@ Acesse `http://localhost:8090`.
 | `network gpe_gpe ... could not be found` | Suba o gpe2 (passo 2) |
 | `docs-app` reiniciando | Falta a `APP_KEY` (passo 4) |
 | `Vite manifest not found` | O `docs-vite` ainda instala dependências: `docker logs -f docs-vite` |
-| Redireciona para o painel do gpe2 | Falta o tenant com `domain` = `:<APP_PORT>` (passo 6) |
+| Redireciona para o painel do gpe2 | Falta o tenant com `domain` = `:<APP_PORT>` (`tenant:create`, passo 6) |
 | Mudança no `.env` não pegou na fila | `docker compose restart queue` |
