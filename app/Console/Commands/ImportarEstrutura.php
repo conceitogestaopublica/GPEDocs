@@ -39,11 +39,14 @@ class ImportarEstrutura extends Command
     protected $signature = 'docs:importar-estrutura
         {--tenant= : Tenant alvo: id, subdomínio ou sub.domínio (vazio = menu)}
         {--legado= : Banco de origem (perguntado se faltar; obrigatório sem terminal)}
-        {--principal= : codigo_tce da gestora que absorve a UG modelo (vazio = menu; padrão: a de mais usuários)}';
+        {--principal= : codigo_tce da gestora que recebe o conteúdo da UG modelo, ou "todas" para uma cópia em cada UG (vazio = menu; padrão: a de mais usuários)}';
 
     protected $description = 'Importa UGs, organograma e usuários reais do gpe2/GPD para um tenant do GPEDocs';
 
     private const NIVEIS = ['Órgão', 'Unidade', 'Departamento'];
+
+    /** Escolha de --principal / menu: cada UG recebe uma cópia do conteúdo da UG modelo. */
+    private const TODAS = 'TODAS';
 
     public function handle(): int
     {
@@ -60,6 +63,10 @@ class ImportarEstrutura extends Command
         $codigoPrincipal = $this->escolherPrincipal($origem);
         if ($codigoPrincipal === false) {
             return self::FAILURE;
+        }
+        $copiarParaTodas = $codigoPrincipal === self::TODAS;
+        if ($copiarParaTodas) {
+            $codigoPrincipal = null; // portal e UG principal dos admins: a de mais usuários
         }
 
         $this->line(sprintf('Origem: %s %s/%s → destino: tenant #%d %s (%s)',
@@ -78,7 +85,7 @@ class ImportarEstrutura extends Command
             $ugs = $this->importarUgs($origem);
             $nos = $this->importarOrganograma($origem, $ugs);
             [$usuarios, $ignorados] = $this->importarUsuarios($origem, $ugs);
-            $principal = $this->absorverUgModelo($origem, $ugs, $codigoPrincipal);
+            $principal = $this->absorverUgModelo($origem, $ugs, $codigoPrincipal, $copiarParaTodas);
 
             $this->newLine();
             $this->table(['UGs', 'Nós do organograma', 'Usuários (ativos)', 'Inativos/sem e-mail ignorados', 'UG principal'],
@@ -206,13 +213,17 @@ class ImportarEstrutura extends Command
     }
 
     /**
-     * codigo_tce da gestora que absorve a UG modelo. --principal é validado; sem ele, o menu
-     * lista as gestoras com o nº de usuários e sugere a de mais usuários (a Prefeitura).
-     * Retorna null para "a de mais usuários" e false quando o código informado não existe.
+     * codigo_tce da gestora que recebe o conteúdo da UG modelo. --principal é validado; sem ele, o
+     * menu lista as gestoras com o nº de usuários, sugere a de mais usuários (a Prefeitura) e
+     * oferece TODAS (uma cópia em cada UG). Retorna o código, self::TODAS, null para "a de mais
+     * usuários" e false quando o código informado não existe.
      */
     private function escolherPrincipal($origem): string|false|null
     {
         $codigo = $this->option('principal');
+        if ($codigo !== null && in_array(mb_strtolower($codigo), ['todas', 'todos', 'all', '*'], true)) {
+            return self::TODAS;
+        }
         if ($codigo !== null && $codigo !== '') {
             if (! $origem->table('gestora')->where('codigo_tce', $codigo)->exists()) {
                 $this->error("Nenhuma gestora com codigo_tce '{$codigo}' na origem.");
@@ -240,6 +251,7 @@ class ImportarEstrutura extends Command
         $opcoes = $gestoras->mapWithKeys(fn ($g) => [
             sprintf('%s — %s (%d usuários)', $g->codigo_tce, $this->texto($g->nome), $g->usuarios) => (string) $g->codigo_tce,
         ])->all();
+        $opcoes['TODAS — cada UG recebe uma cópia (o portal fica na de mais usuários)'] = self::TODAS;
 
         return $opcoes[$this->choice('Todas as UGs serão importadas. Qual delas recebe o conteúdo da UG modelo (carta de serviços, pastas, admins)?', array_keys($opcoes), 0)];
     }
@@ -458,10 +470,78 @@ class ImportarEstrutura extends Command
     }
 
     /**
+     * Cópia do conteúdo da UG modelo em outra UG (opção TODAS): categorias e serviços da carta,
+     * banners, pastas-modelo (as da modelo e as sem UG), modelos de ofício e o acesso dos usuários
+     * da modelo (os admins do template) — vinculados à UG sem ela virar a principal deles.
+     *
+     * Os setores (setor_responsavel_id, unidade_id) apontam para o organograma da modelo, que é
+     * apagado: na cópia ficam vazios. O path das pastas é refeito pelos ids novos, senão as cópias
+     * repetiriam o das originais e o "desativar subpastas" (like path/%) atingiria as outras UGs.
+     * Não duplica: categoria e serviço com o mesmo slug na UG são mantidos.
+     */
+    private function copiarConteudoModelo(int $modelo, int $ug): void
+    {
+        $agora = now();
+        $copia = function (object $linha, array $troca) use ($agora): array {
+            $dados = array_merge((array) $linha, $troca, ['created_at' => $agora, 'updated_at' => $agora]);
+            unset($dados['id']);
+
+            return $dados;
+        };
+
+        $categorias = [];
+        foreach (DB::table('portal_categorias_servicos')->where('ug_id', $modelo)->orderBy('id')->get() as $c) {
+            $categorias[$c->id] = DB::table('portal_categorias_servicos')->where('ug_id', $ug)->where('slug', $c->slug)->value('id')
+                ?? DB::table('portal_categorias_servicos')->insertGetId($copia($c, ['ug_id' => $ug]));
+        }
+        foreach (DB::table('portal_servicos')->where('ug_id', $modelo)->orderBy('id')->get() as $sv) {
+            if (! DB::table('portal_servicos')->where('ug_id', $ug)->where('slug', $sv->slug)->exists()) {
+                DB::table('portal_servicos')->insert($copia($sv, [
+                    'ug_id'                => $ug,
+                    'categoria_id'         => $sv->categoria_id ? ($categorias[$sv->categoria_id] ?? null) : null,
+                    'setor_responsavel_id' => null,
+                    'visualizacoes'        => 0,
+                ]));
+            }
+        }
+        foreach (DB::table('portal_banners')->where('ug_id', $modelo)->orderBy('id')->get() as $b) {
+            DB::table('portal_banners')->insert($copia($b, ['ug_id' => $ug]));
+        }
+        foreach (DB::table('proc_oficio_modelos')->where('ug_id', $modelo)->orderBy('id')->get() as $m) {
+            DB::table('proc_oficio_modelos')->insert($copia($m, ['ug_id' => $ug, 'unidade_id' => null]));
+        }
+
+        // Pastas em ordem de árvore: o pai é copiado antes dos filhos.
+        $pastas = DB::table('ged_pastas')->where(fn ($q) => $q->where('ug_id', $modelo)->orWhereNull('ug_id'))->get()->keyBy('id');
+        $novas = [];
+        $copiar = function (?int $paiOrigem, ?int $paiNovo, string $pathPai) use (&$copiar, $pastas, &$novas, $copia, $ug): void {
+            foreach ($pastas->filter(fn ($p) => $p->parent_id === $paiOrigem
+                || ($paiOrigem === null && $p->parent_id !== null && ! $pastas->has($p->parent_id)))->sortBy('id') as $p) {
+                if (isset($novas[$p->id])) {
+                    continue;
+                }
+                $id = DB::table('ged_pastas')->insertGetId($copia($p, ['ug_id' => $ug, 'parent_id' => $paiNovo, 'path' => '']));
+                $path = $pathPai.'/'.$id;
+                DB::table('ged_pastas')->where('id', $id)->update(['path' => $path]);
+                $novas[$p->id] = $id;
+                $copiar((int) $p->id, $id, $path);
+            }
+        };
+        $copiar(null, null, '');
+
+        $usuarios = DB::table('users')->where('ug_id', $modelo)->orWhereNull('ug_id')->pluck('id')
+            ->merge(DB::table('user_ugs')->where('ug_id', $modelo)->pluck('user_id'))->unique();
+        foreach ($usuarios as $userId) {
+            DB::table('user_ugs')->insertOrIgnore(['user_id' => $userId, 'ug_id' => $ug, 'principal' => false,
+                'created_at' => $agora, 'updated_at' => $agora]);
+        }
+    }
+
+    /**
      * A UG modelo do template vira a principal real: tudo que estava nela (carta de
      * serviços, pastas, usuários, organograma de exemplo) passa ou sai, e a modelo é apagada.
      */
-    private function absorverUgModelo($origem, array $ugs, ?string $codigo): string
+    private function absorverUgModelo($origem, array $ugs, ?string $codigo, bool $copiarParaTodas = false): string
     {
         $gestoraPrincipal = $codigo !== null
             ? $origem->table('gestora')->where('codigo_tce', $codigo)->value('id')
@@ -469,37 +549,54 @@ class ImportarEstrutura extends Command
         $principal = $ugs[(int) $gestoraPrincipal] ?? reset($ugs);
         $modelo = DB::table('ugs')->where('codigo', 'UG-MODELO')->value('id');
 
+        // Com TODAS, as demais UGs recebem uma cópia ANTES de a principal absorver (e apagar) a modelo.
+        $outras = array_values(array_diff(array_unique(array_values($ugs)), [$principal]));
         if ($modelo && $principal) {
-            $this->components->task('Absorver a UG modelo na UG principal', function () use ($modelo, $principal) {
-                DB::transaction(function () use ($modelo, $principal) {
-                    foreach (['portal_categorias_servicos', 'portal_servicos', 'portal_banners', 'ged_pastas', 'proc_oficio_modelos'] as $tabela) {
-                        if (\Illuminate\Support\Facades\Schema::hasTable($tabela)) {
-                            DB::table($tabela)->where('ug_id', $modelo)->update(['ug_id' => $principal]);
+            // Cópia e absorção numa transação só: se a absorção falhar, as cópias também voltam
+            // (senão a próxima rodada duplicaria pastas, banners e modelos de ofício).
+            DB::transaction(function () use ($modelo, $principal, $outras, $copiarParaTodas) {
+                if ($copiarParaTodas && $outras !== []) {
+                    $this->components->task('Copiar o conteúdo da UG modelo para as outras '.count($outras).' UG(s)',
+                        function () use ($modelo, $outras) {
+                            foreach ($outras as $ug) {
+                                $this->copiarConteudoModelo($modelo, (int) $ug);
+                            }
+
+                            return true;
+                        });
+                }
+
+                $this->components->task('Absorver a UG modelo na UG principal', function () use ($modelo, $principal) {
+                    DB::transaction(function () use ($modelo, $principal) {
+                        foreach (['portal_categorias_servicos', 'portal_servicos', 'portal_banners', 'ged_pastas', 'proc_oficio_modelos'] as $tabela) {
+                            if (\Illuminate\Support\Facades\Schema::hasTable($tabela)) {
+                                DB::table($tabela)->where('ug_id', $modelo)->update(['ug_id' => $principal]);
+                            }
                         }
-                    }
-                    // Pastas-modelo do GedSeeder nascem sem UG (CLI, sem sessão): ficariam invisíveis.
-                    DB::table('ged_pastas')->whereNull('ug_id')->update(['ug_id' => $principal]);
+                        // Pastas-modelo do GedSeeder nascem sem UG (CLI, sem sessão): ficariam invisíveis.
+                        DB::table('ged_pastas')->whereNull('ug_id')->update(['ug_id' => $principal]);
 
-                    // Inclui quem nasceu sem UG no template (admin@ged.local, dono das pastas-modelo).
-                    $semUg = DB::table('users')->whereNull('ug_id')->pluck('id');
-                    DB::table('users')->where('ug_id', $modelo)->orWhereNull('ug_id')->update(['ug_id' => $principal]);
-                    foreach ($semUg as $userId) {
-                        DB::table('user_ugs')->updateOrInsert(['user_id' => $userId, 'ug_id' => $principal],
-                            ['principal' => true, 'created_at' => now(), 'updated_at' => now()]);
-                    }
-                    foreach (DB::table('user_ugs')->where('ug_id', $modelo)->pluck('user_id') as $userId) {
-                        DB::table('user_ugs')->updateOrInsert(['user_id' => $userId, 'ug_id' => $principal],
-                            ['principal' => true, 'created_at' => now(), 'updated_at' => now()]);
-                    }
-                    DB::table('user_ugs')->where('ug_id', $modelo)->delete();
-                    DB::table('users')->whereIn('unidade_id', DB::table('ug_organograma')->where('ug_id', $modelo)->pluck('id'))
-                        ->update(['unidade_id' => null]);
-                    DB::table('ug_organograma')->where('ug_id', $modelo)->orderByDesc('nivel')->get()
-                        ->each(fn ($n) => DB::table('ug_organograma')->where('id', $n->id)->delete());
-                    DB::table('ugs')->where('id', $modelo)->delete();
+                        // Inclui quem nasceu sem UG no template (admin@ged.local, dono das pastas-modelo).
+                        $semUg = DB::table('users')->whereNull('ug_id')->pluck('id');
+                        DB::table('users')->where('ug_id', $modelo)->orWhereNull('ug_id')->update(['ug_id' => $principal]);
+                        foreach ($semUg as $userId) {
+                            DB::table('user_ugs')->updateOrInsert(['user_id' => $userId, 'ug_id' => $principal],
+                                ['principal' => true, 'created_at' => now(), 'updated_at' => now()]);
+                        }
+                        foreach (DB::table('user_ugs')->where('ug_id', $modelo)->pluck('user_id') as $userId) {
+                            DB::table('user_ugs')->updateOrInsert(['user_id' => $userId, 'ug_id' => $principal],
+                                ['principal' => true, 'created_at' => now(), 'updated_at' => now()]);
+                        }
+                        DB::table('user_ugs')->where('ug_id', $modelo)->delete();
+                        DB::table('users')->whereIn('unidade_id', DB::table('ug_organograma')->where('ug_id', $modelo)->pluck('id'))
+                            ->update(['unidade_id' => null]);
+                        DB::table('ug_organograma')->where('ug_id', $modelo)->orderByDesc('nivel')->get()
+                            ->each(fn ($n) => DB::table('ug_organograma')->where('id', $n->id)->delete());
+                        DB::table('ugs')->where('id', $modelo)->delete();
+                    });
+
+                    return true;
                 });
-
-                return true;
             });
 
             // O portal público do município responde pelo slug da UG principal.
