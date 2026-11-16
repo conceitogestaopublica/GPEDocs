@@ -26,12 +26,13 @@ class RedefinirSenha extends Notification
         $minutos = config('auth.passwords.' . config('auth.defaults.passwords') . '.expire', 60);
 
         return (new MailMessage())
-            ->subject('Redefinição de senha')
-            ->greeting('Olá, ' . $notifiable->name . '.')
-            ->line('Recebemos um pedido para redefinir a senha da sua conta.')
-            ->action('Definir nova senha', $url)
-            ->line("Este link vale por {$minutos} minutos e só pode ser usado uma vez.")
-            ->line('Se você não pediu a redefinição, ignore esta mensagem: sua senha continua a mesma.')
-            ->salutation('Atenciosamente');
+            // O remetente do .env pode ser o da empresa: aqui a caixa de entrada mostra o sistema.
+            ->from((string) config('mail.from.address'), 'GPE Docs')
+            ->subject('GPE Docs — Redefinição de senha')
+            ->view(['emails.redefinir-senha', 'emails.redefinir-senha-texto'], [
+                'url' => $url,
+                'expira' => $minutos,
+                'nome' => $notifiable->name,
+            ]);
     }
 }

@@ -61,6 +61,10 @@ services:
     command: sh -c "npm install --prefer-offline --no-audit --no-fund && npm run dev -- --host 0.0.0.0"
     ports:
       - "${VITE_PORT:-5174}:5174"
+    environment:
+      # Porta publicada no host: o vite.config.js a usa no endereço que o navegador carrega (public/hot)
+      # e no HMR. Dentro do container o Vite continua na 5174.
+      VITE_PORT: ${VITE_PORT:-5174}
     volumes:
       - ./package.json:/var/www/html/package.json
       - ./package-lock.json:/var/www/html/package-lock.json
@@ -104,7 +108,7 @@ services:
     command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600 --max-jobs=1000 --queue=high,default
     # Sem env_file: o queue:work relê o .env a cada job — mas o processo em si
     # carrega só uma vez. Pra mudanças de .env afetarem jobs em andamento,
-    # ainda precisa de "docker compose restart docs-queue".
+    # ainda precisa de "docker compose restart queue".
     volumes:
       - storage:/var/www/html/storage
       - ./storage/logs:/var/www/html/storage/logs

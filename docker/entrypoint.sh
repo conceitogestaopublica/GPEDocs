@@ -10,8 +10,15 @@ fi
 
 # Sanity check: APP_KEY precisa estar no arquivo (não testamos como env var
 # porque agora não temos env_file: no compose — Laravel lê o .env via phpdotenv).
+# Não dá para rodar `php artisan key:generate` aqui: o .env é montado só para leitura e o container
+# não sobe sem a chave. Então a mensagem já traz uma chave nova, pronta para colar.
 if ! grep -qE '^APP_KEY=.+' /var/www/html/.env; then
-    echo "ERRO: APP_KEY não está definida no .env. Rode: php artisan key:generate" >&2
+    CHAVE="base64:$(php -r 'echo base64_encode(random_bytes(32));')"
+    {
+        echo "ERRO: APP_KEY não está definida no .env."
+        echo "      Cole esta linha no .env e rode: docker compose up -d"
+        echo "      APP_KEY=${CHAVE}"
+    } >&2
     exit 1
 fi
 
