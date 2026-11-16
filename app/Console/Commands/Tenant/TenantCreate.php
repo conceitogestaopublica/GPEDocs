@@ -36,6 +36,12 @@ class TenantCreate extends Command
 
     public function handle(): int
     {
+        // Sem terminal (docker exec sem -it) vale como -n: o Symfony não detecta a falta de TTY e a
+        // primeira pergunta leria EOF e abortaria. SHELL_INTERACTIVE força as perguntas (respostas por pipe).
+        if (! stream_isatty(STDIN) && getenv('SHELL_INTERACTIVE') === false) {
+            $this->input->setInteractive(false);
+        }
+
         $dominios = Tenant::dominiosBase();
         if ($dominios === []) {
             $this->error('TENANT_DOMINIO_BASE está vazio no .env: não há domínio do GPEDocs para cadastrar.');

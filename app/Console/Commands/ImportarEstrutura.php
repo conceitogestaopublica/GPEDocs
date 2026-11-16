@@ -38,7 +38,7 @@ class ImportarEstrutura extends Command
 
     protected $signature = 'docs:importar-estrutura
         {--tenant= : Tenant alvo: id, subdomínio ou sub.domínio (vazio = menu)}
-        {--legado= : Banco de origem (padrão: GPE_LEGADO_DATABASE; perguntado se faltar)}
+        {--legado= : Banco de origem (perguntado se faltar; obrigatório sem terminal)}
         {--principal= : codigo_tce da gestora que absorve a UG modelo (vazio = menu; padrão: a de mais usuários)}';
 
     protected $description = 'Importa UGs, organograma e usuários reais do gpe2/GPD para um tenant do GPEDocs';
@@ -65,7 +65,7 @@ class ImportarEstrutura extends Command
         $this->line(sprintf('Origem: %s %s/%s → destino: tenant #%d %s (%s)',
             $origem->getDriverName(), config('database.connections.gpe_legado.host'), $origem->getDatabaseName(),
             $tenant->id, $tenant->nome, $tenant->db_name));
-        if (! $this->confirm('Importar UGs, organograma e usuários para este tenant?', true)) {
+        if ($this->temTerminal() && ! $this->confirm('Importar UGs, organograma e usuários para este tenant?', true)) {
             $this->line('Nada foi importado.');
 
             return self::FAILURE;
@@ -91,12 +91,27 @@ class ImportarEstrutura extends Command
     }
 
     /**
+     * Dá para perguntar? Sem -n E com terminal. O Symfony não detecta mais a falta de TTY sozinho:
+     * em `docker exec` sem -it a pergunta lia EOF e o comando abortava. SHELL_INTERACTIVE força
+     * o modo interativo (respostas por pipe).
+     */
+    private function temTerminal(): bool
+    {
+        return $this->input->isInteractive() && (stream_isatty(STDIN) || getenv('SHELL_INTERACTIVE') !== false);
+    }
+
+    /**
      * Tenant de --tenant (id, subdomínio ou sub.domínio) ou do menu. Um por vez: a origem é o
      * banco de UM município, então "todos" não faz sentido aqui.
      */
     private function escolherTenant(): ?Tenant
     {
         $valor = (string) $this->option('tenant');
+        if ($valor === '' && ! $this->temTerminal()) {
+            $this->error('Informe o tenant com --tenant=<id> (ou rode com docker exec -it para escolher no menu).');
+
+            return null;
+        }
         if ($valor === '') {
             $tenants = Tenant::active()->orderBy('domain')->orderBy('id')->get();
             if ($tenants->isEmpty()) {
@@ -119,16 +134,28 @@ class ImportarEstrutura extends Command
 
     /**
      * Conexão com o banco de origem: servidor e login de GPE_LEGADO_*, banco de --legado ou
-     * perguntado (padrão GPE_LEGADO_DATABASE). Testa a conexão e a tabela `gestora` antes de
-     * mexer no tenant.
+     * perguntado SEM padrão — cada município tem o seu, e um padrão errado importaria a estrutura
+     * de outro. Sem terminal (docker exec sem -it, -n) o --legado é obrigatório. Testa a conexão e
+     * a tabela `gestora` antes de mexer no tenant.
      */
     private function conectarOrigem(): ?\Illuminate\Database\Connection
     {
         $cfg = config('database.connections.gpe_legado');
-        $banco = trim((string) ($this->option('legado')
-            ?: $this->ask("Banco de origem em {$cfg['host']}:{$cfg['port']}", (string) $cfg['database'])));
+        $banco = trim((string) $this->option('legado'));
+        if ($banco === '' && ! $this->temTerminal()) {
+            $this->error('Informe o banco de origem com --legado=<banco> (ou rode com docker exec -it para ele ser perguntado).');
+
+            return null;
+        }
         if ($banco === '') {
-            $this->error('Informe o banco de origem (--legado).');
+            $bancos = $this->bancosDaOrigem();
+            if ($bancos !== []) {
+                $this->line("Bancos em {$cfg['host']}:{$cfg['port']}: ".implode(', ', $bancos));
+            }
+            $banco = trim((string) $this->anticipate("Nome do banco de origem em {$cfg['host']}:{$cfg['port']}", $bancos));
+        }
+        if ($banco === '') {
+            $this->error('Informe o nome do banco de origem.');
 
             return null;
         }
@@ -153,6 +180,32 @@ class ImportarEstrutura extends Command
     }
 
     /**
+     * Bancos do servidor de origem, só para sugerir na pergunta. Falha de conexão aqui não é erro:
+     * o nome é digitado e a conexão é testada logo depois, com mensagem própria.
+     *
+     * @return list<string>
+     */
+    private function bancosDaOrigem(): array
+    {
+        // Conecta no banco de manutenção, não no GPE_LEGADO_DATABASE, que pode nem existir neste servidor.
+        $pgsql = config('database.connections.gpe_legado.driver') === 'pgsql';
+        Config::set('database.connections.gpe_legado.database', $pgsql ? 'postgres' : '');
+        DB::purge('gpe_legado');
+
+        try {
+            $conexao = DB::connection('gpe_legado');
+            $nomes = $pgsql
+                ? $conexao->table('pg_database')->whereRaw('not datistemplate')->orderBy('datname')->pluck('datname')
+                : collect($conexao->select('SHOW DATABASES'))->map(fn ($r) => array_values((array) $r)[0]);
+
+            return $nomes->reject(fn ($n) => in_array($n, ['postgres', 'information_schema', 'mysql', 'performance_schema', 'sys'], true))
+                ->values()->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
      * codigo_tce da gestora que absorve a UG modelo. --principal é validado; sem ele, o menu
      * lista as gestoras com o nº de usuários e sugere a de mais usuários (a Prefeitura).
      * Retorna null para "a de mais usuários" e false quando o código informado não existe.
@@ -169,7 +222,7 @@ class ImportarEstrutura extends Command
 
             return (string) $codigo;
         }
-        if (! $this->input->isInteractive()) {
+        if (! $this->temTerminal()) {
             return null;
         }
 
