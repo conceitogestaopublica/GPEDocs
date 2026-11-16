@@ -91,13 +91,14 @@ export default function Index({ configuracoes = [], ugs = [], drivers = {}, recu
                         {errors.ug_id && <p className="text-xs text-red-600">{errors.ug_id}</p>}
                         {f.driver !== 'nenhum' && (
                             <>
-                                <label className="block text-sm text-gray-700">Endereço da API<input {...campo('base_url')} className="ds-input mt-1" placeholder="https://tributario.municipio.gov.br/api" /></label>
+                                <label className="block text-sm text-gray-700">Endereço da API<input {...campo('base_url')} className="ds-input mt-1" placeholder={f.driver === 'gpe' ? 'https://municipio.tributario.gpe.cloud/api/v1' : 'https://tributario.municipio.gov.br/api'} /></label>
+                                {f.driver === 'gpe' && <p className="text-xs text-gray-500">Endereço do backend do Tributário, terminando em <code>/api/v1</code> (não o da tela do sistema). O teste chama <code>/integracao/ged/status</code> a partir dele.</p>}
                                 {errors.base_url && <p className="text-xs text-red-600">{errors.base_url}</p>}
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                                    <label className="block text-sm text-gray-700">Autenticação<select {...campo('auth_tipo')} className="ds-input mt-1">
-                                        <option value="bearer">Bearer token</option><option value="header">Header próprio</option><option value="basic">Usuário e senha (Basic)</option><option value="nenhum">Nenhuma</option></select></label>
-                                    {f.auth_tipo === 'header' && <label className="block text-sm text-gray-700">Nome do header<input {...campo('auth_header')} className="ds-input mt-1" placeholder="X-Api-Key" /></label>}
-                                    {f.auth_tipo !== 'nenhum' && <label className="block text-sm text-gray-700 md:col-span-2">{f.auth_tipo === 'basic' ? 'usuario:senha' : 'Token'}<input type="password" {...campo('credencial')} className="ds-input mt-1" placeholder={f.tem_credencial ? 'em branco = manter a atual' : ''} autoComplete="new-password" /></label>}
+                                    {f.driver !== 'gpe' && <label className="block text-sm text-gray-700">Autenticação<select {...campo('auth_tipo')} className="ds-input mt-1">
+                                        <option value="bearer">Bearer token</option><option value="header">Header próprio</option><option value="basic">Usuário e senha (Basic)</option><option value="nenhum">Nenhuma</option></select></label>}
+                                    {f.driver !== 'gpe' && f.auth_tipo === 'header' && <label className="block text-sm text-gray-700">Nome do header<input {...campo('auth_header')} className="ds-input mt-1" placeholder="X-Api-Key" /></label>}
+                                    {(f.driver === 'gpe' || f.auth_tipo !== 'nenhum') && <label className={`block text-sm text-gray-700 ${f.driver === 'gpe' ? 'md:col-span-3' : 'md:col-span-2'}`}>{f.driver === 'gpe' ? 'Token de integração do Tributário (header X-Integracao-Token)' : f.auth_tipo === 'basic' ? 'usuario:senha' : 'Token'}<input type="password" {...campo('credencial')} className="ds-input mt-1" placeholder={f.tem_credencial ? 'em branco = manter a atual' : ''} autoComplete="new-password" /></label>}
                                     <label className="block text-sm text-gray-700">Tempo limite (s)<input type="number" min="3" max="120" {...campo('timeout')} className="ds-input mt-1" /></label>
                                 </div>
                                 <div>

@@ -33,8 +33,17 @@ final class RestGenerico extends AdaptadorHttp
             return ['ok' => true, 'mensagem' => 'Sem chamada de teste configurada; recursos configurados: ' . (implode(', ', $this->recursos()) ?: 'nenhum') . '.'];
         }
         $r = $this->chamar($t['metodo'] ?? 'GET', $t['caminho']);
+        $url = rtrim((string) $this->cfg->base_url, '/').'/'.ltrim((string) $t['caminho'], '/');
 
-        return ['ok' => $r->successful(), 'mensagem' => "Resposta {$r->status()} de {$this->nome()}."];
+        // 404 com página HTML é o caso típico de endereço errado: o da tela do sistema, ou sem o /api/v1.
+        if ($r->status() === 404) {
+            $html = str_contains(strtolower((string) $r->header('Content-Type')), 'html');
+
+            return ['ok' => false, 'mensagem' => "{$this->nome()} não tem {$url} (404".($html ? ', respondeu uma página HTML' : '').'). '
+                .'Confira o endereço da API: é o do backend, não o da tela'.($this->cfg->driver === 'gpe' ? ', e termina em /api/v1.' : '.')];
+        }
+
+        return ['ok' => $r->successful(), 'mensagem' => "Resposta {$r->status()} de {$this->nome()} em {$url}."];
     }
 
     public function consultarImovel(string $inscricao): ?array
