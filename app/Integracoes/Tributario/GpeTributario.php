@@ -19,6 +19,7 @@ final class GpeTributario
     {
         $c = clone $cfg;
         $c->nome_sistema = $cfg->nome_sistema ?: 'GPE Tributário';
+        $c->base_url = self::urlApi($cfg->base_url);
         if (in_array($cfg->auth_tipo, ['bearer', 'nenhum', null], true)) {
             $c->auth_tipo = 'header';
             $c->auth_header = 'X-Integracao-Token';
@@ -29,6 +30,29 @@ final class GpeTributario
             'recursos' => array_merge(self::recursos(), $proprio['recursos'] ?? [])];
 
         return $c;
+    }
+
+    /** Prefixo da API de integração do Tributário, acrescentado ao endereço base. */
+    public const PREFIXO_API = '/api/v1';
+
+    /**
+     * Endereço base do Tributário como é guardado: sem barra no fim e sem o prefixo da API, mesmo
+     * que tenha sido digitado com ele (https://x.tributario.gpe.cloud/api/v1/ → https://x.tributario.gpe.cloud).
+     */
+    public static function urlBase(?string $url): ?string
+    {
+        $url = rtrim(trim((string) $url), '/');
+        $url = (string) preg_replace('#(/api/v1|/api)$#i', '', $url);
+
+        return $url !== '' ? $url : null;
+    }
+
+    /** Endereço da API: o base + /api/v1. Aceita registros antigos, guardados já com o prefixo. */
+    public static function urlApi(?string $url): ?string
+    {
+        $base = self::urlBase($url);
+
+        return $base !== null ? $base.self::PREFIXO_API : null;
     }
 
     /** As respostas do Tributário já vêm com os nomes de campo do GED (Normalizado), dentro de "data". */

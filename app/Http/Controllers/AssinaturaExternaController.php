@@ -664,8 +664,10 @@ class AssinaturaExternaController extends Controller
 
     private function cidadaoPorCpf(string $cpf): ?Cidadao
     {
-        // cpf pode estar gravado com máscara em cadastros antigos do portal.
-        return Cidadao::whereRaw("regexp_replace(coalesce(cpf, ''), '[^0-9]', '', 'g') = ?", [$cpf])->first();
+        // cpf pode estar gravado com máscara em cadastros antigos do portal. Cadastro excluído pelo
+        // titular não conta: quem excluiu a conta pode fazer outra.
+        return Cidadao::naoExcluido()
+            ->whereRaw("regexp_replace(coalesce(cpf, ''), '[^0-9]', '', 'g') = ?", [$cpf])->first();
     }
 
     private function ehDoConvite(?Cidadao $cidadao, Assinatura $assinatura): bool

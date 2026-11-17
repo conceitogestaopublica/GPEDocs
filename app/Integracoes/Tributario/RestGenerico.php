@@ -40,7 +40,7 @@ final class RestGenerico extends AdaptadorHttp
             $html = str_contains(strtolower((string) $r->header('Content-Type')), 'html');
 
             return ['ok' => false, 'mensagem' => "{$this->nome()} não tem {$url} (404".($html ? ', respondeu uma página HTML' : '').'). '
-                .'Confira o endereço da API: é o do backend, não o da tela'.($this->cfg->driver === 'gpe' ? ', e termina em /api/v1.' : '.')];
+                .'Confira o endereço: é o do backend, não o da tela do sistema.'];
         }
 
         return ['ok' => $r->successful(), 'mensagem' => "Resposta {$r->status()} de {$this->nome()} em {$url}."];

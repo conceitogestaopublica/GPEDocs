@@ -46,7 +46,17 @@ class Cidadao extends Authenticatable
             'nomes_anteriores'            => 'array',
             'endereco'                    => 'array',
             'email_novo_expira_em'        => 'datetime',
+            'excluido_em'                 => 'datetime',
         ];
+    }
+
+    /**
+     * Fora os cadastros que o titular excluiu (`excluido_em`): o que sobra deles é só o autor
+     * de registros antigos, nunca uma conta. Use em toda busca por documento ou e-mail.
+     */
+    public function scopeNaoExcluido($query)
+    {
+        return $query->whereNull('excluido_em');
     }
 
     /**

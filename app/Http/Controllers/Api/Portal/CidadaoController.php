@@ -232,6 +232,22 @@ class CidadaoController extends PortalApiController
         return response()->json($resposta);
     }
 
+    /**
+     * O titular excluiu a conta. O portal só chama depois de confirmar quem pede (sessão + senha
+     * ou código); aqui não se repete a senha porque quem entrou por gov.br ou certificado não
+     * tem uma. Resposta: `apagado` (sem registros) ou `anonimizado` (ficou o autor dos
+     * registros). Já excluído ou inexistente → 404.
+     */
+    public function excluir(int $id): JsonResponse
+    {
+        $cidadao = Cidadao::where('id', $id)->where('ativo', true)->naoExcluido()->first();
+        if (! $cidadao) {
+            return response()->json(['erro' => 'Cidadão não encontrado.'], 404);
+        }
+
+        return response()->json(['resultado' => $this->cidadaos->excluir($cidadao)]);
+    }
+
     /** Campos complementares que o autocadastro pede (TR 4.21.5–9); tipo pf ou pj. */
     public function camposComplementares(Request $request): JsonResponse
     {

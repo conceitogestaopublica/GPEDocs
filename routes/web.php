@@ -178,6 +178,8 @@ Route::prefix('api/portal')
         Route::get('cidadaos/{id}', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'show'])->whereNumber('id')->name('cidadaos.show');
         Route::put('cidadaos/{id}', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'atualizar'])->whereNumber('id')->name('cidadaos.atualizar');
         Route::post('cidadaos/{id}/confirmar-email-novo', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'confirmarEmailNovo'])->whereNumber('id')->name('cidadaos.confirmar-email-novo');
+        // Exclusão da conta pelo titular (LGPD art. 18, VI; exigência das lojas de apps)
+        Route::post('cidadaos/{id}/excluir', [\App\Http\Controllers\Api\Portal\CidadaoController::class, 'excluir'])->whereNumber('id')->name('cidadaos.excluir');
         Route::get('cidadaos/{id}/caixa', [\App\Http\Controllers\Api\Portal\CaixaController::class, 'index'])->whereNumber('id')->name('cidadaos.caixa');
 
         Route::get('solicitacoes', [\App\Http\Controllers\Api\Portal\SolicitacaoController::class, 'index'])->name('solicitacoes.index');

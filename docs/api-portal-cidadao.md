@@ -61,6 +61,7 @@ ativo/publicado.
 | `PUT cidadaos/{id}` | `nome?, telefone?, nomes_anteriores?, endereco?, email?` | `{ cidadao, email_pendente? }` — ver "Meus dados" |
 | `POST cidadaos/{id}/confirmar-email-novo` | `codigo` | `{ cidadao }` ou 422 |
 | `GET cidadaos/{id}/caixa?ug={slug}` | — | `{ itens[] }` — ver "Caixa" |
+| `POST cidadaos/{id}/excluir` | — | `{ resultado: "apagado" \| "anonimizado" }`; 404 já excluído ou inexistente — ver "Exclusão da conta" |
 | `POST cidadaos/identificar-externo` | `provedor` (`govbr`\|`google`), `documento` **ou** `email` | `{ cidadao }` ou 404 |
 | `POST cidadaos/certificado/desafio` | — | `{ desafio, hash, algoritmo }` |
 | `POST cidadaos/certificado/autenticar` | `desafio, cert_pem, assinatura_b64` | `{ cidadao }`; 404 `{ erro, documento, nome }` sem cadastro; 422 `{ erro }` |
@@ -78,6 +79,24 @@ ativo/publicado.
 - `POST cidadaos` também aceita `nomes_anteriores[]` e `endereco{}` (opcionais).
 - **Desenvolvimento:** com `APP_ENV=local` e `PORTAL_API_ECO_CODIGO=true`, as respostas que
   enviam código trazem `codigo_dev` (o e-mail local vai só para o log). Nunca em produção.
+
+### Exclusão da conta (`POST cidadaos/{id}/excluir`)
+
+O titular excluiu a conta pelo portal ou pelo app (LGPD art. 18, VI; exigência das lojas de apps).
+O portal só chama depois de confirmar a senha. `CidadaoPortalService::excluir`:
+
+- **Sem registro** em nome da pessoa (`REGISTROS_DO_CIDADAO`: solicitações como titular ou
+  procurador, eventos, assinaturas, recursos do e-SIC, inscrições no PSS, avaliações) → a linha é
+  **apagada** (`apagado`).
+- **Com registros** → fica só **nome e CPF/CNPJ**, como autor deles (retenção legal). Saem e-mail
+  (vira `excluido-{id}@conta-excluida.invalid`), senha (aleatória), telefone, endereço, nomes
+  anteriores, códigos e `user_id`; `ativo = false` e `excluido_em` (`anonimizado`).
+- Cadastro excluído some de `porDocumento`/`porLogin` (escopo `naoExcluido`), da assinatura por
+  link e da ressincronização de contatos: o mesmo CPF e e-mail podem fazer um cadastro novo, em
+  outra linha.
+- O contato da base única com `origem = portal` perde e-mail, celular, telefone, endereço e campos;
+  de outra origem, só é desligado. Nome e documento ficam.
+- Usuário do GPE Docs (servidor) continua usuário: a senha dele não muda.
 
 ### Meus dados (`PUT cidadaos/{id}`)
 

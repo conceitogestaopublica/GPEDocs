@@ -24,7 +24,9 @@ class IntegracaoTributariaController extends Controller
     {
         return Inertia::render('Configuracao/IntegracaoTributaria/Index', [
             'configuracoes' => IntegracaoTributaria::orderByRaw('ug_id is not null')->orderBy('ug_id')->get()->map(fn (IntegracaoTributaria $c) => [
-                'id' => $c->id, 'ug_id' => $c->ug_id, 'driver' => $c->driver, 'nome_sistema' => $c->nome_sistema, 'base_url' => $c->base_url,
+                'id' => $c->id, 'ug_id' => $c->ug_id, 'driver' => $c->driver, 'nome_sistema' => $c->nome_sistema,
+                'base_url' => $c->driver === 'gpe' ? \App\Integracoes\Tributario\GpeTributario::urlBase($c->base_url) : $c->base_url,
+                'url_api' => $c->driver === 'gpe' ? \App\Integracoes\Tributario\GpeTributario::urlApi($c->base_url) : $c->base_url,
                 'auth_tipo' => $c->auth_tipo, 'auth_header' => $c->auth_header, 'tem_credencial' => (string) $c->credencial !== '',
                 'config' => $c->config ? json_encode($c->config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '',
                 'timeout' => $c->timeout, 'ativo' => $c->ativo, 'recursos' => Fabrica::de($c)->recursos(),
@@ -54,6 +56,10 @@ class IntegracaoTributariaController extends Controller
             if (! is_array($config)) {
                 return back()->withErrors(['config' => 'Configuração dos recursos: JSON inválido (' . json_last_error_msg() . ').']);
             }
+        }
+        // GPE Tributário: guarda só o endereço base; o /api/v1 é acrescentado pelo adaptador.
+        if ($d['driver'] === 'gpe') {
+            $d['base_url'] = \App\Integracoes\Tributario\GpeTributario::urlBase($d['base_url'] ?? null);
         }
         $c = $id ? IntegracaoTributaria::findOrFail($id) : new IntegracaoTributaria();
         $c->fill(['ug_id' => $d['ug_id'] ?? null, 'driver' => $d['driver'], 'nome_sistema' => $d['nome_sistema'] ?? null, 'base_url' => $d['base_url'] ?? null,

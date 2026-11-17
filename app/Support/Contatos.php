@@ -102,7 +102,8 @@ final class Contatos
     public static function sincronizarTudo(): array
     {
         $n = ['portal' => 0, 'processos' => 0];
-        foreach (Cidadao::query()->orderBy('id')->cursor() as $c) {
+        // Cadastro excluído pelo titular não volta para a base de contatos.
+        foreach (Cidadao::query()->naoExcluido()->orderBy('id')->cursor() as $c) {
             self::doCidadao($c);
             $n['portal']++;
         }

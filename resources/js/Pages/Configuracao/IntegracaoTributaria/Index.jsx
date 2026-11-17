@@ -11,6 +11,12 @@ import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
 
+// Mesma regra de GpeTributario::urlApi: tira barra final e /api ou /api/v1 já digitados, e acrescenta /api/v1.
+const urlApiGpe = (url) => {
+    const base = String(url || '').trim().replace(/\/+$/, '').replace(/(\/api\/v1|\/api)$/i, '');
+    return base ? `${base}/api/v1` : '';
+};
+
 const VAZIO = { ug_id: '', driver: 'gpe', nome_sistema: '', base_url: '', auth_tipo: 'bearer', auth_header: '', credencial: '', config: '', timeout: 20, ativo: true };
 
 export default function Index({ configuracoes = [], ugs = [], drivers = {}, recursos = {}, modelo_rest = '', campos = {}, eventos_url, eventos = [] }) {
@@ -45,7 +51,7 @@ export default function Index({ configuracoes = [], ugs = [], drivers = {}, recu
                                 <Button size="sm" variant="secondary" icon="fas fa-pen" onClick={() => setF({ ...VAZIO, ...c, ug_id: c.ug_id || '', credencial: '' })}>Editar</Button>
                             </span>
                         </div>
-                        <p className="mt-1 text-xs text-gray-500 break-all">{c.base_url || 'sem endereço'} · autenticação {c.auth_tipo}{c.tem_credencial ? ' (credencial guardada)' : ''}</p>
+                        <p className="mt-1 text-xs text-gray-500 break-all">{c.url_api || c.base_url || 'sem endereço'} · autenticação {c.auth_tipo}{c.tem_credencial ? ' (credencial guardada)' : ''}</p>
                         <div className="mt-2 flex flex-wrap gap-1">
                             {Object.entries(recursos).map(([k, r]) => (
                                 <span key={k} className={`text-[11px] rounded-full px-2 py-0.5 ${c.recursos.includes(k) ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-50 text-gray-400 line-through'}`}>{r}</span>
@@ -91,8 +97,8 @@ export default function Index({ configuracoes = [], ugs = [], drivers = {}, recu
                         {errors.ug_id && <p className="text-xs text-red-600">{errors.ug_id}</p>}
                         {f.driver !== 'nenhum' && (
                             <>
-                                <label className="block text-sm text-gray-700">Endereço da API<input {...campo('base_url')} className="ds-input mt-1" placeholder={f.driver === 'gpe' ? 'https://municipio.tributario.gpe.cloud/api/v1' : 'https://tributario.municipio.gov.br/api'} /></label>
-                                {f.driver === 'gpe' && <p className="text-xs text-gray-500">Endereço do backend do Tributário, terminando em <code>/api/v1</code> (não o da tela do sistema). O teste chama <code>/integracao/ged/status</code> a partir dele.</p>}
+                                <label className="block text-sm text-gray-700">{f.driver === 'gpe' ? 'Endereço do Tributário' : 'Endereço da API'}<input {...campo('base_url')} className="ds-input mt-1" placeholder={f.driver === 'gpe' ? 'https://municipio.tributario.gpe.cloud' : 'https://tributario.municipio.gov.br/api'} /></label>
+                                {f.driver === 'gpe' && <p className="text-xs text-gray-500 break-all">Endereço do backend (não o da tela do sistema). O <code>/api/v1</code> é acrescentado sozinho{urlApiGpe(f.base_url) && <>: <code>{urlApiGpe(f.base_url)}</code></>}.</p>}
                                 {errors.base_url && <p className="text-xs text-red-600">{errors.base_url}</p>}
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                                     {f.driver !== 'gpe' && <label className="block text-sm text-gray-700">Autenticação<select {...campo('auth_tipo')} className="ds-input mt-1">

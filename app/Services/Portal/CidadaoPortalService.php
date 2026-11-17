@@ -8,9 +8,12 @@ use App\Mail\CodigoConfirmacaoEmail;
 use App\Models\Portal\Cidadao;
 use App\Models\User;
 use App\Services\ConviteAssinaturaService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -69,9 +72,10 @@ class CidadaoPortalService
         return true;
     }
 
+    /** Cadastro vigente do documento. O excluído pelo titular não conta (ver `excluir`). */
     public function porDocumento(string $documento): ?Cidadao
     {
-        return Cidadao::whereRaw(
+        return Cidadao::naoExcluido()->whereRaw(
             "regexp_replace(coalesce(cpf, ''), '[^0-9]', '', 'g') = ?",
             [self::digitos($documento)],
         )->first();
@@ -171,7 +175,7 @@ class CidadaoPortalService
     public function porLogin(string $login): ?Cidadao
     {
         return str_contains($login, '@')
-            ? Cidadao::whereRaw('lower(email) = ?', [mb_strtolower(trim($login))])->first()
+            ? Cidadao::naoExcluido()->whereRaw('lower(email) = ?', [mb_strtolower(trim($login))])->first()
             : $this->porDocumento($login);
     }
 
@@ -392,6 +396,106 @@ class CidadaoPortalService
         }
 
         return array_filter($limpo) ? $limpo : null;
+    }
+
+    /**
+     * Tabelas que guardam registros em nome do cidadão. Com qualquer um deles, o cadastro não
+     * pode sumir: solicitação, processo, assinatura, recurso e inscrição são atos com efeito
+     * legal (arquivo público, LAI, Lei 13.460) e precisam continuar dizendo quem os praticou.
+     */
+    public const REGISTROS_DO_CIDADAO = [
+        'portal_solicitacoes'        => ['cidadao_id', 'procurador_cidadao_id'],
+        'portal_solicitacao_eventos' => ['autor_cidadao_id'],
+        'ged_assinaturas'            => ['cidadao_id'],
+        'esic_recursos'              => ['cidadao_id'],
+        'proc_pss_inscricoes'        => ['cidadao_id'],
+        'proc_avaliacoes'            => ['cidadao_id'],
+    ];
+
+    /**
+     * O titular excluiu a conta (pedido dele, pelo portal ou pelo app — LGPD art. 18, VI, e a
+     * exigência das lojas de apps). Depois disto não há mais login nem contato:
+     *
+     *  - **sem registro nenhum** em nome dele → a linha é apagada ('apagado');
+     *  - **com registros** (REGISTROS_DO_CIDADAO) → fica só o nome e o CPF/CNPJ, como autor
+     *    deles (retenção por obrigação legal, LGPD art. 16, I), e o resto some: e-mail, telefone,
+     *    endereço, nomes anteriores, senha, códigos e o vínculo com o usuário do GPE Docs
+     *    ('anonimizado'). `ativo = false` tira o cadastro de todas as rotas da API, e
+     *    `excluido_em` o tira das buscas por documento e e-mail — um cadastro novo do mesmo
+     *    CPF nasce em outra linha.
+     *
+     * Usuário do GPE Docs (servidor) continua usuário: só o cadastro do portal sai. A senha
+     * de usuário é da Prefeitura, não desta conta.
+     *
+     * O contato da base única (TR 4.21) que nasceu deste cadastro (`origem = portal`) perde o
+     * que veio daqui (e-mail, celular, telefone, endereço, campos); o que veio de outra origem
+     * só é desligado. Nome e documento ficam: o contato pode ser requerente de processos.
+     *
+     * @return 'apagado'|'anonimizado'
+     */
+    public function excluir(Cidadao $cidadao): string
+    {
+        return DB::transaction(function () use ($cidadao): string {
+            $c = Cidadao::whereKey($cidadao->id)->lockForUpdate()->firstOrFail();
+
+            $contato = DB::table('contatos')->where('cidadao_id', $c->id)->first(['id', 'origem']);
+            if ($contato) {
+                DB::table('contatos')->where('id', $contato->id)->update(
+                    ($contato->origem === 'portal'
+                        ? ['email' => null, 'celular' => null, 'telefone' => null, 'endereco' => null, 'campos' => null]
+                        : []) + ['cidadao_id' => null, 'updated_at' => now()],
+                );
+            }
+
+            if (! $this->temRegistros($c)) {
+                $c->delete();
+
+                return 'apagado';
+            }
+
+            // Sem eventos: o `saved` do modelo mandaria o e-mail de marcador para os contatos.
+            $c->forceFill([
+                'email'                       => "excluido-{$c->id}@conta-excluida.invalid",
+                'senha'                       => Hash::make(Str::random(64)),
+                'telefone'                    => null,
+                'endereco'                    => null,
+                'nomes_anteriores'            => null,
+                'user_id'                     => null,
+                'ativo'                       => false,
+                'email_verificado_em'         => null,
+                'token_verificacao'           => null,
+                'token_verificacao_expira_em' => null,
+                'email_novo'                  => null,
+                'email_novo_token'            => null,
+                'email_novo_expira_em'        => null,
+                'remember_token'              => null,
+                'excluido_em'                 => now(),
+            ])->saveQuietly();
+
+            return 'anonimizado';
+        });
+    }
+
+    /** Há algum registro em nome do cidadão (titular, procurador ou autor)? */
+    public function temRegistros(Cidadao $cidadao): bool
+    {
+        foreach (self::REGISTROS_DO_CIDADAO as $tabela => $colunas) {
+            if (! Schema::hasTable($tabela)) {
+                continue;   // município ainda sem a migração do módulo
+            }
+            $existe = DB::table($tabela)
+                ->where(function ($q) use ($colunas, $cidadao) {
+                    foreach ($colunas as $coluna) {
+                        $q->orWhere($coluna, $cidadao->id);
+                    }
+                })
+                ->exists();
+            if ($existe) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** E-mail para mostrar ao cidadão sem expô-lo: j***@dominio.com. */
