@@ -102,8 +102,11 @@ final class Contatos
     public static function sincronizarTudo(): array
     {
         $n = ['portal' => 0, 'processos' => 0];
-        // Cadastro excluído pelo titular não volta para a base de contatos.
-        foreach (Cidadao::query()->naoExcluido()->orderBy('id')->cursor() as $c) {
+        // Cadastro excluído pelo titular não volta para a base de contatos. A coluna é de uma migração
+        // POSTERIOR à dos contatos (que chama este método): num banco novo, ela ainda não existe.
+        $cidadaos = Cidadao::query()
+            ->when(\Illuminate\Support\Facades\Schema::hasColumn('portal_cidadaos', 'excluido_em'), fn ($q) => $q->naoExcluido());
+        foreach ($cidadaos->orderBy('id')->cursor() as $c) {
             self::doCidadao($c);
             $n['portal']++;
         }

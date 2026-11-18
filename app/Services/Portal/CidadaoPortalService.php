@@ -179,17 +179,37 @@ class CidadaoPortalService
             : $this->porDocumento($login);
     }
 
-    /** Usuário do GPE Docs pelo CPF ou e-mail — só com CPF (é a chave do cidadão). */
+    /**
+     * Usuário do GPE Docs pelo CPF ou e-mail. Só com CPF/CNPJ de verdade (11 ou 14 dígitos): é a
+     * chave do cidadão e da conta do portal — sem ele, o login pelo portal não acha o usuário, mesmo
+     * que o e-mail e a senha entrem no GPE Docs. Suspenso não entra (o mesmo bloqueio do GED web).
+     * `somente_portal` entra: o acesso desse servidor é justamente pelo portal e pelo app.
+     */
     public function usuarioPorLogin(string $login): ?User
     {
+        return $this->usuariosPorLogin($login)->first();
+    }
+
+    /**
+     * Todas as contas que o login pode ser. Pelo e-mail, a dele. Pelo documento, todas as do CPF/CNPJ:
+     * a integração cria um usuário EXTERNO duplicado para o mesmo documento (e-mail provisório, senha
+     * aleatória — ver User::emailParaLoginPorDocumento), e conferir a senha só do primeiro recusaria a
+     * senha certa da conta real. Ordem: conta interna, depois o servidor (veio do RH), depois o id.
+     *
+     * @return \Illuminate\Support\Collection<int, User>
+     */
+    private function usuariosPorLogin(string $login): \Illuminate\Support\Collection
+    {
         return User::query()
-            ->whereNotNull('cpf')
+            ->whereRaw("length(regexp_replace(coalesce(cpf, ''), '[^0-9]', '', 'g')) in (11, 14)")
+            ->whereNull('suspenso_em')
             ->when(str_contains($login, '@'),
                 fn ($q) => $q->whereRaw('lower(email) = ?', [mb_strtolower(trim($login))]),
                 fn ($q) => $q->whereRaw("regexp_replace(cpf, '[^0-9]', '', 'g') = ?", [self::digitos($login)]))
-            ->orderByRaw('legado_funcionario_id is null')   // CPF repetido: prefere o do servidor
+            ->orderByRaw("CASE WHEN tipo = 'externo' THEN 1 ELSE 0 END")
+            ->orderByRaw('legado_funcionario_id is null')
             ->orderBy('id')
-            ->first();
+            ->get();
     }
 
     /** Tem acesso ao portal? Cidadão ativo, ou usuário do GPE Docs (entra com a senha de lá). */
@@ -208,18 +228,32 @@ class CidadaoPortalService
     {
         $cidadao = $this->porLogin($login);
         if ($cidadao) {
-            $hash = $cidadao->user_id ? $cidadao->usuario?->password : $cidadao->senha;
+            if (! $cidadao->ativo || self::usuarioBloqueado($cidadao)) {
+                return null;
+            }
+            if (! $cidadao->user_id) {
+                return Hash::check($senha, (string) $cidadao->senha) ? $cidadao : null;
+            }
+            if (Hash::check($senha, (string) $cidadao->usuario?->password)) {
+                return $cidadao;
+            }
+            // Ligado ao externo duplicado (senha aleatória), por uma entrada anterior sem senha:
+            // a senha confere com OUTRA conta do mesmo documento — é a mesma pessoa; religa.
+            $real = $this->usuariosPorLogin((string) $cidadao->cpf)
+                ->first(fn (User $u) => $u->id !== $cidadao->user_id && Hash::check($senha, (string) $u->password));
+            if (! $real) {
+                return null;
+            }
+            $cidadao->forceFill(['user_id' => $real->id])->saveQuietly();
 
-            return $cidadao->ativo && $hash && Hash::check($senha, (string) $hash) ? $cidadao : null;
+            return $cidadao->refresh();
         }
 
-        // Sem cadastro de cidadão: usuário do GPE Docs entra com a senha de usuário.
-        $usuario = $this->usuarioPorLogin($login);
-        if (! $usuario || ! Hash::check($senha, (string) $usuario->password)) {
-            return null;
-        }
+        // Sem cadastro de cidadão: usuário do GPE Docs entra com a senha de usuário — a de qualquer
+        // conta do documento (ver usuariosPorLogin).
+        $usuario = $this->usuariosPorLogin($login)->first(fn (User $u) => Hash::check($senha, (string) $u->password));
 
-        return $this->cidadaoDoUsuario($usuario);
+        return $usuario ? $this->cidadaoDoUsuario($usuario) : null;
     }
 
     /**
@@ -233,11 +267,26 @@ class CidadaoPortalService
         if ($cidadao) {
             $porEmail = str_contains($login, '@');
 
-            return $cidadao->ativo && (! $porEmail || $cidadao->email_verificado_em) ? $cidadao : null;
+            return $cidadao->ativo && ! self::usuarioBloqueado($cidadao) && (! $porEmail || $cidadao->email_verificado_em)
+                ? $cidadao : null;
         }
         $usuario = $this->usuarioPorLogin($login);
 
         return $usuario ? $this->cidadaoDoUsuario($usuario) : null;
+    }
+
+    /**
+     * Cidadão ligado a um usuário do GPE Docs que foi suspenso (ou removido): a senha dele é a do
+     * usuário, e o usuário perdeu o acesso — o portal também. Cidadão sem usuário: nunca bloqueado aqui.
+     */
+    public static function usuarioBloqueado(Cidadao $cidadao): bool
+    {
+        if (! $cidadao->user_id) {
+            return false;
+        }
+        $usuario = $cidadao->usuario;
+
+        return ! $usuario || $usuario->suspenso_em !== null;
     }
 
     /**

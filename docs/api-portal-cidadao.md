@@ -75,6 +75,14 @@ ativo/publicado.
   `existe: true` e `autenticar` aceita a senha de usuário (CPF ou e-mail). No primeiro acesso nasce
   o cidadão ligado a ele (`portal_cidadaos.user_id`); daí em diante a senha conferida é a do
   usuário, e redefinir a senha pelo portal troca as duas. Uma pessoa, uma senha.
+  - O usuário precisa ter **CPF/CNPJ** (11 ou 14 dígitos): é a chave do cidadão. Sem ele, o e-mail
+    e a senha entram no GPE Docs, mas **não** no portal.
+  - Usuário **suspenso** (`suspenso_em`) não entra, nem o cadastro de cidadão ligado a ele. O
+    servidor `somente_portal` entra (o acesso dele é justamente pelo portal).
+  - Pelo documento, a senha é conferida contra todas as contas do CPF (a interna e o servidor
+    primeiro): bancos de antes de `documento_unico_usuarios` podem ter o externo duplicado da
+    integração, com senha aleatória. Cidadão ligado ao duplicado é religado à conta cuja senha
+    conferiu.
 - `cidadao`: `{ id, nome, documento, email, telefone, email_confirmado, servidor, nomes_anteriores, endereco }` — nunca senha nem token. `servidor`: ligado a usuário vindo do RH (só ele abre a Área do Servidor e os serviços da área "servidor"). `nomes_anteriores`: lista (pode ser vazia). `endereco`: `{ cep, logradouro, numero, complemento, bairro, municipio, uf }` ou `null`.
 - `POST cidadaos` também aceita `nomes_anteriores[]` e `endereco{}` (opcionais).
 - **Desenvolvimento:** com `APP_ENV=local` e `PORTAL_API_ECO_CODIGO=true`, as respostas que
