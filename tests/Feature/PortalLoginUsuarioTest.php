@@ -128,6 +128,35 @@ class PortalLoginUsuarioTest extends TestCase
         $this->assertNotNull($this->servico->autenticar('vitor@sistema-apresentacao.local', 'senha-do-cadastro'));
     }
 
+    public function test_email_trocado_no_usuario_entra_pelo_novo_no_mesmo_cidadao(): void
+    {
+        // Entrou pelo CPF (nasce o cidadão com o e-mail de então); depois a Prefeitura trocou o
+        // e-mail do usuário. Pelo e-mail novo, o cidadão ligado é o mesmo — antes, criar outro
+        // esbarrava no user_id único e o portal mostrava "sistema fora do ar".
+        $u = $this->usuario();
+        $c = $this->servico->autenticar(self::CPF, self::SENHA);
+        $this->assertNotNull($c, 'pré-condição: o cidadão nasceu pelo CPF');
+
+        $u->forceFill(['email' => 'app.teste@gpecloud.com.br'])->save();
+
+        $this->assertSame($c->id, $this->servico->autenticar('App.Teste@gpecloud.com.br', self::SENHA)?->id);
+        $this->assertSame($c->id, $this->servico->porIdentidadeComprovada('app.teste@gpecloud.com.br')?->id);
+        $this->assertSame(1, Cidadao::where('user_id', $u->id)->count());
+        $this->assertNull($this->servico->autenticar('app.teste@gpecloud.com.br', 'errada'));
+    }
+
+    public function test_cidadao_ligado_inativo_nao_entra_pelo_email_do_usuario(): void
+    {
+        $u = $this->usuario();
+        $c = $this->servico->autenticar(self::CPF, self::SENHA);
+        $c->forceFill(['ativo' => false])->save();
+        $u->forceFill(['email' => 'outro@sistema-apresentacao.local'])->save();
+
+        $this->assertNull($this->servico->autenticar('outro@sistema-apresentacao.local', self::SENHA),
+            'o cadastro desativado continua desativado, mesmo entrando pelo e-mail do usuário');
+        $this->assertSame(1, Cidadao::where('user_id', $u->id)->count());
+    }
+
     // ── Login pelo DOCUMENTO ────────────────────────────────────────────────────────────────
 
     private function cidadao(array $extra = []): Cidadao

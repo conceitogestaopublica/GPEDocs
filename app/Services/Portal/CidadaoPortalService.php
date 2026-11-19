@@ -293,8 +293,15 @@ class CidadaoPortalService
      * Cidadão ligado ao usuário. O e-mail vem do usuário (cadastrado pela Prefeitura, por
      * isso já confirmado); se já for de outro cidadão, fica um provisório.
      */
-    private function cidadaoDoUsuario(User $usuario): Cidadao
+    private function cidadaoDoUsuario(User $usuario): ?Cidadao
     {
+        // Já tem cadastro de cidadão ligado (entrou antes, pelo CPF ou com o e-mail antigo): é o
+        // mesmo — criar outro esbarra no user_id único e o portal respondia "fora do ar".
+        $ligado = Cidadao::naoExcluido()->where('user_id', $usuario->id)->first();
+        if ($ligado) {
+            return $ligado->ativo ? $ligado : null;
+        }
+
         $email = mb_strtolower((string) $usuario->email);
         if (Cidadao::whereRaw('lower(email) = ?', [$email])->exists()) {
             $email = 'usr-' . $usuario->id . '@usuario.local';
