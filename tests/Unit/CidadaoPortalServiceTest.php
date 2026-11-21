@@ -31,6 +31,24 @@ class CidadaoPortalServiceTest extends TestCase
         $this->assertFalse(CidadaoPortalService::documentoValido('1234567'));            // tamanho
     }
 
+    public function test_perfis_do_login_unico(): void
+    {
+        // Cadastro aberto do portal: só cidadão (não prova CPF).
+        $this->assertSame(['cidadao'], CidadaoPortalService::perfisPara(false, null, false, false));
+        // Usuário do GED que não veio do RH (ex.: contador): cidadão.
+        $this->assertSame(['cidadao'], CidadaoPortalService::perfisPara(false, 'ASSESSOR', false, true));
+        // Servidor do RH.
+        $this->assertSame(['cidadao', 'servidor'], CidadaoPortalService::perfisPara(true, 'PROFESSOR', false, true));
+        // Prefeito pelo cargo do RH (com ou sem "MUNICIPAL", maiúsculas ou não).
+        $this->assertSame(['cidadao', 'servidor', 'prefeito'], CidadaoPortalService::perfisPara(true, 'PREFEITO MUNICIPAL', false, true));
+        $this->assertSame(['cidadao', 'servidor', 'prefeito'], CidadaoPortalService::perfisPara(true, 'Prefeita', false, true));
+        // Vice e secretário: só com a marca manual.
+        $this->assertSame(['cidadao', 'servidor'], CidadaoPortalService::perfisPara(true, 'VICE PREFEITO MUNICIPAL', false, true));
+        $this->assertSame(['cidadao', 'servidor', 'prefeito'], CidadaoPortalService::perfisPara(true, 'SECRETARIO MUNICIPAL DE SAUDE', true, true));
+        // Cargo de prefeito sem ter vindo do RH não basta (o cargo do cadastro não prova nada).
+        $this->assertSame(['cidadao'], CidadaoPortalService::perfisPara(false, 'PREFEITO MUNICIPAL', false, true));
+    }
+
     public function test_email_mascarado(): void
     {
         $this->assertSame('j***@gmail.com', CidadaoPortalService::mascararEmail('joeljardim@gmail.com'));
