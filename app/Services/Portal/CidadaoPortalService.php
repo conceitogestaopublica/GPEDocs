@@ -188,6 +188,23 @@ class CidadaoPortalService
             ->first();
     }
 
+    /**
+     * Para trocar a senha pelo código ("esqueci minha senha"): o cidadão do documento ou, sem ele, o
+     * usuário do GPE Docs com esse CPF (servidor vindo do RH que nunca entrou no portal), que ganha
+     * o cadastro ligado a ele — como no primeiro login. Sem isso, quem não sabe a senha do RH nunca
+     * entraria. A senha redefinida vale para o usuário também (redefinirSenha).
+     */
+    public function paraRedefinirSenha(string $documento): ?Cidadao
+    {
+        $cidadao = $this->porDocumento($documento);
+        if ($cidadao) {
+            return $cidadao;
+        }
+        $usuario = $this->usuarioPorLogin($documento);
+
+        return $usuario ? $this->cidadaoDoUsuario($usuario) : null;
+    }
+
     /** Tem acesso ao portal? Cidadão ativo, ou usuário do GPE Docs (entra com a senha de lá). */
     public function temAcesso(string $documento): bool
     {
