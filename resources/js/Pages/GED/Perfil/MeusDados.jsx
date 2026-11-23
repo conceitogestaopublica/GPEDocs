@@ -9,6 +9,7 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import PerfilAbas from '../../../Components/PerfilAbas';
 import Button from '../../../Components/Button';
+import CampoSenha from '../../../Components/CampoSenha';
 
 const SEXO = { F: 'Feminino', M: 'Masculino', O: 'Outro / prefere não informar' };
 
@@ -107,7 +108,7 @@ function Contato({ perfil }) {
                 </Campo>
                 {trocouEmail && (
                     <Campo rotulo="Sua senha atual (para trocar o e-mail)" erro={errors.senha_atual}>
-                        <input type="password" value={data.senha_atual} onChange={(e) => setData('senha_atual', e.target.value)} className="ds-input" autoComplete="current-password" />
+                        <CampoSenha value={data.senha_atual} onChange={(e) => setData('senha_atual', e.target.value)} className="ds-input" autoComplete="current-password" />
                     </Campo>
                 )}
             </div>
@@ -126,13 +127,13 @@ function Senha() {
             <p className="text-sm font-semibold text-gray-800"><i className="fas fa-key mr-2 text-cyan-600" />Alterar senha</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Campo rotulo="Senha atual" erro={errors.senha_atual}>
-                    <input type="password" value={data.senha_atual} onChange={(e) => setData('senha_atual', e.target.value)} className="ds-input" autoComplete="current-password" />
+                    <CampoSenha value={data.senha_atual} onChange={(e) => setData('senha_atual', e.target.value)} className="ds-input" autoComplete="current-password" />
                 </Campo>
                 <Campo rotulo="Nova senha" erro={errors.senha}>
-                    <input type="password" value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input" autoComplete="new-password" />
+                    <CampoSenha value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input" autoComplete="new-password" />
                 </Campo>
                 <Campo rotulo="Repita a nova senha">
-                    <input type="password" value={data.senha_confirmation} onChange={(e) => setData('senha_confirmation', e.target.value)} className="ds-input" autoComplete="new-password" />
+                    <CampoSenha value={data.senha_confirmation} onChange={(e) => setData('senha_confirmation', e.target.value)} className="ds-input" autoComplete="new-password" />
                 </Campo>
             </div>
             <div className="flex items-center justify-between">

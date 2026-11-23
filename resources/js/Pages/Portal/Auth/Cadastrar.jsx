@@ -4,6 +4,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import PortalLayout from '../../../Layouts/PortalLayout';
 import Captcha from '../../../Components/Captcha';
+import CampoSenha from '../../../Components/CampoSenha';
 
 export default function PortalCadastrar({ ug }) {
     const { data, setData, post, processing, errors } = useForm({
@@ -68,13 +69,13 @@ export default function PortalCadastrar({ ug }) {
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="text-xs font-semibold text-gray-600 mb-1 block">Senha *</label>
-                            <input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)} required minLength={6}
+                            <CampoSenha value={data.password} onChange={(e) => setData('password', e.target.value)} required minLength={6}
                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
                             {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}
                         </div>
                         <div>
                             <label className="text-xs font-semibold text-gray-600 mb-1 block">Confirme a senha *</label>
-                            <input type="password" value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} required
+                            <CampoSenha value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} required
                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
                         </div>
                     </div>

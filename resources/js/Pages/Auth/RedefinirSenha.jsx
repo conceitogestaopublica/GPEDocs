@@ -3,6 +3,7 @@
  */
 import { Head, Link, useForm } from '@inertiajs/react';
 import { CartaoAuth } from './EsqueciSenha';
+import CampoSenha from '../../Components/CampoSenha';
 
 export default function RedefinirSenha({ token, email, regra = 'A senha precisa ter pelo menos 8 caracteres.' }) {
     const { data, setData, post, processing, errors } = useForm({
@@ -30,12 +31,12 @@ export default function RedefinirSenha({ token, email, regra = 'A senha precisa 
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Nova senha</label>
-                    <input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)} required minLength={8} autoFocus className={campo} />
+                    <CampoSenha value={data.password} onChange={(e) => setData('password', e.target.value)} required minLength={8} autoFocus className={campo} />
                     {errors.password && <p className="mt-1.5 text-sm text-red-600">{errors.password}</p>}
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Confirme a nova senha</label>
-                    <input type="password" value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} required minLength={8} className={campo} />
+                    <CampoSenha value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} required minLength={8} className={campo} />
                 </div>
                 <button type="submit" disabled={processing}
                     className="w-full py-3 rounded-xl text-white text-sm font-semibold bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 disabled:opacity-60">

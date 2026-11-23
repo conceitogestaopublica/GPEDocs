@@ -22,7 +22,7 @@
                             <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                                 <tr>
                                     <td bgcolor="#ffffff" width="52" height="52" align="center" valign="middle" style="width:52px;height:52px;background-color:#ffffff;border-radius:12px;">
-                                        <img src="{{ $message->embed(public_path('images/logo-gpe-cloud-icon.png')) }}" width="40" height="40" alt="GPE Docs" style="display:block;border:0;">
+                                        <img src="{{ $message->embed(public_path('images/logo-gpe-docs-icon-email.png')) }}" width="40" height="40" alt="GPE Docs" style="display:block;border:0;">
                                     </td>
                                     <td style="padding-left:14px;color:#ffffff;">
                                         <div style="font-size:26px;line-height:30px;font-weight:bold;">GPE Docs</div>

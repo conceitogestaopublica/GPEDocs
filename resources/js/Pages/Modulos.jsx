@@ -50,9 +50,7 @@ export default function Modulos() {
             <header className="bg-white border-b border-gray-200 shadow-sm">
                 <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-md">
-                            <i className="fas fa-cubes text-white text-sm" />
-                        </div>
+                        <img src="/images/logo-gpe-docs-icon.svg" alt="GPE Docs" className="w-14 h-14" />
                         <div>
                             <p className="text-sm font-bold text-gray-800 leading-tight">Conceito Gestão Pública</p>
                             <p className="text-[10px] text-gray-400 leading-tight">Plataforma Digital Integrada</p>

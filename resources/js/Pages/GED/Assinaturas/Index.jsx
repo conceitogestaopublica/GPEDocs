@@ -10,6 +10,7 @@ import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
 import AssinarModal from '../../../Components/AssinarModal';
 import { useConfirm } from '../../../Components/ConfirmProvider';
+import CampoSenha from '../../../Components/CampoSenha';
 
 export default function Assinaturas({ pendentes, aguardando_outros, concluidas, assinadas, filtros = {}, sistemas_origem = [], tipos_documentais = [], pastas = [] }) {
     // Retro-compat: se backend antigo só mandar `assinadas`, usa ele como `concluidas`.
@@ -620,7 +621,7 @@ function AssinarLoteModal({ itens, onClose, onConcluido }) {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Senha do certificado</label>
-                            <input type="password" value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input" autoComplete="off" />
+                            <CampoSenha value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input" autoComplete="off" />
                             {errors.senha && <p className="mt-1 text-xs text-red-600">{errors.senha}</p>}
                         </div>
                         <p className="md:col-span-2 text-[11px] text-gray-500">

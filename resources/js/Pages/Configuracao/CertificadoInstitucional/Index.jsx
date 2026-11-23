@@ -8,6 +8,7 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
+import CampoSenha from '../../../Components/CampoSenha';
 
 export default function CertificadoInstitucionalIndex({ ugs = [], aceita_teste }) {
     const [enviandoPara, setEnviandoPara] = useState(null);
@@ -105,7 +106,7 @@ function FormEnvio({ ug, onFechar }) {
                 </div>
                 <div>
                     <label className="text-xs font-medium text-gray-600 block mb-1">Senha do certificado</label>
-                    <input type="password" value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input" required autoComplete="off" />
+                    <CampoSenha value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input" required autoComplete="off" />
                     {errors.senha && <p className="text-xs text-red-600 mt-1">{errors.senha}</p>}
                 </div>
                 <p className="text-xs text-gray-500">A senha fica guardada cifrada para o sistema selar os documentos sem pedir de novo.</p>

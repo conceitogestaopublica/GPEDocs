@@ -11,6 +11,8 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import Captcha from '../../Components/Captcha';
 import EntrarComCertificado from '../../Components/EntrarComCertificado';
 import { useState, useEffect } from 'react';
+import LogoGpeDocs from '../../Components/LogoGpeDocs';
+import CampoSenha from '../../Components/CampoSenha';
 
 const STORAGE_KEY = 'gpe_remember_email';
 
@@ -24,7 +26,6 @@ export default function Login({ flash = {}, exige_captcha = false, provedores = 
         remember: false,
         captcha: '',
     });
-    const [showPass, setShowPass] = useState(false);
     const [comCertificado, setComCertificado] = useState(false);
 
     useEffect(() => {
@@ -59,10 +60,9 @@ export default function Login({ flash = {}, exige_captcha = false, provedores = 
                     <div className="absolute -bottom-32 -right-10 w-96 h-96 rounded-full bg-blue-200/30 blur-3xl" />
 
                     <div className="relative">
-                        {/* Mesmo arquivo de logo do GPE Cloud usado no gpe2 e no tributário — a
-                            nuvem desenhada à mão divergia da marca no primeiro retoque. */}
-                        <img src="/images/logo-gpe-cloud-full.png" alt="GPE Cloud — Gestão Pública Eficiente"
-                            className="h-24 xl:h-28 w-auto mb-10 select-none" />
+                        {/* Marca do GPE Docs na versão família: o cubo-documento na frente dos cubos da GPE Cloud. */}
+                        <h2 className="sr-only">GPE Docs</h2>
+                        <LogoGpeDocs tamanho={116} variante="familia" className="mb-10" />
 
                         <h1 className="text-4xl font-extrabold leading-tight text-slate-800">Bem-vindo de volta!</h1>
                         <p className="mt-3 text-lg text-slate-500 max-w-md">
@@ -88,7 +88,7 @@ export default function Login({ flash = {}, exige_captcha = false, provedores = 
                     <div className="w-full max-w-md">
                         {/* Logo + marca */}
                         <div className="mb-8 lg:hidden flex items-center gap-3">
-                            <img src="/images/logo-gpe-cloud-full.png" alt="GPE Cloud" className="h-11 w-auto" />
+                            <LogoGpeDocs tamanho={44} subtitulo={false} />
                         </div>
 
                         <h2 className="text-2xl font-bold text-slate-800">Entrar</h2>
@@ -135,21 +135,14 @@ export default function Login({ flash = {}, exige_captcha = false, provedores = 
                             {/* Senha */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-600 mb-1.5">Senha</label>
-                                <div className="relative">
-                                    <input
-                                        type={showPass ? 'text' : 'password'}
-                                        value={data.password}
-                                        onChange={(e) => setData('password', e.target.value)}
-                                        placeholder="Digite sua senha"
-                                        autoComplete="current-password"
-                                        className={`w-full pl-4 pr-11 py-3 rounded-xl text-sm text-slate-800 placeholder-slate-400 border bg-slate-50/60 outline-none transition-all
-                                            ${errors.password ? 'border-red-400 focus:ring-2 focus:ring-red-200' : 'border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'}`}
-                                    />
-                                    <button type="button" onClick={() => setShowPass(!showPass)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
-                                        <i className={`fas ${showPass ? 'fa-eye-slash' : 'fa-eye'} text-sm`} />
-                                    </button>
-                                </div>
+                                <CampoSenha
+                                    value={data.password}
+                                    onChange={(e) => setData('password', e.target.value)}
+                                    placeholder="Digite sua senha"
+                                    autoComplete="current-password"
+                                    className={`w-full pl-4 pr-11 py-3 rounded-xl text-sm text-slate-800 placeholder-slate-400 border bg-slate-50/60 outline-none transition-all
+                                        ${errors.password ? 'border-red-400 focus:ring-2 focus:ring-red-200' : 'border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100'}`}
+                                />
                                 {errors.password && <p className="mt-1.5 text-sm text-red-600">{errors.password}</p>}
                             </div>
 

@@ -10,6 +10,7 @@ import PageHeader from '../../../Components/PageHeader';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
+import CampoSenha from '../../../Components/CampoSenha';
 
 // Mesma regra de GpeTributario::urlApi: tira barra final e /api ou /api/v1 já digitados, e acrescenta /api/v1.
 const urlApiGpe = (url) => {
@@ -104,7 +105,7 @@ export default function Index({ configuracoes = [], ugs = [], drivers = {}, recu
                                     {f.driver !== 'gpe' && <label className="block text-sm text-gray-700">Autenticação<select {...campo('auth_tipo')} className="ds-input mt-1">
                                         <option value="bearer">Bearer token</option><option value="header">Header próprio</option><option value="basic">Usuário e senha (Basic)</option><option value="nenhum">Nenhuma</option></select></label>}
                                     {f.driver !== 'gpe' && f.auth_tipo === 'header' && <label className="block text-sm text-gray-700">Nome do header<input {...campo('auth_header')} className="ds-input mt-1" placeholder="X-Api-Key" /></label>}
-                                    {(f.driver === 'gpe' || f.auth_tipo !== 'nenhum') && <label className={`block text-sm text-gray-700 ${f.driver === 'gpe' ? 'md:col-span-3' : 'md:col-span-2'}`}>{f.driver === 'gpe' ? 'Token de integração do Tributário (header X-Integracao-Token)' : f.auth_tipo === 'basic' ? 'usuario:senha' : 'Token'}<input type="password" {...campo('credencial')} className="ds-input mt-1" placeholder={f.tem_credencial ? 'em branco = manter a atual' : ''} autoComplete="new-password" /></label>}
+                                    {(f.driver === 'gpe' || f.auth_tipo !== 'nenhum') && <label className={`block text-sm text-gray-700 ${f.driver === 'gpe' ? 'md:col-span-3' : 'md:col-span-2'}`}>{f.driver === 'gpe' ? 'Token de integração do Tributário (header X-Integracao-Token)' : f.auth_tipo === 'basic' ? 'usuario:senha' : 'Token'}<CampoSenha {...campo('credencial')} className="ds-input" wrapperClassName="mt-1" placeholder={f.tem_credencial ? 'em branco = manter a atual' : ''} autoComplete="new-password" /></label>}
                                     <label className="block text-sm text-gray-700">Tempo limite (s)<input type="number" min="3" max="120" {...campo('timeout')} className="ds-input mt-1" /></label>
                                 </div>
                                 <div>

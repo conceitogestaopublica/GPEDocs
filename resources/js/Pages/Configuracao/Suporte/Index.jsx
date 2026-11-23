@@ -11,6 +11,7 @@ import Card from '../../../Components/Card';
 import Button from '../../../Components/Button';
 import Modal from '../../../Components/Modal';
 import RichEditor from '../../../Components/RichEditor';
+import CampoSenha from '../../../Components/CampoSenha';
 
 const dt = (s) => (s ? new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'nunca');
 
@@ -112,7 +113,7 @@ export default function Index({ assuntos, artigos, atendentes, config, tiposCham
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                 <label className="text-xs text-gray-600">Token<input value={central.central_token} onChange={(e) => setCentral({ ...central, central_token: e.target.value })} className="ds-input mt-1 font-mono" autoComplete="off"
                                     placeholder={centralAtual.token_inicio ? `Salvo: ${centralAtual.token_inicio} (deixe vazio para manter)` : 'gpe_…'} /></label>
-                                <label className="text-xs text-gray-600">Segredo<input type="password" value={central.central_segredo} onChange={(e) => setCentral({ ...central, central_segredo: e.target.value })} className="ds-input mt-1 font-mono" autoComplete="new-password"
+                                <label className="text-xs text-gray-600">Segredo<CampoSenha value={central.central_segredo} onChange={(e) => setCentral({ ...central, central_segredo: e.target.value })} className="ds-input font-mono" wrapperClassName="mt-1" autoComplete="new-password"
                                     placeholder={centralAtual.tem_segredo ? 'Salvo (deixe vazio para manter)' : '48 caracteres'} /></label>
                             </div>
                             <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={central.central_ativo} onChange={(e) => setCentral({ ...central, central_ativo: e.target.checked })} />Ligada: a equipe Conceito atende os atendimentos novos</label>

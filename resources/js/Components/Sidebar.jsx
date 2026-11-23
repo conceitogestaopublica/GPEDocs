@@ -167,7 +167,7 @@ export default function Sidebar({ modulo, collapsed, isMobile, sidebarOpen, onCl
                 {/* ═══ FAIXA — logo e abas das seções ═══ */}
                 <div className="flex flex-col items-center border-r border-primary-800/70 shrink-0 w-[84px]">
                     <Link href="/modulos" className="w-full flex items-center justify-center h-[70px] hover:bg-primary-700 transition-colors" title="Módulos">
-                        <img src="/images/logo-gpe-cloud-icon.png" alt="GPE Cloud" className="w-12 h-12 object-contain" />
+                        <img src="/images/logo-gpe-docs-icon-invertida.svg" alt="GPE Docs" className="w-12 h-12" />
                     </Link>
                     <div className="mt-3 px-1.5 w-full overflow-y-auto">
                         <div ref={abasRef} className="relative flex flex-col gap-1.5">

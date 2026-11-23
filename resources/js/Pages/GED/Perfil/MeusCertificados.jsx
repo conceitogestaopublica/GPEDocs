@@ -13,6 +13,7 @@ import PerfilAbas from '../../../Components/PerfilAbas';
 import Button from '../../../Components/Button';
 import Card from '../../../Components/Card';
 import Modal from '../../../Components/Modal';
+import CampoSenha from '../../../Components/CampoSenha';
 
 export default function MeusCertificados({ certificados, usuario_cpf }) {
     const [novo, setNovo] = useState(false);
@@ -202,7 +203,7 @@ function NovoCertificadoModal({ show, onClose }) {
 
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-                    <input type="password" value={data.senha} onChange={(e) => setData('senha', e.target.value)}
+                    <CampoSenha value={data.senha} onChange={(e) => setData('senha', e.target.value)}
                         autoComplete="off" className="ds-input" placeholder="Senha do certificado" />
                     {errors.senha && <p className="mt-1 text-xs text-red-600">{errors.senha}</p>}
                 </div>

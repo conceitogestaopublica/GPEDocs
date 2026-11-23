@@ -4,6 +4,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import PortalLayout from '../../../Layouts/PortalLayout';
 import Captcha from '../../../Components/Captcha';
+import CampoSenha from '../../../Components/CampoSenha';
 
 export default function PortalLogin({ ug, exige_captcha = false }) {
     const { data, setData, post, processing, errors } = useForm({
@@ -40,7 +41,7 @@ export default function PortalLogin({ ug, exige_captcha = false }) {
                     </div>
                     <div>
                         <label className="text-xs font-semibold text-gray-600 mb-1 block">Senha</label>
-                        <input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)}
+                        <CampoSenha value={data.password} onChange={(e) => setData('password', e.target.value)}
                             required
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
                         {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}

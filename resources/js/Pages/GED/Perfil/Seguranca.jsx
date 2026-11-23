@@ -8,6 +8,7 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import PageHeader from '../../../Components/PageHeader';
 import PerfilAbas from '../../../Components/PerfilAbas';
 import Button from '../../../Components/Button';
+import CampoSenha from '../../../Components/CampoSenha';
 
 export default function Seguranca({ dois_fatores, configurando, codigos_recuperacao }) {
     return (
@@ -104,8 +105,8 @@ function DoisFatoresAtivo({ estado }) {
             ) : (
                 <form onSubmit={enviar} className="mt-4 flex flex-wrap gap-2 items-start border-t border-gray-100 pt-4">
                     <div>
-                        <input type="password" value={data.senha} onChange={(e) => setData('senha', e.target.value)} placeholder="Sua senha"
-                            className="ds-input w-56" autoFocus autoComplete="current-password" />
+                        <CampoSenha value={data.senha} onChange={(e) => setData('senha', e.target.value)} placeholder="Sua senha"
+                            className="ds-input" wrapperClassName="w-56" autoFocus autoComplete="current-password" />
                         {errors.senha && <p className="text-xs text-red-600 mt-1">{errors.senha}</p>}
                     </div>
                     <Button type="submit" variant={acao === 'desativar' ? 'danger' : 'primary'} loading={processing}>

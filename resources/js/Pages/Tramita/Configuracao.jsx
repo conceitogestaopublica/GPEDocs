@@ -9,6 +9,7 @@ import AdminLayout from '../../Layouts/AdminLayout';
 import PageHeader from '../../Components/PageHeader';
 import Card from '../../Components/Card';
 import Button from '../../Components/Button';
+import CampoSenha from '../../Components/CampoSenha';
 
 export default function Configuracao({ config, tipos, setores }) {
     const errors = usePage().props.errors || {};
@@ -37,7 +38,7 @@ export default function Configuracao({ config, tipos, setores }) {
                                 <div className="grid grid-cols-2 gap-3">
                                     <label className="text-xs text-gray-600">Certificado do ente (.pem / .pfx){config.tem_certificado && <span className="ml-1 text-emerald-700">— já enviado</span>}
                                         <input type="file" accept=".pem,.pfx,.p12,.crt" onChange={(e) => setC({ ...c, certificado: e.target.files[0] })} className="mt-1 block w-full text-xs" /></label>
-                                    <label className="text-xs text-gray-600">Senha do certificado<input type="password" {...campo('certificado_senha')} className="ds-input mt-1" placeholder={config.tem_certificado ? '(mantida)' : ''} /></label>
+                                    <label className="text-xs text-gray-600">Senha do certificado<CampoSenha {...campo('certificado_senha')} className="ds-input" wrapperClassName="mt-1" placeholder={config.tem_certificado ? '(mantida)' : ''} /></label>
                                 </div>
                                 <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">A conexão (URL + certificado) já pode ser testada. As operações do barramento real são ativadas na homologação, com a especificação oficial entregue na adesão — até lá, use o simulador.</p>
                             </>

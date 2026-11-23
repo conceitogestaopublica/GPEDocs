@@ -11,6 +11,7 @@ import * as pdfjs from 'pdfjs-dist';
 // ?worker (e não ?url): o Vite empacota o worker como .js — o nginx serve .mjs como
 // application/octet-stream e o navegador recusa carregar o worker.
 import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
+import CampoSenha from '../../Components/CampoSenha';
 
 let workerPdf = null;
 function garantirWorker() {
@@ -159,7 +160,7 @@ function FormEntrar({ base, exigeCaptcha = false }) {
                 <input value={data.login} onChange={(e) => setData('login', e.target.value)} className="ds-input" autoFocus required autoComplete="username" />
             </Campo>
             <Campo label="Senha" erro={errors.senha}>
-                <input type="password" value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input" required autoComplete="current-password" />
+                <CampoSenha value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input" required autoComplete="current-password" />
             </Campo>
             {exigeCaptcha && (
                 <Captcha contexto="assinatura-entrar" value={data.captcha} onChange={(v) => setData('captcha', v)} error={errors.captcha} />
@@ -196,10 +197,10 @@ function FormCadastro({ base, convite }) {
             </Campo>
             <div className="hidden sm:block" />
             <Campo label="Senha (mínimo 8 caracteres)" erro={errors.senha}>
-                <input type="password" value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input" required autoComplete="new-password" />
+                <CampoSenha value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input" required autoComplete="new-password" />
             </Campo>
             <Campo label="Confirme a senha">
-                <input type="password" value={data.senha_confirmation} onChange={(e) => setData('senha_confirmation', e.target.value)} className="ds-input" required autoComplete="new-password" />
+                <CampoSenha value={data.senha_confirmation} onChange={(e) => setData('senha_confirmation', e.target.value)} className="ds-input" required autoComplete="new-password" />
             </Campo>
             <div className="sm:col-span-2">
                 <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
@@ -337,7 +338,7 @@ function AssinarTodos({ base, pendentes, onFechar }) {
                     <span>Conferi os <strong>{pendentes.length}</strong> documentos e concordo com o conteúdo de cada um.</span>
                 </label>
                 {errors?.conferido && <p className="text-xs text-red-600">{errors.conferido}</p>}
-                <input type="password" value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input"
+                <CampoSenha value={data.senha} onChange={(e) => setData('senha', e.target.value)} className="ds-input"
                     placeholder="Sua senha" autoComplete="current-password" required />
                 {errors?.senha && <p className="text-xs text-red-600">{errors.senha}</p>}
                 <div className="flex gap-2 justify-end">
@@ -656,7 +657,7 @@ function ConfirmarAssinatura({ token, caixa, rotacao, onFechar, erroSenha, volta
                     Ao confirmar, a sua assinatura é aplicada na página <strong>{caixa.pagina}</strong> e não pode ser desfeita.
                     Digite a sua senha para validar.
                 </p>
-                <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} className="ds-input" autoFocus required
+                <CampoSenha value={senha} onChange={(e) => setSenha(e.target.value)} className="ds-input" autoFocus required
                     placeholder="Sua senha" autoComplete="current-password" />
                 {erroSenha && <p className="text-xs text-red-600">{erroSenha}</p>}
                 <div className="flex gap-2 justify-end">

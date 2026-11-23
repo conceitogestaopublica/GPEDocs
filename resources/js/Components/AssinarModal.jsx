@@ -16,6 +16,7 @@ import Modal from './Modal';
 import Button from './Button';
 import { aguardar } from '../Support/webPki';
 import { conectarAssinador } from '../Support/assinadorLocal';
+import CampoSenha from './CampoSenha';
 
 export default function AssinarModal({ assinatura, onClose }) {
     const [tipo, setTipo] = useState('simples');
@@ -180,7 +181,7 @@ function FormIcp({ assinatura, onClose }) {
 
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Senha do certificado</label>
-                <input type="password" value={data.senha} onChange={(e) => setData('senha', e.target.value)}
+                <CampoSenha value={data.senha} onChange={(e) => setData('senha', e.target.value)}
                     autoComplete="off" className="ds-input" placeholder="Senha do .pfx" />
                 {errors.senha && <p className="mt-1 text-xs text-red-600">{errors.senha}</p>}
                 <p className="mt-1 text-[10px] text-gray-500">A senha e usada apenas em memória para decriptar o PFX e nunca e armazenada.</p>

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import CadastroLayout, { CadastroSecao } from '../../../Components/CadastroLayout';
 import HistoricoCadastro from '../../../Components/HistoricoCadastro';
+import CampoSenha from '../../../Components/CampoSenha';
 
 export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = [], registro = null, historico = [] }) {
     const isEdit = !! usuario;
@@ -264,7 +265,7 @@ export default function UsuarioForm({ usuario, roles = [], ugs = [], unidades = 
                                 Senha
                                 <span className="text-gray-400 font-normal">{isEdit ? ' (deixe vazio para manter)' : ' (vazia: o servidor recebe por e-mail o link para criar a dele)'}</span>
                             </label>
-                            <input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)}
+                            <CampoSenha value={data.password} onChange={(e) => setData('password', e.target.value)}
                                 className="ds-input" autoComplete="new-password"
                                 placeholder={isEdit ? '••••••••' : 'Mínimo 8 caracteres'} />
                             {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
