@@ -11,7 +11,6 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import Captcha from '../../Components/Captcha';
 import EntrarComCertificado from '../../Components/EntrarComCertificado';
 import { useState, useEffect } from 'react';
-import LogoGpeDocs from '../../Components/LogoGpeDocs';
 import CampoSenha from '../../Components/CampoSenha';
 
 const STORAGE_KEY = 'gpe_remember_email';
@@ -60,9 +59,10 @@ export default function Login({ flash = {}, exige_captcha = false, provedores = 
                     <div className="absolute -bottom-32 -right-10 w-96 h-96 rounded-full bg-blue-200/30 blur-3xl" />
 
                     <div className="relative">
-                        {/* Marca do GPE Docs na versão família: o cubo-documento na frente dos cubos da GPE Cloud. */}
-                        <h2 className="sr-only">GPE Docs</h2>
-                        <LogoGpeDocs tamanho={116} variante="familia" className="mb-10" />
+                        {/* Mesmo arquivo de logo do GPE Cloud usado no gpe2 e no tributário — a
+                            nuvem desenhada à mão divergia da marca no primeiro retoque. */}
+                        <img src="/images/logo-gpe-cloud-full.png" alt="GPE Cloud — Gestão Pública Eficiente"
+                            className="h-24 xl:h-28 w-auto mb-10 select-none" />
 
                         <h1 className="text-4xl font-extrabold leading-tight text-slate-800">Bem-vindo de volta!</h1>
                         <p className="mt-3 text-lg text-slate-500 max-w-md">
@@ -88,7 +88,7 @@ export default function Login({ flash = {}, exige_captcha = false, provedores = 
                     <div className="w-full max-w-md">
                         {/* Logo + marca */}
                         <div className="mb-8 lg:hidden flex items-center gap-3">
-                            <LogoGpeDocs tamanho={44} subtitulo={false} />
+                            <img src="/images/logo-gpe-cloud-full.png" alt="GPE Cloud" className="h-11 w-auto" />
                         </div>
 
                         <h2 className="text-2xl font-bold text-slate-800">Entrar</h2>
