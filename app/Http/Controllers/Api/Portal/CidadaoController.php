@@ -147,7 +147,8 @@ class CidadaoController extends PortalApiController
     public function codigoSenha(Request $request): JsonResponse
     {
         $dados = $request->validate(['documento' => ['required', 'string', 'max:18']]);
-        $cidadao = $this->cidadaos->porDocumento($dados['documento']);
+        // Servidor do RH sem cadastro de cidadão também recupera (login único do app).
+        $cidadao = $this->cidadaos->paraRedefinirSenha($dados['documento']);
 
         $codigo = null;
         if ($cidadao && $cidadao->ativo && $cidadao->email) {
@@ -167,7 +168,7 @@ class CidadaoController extends PortalApiController
             'codigo'    => ['required', 'string', 'size:6'],
             'senha'     => ['required', 'string', 'min:8', 'max:200'],
         ]);
-        $cidadao = $this->cidadaos->porDocumento($dados['documento']);
+        $cidadao = $this->cidadaos->paraRedefinirSenha($dados['documento']);
 
         if (! $cidadao || ! $this->cidadaos->redefinirSenha($cidadao, $dados['codigo'], $dados['senha'])) {
             return response()->json(['erro' => 'Código incorreto ou vencido. Peça um novo código.'], 422);

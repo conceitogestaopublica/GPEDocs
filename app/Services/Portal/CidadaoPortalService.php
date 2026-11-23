@@ -212,6 +212,23 @@ class CidadaoPortalService
             ->get();
     }
 
+    /**
+     * Para trocar a senha pelo código ("esqueci minha senha"): o cidadão do documento ou, sem ele, o
+     * usuário do GPE Docs com esse CPF (servidor vindo do RH que nunca entrou no portal), que ganha
+     * o cadastro ligado a ele — como no primeiro login. Sem isso, quem não sabe a senha do RH nunca
+     * entraria. A senha redefinida vale para o usuário também (redefinirSenha).
+     */
+    public function paraRedefinirSenha(string $documento): ?Cidadao
+    {
+        $cidadao = $this->porDocumento($documento);
+        if ($cidadao) {
+            return $cidadao;
+        }
+        $usuario = $this->usuarioPorLogin($documento);
+
+        return $usuario ? $this->cidadaoDoUsuario($usuario) : null;
+    }
+
     /** Tem acesso ao portal? Cidadão ativo, ou usuário do GPE Docs (entra com a senha de lá). */
     public function temAcesso(string $documento): bool
     {
@@ -565,9 +582,43 @@ class CidadaoPortalService
         return mb_substr($usuario, 0, 1).'***@'.$dominio;
     }
 
+    /** Cargos do RH que dão o perfil "prefeito" sem marca manual. Vice e secretários: pela marca. */
+    private const CARGO_PREFEITO = '/^\s*PREFEIT[OA](\s+MUNICIPAL)?\s*$/iu';
+
+    /**
+     * Os perfis da pessoa no app (login único), calculados — ninguém os cadastra à mão:
+     *
+     * - "cidadao": todo cadastro;
+     * - "servidor": entrou pelo usuário do GPE Docs que veio do RH (docs:importar-servidores) —
+     *   o cadastro aberto do portal não prova CPF, não basta o CPF ser de servidor;
+     * - "prefeito": usuário vindo do RH com o cargo de Prefeito, ou com a marca
+     *   acesso_painel_gestor (vice, secretário, chefe de gabinete), dada pela Prefeitura.
+     *
+     * "contribuinte" não sai daqui: é o vínculo fiscal da conta, provado no portal (ADR-0017 de lá).
+     *
+     * @return list<string>
+     */
+    public static function perfisPara(bool $usuarioDoRh, ?string $cargo, bool $acessoPainelGestor, bool $temUsuario): array
+    {
+        $perfis = ['cidadao'];
+        if ($usuarioDoRh) {
+            $perfis[] = 'servidor';
+        }
+        $prefeitoPeloCargo = $usuarioDoRh && $cargo !== null && preg_match(self::CARGO_PREFEITO, $cargo) === 1;
+        if ($temUsuario && ($prefeitoPeloCargo || $acessoPainelGestor)) {
+            $perfis[] = 'prefeito';
+        }
+
+        return $perfis;
+    }
+
     /** Representação para o Portal — nunca senha nem token. */
     public static function paraApi(Cidadao $c): array
     {
+        $usuario = $c->user_id !== null ? $c->usuario : null;
+        $usuarioDoRh = $usuario !== null && $usuario->legado_funcionario_id !== null;
+        $perfis = self::perfisPara($usuarioDoRh, $usuario?->cargo, (bool) ($usuario?->acesso_painel_gestor), $usuario !== null);
+
         return [
             'id'              => $c->id,
             'nome'            => $c->nome,
@@ -577,7 +628,10 @@ class CidadaoPortalService
             'email_confirmado' => $c->email_verificado_em !== null,
             // Servidor municipal provado: entrou pelo usuário do GPE Docs que veio do RH
             // (o cadastro aberto do portal não prova CPF — não basta o CPF ser de servidor).
-            'servidor'        => $c->user_id !== null && $c->usuario?->legado_funcionario_id !== null,
+            'servidor'        => $usuarioDoRh,
+            // Login único do app: os perfis da pessoa (ver perfisPara). `servidor` acima é o mesmo
+            // dado no formato antigo, para os portais já publicados.
+            'perfis'          => $perfis,
             'nomes_anteriores' => $c->nomes_anteriores ?? [],
             'endereco'        => $c->endereco,
             // Complementares do contato (os que o autocadastro pede e os preenchidos pela prefeitura)

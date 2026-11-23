@@ -17,7 +17,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 #[Fillable(['name', 'email', 'cpf', 'telefone', 'password', 'tipo', 'ug_id', 'unidade_id', 'legado_usuario_id', 'legado_funcionario_id', 'matricula', 'super_admin', 'acesso_geral_ug',
-    'cargo', 'sexo', 'data_nascimento', 'email_secundario', 'somente_portal'])]
+    'cargo', 'sexo', 'data_nascimento', 'email_secundario', 'somente_portal', 'acesso_painel_gestor'])]
 #[Hidden(['password', 'remember_token', 'dois_fatores_segredo', 'dois_fatores_recuperacao', 'dois_fatores_ultimo_passo'])]
 class User extends Authenticatable
 {
@@ -40,6 +40,7 @@ class User extends Authenticatable
             'super_admin'     => 'boolean',
             'acesso_geral_ug' => 'boolean',
             'somente_portal'  => 'boolean',
+            'acesso_painel_gestor' => 'boolean',
             'suspenso_em'       => 'datetime',
             'ultimo_acesso_em'    => 'datetime',
             'ultima_atividade_em' => 'datetime',
