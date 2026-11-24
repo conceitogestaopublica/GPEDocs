@@ -180,6 +180,14 @@ veem, acompanham e podem cancelar. Lista e detalhe trazem `titular: { id, nome }
 A solicitação é registrada pelo mesmo serviço do portal embutido (`RegistrarSolicitacaoService`),
 e o andamento do processo volta sozinho para ela (`SincronizarPortalCidadaoService`).
 
+## Entidades (`GET ugs`)
+
+`{ ugs: [{ slug, nome }] }`: as UGs ativas com `portal_slug`, na ordem do cadastro (a primeira costuma
+ser a prefeitura). Para publicar a Câmara no portal do município, dê a ela um `portal_slug` (Configuração ›
+Unidades Gestoras). As listas do Diário Oficial e dos atos (`diario/calendario`, `diario/dia`,
+`diario/busca`, `atos`) são da entidade do parâmetro `ug`; a edição e os PDFs, pelo id, valem para
+qualquer entidade do portal.
+
 ## Licenciamento ambiental
 
 Sempre com `ug`; requerimento e licenças também com `cidadao_id`. Só funciona depois que o município

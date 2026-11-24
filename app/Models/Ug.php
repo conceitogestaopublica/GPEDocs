@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -51,6 +52,12 @@ class Ug extends Model
             'banner_ativo' => 'boolean',
             'organograma_publico' => 'boolean',
         ];
+    }
+
+    /** Entidades publicadas no Portal do Cidadão (prefeitura, câmara…): as que têm `portal_slug`. */
+    public function scopeDoPortal(Builder $query): void
+    {
+        $query->where('ativo', true)->whereNotNull('portal_slug');
     }
 
     public function logradouro(): BelongsTo

@@ -153,6 +153,7 @@ Route::prefix('api/portal')
     ->name('api.portal.')
     ->group(function () {
         Route::get('catalogo', [\App\Http\Controllers\Api\Portal\CatalogoController::class, 'show'])->name('catalogo');
+        Route::get('ugs', [\App\Http\Controllers\Api\Portal\UgController::class, 'index'])->name('ugs');
         // Órgãos responsáveis e contador de acessos da Carta de Serviços (TR 4.30.4, 4.30.27)
         Route::get('orgaos', [\App\Http\Controllers\Api\Portal\CatalogoController::class, 'orgaos'])->name('orgaos');
         // Central de Atendimento (TR 4.23): verificação por código (registrada), textos do portal, ofício pela Central

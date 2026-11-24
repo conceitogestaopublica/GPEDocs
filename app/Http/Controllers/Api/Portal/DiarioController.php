@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\Portal;
 
 use App\Models\Diario\Edicao;
 use App\Models\Diario\Materia;
+use App\Models\Ug;
 use App\Support\DiarioOficial;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,9 @@ use Illuminate\Http\Request;
  * Área pública do Diário Oficial (TR 4.43.32–4.43.46): calendário (datas com edição no mês ou
  * semana), edições do dia, edição com sumário e atos (cada um em PDF), versão certificada,
  * busca textual e avançada. Só edições publicadas.
+ *
+ * As listas são da entidade pedida (`ug`). A edição e os PDFs, pelo id, valem para qualquer entidade
+ * do portal: o endereço já identifica a edição, e todas são públicas.
  */
 class DiarioController extends PortalApiController
 {
@@ -45,8 +49,8 @@ class DiarioController extends PortalApiController
 
     public function edicao(Request $request, int $id): JsonResponse
     {
-        $ug = $this->ug($request);
-        $e = $this->publicadas($ug->id)->withCount('materias')->findOrFail($id);
+        $this->ug($request);
+        $e = $this->doPortal()->withCount('materias')->findOrFail($id);
         $caminhos = DiarioOficial::caminhos();
 
         return response()->json(['edicao' => self::resumo($e) + [
@@ -62,16 +66,16 @@ class DiarioController extends PortalApiController
     /** Versão certificada (edição completa assinada). */
     public function pdf(Request $request, int $id)
     {
-        $ug = $this->ug($request);
+        $this->ug($request);
 
-        return \App\Http\Controllers\DiarioController::respostaPdf($this->publicadas($ug->id)->findOrFail($id));
+        return \App\Http\Controllers\DiarioController::respostaPdf($this->doPortal()->findOrFail($id));
     }
 
     /** Cada ato da edição em PDF (o assinado). */
     public function atoPdf(Request $request, int $materia)
     {
-        $ug = $this->ug($request);
-        $m = Materia::withoutGlobalScopes()->with('ato.tipo')->where('ug_id', $ug->id)->whereHas('edicao', fn ($q) => $q->withoutGlobalScopes()->where('status', 'publicada'))->findOrFail($materia);
+        $this->ug($request);
+        $m = Materia::withoutGlobalScopes()->with('ato.tipo')->whereIn('ug_id', Ug::doPortal()->select('id'))->whereHas('edicao', fn ($q) => $q->withoutGlobalScopes()->where('status', 'publicada'))->findOrFail($materia);
 
         return \App\Http\Controllers\AtoController::respostaPdf($m->ato);
     }
@@ -105,6 +109,11 @@ class DiarioController extends PortalApiController
             'pagina' => $res->currentPage(), 'paginas' => $res->lastPage(), 'total' => $res->total(),
             'tipos' => \App\Models\Processo\AtoTipo::where('ativo', true)->orderBy('nome')->get(['id', 'nome']),
         ]);
+    }
+
+    private function doPortal()
+    {
+        return Edicao::withoutGlobalScope('ug')->whereIn('ug_id', Ug::doPortal()->select('id'))->where('status', 'publicada');
     }
 
     private function publicadas(int $ugId)

@@ -19,10 +19,7 @@ abstract class PortalApiController extends Controller
     protected function ug(Request $request): Ug
     {
         $slug = (string) $request->input('ug', '');
-        $ug = $slug === '' ? null : Ug::query()
-            ->where('portal_slug', $slug)
-            ->where('ativo', true)
-            ->first();
+        $ug = $slug === '' ? null : Ug::doPortal()->where('portal_slug', $slug)->first();
 
         if (! $ug) {
             throw new HttpResponseException(response()->json(['erro' => 'Unidade gestora não encontrada.'], 404));

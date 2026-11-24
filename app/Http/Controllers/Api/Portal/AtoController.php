@@ -5,17 +5,21 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\Portal;
 
 use App\Models\Processo\Ato;
+use App\Models\Ug;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/** Consulta pública dos atos oficiais publicados (TR 4.42.6): lista, busca e PDF assinado. */
+/**
+ * Consulta pública dos atos oficiais publicados (TR 4.42.6): lista, busca e PDF assinado. A lista é da
+ * entidade pedida (`ug`); o PDF, pelo id, vale para qualquer entidade do portal.
+ */
 class AtoController extends PortalApiController
 {
     public function index(Request $request): JsonResponse
     {
         $ug = $this->ug($request);
         $q = trim((string) $request->query('q'));
-        $lista = $this->publicos($ug->id)->with('tipo:id,nome,sigla')
+        $lista = $this->publicos()->where('ug_id', $ug->id)->with('tipo:id,nome,sigla')
             ->when($request->integer('tipo'), fn ($w, $v) => $w->where('tipo_id', $v))
             ->when($request->integer('ano'), fn ($w, $v) => $w->where('ano', $v))
             ->when($request->integer('numero'), fn ($w, $v) => $w->where('numero', $v))
@@ -35,14 +39,14 @@ class AtoController extends PortalApiController
 
     public function pdf(Request $request, int $id)
     {
-        $ug = $this->ug($request);
+        $this->ug($request);
 
-        return \App\Http\Controllers\AtoController::respostaPdf($this->publicos($ug->id)->findOrFail($id));
+        return \App\Http\Controllers\AtoController::respostaPdf($this->publicos()->whereIn('ug_id', Ug::doPortal()->select('id'))->findOrFail($id));
     }
 
-    private function publicos(int $ugId)
+    private function publicos()
     {
-        return Ato::withoutGlobalScope('ug')->where('ug_id', $ugId)->whereIn('status', ['publicado', 'revogado'])
+        return Ato::withoutGlobalScope('ug')->whereIn('status', ['publicado', 'revogado'])
             ->whereHas('tipo', fn ($t) => $t->where('publico', true));
     }
 }
