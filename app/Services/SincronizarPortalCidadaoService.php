@@ -66,7 +66,9 @@ class SincronizarPortalCidadaoService
             return;
         }
 
-        $email = $solicitacao->email_contato ?? $solicitacao->cidadao?->email;
+        // Quem pediu pelo Portal da Transparência não tem conta: o e-mail está só no processo
+        $email = $solicitacao->email_contato ?? $solicitacao->cidadao?->email
+            ?? ($processo->canal === 'transparencia' ? $processo->requerente_email : null);
         if (! $email || \App\Support\DescadastroEmail::descadastrado($email)) {   // pediu para não receber avisos
             return;
         }

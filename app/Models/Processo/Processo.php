@@ -24,8 +24,9 @@ class Processo extends Model
             // Ouvidoria/e-SIC: prazo legal; anônima não guarda identificação (TR 4.33.27)
             \App\Support\Ouvidoria::aoAbrir($p);
             \App\Support\Legislativo::aoAbrir($p);
-            // Manifestante sigiloso ou anônimo não vai para a base de contatos (seria visto por quem consulta contatos)
-            if ($p->contato_id || ! $p->requerente_cpf || in_array($p->identificacao, ['sigilosa', 'anonima'], true)) {
+            // Manifestante sigiloso ou anônimo não vai para a base de contatos (seria visto por quem consulta contatos);
+            // o documento digitado sem login (Portal da Transparência) também não: ninguém o conferiu
+            if ($p->contato_id || ! $p->requerente_cpf || in_array($p->identificacao, ['sigilosa', 'anonima'], true) || $p->canal === 'transparencia') {
                 return;
             }
             try {

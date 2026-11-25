@@ -27,7 +27,7 @@ final class RecursoEsic
 
     public const DECISOES = ['provido' => 'Provido', 'parcialmente_provido' => 'Provido em parte', 'nao_provido' => 'Não provido'];
 
-    public const ORIGENS = ['portal' => 'Portal / app', 'balcao' => 'Balcão', 'email' => 'E-mail', 'telefone' => 'Telefone', 'presencial' => 'Presencial'];
+    public const ORIGENS = ['portal' => 'Portal / app', 'transparencia' => 'Portal da Transparência', 'balcao' => 'Balcão', 'email' => 'E-mail', 'telefone' => 'Telefone', 'presencial' => 'Presencial'];
 
     /**
      * Recurso que cabe agora: ['instancia' => 1|2, 'ate' => Carbon] ou ['motivo' => por que não cabe].

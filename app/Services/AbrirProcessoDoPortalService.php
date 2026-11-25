@@ -24,7 +24,8 @@ use Illuminate\Support\Facades\DB;
  */
 class AbrirProcessoDoPortalService
 {
-    public function abrir(Solicitacao $solicitacao, Servico $servico): ?Processo
+    /** @param  array{nome:?string,documento:?string,email:?string,telefone:?string}|null  $externo  quem pediu pelo Portal da Transparência, sem conta */
+    public function abrir(Solicitacao $solicitacao, Servico $servico, ?array $externo = null): ?Processo
     {
         if (! $servico->tipo_processo_id || ! $servico->setor_responsavel_id) {
             return null;
@@ -36,7 +37,7 @@ class AbrirProcessoDoPortalService
             return null;
         }
 
-        return $this->criar($solicitacao, $servico, $tipo, $unidadeDestino, null);
+        return $this->criar($solicitacao, $servico, $tipo, $unidadeDestino, null, $externo);
     }
 
     /** Aberto pelo atendente na tela da solicitação (tipo e setor escolhidos na hora). */
@@ -45,9 +46,10 @@ class AbrirProcessoDoPortalService
         return $this->criar($solicitacao, $solicitacao->servico, $tipo, $unidadeDestino, $atendenteId);
     }
 
-    private function criar(Solicitacao $solicitacao, Servico $servico, TipoProcesso $tipo, UgOrganograma $unidadeDestino, ?int $abertoPor): Processo
+    private function criar(Solicitacao $solicitacao, Servico $servico, TipoProcesso $tipo, UgOrganograma $unidadeDestino, ?int $abertoPor, ?array $externo = null): Processo
     {
-        return DB::transaction(function () use ($solicitacao, $servico, $tipo, $unidadeDestino, $abertoPor) {
+        return DB::transaction(function () use ($solicitacao, $servico, $tipo, $unidadeDestino, $abertoPor, $externo) {
+            $origem = $externo !== null ? 'Portal da Transparencia' : 'Portal do Cidadao';
 
             $protocolo = $this->gerarProtocolo($tipo);
 
@@ -57,7 +59,7 @@ class AbrirProcessoDoPortalService
 
             $dadosFormulario = [
                 'Codigo da solicitacao'   => $solicitacao->codigo,
-                'Origem'                  => 'Portal do Cidadao',
+                'Origem'                  => $origem,
                 'Tipo de solicitacao'     => $solicitacao->anonima ? 'Anonima' : 'Identificada',
                 'Descricao do solicitante' => $solicitacao->descricao,
                 // Formulário do assunto preenchido no portal (chaves = identificadores do esquema)
@@ -71,16 +73,16 @@ class AbrirProcessoDoPortalService
                 'assunto'           => "[Portal] {$servico->titulo}",
                 'descricao'         => $solicitacao->descricao,
                 'dados_formulario'  => $dadosFormulario,
-                'requerente_nome'   => $solicitacao->anonima ? 'Anonimo' : ($solicitacao->cidadao?->nome ?? 'Cidadao'),
-                'requerente_cpf'    => $solicitacao->anonima ? null : $solicitacao->cidadao?->cpf,
-                'requerente_email'  => $solicitacao->anonima ? null : ($solicitacao->email_contato ?? $solicitacao->cidadao?->email),
-                'requerente_telefone'=> $solicitacao->anonima ? null : ($solicitacao->telefone_contato ?? $solicitacao->cidadao?->telefone),
-                'setor_origem'      => 'Portal do Cidadao',
+                'requerente_nome'   => $solicitacao->anonima ? 'Anonimo' : ($externo['nome'] ?? $solicitacao->cidadao?->nome ?? 'Cidadao'),
+                'requerente_cpf'    => $solicitacao->anonima ? null : ($externo['documento'] ?? $solicitacao->cidadao?->cpf),
+                'requerente_email'  => $solicitacao->anonima ? null : ($externo['email'] ?? $solicitacao->email_contato ?? $solicitacao->cidadao?->email),
+                'requerente_telefone'=> $solicitacao->anonima ? null : ($externo['telefone'] ?? $solicitacao->telefone_contato ?? $solicitacao->cidadao?->telefone),
+                'setor_origem'      => $origem,
                 'status'            => 'aberto',
                 'prioridade'        => 'normal',
                 'aberto_por'        => $abertoPor,
                 // Ouvidoria: canal, tipo e identificação vêm do portal (TR 4.33.3, 4.33.8, 4.33.27)
-                'canal'             => 'portal',
+                'canal'             => $externo !== null ? 'transparencia' : 'portal',
                 'manifestacao_tipo' => $tipo->modalidade === 'ouvidoria' ? $solicitacao->manifestacao_tipo : null,
                 'identificacao'     => $tipo->modalidade === 'ouvidoria' ? ($solicitacao->identificacao ?: ($solicitacao->anonima ? 'anonima' : 'aberta')) : 'aberta',
             ]);
@@ -89,7 +91,7 @@ class AbrirProcessoDoPortalService
                 'processo_id'        => $processo->id,
                 'tipo_etapa_id'      => $primeiraEtapa?->id,
                 'ordem'              => 1,
-                'setor_origem'       => 'Portal do Cidadao',
+                'setor_origem'       => $origem,
                 'setor_destino'      => $unidadeDestino->nome,
                 'destino_unidade_id' => $unidadeDestino->id,
                 'remetente_id'       => $abertoPor,
