@@ -182,8 +182,9 @@ e o andamento do processo volta sozinho para ela (`SincronizarPortalCidadaoServi
 
 ## Entidades (`GET ugs`)
 
-`{ ugs: [{ slug, nome }] }`: as UGs ativas com `portal_slug`, na ordem do cadastro (a primeira costuma
-ser a prefeitura). Para publicar a Câmara no portal do município, dê a ela um `portal_slug` (Configuração ›
+`{ ugs: [{ slug, nome, gestora_id }] }`: as UGs ativas com `portal_slug`, na ordem do cadastro (a primeira
+costuma ser a prefeitura). `gestora_id` é a gestora do gpe2 de que a UG foi importada (`legado_orgao_id`;
+null se ela nasceu aqui): é por ele que o app liga a unidade escolhida à entidade. Para publicar a Câmara no portal do município, dê a ela um `portal_slug` (Configuração ›
 Unidades Gestoras). As listas do Diário Oficial e dos atos (`diario/calendario`, `diario/dia`,
 `diario/busca`, `atos`) são da entidade do parâmetro `ug`; a edição e os PDFs, pelo id, valem para
 qualquer entidade do portal.

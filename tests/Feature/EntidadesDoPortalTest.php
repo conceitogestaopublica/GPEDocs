@@ -71,12 +71,16 @@ class EntidadesDoPortalTest extends TestCase
 
     public function test_lista_so_as_entidades_ativas_com_portal(): void
     {
-        $this->ug('PM', 'pm');
+        $this->ug('PM', 'pm')->update(['legado_orgao_id' => 901]);
         $this->ug('CM', 'camara');
         $this->ug('FP', null);
         $this->ug('EX', 'extinta', false);
 
-        $this->assertSame([['slug' => 'pm', 'nome' => 'Entidade PM'], ['slug' => 'camara', 'nome' => 'Entidade CM']],
+        // A UG criada no GPE Docs não tem gestora no gpe2.
+        $this->assertSame([
+            ['slug' => 'pm', 'nome' => 'Entidade PM', 'gestora_id' => 901],
+            ['slug' => 'camara', 'nome' => 'Entidade CM', 'gestora_id' => null],
+        ],
             app(UgController::class)->index()->getData(true)['ugs']);
     }
 
