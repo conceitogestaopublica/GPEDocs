@@ -90,7 +90,7 @@ export default function Usuarios({ usuarios, filtros = {}, online = 0, minutos_o
                         {row.unidade && <p className="text-[10px] text-gray-400">{row.unidade.nome}</p>}
                     </>
                 ) : (
-                    <span className="text-gray-400">—</span>
+                    <span className="text-gray-400">{row.ugs_count > 0 ? '—' : 'Sem gestora'}</span>
                 )}
             </div>
         )},

@@ -30,19 +30,10 @@ class UsuarioController extends Controller
 
         $usuarios = User::select('users.*')
             ->with(['roles', 'ug:id,codigo,nome', 'unidade:id,ug_id,nivel,nome'])
+            ->withCount('ugs')
             // Filtra por UG ativa (multi-tenant). Super_admin pode optar por ver tudo
             // marcando ?todas_ugs=1; usuarios externos ficam sempre fora desse filtro.
-            ->when(! $todasUgs && $ugAtualId, function ($q) use ($ugAtualId) {
-                $q->where(function ($q) use ($ugAtualId) {
-                    $q->where('users.tipo', 'externo')
-                      ->orWhereExists(function ($sub) use ($ugAtualId) {
-                          $sub->select(DB::raw(1))
-                              ->from('user_ugs')
-                              ->whereColumn('user_ugs.user_id', 'users.id')
-                              ->where('user_ugs.ug_id', $ugAtualId);
-                      });
-                });
-            })
+            ->when(! $todasUgs && $ugAtualId, fn ($q) => $q->visiveisNaUg($ugAtualId))
             ->when($busca !== '', function ($q) use ($busca) {
                 $q->where(function ($q) use ($busca) {
                     $termo = "%{$busca}%";

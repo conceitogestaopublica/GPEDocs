@@ -231,6 +231,21 @@ class User extends Authenticatable
     }
 
     /**
+     * Usuários que a lista de uma UG mostra: os vinculados a ela, os externos e os sem gestora
+     * informada (senão não apareceriam em UG nenhuma, e ninguém conseguiria vinculá-los). Conta
+     * antiga sem user_ugs vale pela UG primária (ug_id): a de outra UG continua de fora.
+     */
+    public function scopeVisiveisNaUg(Builder $query, int $ugId): void
+    {
+        $query->where(fn (Builder $q) => $q
+            ->where('users.tipo', 'externo')
+            ->orWhereHas('ugs', fn (Builder $u) => $u->where('ugs.id', $ugId))
+            ->orWhere(fn (Builder $s) => $s
+                ->whereDoesntHave('ugs')
+                ->where(fn (Builder $w) => $w->whereNull('users.ug_id')->orWhere('users.ug_id', $ugId))));
+    }
+
+    /**
      * UG ativa na sessao (escolhida no login). Para super_admin pode ser null
      * (ver tudo) ou a UG explicitamente selecionada.
      */
