@@ -132,6 +132,15 @@ Route::prefix('api/integracoes')
         Route::get('arquivos/{id}/conteudo', [\App\Http\Controllers\Api\IntegracaoDocumentoController::class, 'conteudo'])
             ->where('id', '[0-9]+')
             ->name('api.integracoes.arquivos.conteudo');
+
+        // e-SIC e Ouvidoria pelo Portal da Transparência (chega pelo gpe2), sem conta de cidadão
+        Route::controller(\App\Http\Controllers\Api\AtendimentoTransparenciaController::class)->prefix('atendimento')->name('api.integracoes.atendimento.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('solicitacoes/{codigo}', 'acompanhar')->where('codigo', '[A-Za-z0-9-]{3,40}')->name('acompanhar');
+            Route::post('solicitacoes/{codigo}/recurso', 'recurso')->where('codigo', '[A-Za-z0-9-]{3,40}')->name('recurso');
+            Route::post('{modalidade}', 'store')->whereIn('modalidade', ['esic', 'ouvidoria'])->name('store');
+            Route::get('{modalidade}/estatisticas', 'estatisticas')->whereIn('modalidade', ['esic', 'ouvidoria'])->name('estatisticas');
+        });
     });
 
 // API do Portal do Cidadao (Next.js): Carta de Servicos, cadastro unico do

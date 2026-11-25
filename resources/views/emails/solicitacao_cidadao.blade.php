@@ -58,12 +58,16 @@
                 </div>
             @endif
 
+            @if ($solicitacao->cidadao_id)
             <div style="text-align:center; margin:24px 0 8px;">
                 <a href="{{ $linkSolicitacao ?? $urlPortal . '/minhas-solicitacoes/' . $solicitacao->id }}"
                    style="display:inline-block; background:#2563eb; color:#fff; padding:12px 28px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:14px;">
                     Ver detalhes no portal
                 </a>
             </div>
+            @else
+            <p style="font-size:13px; color:#374151; text-align:center; margin-top:24px;">Veja o andamento com o código e a chave, na página em que fez o pedido.</p>
+            @endif
 
             <p style="font-size:11px; color:#9ca3af; text-align:center; margin-top:24px;">
                 Este e-mail foi enviado automaticamente. Para responder, acesse o portal e use a area de comentarios.

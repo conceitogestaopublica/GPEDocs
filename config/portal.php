@@ -30,5 +30,7 @@ return [
     |   de confirmacao na resposta, porque o e-mail local so vai para o log.
     */
     'api_sistema'    => env('PORTAL_API_SISTEMA', 'portal-cidadao'),
+    // Sistemas integrados que registram e-SIC e Ouvidoria do Portal da Transparência.
+    'api_sistemas_atendimento' => array_filter(array_map('trim', explode(',', (string) env('PORTAL_SISTEMAS_ATENDIMENTO', 'gpe2')))),
     'api_eco_codigo' => (bool) env('PORTAL_API_ECO_CODIGO', false),
 ];

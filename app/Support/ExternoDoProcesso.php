@@ -31,7 +31,9 @@ final class ExternoDoProcesso
     {
         $doc = preg_replace('/\D/', '', $documento);
 
-        return $q->where(fn ($w) => $w->whereRaw("regexp_replace(coalesce(requerente_cpf, ''), '\\D', '', 'g') = ?", [$doc])
+        // O documento digitado sem login (Portal da Transparência) não prova quem é: o processo não entra na conta de ninguém
+        return $q->where(fn ($w) => $w->where(fn ($r) => $r->whereRaw("regexp_replace(coalesce(requerente_cpf, ''), '\\D', '', 'g') = ?", [$doc])
+                ->whereRaw("coalesce(canal, '') <> 'transparencia'"))
             ->orWhereExists(fn ($e) => $e->from('proc_participantes as pp')->whereColumn('pp.processo_id', 'proc_processos.id')->where('pp.cpf_cnpj', $doc)));
     }
 
@@ -54,9 +56,13 @@ final class ExternoDoProcesso
     /** Para o card no GED: e-mails ao externo (recebeu, abriu) e o que ele viu/baixou no portal. */
     public static function painel(Processo $p): array
     {
+        // O e-mail do manifestante sigiloso é só da ouvidoria (TR 4.33.27)
+        $ve = Ouvidoria::podeVerManifestante(auth()->user(), $p);
+
         return [
             'emails' => DB::table('ged_emails_rastreados')->where('referencia_tipo', 'processo')->where('referencia_id', $p->id)->orderByDesc('id')->limit(20)
-                ->get(['destinatario', 'assunto', 'status', 'enviado_em', 'entregue_em', 'aberto_em', 'clicado_em']),
+                ->get(['destinatario', 'assunto', 'status', 'enviado_em', 'entregue_em', 'aberto_em', 'clicado_em'])
+                ->each(fn ($m) => $ve ?: $m->destinatario = 'Manifestante sigiloso'),
             'acessos' => DB::table('proc_acessos_externos as a')->leftJoin('proc_anexos as x', 'x.id', '=', 'a.anexo_id')->where('a.processo_id', $p->id)
                 ->orderByDesc('a.id')->limit(30)->get(['a.acao', 'a.quem', 'a.created_at', 'x.nome as anexo']),
         ];

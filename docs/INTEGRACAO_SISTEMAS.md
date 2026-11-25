@@ -215,5 +215,9 @@ Todas as rotas exigem `Authorization: Bearer <token>` e respondem em JSON.
 | `POST /api/integracoes/documentos/{numero}/reenviar-webhook` | Reenviar o aviso de conclusão |
 | `POST /api/integracoes/arquivos` | Arquivar sem assinatura (Tributário) |
 | `GET /api/integracoes/arquivos/{id}/conteudo` | Baixar um arquivo arquivado |
+| `GET /api/integracoes/atendimento` | Serviços de e-SIC e Ouvidoria que o Portal da Transparência oferece (gpe2; parâmetro `ug_codigo` em todas) |
+| `POST /api/integracoes/atendimento/{esic|ouvidoria}` | Registrar o pedido sem conta de cidadão; devolve código e chave |
+| `POST /api/integracoes/atendimento/solicitacoes/{codigo}` | Acompanhar pela chave; `/recurso` interpõe o recurso do e-SIC |
+| `GET /api/integracoes/atendimento/{esic|ouvidoria}/estatisticas` | Estatísticas públicas do ano |
 
 O `{numero}` é o número externo que o próprio sistema definiu no envio.

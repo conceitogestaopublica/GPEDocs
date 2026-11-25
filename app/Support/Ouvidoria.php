@@ -25,7 +25,7 @@ final class Ouvidoria
     public const IDENTIFICACOES = ['aberta' => 'Identificada', 'sigilosa' => 'Sigilosa — só a ouvidoria vê os dados',
         'anonima' => 'Anônima — acompanha pelo código'];
 
-    public const CANAIS = ['portal' => 'Portal / app', 'balcao' => 'Balcão', 'presencial' => 'Presencial', 'telefone' => 'Telefone',
+    public const CANAIS = ['portal' => 'Portal / app', 'transparencia' => 'Portal da Transparência', 'balcao' => 'Balcão', 'presencial' => 'Presencial', 'telefone' => 'Telefone',
         'email' => 'E-mail', 'redes_sociais' => 'Redes sociais'];
 
     /** Prazo e prorrogação de cada lei: [dias, prorrogação, dias úteis?]. */

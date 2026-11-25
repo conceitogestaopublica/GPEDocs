@@ -31,10 +31,11 @@ class RegistrarSolicitacaoService
     /**
      * @param  array{descricao:string,telefone_contato?:?string,email_contato?:?string}  $dados
      * @param  ?Cidadao  $procurador  quem protocola em nome de $cidadao (procuração)
+     * @param  array{nome:?string,documento:?string,email:?string,telefone:?string}|null  $externo  quem pediu pelo Portal da Transparência, sem conta
      */
-    public function registrar(Ug $ug, Servico $servico, ?Cidadao $cidadao, array $dados, bool $anonima = false, ?Cidadao $procurador = null): Solicitacao
+    public function registrar(Ug $ug, Servico $servico, ?Cidadao $cidadao, array $dados, bool $anonima = false, ?Cidadao $procurador = null, ?array $externo = null): Solicitacao
     {
-        $solicitacao = DB::transaction(function () use ($ug, $servico, $cidadao, $dados, $anonima, $procurador) {
+        $solicitacao = DB::transaction(function () use ($ug, $servico, $cidadao, $dados, $anonima, $procurador, $externo) {
             $sol = Solicitacao::query()->withoutGlobalScope('ug')->create([
                 'codigo'           => Solicitacao::gerarCodigo($ug->id),
                 'ug_id'            => $ug->id,
@@ -57,18 +58,19 @@ class RegistrarSolicitacaoService
                 'solicitacao_id'   => $sol->id,
                 'tipo'             => 'criada',
                 'autor_tipo'       => 'cidadao',
-                'autor_nome'       => $anonima ? 'Anonimo' : (($procurador ?? $cidadao)?->nome ?? 'Cidadao'),
+                'autor_nome'       => $anonima ? 'Anonimo' : (($procurador ?? $cidadao)?->nome ?? ($externo ? 'Solicitante' : 'Cidadao')),
                 'autor_cidadao_id' => $anonima ? null : ($procurador ?? $cidadao)?->id,
                 'status_novo'      => 'aberta',
                 'mensagem'         => match (true) {
                     $anonima            => 'Solicitacao registrada anonimamente.',
+                    $externo !== null   => 'Solicitação registrada pelo Portal da Transparência.',
                     $procurador !== null => "Solicitação registrada por {$procurador->nome}, procurador(a) de {$cidadao?->nome}.",
                     default             => 'Solicitacao registrada pelo cidadao.',
                 },
             ]);
 
             // Cria Processo no GPE Flow se servico tem setor + tipo configurados
-            $processo = $this->abrirProcesso->abrir($sol, $servico);
+            $processo = $this->abrirProcesso->abrir($sol, $servico, $externo);
             if ($processo) {
                 $sol->update(['processo_id' => $processo->id]);
             }
